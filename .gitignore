@@ -1,0 +1,33 @@
+# Backend (Python/FastAPI)
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+backend/venv/
+backend/*.pyc
+backend/.env
+
+# Web (React)
+web/node_modules/
+web/dist/
+web/build/
+web/.env
+
+# Mobile (React Native/Expo)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/*.apk
+mobile/*.aab
+mobile/.env
+
+# Docker
+docker-compose.override.yml
+
+# Editor / SO
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Variables de entorno generales
+.env
+.env.local
