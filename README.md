@@ -23,6 +23,7 @@ training-life/
 ├── web/              # Frontend web (React)
 ├── mobile/           # App móvil (React Native + Expo)
 ├── docker-compose.yml
+├── .env.example
 ├── .gitignore
 ├── CLAUDE.md
 └── README.md
@@ -30,11 +31,12 @@ training-life/
 
 ## Estado actual
 
-🚧 Proyecto en fase inicial: estructura de carpetas creada, aún sin código.
+🚧 Proyecto en fase inicial.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`)
 - [x] `.gitignore` del monorepo
-- [ ] Backend: FastAPI + PostgreSQL + Docker Compose (CRUD del MVP)
+- [x] Backend: esqueleto FastAPI + Docker Compose + PostgreSQL levantados y comunicándose
+- [ ] Backend: modelos y CRUD del MVP (ejercicios, entrenamientos, rutinas)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
@@ -43,7 +45,20 @@ El orden de desarrollo es intencional: primero el backend, probado de forma aisl
 
 ## Cómo levantar el proyecto
 
-Todavía no disponible — se documentará aquí en cuanto exista el primer `docker-compose.yml` funcional con el backend.
+Requiere [Docker](https://www.docker.com/) instalado.
+
+1. Copia `.env.example` a `.env` en la raíz del repo (las credenciales de ahí son solo para desarrollo local).
+2. Levanta los contenedores:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Comprueba que la API responde en [http://localhost:8000/health](http://localhost:8000/health), y explora los endpoints disponibles en [http://localhost:8000/docs](http://localhost:8000/docs).
+
+La base de datos PostgreSQL queda expuesta en el puerto `5433` del host (no el `5432` por defecto, para no chocar con una instalación nativa de PostgreSQL).
+
+Para detener todo: `docker compose down` (los datos de la base de datos persisten en un volumen; añade `-v` si además quieres borrarlos).
 
 ## Roadmap de funcionalidades
 
