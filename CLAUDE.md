@@ -95,6 +95,17 @@ Se descartaron explícitamente (tras comparar alternativas): Flutter/Dart (por l
 - El autor tiene PostgreSQL 17 instalado de forma nativa en Windows como servicio (postgresql-x64-17), ocupando el puerto 5432 por defecto. Para evitar conflicto con el contenedor del proyecto, mapear el contenedor de PostgreSQL a otro puerto del host (ej. 5433:5432), o bien parar y poner en manual el servicio nativo si no se va a usar.
 - Cliente de base de datos: el autor usa **DBeaver** para inspeccionar/consultar la base de datos del contenedor.
 
+## Backend: decisiones técnicas
+
+- **Gestor de dependencias Python: pip + requirements.txt** (no Poetry ni uv). Elegido por simplicidad y porque es lo más estándar/conocido, priorizando que el autor no tenga que aprender una herramienta adicional para un proyecto personal.
+- **ORM: SQLAlchemy 2.0** (API moderna con `Mapped`/`mapped_column`, no el estilo antiguo).
+- **Migraciones: Alembic**, no `Base.metadata.create_all()`. Se eligió explícitamente por ser la práctica real en proyectos serios (historial de cambios de esquema versionado) y porque queda mejor de cara a portfolio, aunque para un proyecto personal en solitario `create_all()` habría sido más rápido de montar.
+- **El backend aplica las migraciones automáticamente al arrancar**: el `CMD` del `Dockerfile` ejecuta `alembic upgrade head` antes de lanzar `uvicorn`. Así `docker compose up` deja la base de datos siempre al día sin pasos manuales — importante dado que el autor quiere poder levantar el proyecto sin fricción cada vez que entrena.
+- **Doble archivo `.env` para PostgreSQL**, con propósitos distintos (no es redundancia):
+  - `.env` en la **raíz**: credenciales que usa `docker-compose.yml` para crear el usuario/BD de Postgres y para construir el `DATABASE_URL` que recibe el contenedor del backend (host interno `postgres`, puerto `5432`).
+  - `backend/.env`: mismo `DATABASE_URL` pero apuntando a `localhost:5433` (el puerto publicado al host) — solo se usa para ejecutar el backend o Alembic **fuera de Docker**, con el venv local. Dentro del contenedor este archivo no existe y no interfiere.
+- **`backend/.venv` (venv local, fuera de Docker)**: no es para ejecutar la app en desarrollo día a día (eso lo hace el contenedor, con hot-reload vía bind mount de `app/`) — es para herramientas de desarrollo que conviene correr directamente desde Windows/el editor, sobre todo generar migraciones de Alembic (`alembic revision --autogenerate`) y, más adelante, tests o linters.
+
 ## Sincronización móvil ↔ PC y modo offline
 
 - **Alcance actual (fase inicial):** la sincronización entre la app móvil y el backend (en el PC) solo funciona cuando ambos están en la **misma red WiFi de casa**. Por ahora se descarta Tailscale u otras soluciones de acceso remoto (quedan como posible mejora futura, no prioritaria).

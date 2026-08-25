@@ -6,7 +6,7 @@ App de entrenamiento de gimnasio para uso personal — pensada para sustituir el
 
 | Capa | Tecnología |
 |---|---|
-| Backend | FastAPI (Python) + PostgreSQL |
+| Backend | FastAPI (Python) + PostgreSQL, con SQLAlchemy (ORM) y Alembic (migraciones) |
 | Web | React |
 | Móvil | React Native + Expo |
 | Infraestructura | Docker Compose |
@@ -36,7 +36,8 @@ training-life/
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`)
 - [x] `.gitignore` del monorepo
 - [x] Backend: esqueleto FastAPI + Docker Compose + PostgreSQL levantados y comunicándose
-- [ ] Backend: modelos y CRUD del MVP (ejercicios, entrenamientos, rutinas)
+- [x] Backend: primer modelo (`Ejercicio`) con su tabla creada en PostgreSQL vía migración de Alembic
+- [ ] Backend: endpoints CRUD del MVP (ejercicios, entrenamientos, rutinas)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
@@ -55,6 +56,8 @@ Requiere [Docker](https://www.docker.com/) instalado.
    ```
 
 3. Comprueba que la API responde en [http://localhost:8000/health](http://localhost:8000/health), y explora los endpoints disponibles en [http://localhost:8000/docs](http://localhost:8000/docs).
+
+Al arrancar, el propio backend aplica automáticamente las migraciones de base de datos pendientes (con Alembic) antes de levantar la API — no hace falta ningún paso manual para tener las tablas creadas.
 
 La base de datos PostgreSQL queda expuesta en el puerto `5433` del host (no el `5432` por defecto, para no chocar con una instalación nativa de PostgreSQL).
 
