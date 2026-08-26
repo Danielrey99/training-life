@@ -4,6 +4,8 @@ App de entrenamiento de gimnasio para uso personal, pensada también como proyec
 
 > Nombre provisional del proyecto/app: "Training Life" (repo: `training-life`, minúsculas y guiones — convención estándar de GitHub). Puede cambiarse más adelante sin problema (renombrar el repo en GitHub no rompe URLs antiguas, redirigen automáticamente).
 
+**Índice:** Convención de documentación · Objetivo del proyecto · Estructura del repositorio · Orden de desarrollo · Stack elegido · Infraestructura/Docker · Backend: decisiones técnicas · **Esquema de base de datos** · Sincronización móvil↔PC · Instalación app móvil · Funcionalidades · Contexto del autor.
+
 ## Convención de documentación
 
 - **README.md** (raíz y uno por carpeta en `backend/`, `web/`, `mobile/`) es documentación para **humanos** (reclutadores, colaboradores, el propio autor más adelante). Debe ser siempre autocontenido: nunca debe remitir a este CLAUDE.md para completar información.
@@ -34,43 +36,7 @@ training-life/
 
 Se eligió monorepo (no repos separados) porque backend, web y móvil están muy acoplados (un cambio en un endpoint afecta a los dos frontends), un único `docker-compose.yml` puede levantar todo el entorno con un solo comando, y para portfolio da una imagen más clara y completa que varios repos sueltos.
 
-### .gitignore recomendado (raíz del monorepo)
-
-```gitignore
-# Backend (Python/FastAPI)
-backend/__pycache__/
-backend/**/__pycache__/
-backend/.venv/
-backend/venv/
-backend/*.pyc
-backend/.env
-
-# Web (React)
-web/node_modules/
-web/dist/
-web/build/
-web/.env
-
-# Mobile (React Native/Expo)
-mobile/node_modules/
-mobile/.expo/
-mobile/dist/
-mobile/*.apk
-mobile/*.aab
-mobile/.env
-
-# Docker
-docker-compose.override.yml
-
-# Editor / SO
-.vscode/
-.DS_Store
-Thumbs.db
-
-# Variables de entorno generales
-.env
-.env.local
-```
+El árbol de arriba es solo ilustrativo (se escribió antes de implementar nada) — para el árbol de archivos real y actualizado, ver el [README raíz](README.md). El `.gitignore` ya existe como archivo real en la raíz del repo; ignora por carpeta lo típico de cada parte del stack (`__pycache__`/`.venv` en backend, `node_modules`/builds en web y mobile) más los `.env` de cada uno.
 
 ## Orden de desarrollo
 
@@ -97,6 +63,7 @@ Se descartaron explícitamente (tras comparar alternativas): Flutter/Dart (por l
 
 ## Backend: decisiones técnicas
 
+- **Esquema de base de datos:** el diseño completo del modelo de datos (tablas, relaciones, estrategia de borrado) vive más abajo, en la sección "Esquema de base de datos" de este mismo archivo — consultarlo antes de crear o modificar modelos de SQLAlchemy. El modelo `Ejercicio` ya implementado en `backend/app/models.py` es anterior a ese diseño y quedó desactualizado: le falta `grupo_muscular_id` (FK, en vez de texto libre), `usuario_id`, `es_predefinido`, `visibilidad`, `activo`, `updated_at`, y tiene un `unique=True` en `nombre` que hay que quitar. Pendiente de migrar cuando se retome el CRUD de ejercicios.
 - **Gestor de dependencias Python: pip + requirements.txt** (no Poetry ni uv). Elegido por simplicidad y porque es lo más estándar/conocido, priorizando que el autor no tenga que aprender una herramienta adicional para un proyecto personal.
 - **ORM: SQLAlchemy 2.0** (API moderna con `Mapped`/`mapped_column`, no el estilo antiguo).
 - **Migraciones: Alembic**, no `Base.metadata.create_all()`. Se eligió explícitamente por ser la práctica real en proyectos serios (historial de cambios de esquema versionado) y porque queda mejor de cara a portfolio, aunque para un proyecto personal en solitario `create_all()` habría sido más rápido de montar.
@@ -106,6 +73,212 @@ Se descartaron explícitamente (tras comparar alternativas): Flutter/Dart (por l
   - `backend/.env`: mismo `DATABASE_URL` pero apuntando a `localhost:5433` (el puerto publicado al host) — solo se usa para ejecutar el backend o Alembic **fuera de Docker**, con el venv local. Dentro del contenedor este archivo no existe y no interfiere.
 - **`backend/.venv` (venv local, fuera de Docker)**: no es para ejecutar la app en desarrollo día a día (eso lo hace el contenedor, con hot-reload vía bind mount de `app/`) — es para herramientas de desarrollo que conviene correr directamente desde Windows/el editor, sobre todo generar migraciones de Alembic (`alembic revision --autogenerate`) y, más adelante, tests o linters.
 
+## Esquema de base de datos
+
+Diseño acordado para el modelo de datos del MVP, basado en la rutina real del autor (Push/Leg/Pull con ejercicios comodín y variantes de agarre).
+
+### Tablas
+
+**`usuarios`**
+```
+id              INTEGER PK
+nombre          VARCHAR
+email           VARCHAR (único)
+password_hash   VARCHAR
+created_at      TIMESTAMP
+```
+La tabla ya se incluye desde ahora aunque la autenticación (JWT) llegue más adelante ("nivel medio" del roadmap) — añadirla más tarde obligaría a migrar `usuario_id` en casi todas las tablas ya existentes. Mientras no exista login real, el backend trabaja con un único usuario "sembrado" (una fila fija creada por migración/script) y un `usuario_id` hardcodeado en el código — al implementar JWT, ese hardcodeo se sustituye por el usuario del token, sin tocar el esquema.
+
+**`grupos_musculares`**
+```
+id              INTEGER PK
+nombre          VARCHAR (ej. "Pecho", "Espalda", "Pierna"...)
+```
+Tabla separada para evitar inconsistencias de texto libre (ej. "pecho" vs "Pecho" vs "pectoral") y poder agrupar/filtrar de forma fiable en estadísticas futuras.
+
+**`ejercicios`**
+```
+id                    INTEGER PK
+nombre                VARCHAR
+grupo_muscular_id     INTEGER FK → grupos_musculares
+descripcion           TEXT (opcional) — info general/objetiva del ejercicio (cómo ejecutarlo, máquina necesaria)
+es_predefinido        BOOLEAN
+usuario_id            INTEGER FK → usuarios (NULL si es predefinido)
+visibilidad           VARCHAR (default "privado") — pensado para una futura función social, sin implementar todavía
+activo                BOOLEAN (default true) — borrado lógico, ver sección "Borrado de datos"
+created_at            TIMESTAMP
+updated_at            TIMESTAMP
+```
+Biblioteca combinada: ejercicios predefinidos (cargados como seed data inicial) + ejercicios creados por cada usuario, en la misma tabla, distinguidos por `usuario_id`. Sin restricción de `nombre` único: dos usuarios distintos deben poder llamar igual a su propio ejercicio (la propia lógica de "cada usuario ve solo los suyos + los predefinidos" ya evita ambigüedad, no hace falta forzarlo en la base de datos).
+
+`grupo_muscular_id` es una relación muchos-a-uno: **cada ejercicio tiene un único grupo muscular** (el "principal"), no varios. Se eligió esta opción simple (Opción A) para el MVP en vez de permitir varios grupos musculares por ejercicio (Opción B, ver más abajo), ya que es más rápida de implementar y de mostrar en la interfaz.
+
+Foto/vídeo (mencionado en el MVP original) se aplaza a futuro — no se añade columna todavía, ver "Decisiones descartadas / aplazadas".
+
+**`notas_usuario_ejercicio`**
+```
+id              INTEGER PK
+usuario_id      INTEGER FK → usuarios
+ejercicio_id    INTEGER FK → ejercicios
+nota            TEXT
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+```
+Comentarios/notas personales que cada usuario añade a cualquier ejercicio (predefinido o propio), visibles solo para él. Separado de `descripcion` porque esta última es información general del ejercicio (no editable si es predefinido), mientras que las notas son subjetivas y privadas por usuario.
+
+Sin restricción `UNIQUE(usuario_id, ejercicio_id)` a propósito: un usuario puede añadir varias notas independientes al mismo ejercicio a lo largo del tiempo (ej. una observación distinta cada semana), no solo una nota fija que se sobreescribe. Cada nota es su propia fila, con su propio `id`, editable o borrable por separado.
+
+**`rutinas`**
+```
+id              INTEGER PK
+usuario_id      INTEGER FK → usuarios
+nombre          VARCHAR (ej. "Push", "Leg", "Pull")
+dia_habitual    VARCHAR (opcional, ej. "Lunes") — solo informativo/orientativo, no vinculante
+activo          BOOLEAN (default true) — borrado lógico, ver sección "Borrado de datos"
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+```
+
+**`rutina_slots`** (cada "hueco" dentro de una rutina, no un ejercicio fijo)
+```
+id                      INTEGER PK
+rutina_id               INTEGER FK → rutinas
+ejercicio_principal_id  INTEGER FK → ejercicios
+orden                   INTEGER
+series_objetivo         INTEGER
+reps_min                INTEGER
+reps_max                INTEGER
+activo                  BOOLEAN (default true) — borrado lógico, ver sección "Borrado de datos"
+created_at              TIMESTAMP
+updated_at              TIMESTAMP
+```
+
+**`slot_alternativas`** (ejercicios comodín de cada hueco)
+```
+id            INTEGER PK
+slot_id       INTEGER FK → rutina_slots
+ejercicio_id  INTEGER FK → ejercicios
+```
+`UNIQUE(slot_id, ejercicio_id)`: evita añadir el mismo ejercicio dos veces como comodín del mismo hueco. No entra en conflicto con las variantes de agarre/posición (ej. "agarre cerrado"), porque esas se anotan en el campo `variante` de `series` sobre el mismo `ejercicio_id` — no se modelan como ejercicios ni comodines distintos.
+
+Se mantiene como tabla relacional separada (no como array de IDs dentro de `rutina_slots`) para conservar integridad referencial (FKs reales, borrado en cascada) y permitir consultas simples tipo "¿en qué huecos aparece este ejercicio como comodín?".
+
+**`entrenamientos`** (sesión real de un día concreto)
+```
+id              INTEGER PK
+usuario_id      INTEGER FK → usuarios
+rutina_id       INTEGER FK → rutinas (NULL si es entrenamiento libre sin plantilla)
+fecha           DATE
+notas           TEXT (opcional)
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+```
+La `fecha` es siempre la real del día que se entrena, independientemente del `dia_habitual` de la rutina — permite mover el Push del lunes a otro día sin perder el registro real. (`created_at`/`updated_at` son metadatos técnicos del registro, no sustituyen a `fecha`, que es el dato de negocio real.)
+
+**`series`** (lo que realmente se hizo, serie a serie)
+```
+id                  INTEGER PK
+entrenamiento_id    INTEGER FK → entrenamientos
+slot_id             INTEGER FK → rutina_slots (NULL si el entrenamiento es libre)
+ejercicio_id        INTEGER FK → ejercicios (el ejercicio realmente realizado: principal o comodín)
+numero_serie        INTEGER
+peso                DECIMAL
+repeticiones        INTEGER
+rpe                 DECIMAL (opcional)
+variante            VARCHAR (opcional, ej. "agarre cerrado", "abductores internos")
+created_at          TIMESTAMP
+updated_at          TIMESTAMP
+```
+`slot_id` conecta con el hueco de la rutina (para ver progresión "por hueco", ej. empuje horizontal en general), y `ejercicio_id` guarda el ejercicio concreto que se hizo ese día (principal o comodín), permitiendo también ver progresión de un ejercicio específico. El campo `variante` cubre casos como agarre abierto/cerrado o abductores internos/externos, sin necesitar ejercicios ni tablas separadas para cada variante.
+
+### Relaciones
+
+```
+usuarios 1─N ejercicios (los creados por él)
+usuarios 1─N notas_usuario_ejercicio
+usuarios 1─N rutinas
+usuarios 1─N entrenamientos
+
+grupos_musculares 1─N ejercicios
+
+ejercicios 1─N notas_usuario_ejercicio
+ejercicios 1─N rutina_slots (como ejercicio_principal_id)
+ejercicios 1─N slot_alternativas (como comodín)
+ejercicios 1─N series (el que se hizo realmente)
+
+rutinas 1─N rutina_slots
+rutinas 1─N entrenamientos
+
+rutina_slots 1─N slot_alternativas
+rutina_slots 1─N series
+
+entrenamientos 1─N series
+```
+
+### Ejemplo recorrido (con datos reales del autor)
+
+Este ejemplo ilustra cómo interactúan las tablas entre sí, usando el "Push" real del autor (ejercicio: Press banca con barra, comodín: Press banca en máquina).
+
+1. **Ejercicios ya existentes en la biblioteca:**
+   - `ejercicios`: `id=1 "Press banca con barra"`, `id=2 "Press banca en máquina"` (comodín)
+
+2. **Se crea la rutina** (el "tipo de día", sin fecha fija):
+   - `rutinas`: `id=1, nombre="Push", dia_habitual="Lunes"`
+
+3. **Se define el hueco (slot) del press banca dentro de esa rutina** — el plan, no un entrenamiento concreto:
+   - `rutina_slots`: `id=1, rutina_id=1, ejercicio_principal_id=1 (Press banca con barra), orden=1, series_objetivo=4, reps_min=6, reps_max=10`
+
+4. **Se registra el comodín de ese hueco:**
+   - `slot_alternativas`: `slot_id=1, ejercicio_id=2 (Press banca en máquina)`
+
+5. **El autor entrena un día real** (aunque su Push habitual sea lunes, puede entrenar cualquier día — la fecha manda, no `dia_habitual`):
+   - `entrenamientos`: `id=1, usuario_id=autor, rutina_id=1 (Push), fecha=2026-08-25`
+
+6. **Se registran las series reales de ese entrenamiento.** Si ese día hizo el ejercicio principal:
+   - `series`: `entrenamiento_id=1, slot_id=1, ejercicio_id=1 (Press banca con barra), numero_serie=1, peso=15, repeticiones=10`
+   - (y así una fila por cada serie realizada)
+
+   Si en cambio esa semana no pudo hacer el principal y usó el comodín, la fila apunta al comodín pero mantiene el mismo `slot_id` (para que siga contando como "el hueco de press banca del Push" a efectos de historial del hueco):
+   - `series`: `entrenamiento_id=5, slot_id=1, ejercicio_id=2 (Press banca en máquina), numero_serie=1, peso=40, repeticiones=10`
+
+7. **Variantes de agarre/posición** (ej. jalón en polea con agarre abierto/cerrado) se anotan en el campo `variante` de `series`, sin crear ejercicios ni tablas nuevas para cada variante:
+   - `series`: `..., ejercicio_id=X (Jalón en polea), ..., variante="agarre cerrado"`
+
+**Por qué `slot_id` Y `ejercicio_id` van juntos en `series`:** `slot_id` permite ver la progresión "del hueco" (ej. cómo evoluciona el empuje horizontal en el Push, sea con barra o con máquina), mientras que `ejercicio_id` permite ver la progresión de un ejercicio concreto (ej. solo las veces que se hizo específicamente con barra). Son dos formas de consulta distintas sobre los mismos datos, y ninguna sustituye a la otra.
+
+### Borrado de datos
+
+Las FK de `series`, `rutina_slots` y `slot_alternativas` hacia `ejercicios` (y de `entrenamientos`/`rutina_slots` hacia `rutinas`) son `ON DELETE RESTRICT`, no `CASCADE` — un `DELETE` directo falla si hay historial dependiente, en vez de arrastrar borrados en cascada por accidente.
+
+La lógica real de borrado vive en el backend, con dos casos:
+
+- **Sin historial dependiente** (el ejercicio/rutina/slot nunca se ha usado en ningún `series`/`entrenamiento`): se borra de verdad (`DELETE`) sin preguntar nada — no hay nada que perder.
+- **Con historial dependiente**: se avisa al usuario con dos opciones explícitas:
+  - **Ocultar** (borrado lógico: `activo = false`). Deja de aparecer para entrenamientos nuevos, pero el historial existente queda intacto.
+  - **Borrar definitivamente**: transacción explícita en el backend que borra primero las filas dependientes (`series`, `slot_alternativas`, etc.) y después la fila principal. Se avisa de que el historial asociado se pierde y no se puede deshacer.
+
+Por eso `ejercicios`, `rutinas` y `rutina_slots` tienen columna `activo` — son las tres tablas que otras (`series`, `entrenamientos`, `slot_alternativas`) pueden referenciar con historial real.
+
+### Mejora futura: múltiples grupos musculares por ejercicio (Opción B)
+
+Actualmente cada ejercicio solo tiene un grupo muscular (`grupo_muscular_id` en `ejercicios`, Opción A). Si en el futuro interesa reflejar que un ejercicio trabaja varios músculos (ej. el press banca también implica tríceps y hombro), se puede migrar a una relación muchos-a-muchos con una tabla intermedia:
+
+```
+ejercicio_grupos_musculares
+ejercicio_id        INTEGER FK → ejercicios
+grupo_muscular_id   INTEGER FK → grupos_musculares
+es_principal         BOOLEAN
+```
+
+Esta migración sería sencilla y sin pérdida de datos: se crea la tabla nueva, se migran automáticamente los datos existentes (por cada ejercicio, se inserta una fila en la tabla intermedia con su `grupo_muscular_id` actual marcado como `es_principal=true`), y opcionalmente se elimina la columna `grupo_muscular_id` de `ejercicios`. Todo esto se haría como una migración de Alembic. No es prioritario implementarlo ahora — solo tendría sentido si se necesita calcular estadísticas de volumen por grupo muscular incluyendo trabajo secundario.
+
+### Decisiones descartadas / aplazadas
+
+- **Administradores:** no se implementa por ahora (un único usuario, sin necesidad de moderar contenido de otros). Si en el futuro hiciera falta, la recomendación es añadir un campo simple `rol` (VARCHAR, "usuario"/"admin") en `usuarios`, no una tabla de roles aparte — solo se justificaría un sistema más complejo (RBAC) si hubiera muchos roles con permisos combinables, que no es el caso aquí.
+- **`rutina_alternativas`** (rutinas completas de repuesto): descartada — no es necesaria, los comodines se gestionan a nivel de ejercicio con `slot_alternativas`.
+- **Array de IDs en `rutina_slots` en vez de `slot_alternativas`:** descartado por romper integridad referencial (FKs), complicar las consultas, y por ahorro insignificante dado el volumen de datos real del proyecto.
+- **Foto/vídeo en `ejercicios`:** mencionado en el MVP original, aplazado a una iteración futura — no se añade columna todavía.
+
 ## Sincronización móvil ↔ PC y modo offline
 
 - **Alcance actual (fase inicial):** la sincronización entre la app móvil y el backend (en el PC) solo funciona cuando ambos están en la **misma red WiFi de casa**. Por ahora se descarta Tailscale u otras soluciones de acceso remoto (quedan como posible mejora futura, no prioritaria).
@@ -113,7 +286,7 @@ Se descartaron explícitamente (tras comparar alternativas): Flutter/Dart (por l
   - Cada cambio (nuevo entrenamiento, serie añadida, etc.) se guarda primero en local, marcado como "pendiente de sincronizar".
   - La app intenta conectar periódicamente con la API del PC; si lo consigue, sube los cambios pendientes y descarga los que falten.
   - Si no hay conexión con el PC, la app sigue funcionando en local sin bloquear nada, y reintenta más tarde.
-  - Al ser un único usuario (no hay edición concurrente por varias personas), no hace falta resolución de conflictos compleja: basta con estrategia "gana el cambio más reciente" (last-write-wins, comparando por fecha de modificación).
+  - Al ser un único usuario (no hay edición concurrente por varias personas), no hace falta resolución de conflictos compleja: basta con estrategia "gana el cambio más reciente" (last-write-wins, comparando por fecha de modificación real del cambio en el dispositivo, no por cuándo llegó a sincronizarse — para eso las tablas editables llevan columna `updated_at`).
 
 ## Instalación de la app móvil (aclaración importante)
 

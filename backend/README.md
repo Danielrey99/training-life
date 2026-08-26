@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 Hay un primer modelo (`Ejercicio`) con su tabla ya creada en PostgreSQL, pero todavía no existen endpoints de negocio (CRUD) que la usen — solo `/health`. Eso es lo siguiente.
+🚧 Hay un primer modelo (`Ejercicio`) con su tabla ya creada en PostgreSQL, pero todavía no existen endpoints de negocio (CRUD) que la usen — solo `/health`. El diseño completo del esquema de base de datos (todas las tablas del MVP, sus relaciones y la estrategia de borrado) ya está cerrado; lo siguiente es actualizar los modelos de SQLAlchemy a ese diseño final y construir los endpoints CRUD.
 
 ## Estructura
 
