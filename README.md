@@ -25,9 +25,16 @@ training-life/
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
+├── arquitectura_completa_training_life.svg
 ├── CLAUDE.md
 └── README.md
 ```
+
+## Arquitectura
+
+![Arquitectura completa de Training Life](arquitectura_completa_training_life.svg)
+
+Diagrama de la arquitectura **completa y final** del proyecto (backend, web y móvil, con el recorrido de una petición de principio a fin). Sirve para entender de un vistazo cómo encajan todas las piezas entre sí — no refleja el estado actual del desarrollo, para eso está el checklist de la siguiente sección.
 
 ## Estado actual
 
