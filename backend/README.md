@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 Los modelos `Usuario`, `GrupoMuscular` y `Ejercicio` ya están migrados a PostgreSQL (con sus relaciones y el usuario único sembrado), pero todavía no existen endpoints de negocio (CRUD) que los usen — solo `/health`. Eso es lo siguiente.
+🚧 Los modelos `Usuario`, `GrupoMuscular` y `Ejercicio` ya están migrados a PostgreSQL (con sus relaciones, el usuario único y los 11 grupos musculares ya sembrados), pero todavía no existen endpoints de negocio (CRUD) que los usen — solo `/health`. Eso es lo siguiente.
 
 Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 

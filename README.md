@@ -45,7 +45,7 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 - [x] Backend: esqueleto FastAPI + Docker Compose + PostgreSQL levantados y comunicándose
 - [x] Backend: primer modelo (`Ejercicio`) con su tabla creada en PostgreSQL vía migración de Alembic
 - [x] Backend: esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
-- [x] Backend: modelos `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado) migrados a PostgreSQL, con el usuario único sembrado
+- [x] Backend: modelos `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado) migrados a PostgreSQL, con el usuario único y los grupos musculares sembrados
 - [ ] Backend: endpoints CRUD del MVP (ejercicios, entrenamientos, rutinas)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
