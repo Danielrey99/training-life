@@ -19,16 +19,18 @@ Monorepo: backend, web y móvil viven en un único repo porque están acoplados 
 
 ```
 training-life/
-├── backend/          # API REST (FastAPI + PostgreSQL)
-├── web/              # Frontend web (React)
-├── mobile/           # App móvil (React Native + Expo)
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── arquitectura_completa_training_life.svg
-├── CLAUDE.md
-└── README.md
+├── backend/                                 # API REST (FastAPI + PostgreSQL)
+├── web/                                     # Frontend web (React)
+├── mobile/                                  # App móvil (React Native + Expo)
+├── docker-compose.yml                       # orquesta los contenedores (backend + PostgreSQL)
+├── .env.example                             # plantilla de variables de entorno para docker-compose.yml
+├── .gitignore                               # qué no subir a git, por carpeta
+├── arquitectura_completa_training_life.svg  # diagrama de la arquitectura completa (ver más abajo)
+├── CLAUDE.md                                # contexto interno para Claude Code, no de portfolio
+└── README.md                                # este archivo
 ```
+
+Cómo se conectan: `docker-compose.yml` es el que junta todo en tiempo de ejecución — lee las credenciales de `.env` (la copia real de `.env.example`, sin subir a git) y levanta `backend/` junto a PostgreSQL con un solo comando. `web/` y `mobile/` no acceden a la base de datos ni al `docker-compose.yml` directamente: hablan con el backend ya levantado, por HTTP.
 
 ## Arquitectura
 
@@ -46,7 +48,8 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 - [x] Backend: primer modelo (`Ejercicio`) con su tabla creada en PostgreSQL vía migración de Alembic
 - [x] Backend: esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: modelos `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado) migrados a PostgreSQL, con el usuario único y los grupos musculares sembrados
-- [ ] Backend: endpoints CRUD del MVP (ejercicios, entrenamientos, rutinas)
+- [x] Backend: primer CRUD real — `Ejercicio` (crear/listar/ver/editar) y `GrupoMuscular` (listar)
+- [ ] Backend: CRUD de rutinas y entrenamientos (series, RPE, historial de progresión)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
