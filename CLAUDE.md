@@ -63,7 +63,7 @@ Se descartaron explícitamente (tras comparar alternativas): Flutter/Dart (por l
 
 ## Backend: decisiones técnicas
 
-- **Esquema de base de datos:** el diseño completo del modelo de datos (tablas, relaciones, estrategia de borrado) vive más abajo, en la sección "Esquema de base de datos" de este mismo archivo — consultarlo antes de crear o modificar modelos de SQLAlchemy. El modelo `Ejercicio` ya implementado en `backend/app/models.py` es anterior a ese diseño y quedó desactualizado: le falta `grupo_muscular_id` (FK, en vez de texto libre), `usuario_id`, `es_predefinido`, `visibilidad`, `activo`, `updated_at`, y tiene un `unique=True` en `nombre` que hay que quitar. Pendiente de migrar cuando se retome el CRUD de ejercicios.
+- **Esquema de base de datos:** el diseño completo del modelo de datos (tablas, relaciones, estrategia de borrado) vive más abajo, en la sección "Esquema de base de datos" de este mismo archivo — consultarlo antes de crear o modificar modelos de SQLAlchemy. `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado al diseño final) ya están implementados y migrados en `backend/app/models.py`. `GrupoMuscular` se creó como tabla vacía — todavía no se ha sembrado ningún grupo muscular real (ni ejercicios predefinidos); eso se decidirá al construir el CRUD de ejercicios, no antes. El resto de tablas del esquema (`notas_usuario_ejercicio`, `rutinas`, `rutina_slots`, `slot_alternativas`, `entrenamientos`, `series`) siguen sin implementar.
 - **Gestor de dependencias Python: pip + requirements.txt** (no Poetry ni uv). Elegido por simplicidad y porque es lo más estándar/conocido, priorizando que el autor no tenga que aprender una herramienta adicional para un proyecto personal.
 - **ORM: SQLAlchemy 2.0** (API moderna con `Mapped`/`mapped_column`, no el estilo antiguo).
 - **Migraciones: Alembic**, no `Base.metadata.create_all()`. Se eligió explícitamente por ser la práctica real en proyectos serios (historial de cambios de esquema versionado) y porque queda mejor de cara a portfolio, aunque para un proyecto personal en solitario `create_all()` habría sido más rápido de montar.
@@ -88,6 +88,8 @@ password_hash   VARCHAR
 created_at      TIMESTAMP
 ```
 La tabla ya se incluye desde ahora aunque la autenticación (JWT) llegue más adelante ("nivel medio" del roadmap) — añadirla más tarde obligaría a migrar `usuario_id` en casi todas las tablas ya existentes. Mientras no exista login real, el backend trabaja con un único usuario "sembrado" (una fila fija creada por migración/script) y un `usuario_id` hardcodeado en el código — al implementar JWT, ese hardcodeo se sustituye por el usuario del token, sin tocar el esquema.
+
+Ya implementada: la fila se siembra dentro de la propia migración de Alembic (`backend/alembic/versions/32c0db792aa1_...py`), con datos placeholder (`nombre="Daniel"`, `email="usuario@example.com"`, `password_hash="placeholder-sin-login-real"`) — a propósito, para no dejar datos reales committeados en un repo público. Se sustituirán por un registro/login real al implementar JWT.
 
 **`grupos_musculares`**
 ```

@@ -6,7 +6,9 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 Hay un primer modelo (`Ejercicio`) con su tabla ya creada en PostgreSQL, pero todavía no existen endpoints de negocio (CRUD) que la usen — solo `/health`. El diseño completo del esquema de base de datos (todas las tablas del MVP, sus relaciones y la estrategia de borrado) ya está cerrado; lo siguiente es actualizar los modelos de SQLAlchemy a ese diseño final y construir los endpoints CRUD.
+🚧 Los modelos `Usuario`, `GrupoMuscular` y `Ejercicio` ya están migrados a PostgreSQL (con sus relaciones y el usuario único sembrado), pero todavía no existen endpoints de negocio (CRUD) que los usen — solo `/health`. Eso es lo siguiente.
+
+Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 
 ## Estructura
 
