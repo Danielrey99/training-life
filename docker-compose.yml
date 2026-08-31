@@ -28,8 +28,22 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Monta el código para que --reload de uvicorn detecte cambios sin reconstruir la imagen.
-      - ./backend/app:/app/app
+      # Monta toda la carpeta backend/ (código, migraciones, todo) para que
+      # --reload de uvicorn detecte cambios sin reconstruir la imagen, y para
+      # que las migraciones nuevas generadas con el venv local (contra
+      # localhost:5433) lleguen también al contenedor al instante — antes solo
+      # se montaba backend/app, y una migración nueva sin rebuild dejaba al
+      # contenedor con alembic/versions/ desactualizado, provocando un bucle
+      # de reinicio en cuanto se reiniciaba (ver CLAUDE.md, "Backend:
+      # decisiones técnicas"). Solo requirements.txt sigue necesitando
+      # "docker compose up -d --build" (cambia qué hay instalado, no un archivo).
+      - ./backend:/app
+      # Volumen anónimo: "tapa" backend/.venv dentro del contenedor con una
+      # carpeta vacía, en vez de montar el venv real de Windows (miles de
+      # archivos que el contenedor nunca usa — usa su propio Python del
+      # sistema, no ese venv). Sin esto, --reload tendría que vigilar esa
+      # carpeta de más sin ningún beneficio.
+      - /app/.venv
     depends_on:
       postgres:
         condition: service_healthy
