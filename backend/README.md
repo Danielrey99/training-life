@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 Primer CRUD real ya funcionando: `Ejercicio` (crear, listar, ver uno, editar) y `GrupoMuscular` (listar). Rutinas, entrenamientos y series todavía no tienen ni modelo ni endpoints.
+🚧 CRUD de `Ejercicio` completo (crear, listar, ver uno, editar, borrar) y `GrupoMuscular` (listar). Rutinas, entrenamientos y series todavía no tienen ni modelo ni endpoints — hasta que existan, el borrado con historial (`?modo=ocultar`/`?modo=definitivo`) no tiene nada real que proteger.
 
 Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 
@@ -93,3 +93,4 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id (404 si no existe o no es visible). |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
+| `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin historial asociado, lo borra de verdad; con historial, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando las opciones. |

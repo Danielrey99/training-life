@@ -48,7 +48,7 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 - [x] Backend: primer modelo (`Ejercicio`) con su tabla creada en PostgreSQL vía migración de Alembic
 - [x] Backend: esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: modelos `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado) migrados a PostgreSQL, con el usuario único y los grupos musculares sembrados
-- [x] Backend: primer CRUD real — `Ejercicio` (crear/listar/ver/editar) y `GrupoMuscular` (listar)
+- [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar, con borrado lógico y definitivo) y `GrupoMuscular` (listar)
 - [ ] Backend: CRUD de rutinas y entrenamientos (series, RPE, historial de progresión)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
