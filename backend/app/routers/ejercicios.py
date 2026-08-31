@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
-from app.models import Ejercicio, GrupoMuscular
+from app.models import Ejercicio, GrupoMuscular, Rutina, RutinaSlot, SlotAlternativa
 from app.schemas import EjercicioCreate, EjercicioOut, EjercicioUpdate
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
@@ -25,36 +25,64 @@ def _es_visible(ejercicio: Ejercicio, usuario_id: int) -> bool:
     return ejercicio.activo and (ejercicio.es_predefinido or ejercicio.usuario_id == usuario_id)
 
 
-def _obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
+def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None or not _es_visible(ejercicio, usuario_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
 
 
-def _tiene_historial(db: Session, ejercicio_id: int) -> bool:
-    """¿Hay algo (series, rutina_slots, slot_alternativas) que dependa de
-    este ejercicio? Esas tablas todavía no existen en el esquema
-    implementado, así que de momento esto siempre es False — se completará
-    con consultas reales en cuanto se añadan (ver CLAUDE.md, "Borrado de
-    datos").
+def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
+    """¿Dónde se usa este ejercicio? Una entrada por cada hueco donde
+    aparece, como principal o como comodín — con el nombre de la rutina, para
+    que el aviso de borrado sea concreto y no un genérico "está en uso".
+    rutina_slots y slot_alternativas hacia ejercicios son RESTRICT, así que
+    un borrado directo fallaría con un error de la base de datos si no se
+    detectan aquí antes. Falta `series` (todavía no implementada, ver
+    CLAUDE.md, "Borrado de datos").
     """
-    return False
+    principales = db.execute(
+        select(RutinaSlot.id, Rutina.id, Rutina.nombre)
+        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
+        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
+    ).all()
+    comodines = db.execute(
+        select(RutinaSlot.id, Rutina.id, Rutina.nombre)
+        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
+        .join(SlotAlternativa, SlotAlternativa.slot_id == RutinaSlot.id)
+        .where(SlotAlternativa.ejercicio_id == ejercicio_id)
+    ).all()
+    return [
+        {"rol": "principal", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+        for slot_id, rutina_id, nombre in principales
+    ] + [
+        {"rol": "comodín", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+        for slot_id, rutina_id, nombre in comodines
+    ]  # + series, cuando exista esa tabla
 
 
 @router.get("", response_model=list[EjercicioOut])
 def listar_ejercicios(
+    ocultos: bool = False,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Biblioteca combinada: ejercicios predefinidos + los creados por el usuario actual."""
-    stmt = (
-        select(Ejercicio)
-        .where(Ejercicio.activo.is_(True))
-        .where((Ejercicio.es_predefinido.is_(True)) | (Ejercicio.usuario_id == usuario_id))
-        .order_by(Ejercicio.nombre)
-    )
-    return db.scalars(stmt).all()
+    """Por defecto, biblioteca combinada: ejercicios predefinidos + los
+    creados por el usuario actual (solo activos). Con `?ocultos=true`, lista
+    en cambio los propios que el usuario ha ocultado — para poder
+    reactivarlos (`POST /ejercicios/{id}/reactivar`) o borrarlos
+    definitivamente.
+    """
+    if ocultos:
+        stmt = select(Ejercicio).where(
+            Ejercicio.activo.is_(False), Ejercicio.usuario_id == usuario_id
+        )
+    else:
+        stmt = select(Ejercicio).where(
+            Ejercicio.activo.is_(True),
+            (Ejercicio.es_predefinido.is_(True)) | (Ejercicio.usuario_id == usuario_id),
+        )
+    return db.scalars(stmt.order_by(Ejercicio.nombre)).all()
 
 
 @router.get("/{ejercicio_id}", response_model=EjercicioOut)
@@ -63,7 +91,7 @@ def obtener_ejercicio(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return _obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    return obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
 
 
 @router.post("", response_model=EjercicioOut, status_code=status.HTTP_201_CREATED)
@@ -116,12 +144,11 @@ def borrar_ejercicio(
 ):
     """Borra un ejercicio propio.
 
-    - Sin historial dependiente: se borra de verdad, sin preguntar nada.
-    - Con historial dependiente: hace falta indicar `modo` explícitamente en
-      la query string — `?modo=ocultar` (borrado lógico: `activo=False`,
-      conserva el historial) o `?modo=definitivo` (borra también las filas
-      dependientes, sin vuelta atrás). Sin `modo`, devuelve 409 con las dos
-      opciones explicadas.
+    - Sin usos (ver `_usos_de_ejercicio`): se borra de verdad, sin preguntar nada.
+    - En uso: hace falta indicar `modo` explícitamente en la query string —
+      `?modo=ocultar` (borrado lógico: `activo=False`, conserva todo) o
+      `?modo=definitivo` (borra también las filas dependientes, sin vuelta
+      atrás). Sin `modo`, devuelve 409 explicando dónde se usa.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None or not ejercicio.activo:
@@ -137,19 +164,54 @@ def borrar_ejercicio(
         db.commit()
         return
 
-    if _tiene_historial(db, ejercicio_id) and modo != "definitivo":
+    usos = _usos_de_ejercicio(db, ejercicio_id)
+    if usos and modo != "definitivo":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Este ejercicio tiene historial de entrenamientos asociado. "
-                "Repite la petición con ?modo=ocultar (deja de aparecer para "
-                "entrenamientos nuevos, conserva el historial) o "
-                "?modo=definitivo (lo borra también, sin poder deshacerlo)."
-            ),
+            detail={
+                "mensaje": (
+                    "Este ejercicio está en uso. Repite la petición con "
+                    "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
+                    "conserva todo) o ?modo=definitivo (borra también los huecos "
+                    "de rutina y comodines que lo usan, sin poder deshacerlo)."
+                ),
+                "usos": usos,
+            },
         )
 
-    # Sin historial, o modo=definitivo: borra de verdad. Cuando existan
-    # series/rutina_slots/slot_alternativas, aquí habrá que borrar antes las
-    # filas dependientes (transacción explícita), no dejarlo en cascada.
+    # Sin usos, o modo=definitivo: borra de verdad. rutina_slots y
+    # slot_alternativas hacia ejercicios son RESTRICT, así que hay que
+    # borrar antes las filas dependientes explícitamente (sus propios
+    # comodines se van solos, en cascada por FK). Cuando exista `series`,
+    # habrá que hacer lo mismo con ella aquí.
+    for slot in db.scalars(
+        select(RutinaSlot).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
+    ).all():
+        db.delete(slot)
+    for comodin in db.scalars(
+        select(SlotAlternativa).where(SlotAlternativa.ejercicio_id == ejercicio_id)
+    ).all():
+        db.delete(comodin)
     db.delete(ejercicio)
     db.commit()
+
+
+@router.post("/{ejercicio_id}/reactivar", response_model=EjercicioOut)
+def reactivar_ejercicio(
+    ejercicio_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Deshace un `?modo=ocultar`: vuelve a hacer visible un ejercicio propio."""
+    ejercicio = db.get(Ejercicio, ejercicio_id)
+    if ejercicio is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    if ejercicio.usuario_id != usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No se puede reactivar un ejercicio que no es tuyo",
+        )
+    ejercicio.activo = True
+    db.commit()
+    db.refresh(ejercicio)
+    return ejercicio

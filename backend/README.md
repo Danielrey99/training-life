@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 CRUD de `Ejercicio` completo (crear, listar, ver uno, editar, borrar) y `GrupoMuscular` (listar). Rutinas, entrenamientos y series todavía no tienen ni modelo ni endpoints — hasta que existan, el borrado con historial (`?modo=ocultar`/`?modo=definitivo`) no tiene nada real que proteger.
+🚧 CRUD completo de `Ejercicio` y `Rutina` (con sus huecos y comodines). El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) ya protege de verdad los usos cruzados que existen hoy (un ejercicio en uso en una rutina, una rutina con huecos) — solo falta añadir a esa comprobación el historial real de entrenamientos, cuando exista esa tabla.
 
 Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 
@@ -22,8 +22,9 @@ backend/
 │   ├── schemas.py          # forma de los datos que entran/salen de la API (Pydantic)
 │   ├── auth.py             # quién es "el usuario actual" (hardcodeado hasta que exista JWT)
 │   └── routers/            # los endpoints en sí, un archivo por entidad
-│       ├── ejercicios.py          # CRUD de ejercicios (crear, listar, ver uno, editar)
-│       └── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
+│       ├── ejercicios.py          # CRUD de ejercicios
+│       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
+│       └── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -34,6 +35,8 @@ backend/
 ```
 
 Cómo se conectan, de abajo arriba: `database.py` es la base (no depende de nada más del proyecto) → `models.py` depende de `database.py` (usa su `Base` para definir las tablas) → `schemas.py` y `auth.py` son independientes entre sí (uno describe JSON, el otro quién pregunta) → cada archivo de `routers/` junta todo lo anterior (usa `database.py` para la sesión, `models.py` para consultar/crear filas, `schemas.py` para validar entrada/salida, `auth.py` para saber de quién son los datos) → `main.py` está arriba del todo, solo importa los `routers/` y los registra, sin lógica de negocio propia.
+
+Los `routers/` no son del todo independientes entre sí: `rutinas.py` reutiliza una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el usuario actual), en vez de repetir esa lógica — tiene sentido, ya que una rutina siempre referencia ejercicios ya existentes.
 
 `alembic/` es un mundo aparte: solo lee `models.py` (para saber qué tablas debería haber) y `database.py` (para saber a qué Postgres conectarse), pero no lo usa la API en tiempo de ejecución — se ejecuta puntualmente para crear/actualizar tablas.
 
@@ -70,7 +73,7 @@ Cada tabla de la base de datos se define primero como una clase Python en `app/m
 .venv\Scripts\python -m alembic upgrade head
 ```
 
-Si solo usas Docker, no necesitas ejecutar `alembic upgrade head` a mano: el `Dockerfile` ya lo hace automáticamente cada vez que arranca el contenedor. El comando manual de arriba es para cuando generas una migración *nueva* (paso 1), que si quieres puedes hacerlo también sin Docker, contra el Postgres expuesto en `localhost:5433`.
+Si solo usas Docker, no necesitas ejecutar `alembic upgrade head` a mano: el `Dockerfile` ya lo hace automáticamente cada vez que arranca el contenedor. El comando manual de arriba es para cuando generas una migración *nueva* (paso 1), que si quieres puedes hacerlo también sin Docker, contra el Postgres expuesto en `localhost:5433` — el bind mount cubre toda la carpeta `backend/`, así que la migración nueva llega al contenedor al instante, sin necesidad de reconstruir la imagen.
 
 ## Variables de entorno
 
@@ -89,8 +92,20 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `GET` | `/health` | Comprobación de que la API está viva. Devuelve `{"status": "ok"}`. |
 | `GET` | `/docs` | Documentación interactiva (Swagger UI), autogenerada por FastAPI. |
 | `GET` | `/grupos-musculares` | Lista el catálogo de grupos musculares (sembrado por migración, sin CRUD propio). |
-| `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, solo activos). |
+| `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, solo activos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id (404 si no existe o no es visible). |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
-| `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin historial asociado, lo borra de verdad; con historial, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando las opciones. |
+| `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos). |
+| `POST` | `/ejercicios/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible un ejercicio propio. |
+| `GET` | `/rutinas` | Lista las rutinas activas del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
+| `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados. |
+| `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
+| `PUT` | `/rutinas/{id}` | Edita el nombre/día habitual de una rutina propia. |
+| `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial; si tiene, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos y comodines, en transacción). |
+| `POST` | `/rutinas/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible una rutina propia. |
+| `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
+| `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
+| `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco (sus comodines se van con él). |
+| `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
+| `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |

@@ -40,16 +40,13 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 
 ## Estado actual
 
-🚧 Proyecto en fase inicial.
+🚧 Backend en desarrollo activo (dos entidades del MVP completas); web y móvil sin empezar todavía.
 
-- [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`)
-- [x] `.gitignore` del monorepo
-- [x] Backend: esqueleto FastAPI + Docker Compose + PostgreSQL levantados y comunicándose
-- [x] Backend: primer modelo (`Ejercicio`) con su tabla creada en PostgreSQL vía migración de Alembic
-- [x] Backend: esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
-- [x] Backend: modelos `Usuario`, `GrupoMuscular` y `Ejercicio` (actualizado) migrados a PostgreSQL, con el usuario único y los grupos musculares sembrados
-- [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar, con borrado lógico y definitivo) y `GrupoMuscular` (listar)
-- [ ] Backend: CRUD de rutinas y entrenamientos (series, RPE, historial de progresión)
+- [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
+- [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
+- [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar/reactivar) y `GrupoMuscular` (listar)
+- [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, mismo patrón de borrado)
+- [ ] Backend: entrenamientos y series (registro real, RPE, historial de progresión)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC

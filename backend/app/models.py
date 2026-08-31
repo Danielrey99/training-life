@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -49,8 +49,9 @@ class Ejercicio(Base):
     en la misma tabla. Sin unicidad de `nombre`: dos usuarios distintos pueden
     llamar igual a su propio ejercicio.
 
-    Es la tabla base de la que dependerán más adelante los entrenamientos
-    (qué ejercicio se hizo) y las rutinas/plantillas (qué ejercicios incluyen).
+    Es la tabla base de la que dependen las rutinas/plantillas (qué
+    ejercicios incluyen, ver Rutina/RutinaSlot) y de la que dependerán más
+    adelante los entrenamientos (qué ejercicio se hizo de verdad).
     """
 
     __tablename__ = "ejercicios"
@@ -67,3 +68,77 @@ class Ejercicio(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
+
+
+class Rutina(Base):
+    """Una rutina/plantilla del usuario (ej. "Push", "Leg", "Pull") — el
+    plan, no un entrenamiento concreto de un día. No existen rutinas
+    predefinidas: siempre son propias de un usuario.
+    """
+
+    __tablename__ = "rutinas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    nombre: Mapped[str] = mapped_column(String(100))
+    dia_habitual: Mapped[str | None] = mapped_column(String(20), default=None)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    slots: Mapped[list["RutinaSlot"]] = relationship(order_by="RutinaSlot.orden")
+
+
+class RutinaSlot(Base):
+    """Un "hueco" dentro de una rutina (ej. "empuje horizontal", hueco 1 del
+    Push) — no un ejercicio fijo: tiene un ejercicio principal y, aparte,
+    puede tener comodines (ver SlotAlternativa).
+    """
+
+    __tablename__ = "rutina_slots"
+    __table_args__ = (UniqueConstraint("rutina_id", "orden"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # RESTRICT (no CASCADE): borrar una rutina con huecos no debe arrastrarlos
+    # por accidente — el backend decide explícitamente qué hacer (ver
+    # CLAUDE.md, "Borrado de datos").
+    rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="RESTRICT"))
+    ejercicio_principal_id: Mapped[int] = mapped_column(
+        ForeignKey("ejercicios.id", ondelete="RESTRICT")
+    )
+    orden: Mapped[int] = mapped_column()
+    series_objetivo: Mapped[int] = mapped_column()
+    reps_min: Mapped[int] = mapped_column()
+    reps_max: Mapped[int] = mapped_column()
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    ejercicio_principal: Mapped["Ejercicio"] = relationship()
+    slot_alternativas: Mapped[list["SlotAlternativa"]] = relationship(order_by="SlotAlternativa.id")
+
+    @property
+    def alternativas(self) -> list["Ejercicio"]:
+        """Los ejercicios comodín de este hueco (no la fila de la tabla
+        intermedia) — lo que de verdad le interesa a la API."""
+        return [sa.ejercicio for sa in self.slot_alternativas]
+
+
+class SlotAlternativa(Base):
+    """Un ejercicio comodín de un hueco de rutina."""
+
+    __tablename__ = "slot_alternativas"
+    __table_args__ = (UniqueConstraint("slot_id", "ejercicio_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # CASCADE (a diferencia de rutina_slots→rutinas): un comodín no es
+    # "historial", no tiene sentido sin su hueco — si el hueco se borra de
+    # verdad, sus comodines se van con él, sin necesidad de avisar aparte.
+    slot_id: Mapped[int] = mapped_column(ForeignKey("rutina_slots.id", ondelete="CASCADE"))
+    ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="RESTRICT"))
+
+    ejercicio: Mapped["Ejercicio"] = relationship()
