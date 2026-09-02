@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
-from app.models import Ejercicio, GrupoMuscular, Rutina, RutinaSlot, SlotAlternativa
+from app.models import Ejercicio, Entrenamiento, GrupoMuscular, Rutina, RutinaSlot, Serie, SlotAlternativa
 from app.schemas import EjercicioCreate, EjercicioOut, EjercicioUpdate
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
@@ -34,12 +34,12 @@ def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -
 
 def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
     """¿Dónde se usa este ejercicio? Una entrada por cada hueco donde
-    aparece, como principal o como comodín — con el nombre de la rutina, para
-    que el aviso de borrado sea concreto y no un genérico "está en uso".
-    rutina_slots y slot_alternativas hacia ejercicios son RESTRICT, así que
-    un borrado directo fallaría con un error de la base de datos si no se
-    detectan aquí antes. Falta `series` (todavía no implementada, ver
-    CLAUDE.md, "Borrado de datos").
+    aparece (como principal o como comodín) y una por cada entrenamiento con
+    series registradas de este ejercicio — con nombre/fecha, para que el
+    aviso de borrado sea concreto y no un genérico "está en uso".
+    rutina_slots, slot_alternativas y series hacia ejercicios son RESTRICT,
+    así que un borrado directo fallaría con un error de la base de datos si
+    no se detectan aquí antes.
     """
     principales = db.execute(
         select(RutinaSlot.id, Rutina.id, Rutina.nombre)
@@ -52,13 +52,26 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
         .join(SlotAlternativa, SlotAlternativa.slot_id == RutinaSlot.id)
         .where(SlotAlternativa.ejercicio_id == ejercicio_id)
     ).all()
-    return [
-        {"rol": "principal", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
-        for slot_id, rutina_id, nombre in principales
-    ] + [
-        {"rol": "comodín", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
-        for slot_id, rutina_id, nombre in comodines
-    ]  # + series, cuando exista esa tabla
+    entrenamientos_con_series = db.execute(
+        select(Entrenamiento.id, Entrenamiento.fecha)
+        .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
+        .where(Serie.ejercicio_id == ejercicio_id)
+        .distinct()
+    ).all()
+    return (
+        [
+            {"rol": "principal", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+            for slot_id, rutina_id, nombre in principales
+        ]
+        + [
+            {"rol": "comodín", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+            for slot_id, rutina_id, nombre in comodines
+        ]
+        + [
+            {"rol": "serie registrada", "entrenamiento_id": entrenamiento_id, "fecha": str(fecha)}
+            for entrenamiento_id, fecha in entrenamientos_con_series
+        ]
+    )
 
 
 @router.get("", response_model=list[EjercicioOut])
@@ -172,18 +185,20 @@ def borrar_ejercicio(
                 "mensaje": (
                     "Este ejercicio está en uso. Repite la petición con "
                     "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
-                    "conserva todo) o ?modo=definitivo (borra también los huecos "
-                    "de rutina y comodines que lo usan, sin poder deshacerlo)."
+                    "conserva todo) o ?modo=definitivo (borra también los huecos, "
+                    "comodines y series registradas que lo usan, sin poder "
+                    "deshacerlo)."
                 ),
                 "usos": usos,
             },
         )
 
-    # Sin usos, o modo=definitivo: borra de verdad. rutina_slots y
-    # slot_alternativas hacia ejercicios son RESTRICT, así que hay que
-    # borrar antes las filas dependientes explícitamente (sus propios
-    # comodines se van solos, en cascada por FK). Cuando exista `series`,
-    # habrá que hacer lo mismo con ella aquí.
+    # Sin usos, o modo=definitivo: borra de verdad. rutina_slots,
+    # slot_alternativas y series hacia ejercicios son RESTRICT, así que hay
+    # que borrar antes las filas dependientes explícitamente (los comodines
+    # de cada hueco se van solos, en cascada por FK).
+    for serie in db.scalars(select(Serie).where(Serie.ejercicio_id == ejercicio_id)).all():
+        db.delete(serie)
     for slot in db.scalars(
         select(RutinaSlot).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
     ).all():

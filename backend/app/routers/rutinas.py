@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
-from app.models import Rutina, RutinaSlot, SlotAlternativa
+from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
 from app.routers.ejercicios import obtener_ejercicio_visible
 from app.schemas import (
     ComodinCreate,
@@ -47,15 +47,19 @@ def _obtener_rutina_propia(db: Session, rutina_id: int, usuario_id: int) -> Ruti
 
 def _tiene_dependientes(db: Session, rutina_id: int) -> bool:
     """¿Tiene esta rutina huecos (su propia estructura) o entrenamientos
-    (historial real, todavía no implementado)? `rutina_slots.rutina_id` y
-    `entrenamientos.rutina_id` son ON DELETE RESTRICT — con cualquiera de
-    las dos cosas, un borrado directo rompería referencias.
+    (historial real)? `rutina_slots.rutina_id` y `entrenamientos.rutina_id`
+    son ON DELETE RESTRICT — con cualquiera de las dos cosas, un borrado
+    directo rompería referencias.
     """
     tiene_slots = (
         db.scalar(select(RutinaSlot.id).where(RutinaSlot.rutina_id == rutina_id).limit(1))
         is not None
     )
-    return tiene_slots  # + entrenamientos, cuando exista esa tabla
+    tiene_entrenamientos = (
+        db.scalar(select(Entrenamiento.id).where(Entrenamiento.rutina_id == rutina_id).limit(1))
+        is not None
+    )
+    return tiene_slots or tiene_entrenamientos
 
 
 @router.get("", response_model=list[RutinaOut])
@@ -168,8 +172,15 @@ def borrar_rutina(
             ),
         )
 
-    # rutina_slots.rutina_id es RESTRICT: hay que borrar los huecos antes que
-    # la rutina (sus comodines se van solos, en cascada por FK).
+    # rutina_slots.rutina_id y entrenamientos.rutina_id son RESTRICT: hay que
+    # borrar antes ambos. Primero los entrenamientos (sus series se van
+    # solas, en cascada) — así ningún rutina_slot queda ya bloqueado por una
+    # serie que lo referenciaba, y se puede borrar limpio justo después
+    # (sus comodines también se van en cascada).
+    for entrenamiento in db.scalars(
+        select(Entrenamiento).where(Entrenamiento.rutina_id == rutina_id)
+    ).all():
+        db.delete(entrenamiento)
     for slot in db.scalars(select(RutinaSlot).where(RutinaSlot.rutina_id == rutina_id)).all():
         db.delete(slot)
     db.delete(rutina)
@@ -239,20 +250,50 @@ def actualizar_slot(
     return slot
 
 
+def _tiene_historial_slot(db: Session, slot_id: int) -> bool:
+    """¿Hay alguna serie registrada que use este hueco? `series.slot_id` es
+    RESTRICT hacia rutina_slots."""
+    return (
+        db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
+    )
+
+
 @router.delete("/{rutina_id}/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
 def borrar_slot(
     rutina_id: int,
     slot_id: int,
+    modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Borra un hueco (sus comodines se van con él, en cascada por FK).
+    """Borra un hueco propio.
 
-    Todavía no comprueba historial de `series` (esa tabla no existe aún) —
-    cuando exista, seguirá el mismo patrón ocultar/definitivo que `Rutina`
-    y `Ejercicio`.
+    - Sin series registradas: se borra de verdad (sus comodines se van con
+      él, en cascada por FK), sin preguntar nada.
+    - Con series: hace falta `?modo=ocultar` (conserva todo) o
+      `?modo=definitivo` (borra también las series que lo usan, sin vuelta
+      atrás) — sin ninguno de los dos, devuelve 409.
     """
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
+
+    if modo == "ocultar":
+        slot.activo = False
+        db.commit()
+        return
+
+    if _tiene_historial_slot(db, slot_id) and modo != "definitivo":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Este hueco tiene series registradas. Repite la petición con "
+                "?modo=ocultar (conserva todo) o ?modo=definitivo (borra "
+                "también esas series, sin poder deshacerlo)."
+            ),
+        )
+
+    # series.slot_id es RESTRICT: hay que borrar antes las series que lo usan.
+    for serie in db.scalars(select(Serie).where(Serie.slot_id == slot_id)).all():
+        db.delete(serie)
     db.delete(slot)
     db.commit()
 

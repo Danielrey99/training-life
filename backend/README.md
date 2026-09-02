@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 CRUD completo de `Ejercicio` y `Rutina` (con sus huecos y comodines). El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) ya protege de verdad los usos cruzados que existen hoy (un ejercicio en uso en una rutina, una rutina con huecos) — solo falta añadir a esa comprobación el historial real de entrenamientos, cuando exista esa tabla.
+🚧 Backend del MVP completo: CRUD de `Ejercicio`, `Rutina` (con huecos y comodines) y `Entrenamiento`/`Serie` (registro real, con peso/repeticiones/RPE). El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) protege ya todos los usos cruzados reales: un ejercicio usado en una rutina o con series registradas, una rutina con huecos o entrenamientos, un hueco con series registradas. `Entrenamiento`/`Serie` no tienen ese borrado lógico — son el propio historial, se borran directo.
 
 Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 
@@ -24,7 +24,8 @@ backend/
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
-│       └── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
+│       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
+│       └── entrenamientos.py      # CRUD de entrenamientos y series, anidado
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -36,7 +37,7 @@ backend/
 
 Cómo se conectan, de abajo arriba: `database.py` es la base (no depende de nada más del proyecto) → `models.py` depende de `database.py` (usa su `Base` para definir las tablas) → `schemas.py` y `auth.py` son independientes entre sí (uno describe JSON, el otro quién pregunta) → cada archivo de `routers/` junta todo lo anterior (usa `database.py` para la sesión, `models.py` para consultar/crear filas, `schemas.py` para validar entrada/salida, `auth.py` para saber de quién son los datos) → `main.py` está arriba del todo, solo importa los `routers/` y los registra, sin lógica de negocio propia.
 
-Los `routers/` no son del todo independientes entre sí: `rutinas.py` reutiliza una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el usuario actual), en vez de repetir esa lógica — tiene sentido, ya que una rutina siempre referencia ejercicios ya existentes.
+Los `routers/` no son del todo independientes entre sí: tanto `rutinas.py` como `entrenamientos.py` reutilizan una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el usuario actual), en vez de repetir esa lógica — tiene sentido, ya que tanto un hueco de rutina como una serie siempre referencian un ejercicio ya existente.
 
 `alembic/` es un mundo aparte: solo lee `models.py` (para saber qué tablas debería haber) y `database.py` (para saber a qué Postgres conectarse), pero no lo usa la API en tiempo de ejecución — se ejecuta puntualmente para crear/actualizar tablas.
 
@@ -106,6 +107,14 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `POST` | `/rutinas/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible una rutina propia. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
-| `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco (sus comodines se van con él). |
+| `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |
+| `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. |
+| `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
+| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. |
+| `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. |
+| `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
+| `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). |
+| `PUT` | `/entrenamientos/{id}/series/{serie_id}` | Edita una serie. |
+| `DELETE` | `/entrenamientos/{id}/series/{serie_id}` | Borra una serie suelta. |

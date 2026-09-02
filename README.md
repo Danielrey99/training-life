@@ -40,13 +40,13 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 
 ## Estado actual
 
-🚧 Backend en desarrollo activo (dos entidades del MVP completas); web y móvil sin empezar todavía.
+🚧 Backend del MVP completo (ejercicios, rutinas y entrenamientos/series); web y móvil sin empezar todavía.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar/reactivar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, mismo patrón de borrado)
-- [ ] Backend: entrenamientos y series (registro real, RPE, historial de progresión)
+- [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso/repeticiones/RPE, base del historial de progresión)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC

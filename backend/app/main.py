@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import ejercicios, grupos_musculares, rutinas
+from app.routers import ejercicios, entrenamientos, grupos_musculares, rutinas
 
 app = FastAPI(
     title="Training Life API",
@@ -11,6 +11,7 @@ app = FastAPI(
 app.include_router(grupos_musculares.router)
 app.include_router(ejercicios.router)
 app.include_router(rutinas.router)
+app.include_router(entrenamientos.router)
 
 
 @app.get("/health", tags=["health"])

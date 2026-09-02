@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -124,3 +125,67 @@ class ComodinCreate(BaseModel):
     """Body para añadir un ejercicio comodín a un hueco."""
 
     ejercicio_id: int
+
+
+class SerieBase(BaseModel):
+    """Campos que el cliente puede enviar al crear o editar una serie."""
+
+    ejercicio_id: int
+    slot_id: int | None = None
+    numero_serie: int = Field(gt=0)
+    peso: Decimal = Field(ge=0)
+    repeticiones: int = Field(gt=0)
+    rpe: Decimal | None = Field(default=None, ge=0, le=10)
+    variante: str | None = Field(default=None, max_length=100)
+
+
+class SerieCreate(SerieBase):
+    pass
+
+
+class SerieUpdate(SerieBase):
+    pass
+
+
+class SerieOut(SerieBase):
+    """Una serie tal y como se devuelve al cliente, con el ejercicio ya resuelto."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    entrenamiento_id: int
+    created_at: datetime
+    updated_at: datetime
+    ejercicio: EjercicioOut
+
+
+class EntrenamientoBase(BaseModel):
+    """Campos que el cliente puede enviar al crear o editar un entrenamiento.
+
+    No incluye las series: se gestionan aparte, con sus propios endpoints
+    anidados bajo /entrenamientos/{id}/series.
+    """
+
+    rutina_id: int | None = None
+    fecha: date
+    notas: str | None = Field(default=None, max_length=1000)
+
+
+class EntrenamientoCreate(EntrenamientoBase):
+    pass
+
+
+class EntrenamientoUpdate(EntrenamientoBase):
+    pass
+
+
+class EntrenamientoOut(EntrenamientoBase):
+    """Un entrenamiento tal y como se devuelve al cliente, con sus series anidadas."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    usuario_id: int
+    created_at: datetime
+    updated_at: datetime
+    series: list[SerieOut]
