@@ -2,4 +2,4 @@
 
 Frontend web del proyecto, construido con **React**.
 
-> 🚧 Carpeta recién creada. Consumirá la API del [backend](../backend) una vez esté funcionando.
+> 🚧 Carpeta recién creada, sin código todavía. El backend ya tiene el CRUD completo del MVP funcionando — este frontend consumirá esa API ya lista.

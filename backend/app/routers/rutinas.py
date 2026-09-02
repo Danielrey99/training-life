@@ -69,7 +69,7 @@ def listar_rutinas(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Por defecto, lista las rutinas activas del usuario. Con
-    `?ocultas=true`, lista en cambio las que ha ocultado — para poder
+    `ocultas=true`, lista en cambio las que ha ocultado — para poder
     reactivarlas (`POST /rutinas/{id}/reactivar`) o borrarlas definitivamente.
     """
     stmt = (
@@ -125,7 +125,7 @@ def reactivar_rutina(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Deshace un `?modo=ocultar`: vuelve a hacer visible una rutina propia."""
+    """Deshace un `modo=ocultar`: vuelve a hacer visible una rutina propia."""
     rutina = db.get(Rutina, rutina_id)
     if rutina is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
@@ -149,10 +149,10 @@ def borrar_rutina(
 ):
     """Borra una rutina propia.
 
-    - Sin huecos ni historial: se borra de verdad, sin preguntar nada.
-    - Con huecos (o historial, cuando exista `entrenamientos`): hace falta
-      `?modo=ocultar` (conserva todo) o `?modo=definitivo` (lo borra todo,
-      sin vuelta atrás) — sin ninguno de los dos, devuelve 409.
+    - Sin huecos ni entrenamientos asociados: se borra de verdad, sin
+      preguntar nada.
+    - Con huecos o entrenamientos: hace falta `modo=ocultar` (conserva todo)
+      o `modo=definitivo` (lo borra todo, sin vuelta atrás).
     """
     rutina = _obtener_rutina_propia(db, rutina_id, usuario_id)
 
@@ -270,9 +270,9 @@ def borrar_slot(
 
     - Sin series registradas: se borra de verdad (sus comodines se van con
       él, en cascada por FK), sin preguntar nada.
-    - Con series: hace falta `?modo=ocultar` (conserva todo) o
-      `?modo=definitivo` (borra también las series que lo usan, sin vuelta
-      atrás) — sin ninguno de los dos, devuelve 409.
+    - Con series: hace falta `modo=ocultar` (conserva todo) o
+      `modo=definitivo` (borra también las series que lo usan, sin vuelta
+      atrás).
     """
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
 

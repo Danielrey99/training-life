@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class GrupoMuscularOut(BaseModel):
     """Grupo muscular tal y como se devuelve al cliente. Sin CRUD propio: es
-    un catálogo fijo, sembrado por migración (ver CLAUDE.md)."""
+    un catálogo fijo, sembrado por migración."""
 
     model_config = ConfigDict(from_attributes=True)
 

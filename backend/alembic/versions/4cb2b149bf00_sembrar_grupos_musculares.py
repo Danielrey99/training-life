@@ -24,8 +24,7 @@ grupos_musculares = sa.table(
     sa.column("nombre", sa.String),
 )
 
-# Categorización pensada para una rutina Push/Pull/Leg (ver ejemplo en el
-# esquema de base de datos, CLAUDE.md).
+# Categorización pensada para una rutina Push/Pull/Leg.
 NOMBRES = [
     "Pecho",
     "Espalda",

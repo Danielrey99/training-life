@@ -107,9 +107,9 @@ def borrar_entrenamiento(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra un entrenamiento propio, con todas sus series (se van con él,
-    en cascada por FK). A diferencia de Ejercicio/Rutina/RutinaSlot, no hace
-    falta `?modo=ocultar/definitivo`: nada más depende de un entrenamiento
-    concreto, así que no hay nada que proteger con un aviso previo.
+    en cascada por FK). A diferencia de Ejercicio/Rutina/RutinaSlot, no tiene
+    parámetro `modo`: nada más depende de un entrenamiento concreto, así que
+    no hay nada que proteger con un aviso previo.
     """
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
     db.delete(entrenamiento)

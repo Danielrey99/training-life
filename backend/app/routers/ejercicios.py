@@ -81,7 +81,7 @@ def listar_ejercicios(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Por defecto, biblioteca combinada: ejercicios predefinidos + los
-    creados por el usuario actual (solo activos). Con `?ocultos=true`, lista
+    creados por el usuario actual (solo activos). Con `ocultos=true`, lista
     en cambio los propios que el usuario ha ocultado — para poder
     reactivarlos (`POST /ejercicios/{id}/reactivar`) o borrarlos
     definitivamente.
@@ -158,10 +158,10 @@ def borrar_ejercicio(
     """Borra un ejercicio propio.
 
     - Sin usos (ver `_usos_de_ejercicio`): se borra de verdad, sin preguntar nada.
-    - En uso: hace falta indicar `modo` explícitamente en la query string —
-      `?modo=ocultar` (borrado lógico: `activo=False`, conserva todo) o
-      `?modo=definitivo` (borra también las filas dependientes, sin vuelta
-      atrás). Sin `modo`, devuelve 409 explicando dónde se usa.
+    - En uso: hace falta indicar `modo` explícitamente — `modo=ocultar`
+      (borrado lógico: `activo=False`, conserva todo) o `modo=definitivo`
+      (borra también las filas dependientes, sin vuelta atrás). Sin `modo`,
+      el 409 explica dónde se usa.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None or not ejercicio.activo:
@@ -217,7 +217,7 @@ def reactivar_ejercicio(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Deshace un `?modo=ocultar`: vuelve a hacer visible un ejercicio propio."""
+    """Deshace un `modo=ocultar`: vuelve a hacer visible un ejercicio propio."""
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")

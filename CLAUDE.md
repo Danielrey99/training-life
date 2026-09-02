@@ -9,7 +9,7 @@ App de entrenamiento de gimnasio para uso personal, pensada también como proyec
 ## Convención de documentación
 
 - **README.md** (raíz y uno por carpeta en `backend/`, `web/`, `mobile/`) es documentación para **humanos** (reclutadores, colaboradores, el propio autor más adelante). Debe ser siempre autocontenido: nunca debe remitir a este CLAUDE.md para completar información.
-- **CLAUDE.md** (este archivo) es contexto interno para Claude Code: decisiones técnicas, alternativas descartadas y el porqué. No es documentación de cara al lector del repo, así que los README nunca deben enlazarlo ni decir "ver CLAUDE.md para más detalle".
+- **CLAUDE.md** (este archivo) es contexto interno para Claude Code: decisiones técnicas, alternativas descartadas y el porqué. No es documentación de cara al lector del repo, así que ni los README ni los comentarios/docstrings del código deben enlazarlo ni decir "ver CLAUDE.md para más detalle" — los comentarios de código son para quien lea ese código (igual que los README), y deben quedar autocontenidos o remitir como mucho a otro archivo del propio proyecto (otro módulo, otra función), nunca a este archivo.
 - Cada vez que se haga un cambio relevante en el proyecto, se refleja en el/los README correspondientes (bien explicado, cuidando la redacción de cara a portfolio). Si además hace falta guardar contexto o una decisión no obvia para el propio Claude Code, se añade aquí, en CLAUDE.md — nunca mezclando ambas cosas en el mismo sitio.
 
 ## Objetivo del proyecto

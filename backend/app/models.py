@@ -16,8 +16,7 @@ class Usuario(Base):
 
     Mientras no exista autenticación real (JWT, "nivel medio" del roadmap),
     el backend trabaja con una única fila sembrada por migración y un
-    usuario_id hardcodeado en el código — ver CLAUDE.md, sección
-    "Esquema de base de datos".
+    usuario_id hardcodeado en el código (ver app/auth.py).
     """
 
     __tablename__ = "usuarios"
@@ -110,8 +109,8 @@ class RutinaSlot(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # RESTRICT (no CASCADE): borrar una rutina con huecos no debe arrastrarlos
-    # por accidente — el backend decide explícitamente qué hacer (ver
-    # CLAUDE.md, "Borrado de datos").
+    # por accidente — es el backend (routers/rutinas.py) el que decide
+    # explícitamente qué hacer con ellos.
     rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="RESTRICT"))
     ejercicio_principal_id: Mapped[int] = mapped_column(
         ForeignKey("ejercicios.id", ondelete="RESTRICT")
@@ -164,7 +163,7 @@ class Entrenamiento(Base):
     (`activo`): es el propio historial, no algo que otras tablas referencien
     con historial que proteger — nada depende de un entrenamiento concreto
     salvo sus propias series, que se borran con él (CASCADE). Por eso su
-    DELETE es directo, sin `?modo=ocultar/definitivo`.
+    DELETE es directo, sin parámetro `modo` de por medio.
     """
 
     __tablename__ = "entrenamientos"

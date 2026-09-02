@@ -36,9 +36,9 @@ def upgrade() -> None:
     sa.UniqueConstraint('email')
     )
     # Usuario único "sembrado": mientras no exista JWT, el backend trabaja con
-    # esta fila fija (usuario_id hardcodeado en el código). Datos placeholder
-    # a propósito (repo público) — se sustituye por registro/login real al
-    # implementar autenticación. Ver CLAUDE.md, sección "Esquema de base de datos".
+    # esta fila fija (usuario_id hardcodeado en el código, ver app/auth.py).
+    # Datos placeholder a propósito (repo público) — se sustituyen por
+    # registro/login real al implementar autenticación.
     op.execute(
         "INSERT INTO usuarios (nombre, email, password_hash, created_at) "
         "VALUES ('Daniel', 'usuario@example.com', 'placeholder-sin-login-real', now())"
