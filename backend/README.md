@@ -29,8 +29,15 @@ backend/
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
+├── tests/                   # tests automáticos (pytest)
+│   ├── conftest.py          # base de datos de tests, cliente HTTP y limpieza entre tests
+│   ├── test_borrados.py     # borrado con historial y cascadas
+│   ├── test_aislamiento_por_usuario.py
+│   ├── test_crud.py         # camino feliz y validaciones de entrada
+│   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
+├── requirements-dev.txt     # dependencias solo de desarrollo (tests, linter)
 ├── Dockerfile                # receta para construir la imagen del backend
 └── .dockerignore             # qué no copiar a la imagen al construirla (igual que .gitignore, pero para Docker)
 ```
@@ -75,6 +82,35 @@ Cada tabla de la base de datos se define primero como una clase Python en `app/m
 ```
 
 Si solo usas Docker, no necesitas ejecutar `alembic upgrade head` a mano: el `Dockerfile` ya lo hace automáticamente cada vez que arranca el contenedor. El comando manual de arriba es para cuando generas una migración *nueva* (paso 1), que si quieres puedes hacerlo también sin Docker, contra el Postgres expuesto en `localhost:5433` — el bind mount cubre toda la carpeta `backend/`, así que la migración nueva llega al contenedor al instante, sin necesidad de reconstruir la imagen.
+
+## Tests
+
+```bash
+cd backend
+.venv\Scripts\python -m pip install -r requirements-dev.txt   # solo la primera vez
+.venv\Scripts\python -m pytest tests/
+```
+
+Los tests corren contra **PostgreSQL de verdad**, en una base de datos aparte
+(`training_life_test`) dentro del mismo contenedor que la de desarrollo, así que
+hace falta tener Postgres levantado (`docker compose up -d postgres`). No se usa
+SQLite a propósito: buena parte de la lógica del backend son cascadas de borrado
+y restricciones `ON DELETE`, que SQLite no reproduce — unos tests sobre SQLite
+pasarían en verde con esos fallos vivos.
+
+No hay ningún paso previo que recordar: si la base de tests todavía no existe (la
+primera vez, o después de un `docker compose down -v`), la propia tanda la crea.
+Su esquema se construye aplicando las migraciones de Alembic, así que cada
+ejecución comprueba de paso que la cadena de migraciones funciona desde cero. La
+base de desarrollo no se toca en ningún momento: si la conexión no apunta a
+`training_life_test`, los tests abortan antes de ejecutar nada.
+
+| Archivo | Qué cubre |
+|---|---|
+| `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas |
+| `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
+| `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
+| `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Variables de entorno
 

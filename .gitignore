@@ -5,6 +5,7 @@ backend/.venv/
 backend/venv/
 backend/*.pyc
 backend/.env
+.pytest_cache/
 
 # Web (React)
 web/node_modules/

@@ -1,0 +1,9 @@
+# Herramientas de desarrollo: NO se instalan en la imagen de Docker.
+# La aplicación no las necesita para funcionar, solo hacen falta para
+# ejecutar los tests y revisar el código desde el entorno local.
+#
+#   backend\.venv\Scripts\python -m pip install -r requirements-dev.txt
+
+pytest==8.3.4
+httpx==0.28.1
+ruff==0.9.4
