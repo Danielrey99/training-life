@@ -23,6 +23,10 @@ mobile/.env
 # Docker
 docker-compose.override.yml
 
+# Claude Code (configuración local del entorno de trabajo, no se comparte)
+.claude/
+CLAUDE.md
+
 # Editor / SO
 .vscode/
 .DS_Store

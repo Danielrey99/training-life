@@ -26,7 +26,6 @@ training-life/
 ├── .env.example                             # plantilla de variables de entorno para docker-compose.yml
 ├── .gitignore                               # qué no subir a git, por carpeta
 ├── arquitectura_completa_training_life.svg  # diagrama de la arquitectura completa (ver más abajo)
-├── CLAUDE.md                                # contexto interno para Claude Code, no de portfolio
 └── README.md                                # este archivo
 ```
 
