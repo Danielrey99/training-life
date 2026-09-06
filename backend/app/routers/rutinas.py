@@ -181,6 +181,12 @@ def borrar_rutina(
         select(Entrenamiento).where(Entrenamiento.rutina_id == rutina_id)
     ).all():
         db.delete(entrenamiento)
+    # flush por el mismo motivo que en borrar_ejercicio: marcar los borrados en
+    # el orden correcto no garantiza que se emitan en ese orden. Hasta que no
+    # desaparezcan de verdad las series (en cascada al irse su entrenamiento),
+    # ninguna de ellas debe seguir referenciando un hueco que ya se intenta
+    # borrar.
+    db.flush()
     for slot in db.scalars(select(RutinaSlot).where(RutinaSlot.rutina_id == rutina_id)).all():
         db.delete(slot)
     db.delete(rutina)
@@ -214,7 +220,11 @@ def _validar_orden_disponible(
         )
 
 
-@router.post("/{rutina_id}/slots", response_model=RutinaSlotOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{rutina_id}/slots",
+    response_model=RutinaSlotOut,
+    status_code=status.HTTP_201_CREATED,
+)
 def crear_slot(
     rutina_id: int,
     datos: RutinaSlotCreate,
@@ -253,9 +263,7 @@ def actualizar_slot(
 def _tiene_historial_slot(db: Session, slot_id: int) -> bool:
     """¿Hay alguna serie registrada que use este hueco? `series.slot_id` es
     RESTRICT hacia rutina_slots."""
-    return (
-        db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
-    )
+    return db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
 
 
 @router.delete("/{rutina_id}/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)

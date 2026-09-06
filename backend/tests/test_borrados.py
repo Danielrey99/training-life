@@ -92,19 +92,40 @@ def test_borrar_un_ejercicio_en_definitivo_arrastra_los_huecos_que_lo_usan(
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, _ = crear_rutina_con_hueco(cliente, ejercicio_id)
 
-    assert (
-        cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo").status_code == 204
-    )
+    assert cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo").status_code == 204
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
     assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
+
+
+def test_borrar_un_ejercicio_en_definitivo_arrastra_tambien_sus_series(cliente, grupo_muscular_id):
+    """El 409 promete que `?modo=definitivo` "borra también los huecos,
+    comodines y series registradas que lo usan": con series de por medio tiene
+    que terminar en 204, no en un error.
+
+    Test de regresión: devolvía un 500 (`ForeignKeyViolation: update or delete
+    on table "rutina_slots" violates foreign key constraint
+    "series_slot_id_fkey"`). `borrar_ejercicio` marcaba para borrar las series
+    antes que los huecos, pero ambas cosas viajaban en el mismo flush y
+    SQLAlchemy ordena los DELETE por las relaciones que conoce — y no hay
+    ninguna `relationship()` entre Serie y RutinaSlot, así que emitía el DELETE
+    del hueco primero. Se arregló con un `db.flush()` entre los dos bucles.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+
+    respuesta = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo")
+
+    assert respuesta.status_code == 204, f"esperaba 204, llegó {respuesta.status_code}"
+    assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
+    # El entrenamiento sobrevive (es historial propio), pero se queda sin series
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
 
 
 # --- Hueco (slot) --------------------------------------------------------
 
 
-def test_un_hueco_con_series_registradas_no_se_borra_sin_modo(
-    cliente, grupo_muscular_id
-):
+def test_un_hueco_con_series_registradas_no_se_borra_sin_modo(cliente, grupo_muscular_id):
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
     registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)

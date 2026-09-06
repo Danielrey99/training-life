@@ -213,6 +213,13 @@ def borrar_ejercicio(
     # de cada hueco se van solos, en cascada por FK).
     for serie in db.scalars(select(Serie).where(Serie.ejercicio_id == ejercicio_id)).all():
         db.delete(serie)
+    # flush obligatorio antes de tocar los huecos: series.slot_id → rutina_slots
+    # es RESTRICT, y marcar los borrados en el orden correcto no basta. Sin
+    # este flush todo viaja junto al commit, y SQLAlchemy ordena los DELETE
+    # según las relationship() que conoce — entre Serie y RutinaSlot no hay
+    # ninguna, así que emite el del hueco primero y la base de datos lo
+    # rechaza. El flush fuerza a que las series ya no existan.
+    db.flush()
     for slot in db.scalars(
         select(RutinaSlot).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
     ).all():
