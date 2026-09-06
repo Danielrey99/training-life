@@ -20,7 +20,10 @@ def test_crear_editar_y_listar_un_ejercicio(cliente, grupo_muscular_id):
 
     cliente.put(
         f"/ejercicios/{creado['id']}",
-        json={"nombre": "Press banca con barra", "grupo_muscular_id": grupo_muscular_id},
+        json={
+            "nombre": "Press banca con barra",
+            "grupo_muscular_id": grupo_muscular_id,
+        },
     )
     assert cliente.get(f"/ejercicios/{creado['id']}").json()["nombre"] == "Press banca con barra"
 
@@ -29,13 +32,17 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     """RutinaSlotOut trae los ejercicios completos, no solo sus ids: así el
     frontend no tiene que cruzar datos contra /ejercicios."""
     principal = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
+        "/ejercicios",
+        json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
     comodin = cliente.post(
-        "/ejercicios", json={"nombre": "Press en máquina", "grupo_muscular_id": grupo_muscular_id}
+        "/ejercicios",
+        json={"nombre": "Press en máquina", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
 
-    rutina_id = cliente.post("/rutinas", json={"nombre": "Push", "dia_habitual": "Lunes"}).json()["id"]
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push", "dia_habitual": "Lunes"}).json()[
+        "id"
+    ]
     slot_id = cliente.post(
         f"/rutinas/{rutina_id}/slots",
         json={
@@ -46,7 +53,10 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
             "reps_max": 10,
         },
     ).json()["id"]
-    cliente.post(f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin})
+    cliente.post(
+        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas",
+        json={"ejercicio_id": comodin},
+    )
 
     rutina = cliente.get(f"/rutinas/{rutina_id}").json()
     hueco = rutina["slots"][0]
@@ -57,7 +67,8 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
 
 def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
     ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Sentadilla", "grupo_muscular_id": grupo_muscular_id}
+        "/ejercicios",
+        json={"nombre": "Sentadilla", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
     entrenamiento_id = cliente.post(
         "/entrenamientos", json={"rutina_id": None, "fecha": FECHA, "notas": "Buen día"}
@@ -84,13 +95,20 @@ def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
 def test_el_peso_y_el_rpe_conservan_los_decimales_exactos(cliente, grupo_muscular_id):
     """Son Numeric (Decimal), no float: 60.5 debe volver como 60.5 exacto."""
     ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Peso muerto", "grupo_muscular_id": grupo_muscular_id}
+        "/ejercicios",
+        json={"nombre": "Peso muerto", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
     entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
 
     serie = cliente.post(
         f"/entrenamientos/{entrenamiento_id}/series",
-        json={"ejercicio_id": ejercicio_id, "numero_serie": 1, "peso": 100.25, "repeticiones": 5, "rpe": 8.5},
+        json={
+            "ejercicio_id": ejercicio_id,
+            "numero_serie": 1,
+            "peso": 100.25,
+            "repeticiones": 5,
+            "rpe": 8.5,
+        },
     ).json()
 
     assert Decimal(str(serie["peso"])) == Decimal("100.25")
@@ -106,7 +124,13 @@ def test_un_entrenamiento_libre_no_admite_slot_id(cliente, grupo_muscular_id):
 
     respuesta = cliente.post(
         f"/entrenamientos/{entrenamiento_id}/series",
-        json={"ejercicio_id": ejercicio_id, "slot_id": 1, "numero_serie": 1, "peso": 20, "repeticiones": 10},
+        json={
+            "ejercicio_id": ejercicio_id,
+            "slot_id": 1,
+            "numero_serie": 1,
+            "peso": 20,
+            "repeticiones": 10,
+        },
     )
     assert respuesta.status_code == 409
 

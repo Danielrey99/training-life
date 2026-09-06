@@ -1,0 +1,9 @@
+# El código del backend está escrito a ~100 columnas. Sin fijarlo aquí, `ruff
+# format` usaría su valor por defecto (88) y reescribiría archivos enteros al
+# pasar por ellos, llenando los diffs de ruido de formato ajeno al cambio.
+line-length = 100
+
+# Las migraciones las genera Alembic con su propio formato y se aplican una sola
+# vez: reformatearlas solo ensucia el diff. Su `import sqlalchemy as sa` sin usar
+# viene de la plantilla, no es un descuido que haya que corregir.
+exclude = ["alembic/versions"]

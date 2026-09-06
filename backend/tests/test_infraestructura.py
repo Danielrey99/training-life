@@ -20,7 +20,9 @@ def test_las_migraciones_sembraron_los_grupos_musculares(cliente):
 def test_cada_test_arranca_sin_ejercicios(cliente, grupo_muscular_id):
     """El TRUNCATE entre tests funciona: este crea uno y el siguiente no lo verá."""
     assert cliente.get("/ejercicios").json() == []
-    cliente.post("/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id})
+    cliente.post(
+        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
+    )
     assert len(cliente.get("/ejercicios").json()) == 1
 
 

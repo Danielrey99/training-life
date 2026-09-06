@@ -21,12 +21,16 @@ router = APIRouter(prefix="/entrenamientos", tags=["entrenamientos"])
 # --- Entrenamientos --------------------------------------------------------
 
 
-def _obtener_entrenamiento_propio(db: Session, entrenamiento_id: int, usuario_id: int) -> Entrenamiento:
+def _obtener_entrenamiento_propio(
+    db: Session, entrenamiento_id: int, usuario_id: int
+) -> Entrenamiento:
     """No hay entrenamientos predefinidos ni ajenos visibles: 404 si no
     existe, 403 si existe pero no es tuyo."""
     entrenamiento = db.get(Entrenamiento, entrenamiento_id)
     if entrenamiento is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
+        )
     if entrenamiento.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -119,8 +123,12 @@ def borrar_entrenamiento(
 # --- Series -----------------------------------------------------------------
 
 
-def _obtener_serie_propia(db: Session, entrenamiento_id: int, serie_id: int, usuario_id: int) -> Serie:
-    _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)  # valida dueño del entrenamiento
+def _obtener_serie_propia(
+    db: Session, entrenamiento_id: int, serie_id: int, usuario_id: int
+) -> Serie:
+    _obtener_entrenamiento_propio(
+        db, entrenamiento_id, usuario_id
+    )  # valida dueño del entrenamiento
     serie = db.get(Serie, serie_id)
     if serie is None or serie.entrenamiento_id != entrenamiento_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serie no encontrada")

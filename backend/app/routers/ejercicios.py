@@ -60,15 +60,29 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
     ).all()
     return (
         [
-            {"rol": "principal", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+            {
+                "rol": "principal",
+                "slot_id": slot_id,
+                "rutina_id": rutina_id,
+                "rutina_nombre": nombre,
+            }
             for slot_id, rutina_id, nombre in principales
         ]
         + [
-            {"rol": "comodín", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": nombre}
+            {
+                "rol": "comodín",
+                "slot_id": slot_id,
+                "rutina_id": rutina_id,
+                "rutina_nombre": nombre,
+            }
             for slot_id, rutina_id, nombre in comodines
         ]
         + [
-            {"rol": "serie registrada", "entrenamiento_id": entrenamiento_id, "fecha": str(fecha)}
+            {
+                "rol": "serie registrada",
+                "entrenamiento_id": entrenamiento_id,
+                "fecha": str(fecha),
+            }
             for entrenamiento_id, fecha in entrenamientos_con_series
         ]
     )

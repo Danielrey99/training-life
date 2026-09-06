@@ -60,9 +60,7 @@ def test_un_ejercicio_sin_usar_se_borra_directo(cliente, grupo_muscular_id):
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
 
 
-def test_un_ejercicio_en_uso_no_se_borra_sin_modo_y_dice_donde_se_usa(
-    cliente, grupo_muscular_id
-):
+def test_un_ejercicio_en_uso_no_se_borra_sin_modo_y_dice_donde_se_usa(cliente, grupo_muscular_id):
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, _ = crear_rutina_con_hueco(cliente, ejercicio_id)
 
@@ -117,9 +115,7 @@ def test_un_hueco_con_series_registradas_no_se_borra_sin_modo(
 # --- Rutina: el caso que destapó el bug de passive_deletes ---------------
 
 
-def test_borrar_en_definitivo_una_rutina_con_entrenamientos_y_series(
-    cliente, grupo_muscular_id
-):
+def test_borrar_en_definitivo_una_rutina_con_entrenamientos_y_series(cliente, grupo_muscular_id):
     """Test de regresión del bug de `passive_deletes`.
 
     Antes de arreglarlo, este mismo escenario devolvía un 500 (`IntegrityError:
