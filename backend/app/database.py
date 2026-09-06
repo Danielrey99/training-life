@@ -1,3 +1,10 @@
+"""Conexión a la base de datos: engine, sesiones y la clase Base de los modelos.
+
+El engine se construye al importar este módulo, no bajo demanda: quien necesite
+apuntar a otra base de datos —los tests, por ejemplo— tiene que fijar
+DATABASE_URL antes de importar nada de `app`.
+"""
+
 import os
 
 from dotenv import load_dotenv

@@ -1,7 +1,7 @@
 """Tests del borrado con historial: `?modo=ocultar` y `?modo=definitivo`.
 
-Es la parte más delicada del backend y donde han aparecido los dos únicos bugs
-reales del proyecto, así que es la primera que se cubre.
+Es la parte más delicada del backend y donde han aparecido los tres bugs reales
+del proyecto, así que es la primera que se cubre.
 """
 
 from sqlalchemy import func, select
@@ -171,7 +171,8 @@ def crear_nota(cliente, ejercicio_id, texto):
 
 def contar_notas(sesion_bd, ejercicio_id):
     """Cuenta contra la base, no contra la API: tras borrar el ejercicio, sus
-    notas ya no son consultables por HTTP aunque siguieran existiendo."""
+    notas ya no son consultables por HTTP aunque siguieran existiendo.
+    """
     return sesion_bd.scalar(
         select(func.count())
         .select_from(NotaUsuarioEjercicio)
@@ -214,7 +215,8 @@ def test_ocultar_un_ejercicio_conserva_sus_notas_y_reactivarlo_las_devuelve(
 ):
     """`?modo=ocultar` es reversible y no debe perder nada: las notas siguen
     en la base mientras el ejercicio está oculto, y vuelven a ser accesibles
-    en cuanto se reactiva."""
+    en cuanto se reactiva.
+    """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     crear_rutina_con_hueco(cliente, ejercicio_id)
     crear_nota(cliente, ejercicio_id, "El asiento va en el 4")
@@ -230,7 +232,8 @@ def test_ocultar_un_ejercicio_conserva_sus_notas_y_reactivarlo_las_devuelve(
 def test_el_aviso_de_borrado_dice_cuantas_notas_se_perderian(cliente, grupo_muscular_id):
     """Las notas no bloquean el borrado, pero cuando otra cosa sí lo bloquea,
     el aviso enumera lo que se perdería con `?modo=definitivo` — y las notas
-    forman parte de esa cuenta, aunque no sean el motivo del 409."""
+    forman parte de esa cuenta, aunque no sean el motivo del 409.
+    """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     crear_rutina_con_hueco(cliente, ejercicio_id)
     crear_nota(cliente, ejercicio_id, "El asiento va en el 4")

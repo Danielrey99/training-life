@@ -96,7 +96,8 @@ def crear_rutina(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea la rutina "vacía" (sin huecos todavía) — los huecos se añaden
-    aparte, con POST /rutinas/{id}/slots."""
+    aparte, con POST /rutinas/{id}/slots.
+    """
     rutina = Rutina(**datos.model_dump(), usuario_id=usuario_id)
     db.add(rutina)
     db.commit()
@@ -173,19 +174,14 @@ def borrar_rutina(
         )
 
     # rutina_slots.rutina_id y entrenamientos.rutina_id son RESTRICT: hay que
-    # borrar antes ambos. Primero los entrenamientos (sus series se van
-    # solas, en cascada) — así ningún rutina_slot queda ya bloqueado por una
-    # serie que lo referenciaba, y se puede borrar limpio justo después
-    # (sus comodines también se van en cascada).
+    # borrar ambos antes, y en este orden — al irse el entrenamiento se van sus
+    # series en cascada, que son las que bloquearían el hueco.
     for entrenamiento in db.scalars(
         select(Entrenamiento).where(Entrenamiento.rutina_id == rutina_id)
     ).all():
         db.delete(entrenamiento)
-    # flush por el mismo motivo que en borrar_ejercicio: marcar los borrados en
-    # el orden correcto no garantiza que se emitan en ese orden. Hasta que no
-    # desaparezcan de verdad las series (en cascada al irse su entrenamiento),
-    # ninguna de ellas debe seguir referenciando un hueco que ya se intenta
-    # borrar.
+    # El flush es lo que garantiza ese orden: sin él lo decide SQLAlchemy por su
+    # cuenta (mismo caso que en borrar_ejercicio).
     db.flush()
     for slot in db.scalars(select(RutinaSlot).where(RutinaSlot.rutina_id == rutina_id)).all():
         db.delete(slot)
@@ -193,7 +189,7 @@ def borrar_rutina(
     db.commit()
 
 
-# --- Huecos (rutina_slots) ------------------------------------------------
+# --- Huecos (rutina_slots) -----------------------------------------------
 
 
 def _obtener_slot_propio(db: Session, rutina_id: int, slot_id: int, usuario_id: int) -> RutinaSlot:
@@ -209,7 +205,8 @@ def _validar_orden_disponible(
 ) -> None:
     """`UniqueConstraint(rutina_id, orden)` a nivel de base de datos evita
     duplicados de verdad, pero comprobarlo antes da un 409 legible en vez de
-    un error crudo de la base de datos."""
+    un error crudo de la base de datos.
+    """
     stmt = select(RutinaSlot.id).where(RutinaSlot.rutina_id == rutina_id, RutinaSlot.orden == orden)
     if excluir_slot_id is not None:
         stmt = stmt.where(RutinaSlot.id != excluir_slot_id)
@@ -231,7 +228,6 @@ def crear_slot(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Añade un hueco a una rutina propia."""
     _obtener_rutina_propia(db, rutina_id, usuario_id)
     obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
     _validar_orden_disponible(db, rutina_id, datos.orden)
@@ -262,7 +258,8 @@ def actualizar_slot(
 
 def _tiene_historial_slot(db: Session, slot_id: int) -> bool:
     """¿Hay alguna serie registrada que use este hueco? `series.slot_id` es
-    RESTRICT hacia rutina_slots."""
+    RESTRICT hacia rutina_slots.
+    """
     return db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
 
 
@@ -306,7 +303,7 @@ def borrar_slot(
     db.commit()
 
 
-# --- Comodines (slot_alternativas) ----------------------------------------
+# --- Comodines (slot_alternativas) ---------------------------------------
 
 
 @router.post(

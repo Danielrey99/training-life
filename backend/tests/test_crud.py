@@ -30,7 +30,8 @@ def test_crear_editar_y_listar_un_ejercicio(cliente, grupo_muscular_id):
 
 def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_muscular_id):
     """RutinaSlotOut trae los ejercicios completos, no solo sus ids: así el
-    frontend no tiene que cruzar datos contra /ejercicios."""
+    frontend no tiene que cruzar datos contra /ejercicios.
+    """
     principal = cliente.post(
         "/ejercicios",
         json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
@@ -178,7 +179,8 @@ def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente):
 
 def test_un_nombre_formado_solo_por_espacios_no_se_acepta(cliente, grupo_muscular_id):
     """`min_length=1` mide sin recortar, así que "   " lo esquivaría y se
-    guardaría un ejercicio (o una rutina) sin nombre visible."""
+    guardaría un ejercicio (o una rutina) sin nombre visible.
+    """
     respuesta = cliente.post(
         "/ejercicios", json={"nombre": "   ", "grupo_muscular_id": grupo_muscular_id}
     )
@@ -192,7 +194,8 @@ def test_un_nombre_formado_solo_por_espacios_no_se_acepta(cliente, grupo_muscula
 def test_se_pueden_acumular_varias_notas_sobre_el_mismo_ejercicio(cliente, grupo_muscular_id):
     """No hay `UNIQUE(usuario_id, ejercicio_id)` a propósito: cada nota es una
     fila independiente, no se sobreescriben entre ellas. Se listan de la más
-    reciente a la más antigua."""
+    reciente a la más antigua.
+    """
     ejercicio_id = cliente.post(
         "/ejercicios",
         json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
@@ -225,15 +228,8 @@ def test_las_notas_de_un_ejercicio_no_se_mezclan_con_las_de_otro(cliente, grupo_
 
 
 def test_una_nota_en_blanco_no_se_acepta(cliente, grupo_muscular_id):
-    """El esquema ya declara `min_length=1`, así que la regla "una nota tiene
-    que decir algo" está tomada: una nota vacía da 422. Pero la longitud se
-    mide sin recortar espacios, así que `"   "` (o un salto de línea suelto)
-    la esquiva y se guarda una nota sin contenido, imposible de distinguir de
-    una vacía al mostrarla.
-
-    Por eso el texto se recorta antes de medirlo (`StringConstraints` con
-    `strip_whitespace=True`, en `schemas.py`), no solo aquí: el nombre del
-    ejercicio y el de la rutina tenían el mismo hueco.
+    """Una nota vacía se rechaza por `min_length`, pero `"   "` lo esquivaría
+    si el texto no se recortara antes de medirlo.
     """
     ejercicio_id = cliente.post(
         "/ejercicios",

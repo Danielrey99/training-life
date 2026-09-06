@@ -97,7 +97,8 @@ def nota_ajena_id(sesion_bd, otro_usuario_id, ejercicio_compartido_id) -> int:
 
 def _texto_de_la_nota(sesion_bd, nota_id: int) -> str | None:
     """Lee la nota directamente de la base, sin pasar por la API ni por lo que
-    la sesión tuviera cacheado."""
+    la sesión tuviera cacheado.
+    """
     sesion_bd.expire_all()
     return sesion_bd.scalar(
         select(NotaUsuarioEjercicio.nota).where(NotaUsuarioEjercicio.id == nota_id)
@@ -108,7 +109,8 @@ def test_las_notas_de_otro_usuario_no_se_listan_aunque_el_ejercicio_sea_comparti
     cliente, ejercicio_compartido_id, nota_ajena_id
 ):
     """Un ejercicio predefinido lo ven los dos usuarios, pero cada uno solo
-    debe ver sus propias notas: son privadas, no comentarios públicos."""
+    debe ver sus propias notas: son privadas, no comentarios públicos.
+    """
     cliente.post(f"/ejercicios/{ejercicio_compartido_id}/notas", json={"nota": "La mía"})
 
     notas = cliente.get(f"/ejercicios/{ejercicio_compartido_id}/notas").json()
@@ -147,7 +149,8 @@ def test_una_nota_ajena_no_se_alcanza_colandola_por_un_ejercicio_propio(
     cliente, sesion_bd, grupo_muscular_id, nota_ajena_id
 ):
     """La ruta lleva ejercicio_id y nota_id: si no cuadran entre sí, la nota
-    no se toca ni aunque el ejercicio de la ruta sí sea del usuario."""
+    no se toca ni aunque el ejercicio de la ruta sí sea del usuario.
+    """
     ejercicio_propio_id = cliente.post(
         "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
     ).json()["id"]
@@ -170,7 +173,8 @@ def test_no_se_puede_anotar_ni_leer_un_ejercicio_privado_de_otro_usuario(
     cliente, sesion_bd, otro_usuario_id, grupo_muscular_id
 ):
     """Un ejercicio propio de otro usuario no es visible, así que ni siquiera
-    se llega a la parte de las notas."""
+    se llega a la parte de las notas.
+    """
     ejercicio = Ejercicio(
         nombre="Ejercicio de otro",
         grupo_muscular_id=grupo_muscular_id,
@@ -198,7 +202,8 @@ def test_editar_una_nota_no_permite_cambiarle_el_dueno_ni_el_ejercicio(
     cliente, grupo_muscular_id, otro_usuario_id
 ):
     """`nota` es el único campo editable: ni el dueño ni el ejercicio al que
-    pertenece se pueden mover desde el body."""
+    pertenece se pueden mover desde el body.
+    """
     ejercicio_id = cliente.post(
         "/ejercicios", json={"nombre": "Remo", "grupo_muscular_id": grupo_muscular_id}
     ).json()["id"]

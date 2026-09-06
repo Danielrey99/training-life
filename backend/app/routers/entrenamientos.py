@@ -18,14 +18,15 @@ from app.schemas import (
 router = APIRouter(prefix="/entrenamientos", tags=["entrenamientos"])
 
 
-# --- Entrenamientos --------------------------------------------------------
+# --- Entrenamientos ------------------------------------------------------
 
 
 def _obtener_entrenamiento_propio(
     db: Session, entrenamiento_id: int, usuario_id: int
 ) -> Entrenamiento:
     """No hay entrenamientos predefinidos ni ajenos visibles: 404 si no
-    existe, 403 si existe pero no es tuyo."""
+    existe, 403 si existe pero no es tuyo.
+    """
     entrenamiento = db.get(Entrenamiento, entrenamiento_id)
     if entrenamiento is None:
         raise HTTPException(
@@ -77,7 +78,8 @@ def crear_entrenamiento(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea la sesión "vacía" (sin series todavía) — se añaden aparte, con
-    POST /entrenamientos/{id}/series. rutina_id es opcional (entrenamiento libre)."""
+    POST /entrenamientos/{id}/series. rutina_id es opcional (entrenamiento libre).
+    """
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     entrenamiento = Entrenamiento(**datos.model_dump(), usuario_id=usuario_id)
@@ -120,7 +122,7 @@ def borrar_entrenamiento(
     db.commit()
 
 
-# --- Series -----------------------------------------------------------------
+# --- Series --------------------------------------------------------------
 
 
 def _obtener_serie_propia(
@@ -137,7 +139,8 @@ def _obtener_serie_propia(
 
 def _validar_slot(db: Session, slot_id: int, rutina_id: int | None) -> None:
     """El slot_id de una serie, si se manda, tiene que ser un hueco real de
-    la rutina de ese entrenamiento — no tiene sentido en un entrenamiento libre."""
+    la rutina de ese entrenamiento — no tiene sentido en un entrenamiento libre.
+    """
     if rutina_id is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

@@ -16,8 +16,7 @@ app.include_router(entrenamientos.router)
 
 @app.get("/health", tags=["health"])
 def health_check():
-    """Endpoint mínimo para comprobar que la API está viva, sin tocar la
-    base de datos ni depender de ningún otro endpoint — útil para saber si
-    el contenedor arrancó bien antes de mirar nada más.
+    """Comprueba que la API está viva, sin tocar la base de datos ni depender
+    de ningún otro endpoint.
     """
     return {"status": "ok"}

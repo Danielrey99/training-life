@@ -42,6 +42,11 @@ def _es_visible(ejercicio: Ejercicio, usuario_id: int) -> bool:
 
 
 def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
+    """Devuelve el ejercicio si el usuario puede verlo, o lanza un 404.
+
+    Pública (sin `_`) porque la usan también los otros routers para validar
+    cualquier ejercicio_id que llegue en una petición.
+    """
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None or not _es_visible(ejercicio, usuario_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
@@ -144,7 +149,8 @@ def crear_ejercicio(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea un ejercicio propio del usuario actual (nunca predefinido — eso
-    se gestiona aparte, no a través de este endpoint)."""
+    se gestiona aparte, no a través de este endpoint).
+    """
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
     ejercicio = Ejercicio(**datos.model_dump(), usuario_id=usuario_id)
     db.add(ejercicio)
@@ -161,7 +167,8 @@ def actualizar_ejercicio(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Edita un ejercicio propio. Los predefinidos y los de otros usuarios
-    (cuando exista JWT) no se pueden editar por aquí."""
+    (cuando exista JWT) no se pueden editar por aquí.
+    """
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None or not ejercicio.activo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
@@ -248,12 +255,9 @@ def borrar_ejercicio(
     # de cada hueco se van solos, en cascada por FK).
     for serie in db.scalars(select(Serie).where(Serie.ejercicio_id == ejercicio_id)).all():
         db.delete(serie)
-    # flush obligatorio antes de tocar los huecos: series.slot_id → rutina_slots
-    # es RESTRICT, y marcar los borrados en el orden correcto no basta. Sin
-    # este flush todo viaja junto al commit, y SQLAlchemy ordena los DELETE
-    # según las relationship() que conoce — entre Serie y RutinaSlot no hay
-    # ninguna, así que emite el del hueco primero y la base de datos lo
-    # rechaza. El flush fuerza a que las series ya no existan.
+    # flush obligatorio: sin él los DELETE viajan juntos al commit y SQLAlchemy
+    # los ordena por las relationship() que conoce — no hay ninguna entre Serie y
+    # RutinaSlot, así que borraría el hueco antes que sus series (RESTRICT).
     db.flush()
     for slot in db.scalars(
         select(RutinaSlot).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
@@ -288,7 +292,7 @@ def reactivar_ejercicio(
     return ejercicio
 
 
-# --- Notas del usuario sobre un ejercicio ----------------------------------
+# --- Notas del usuario sobre un ejercicio --------------------------------
 
 
 def _obtener_nota_propia(
@@ -322,7 +326,8 @@ def listar_notas(
 ):
     """Las notas del usuario actual sobre este ejercicio, de la más reciente
     a la más antigua. Nunca incluye las de otros usuarios, ni siquiera cuando
-    el ejercicio es predefinido y por tanto compartido."""
+    el ejercicio es predefinido y por tanto compartido.
+    """
     obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
     stmt = (
         select(NotaUsuarioEjercicio)
@@ -343,7 +348,8 @@ def crear_nota(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Añade una nota al ejercicio. Se pueden acumular varias sobre el mismo
-    ejercicio: cada una es independiente, no se sobreescriben."""
+    ejercicio: cada una es independiente, no se sobreescriben.
+    """
     obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
     nota = NotaUsuarioEjercicio(
         **datos.model_dump(), usuario_id=usuario_id, ejercicio_id=ejercicio_id
@@ -378,7 +384,8 @@ def borrar_nota(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borrado directo, sin parámetro `modo`: nada referencia una nota, así
-    que no hay historial ajeno que proteger (igual que con las series)."""
+    que no hay historial ajeno que proteger (igual que con las series).
+    """
     nota = _obtener_nota_propia(db, ejercicio_id, nota_id, usuario_id)
     db.delete(nota)
     db.commit()

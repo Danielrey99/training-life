@@ -172,7 +172,8 @@ class RutinaSlot(Base):
     @property
     def alternativas(self) -> list["Ejercicio"]:
         """Los ejercicios comodín de este hueco (no la fila de la tabla
-        intermedia) — lo que de verdad le interesa a la API."""
+        intermedia) — lo que de verdad le interesa a la API.
+        """
         return [sa.ejercicio for sa in self.slot_alternativas]
 
 

@@ -125,7 +125,8 @@ def grupo_muscular_id(cliente: TestClient) -> int:
 @pytest.fixture
 def sesion_bd():
     """Acceso directo a la base, para montar situaciones que la API no permite
-    crear (por ejemplo, datos pertenecientes a otro usuario)."""
+    crear (por ejemplo, datos pertenecientes a otro usuario).
+    """
     from app.database import SessionLocal
 
     sesion = SessionLocal()

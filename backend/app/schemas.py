@@ -4,17 +4,16 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-# Texto que tiene que decir algo. Los espacios de los extremos se recortan
-# ANTES de medir la longitud: con min_length a secas, una cadena de solo
-# espacios ("   ") pasaría la validación y se guardaría un nombre o una nota
-# en blanco, indistinguible de uno vacío.
+# Texto que tiene que decir algo: se recorta ANTES de medir la longitud, porque
+# con min_length a secas una cadena de solo espacios ("   ") pasaría el filtro.
 Nombre = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 TextoNota = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
 
 class GrupoMuscularOut(BaseModel):
     """Grupo muscular tal y como se devuelve al cliente. Sin CRUD propio: es
-    un catálogo fijo, sembrado por migración."""
+    un catálogo fijo, sembrado por migración.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,7 +43,8 @@ class EjercicioUpdate(EjercicioBase):
 
 class EjercicioOut(EjercicioBase):
     """Ejercicio tal y como se devuelve al cliente, incluyendo los campos
-    gestionados por el backend."""
+    gestionados por el backend.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -118,7 +118,8 @@ class RutinaSlotUpdate(RutinaSlotBase):
 class RutinaSlotOut(RutinaSlotBase):
     """Un hueco tal y como se devuelve al cliente — con el ejercicio
     principal y los comodines ya resueltos (no solo sus ids), para no
-    obligar al cliente a cruzar datos con /ejercicios."""
+    obligar al cliente a cruzar datos con /ejercicios.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
