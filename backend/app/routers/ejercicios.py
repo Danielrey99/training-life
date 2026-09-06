@@ -1,13 +1,29 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
-from app.models import Ejercicio, Entrenamiento, GrupoMuscular, Rutina, RutinaSlot, Serie, SlotAlternativa
-from app.schemas import EjercicioCreate, EjercicioOut, EjercicioUpdate
+from app.models import (
+    Ejercicio,
+    Entrenamiento,
+    GrupoMuscular,
+    NotaUsuarioEjercicio,
+    Rutina,
+    RutinaSlot,
+    Serie,
+    SlotAlternativa,
+)
+from app.schemas import (
+    EjercicioCreate,
+    EjercicioOut,
+    EjercicioUpdate,
+    NotaCreate,
+    NotaOut,
+    NotaUpdate,
+)
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
 
@@ -193,17 +209,36 @@ def borrar_ejercicio(
 
     usos = _usos_de_ejercicio(db, ejercicio_id)
     if usos and modo != "definitivo":
+        # Las notas nunca bloquean el borrado (su FK es CASCADE: se van solas
+        # con el ejercicio). Pero si algo más ya lo está bloqueando, el aviso
+        # tiene que enumerar todo lo que se perdería con modo=definitivo, no
+        # solo lo que lo impide — si no, las notas desaparecen en silencio
+        # justo cuando la API está detallando el resto.
+        notas = db.scalar(
+            select(func.count())
+            .select_from(NotaUsuarioEjercicio)
+            .where(
+                NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
+                NotaUsuarioEjercicio.usuario_id == usuario_id,
+            )
+        )
+        mensaje = (
+            "Este ejercicio está en uso. Repite la petición con "
+            "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
+            "conserva todo) o ?modo=definitivo (borra también los huecos, "
+            "comodines y series registradas que lo usan, sin poder "
+            "deshacerlo)."
+        )
+        if notas:
+            mensaje += (
+                f" Con ?modo=definitivo perderás también tus notas sobre este ejercicio ({notas})."
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "mensaje": (
-                    "Este ejercicio está en uso. Repite la petición con "
-                    "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
-                    "conserva todo) o ?modo=definitivo (borra también los huecos, "
-                    "comodines y series registradas que lo usan, sin poder "
-                    "deshacerlo)."
-                ),
+                "mensaje": mensaje,
                 "usos": usos,
+                "notas_que_se_perderian": notas,
             },
         )
 
@@ -251,3 +286,99 @@ def reactivar_ejercicio(
     db.commit()
     db.refresh(ejercicio)
     return ejercicio
+
+
+# --- Notas del usuario sobre un ejercicio ----------------------------------
+
+
+def _obtener_nota_propia(
+    db: Session, ejercicio_id: int, nota_id: int, usuario_id: int
+) -> NotaUsuarioEjercicio:
+    """404 si el ejercicio o la nota no existen (o la nota es de otro
+    ejercicio), 403 si la nota existe pero no es tuya.
+
+    A diferencia de los demás recursos anidados (series, comodines), aquí no
+    basta con comprobar que el padre es accesible: un ejercicio predefinido
+    lo ven todos los usuarios, así que el dueño hay que comprobarlo en la
+    propia nota.
+    """
+    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    nota = db.get(NotaUsuarioEjercicio, nota_id)
+    if nota is None or nota.ejercicio_id != ejercicio_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
+    if nota.usuario_id != usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No se puede acceder a una nota que no es tuya",
+        )
+    return nota
+
+
+@router.get("/{ejercicio_id}/notas", response_model=list[NotaOut])
+def listar_notas(
+    ejercicio_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Las notas del usuario actual sobre este ejercicio, de la más reciente
+    a la más antigua. Nunca incluye las de otros usuarios, ni siquiera cuando
+    el ejercicio es predefinido y por tanto compartido."""
+    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    stmt = (
+        select(NotaUsuarioEjercicio)
+        .where(
+            NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
+            NotaUsuarioEjercicio.usuario_id == usuario_id,
+        )
+        .order_by(NotaUsuarioEjercicio.created_at.desc(), NotaUsuarioEjercicio.id.desc())
+    )
+    return db.scalars(stmt).all()
+
+
+@router.post("/{ejercicio_id}/notas", response_model=NotaOut, status_code=status.HTTP_201_CREATED)
+def crear_nota(
+    ejercicio_id: int,
+    datos: NotaCreate,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Añade una nota al ejercicio. Se pueden acumular varias sobre el mismo
+    ejercicio: cada una es independiente, no se sobreescriben."""
+    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    nota = NotaUsuarioEjercicio(
+        **datos.model_dump(), usuario_id=usuario_id, ejercicio_id=ejercicio_id
+    )
+    db.add(nota)
+    db.commit()
+    db.refresh(nota)
+    return nota
+
+
+@router.put("/{ejercicio_id}/notas/{nota_id}", response_model=NotaOut)
+def actualizar_nota(
+    ejercicio_id: int,
+    nota_id: int,
+    datos: NotaUpdate,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    nota = _obtener_nota_propia(db, ejercicio_id, nota_id, usuario_id)
+    for campo, valor in datos.model_dump().items():
+        setattr(nota, campo, valor)
+    db.commit()
+    db.refresh(nota)
+    return nota
+
+
+@router.delete("/{ejercicio_id}/notas/{nota_id}", status_code=status.HTTP_204_NO_CONTENT)
+def borrar_nota(
+    ejercicio_id: int,
+    nota_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Borrado directo, sin parámetro `modo`: nada referencia una nota, así
+    que no hay historial ajeno que proteger (igual que con las series)."""
+    nota = _obtener_nota_propia(db, ejercicio_id, nota_id, usuario_id)
+    db.delete(nota)
+    db.commit()

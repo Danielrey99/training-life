@@ -174,3 +174,41 @@ def test_no_puede_haber_dos_huecos_con_el_mismo_orden(cliente, grupo_muscular_id
 def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente):
     respuesta = cliente.post("/ejercicios", json={"nombre": "X", "grupo_muscular_id": 9999})
     assert respuesta.status_code == 404
+
+
+# --- Notas del usuario sobre un ejercicio --------------------------------
+
+
+def test_se_pueden_acumular_varias_notas_sobre_el_mismo_ejercicio(cliente, grupo_muscular_id):
+    """No hay `UNIQUE(usuario_id, ejercicio_id)` a propósito: cada nota es una
+    fila independiente, no se sobreescriben entre ellas. Se listan de la más
+    reciente a la más antigua."""
+    ejercicio_id = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
+    ).json()["id"]
+
+    for texto in ("Primera", "Segunda", "Tercera"):
+        assert (
+            cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": texto}).status_code
+            == 201
+        )
+
+    notas = cliente.get(f"/ejercicios/{ejercicio_id}/notas").json()
+    assert [nota["nota"] for nota in notas] == ["Tercera", "Segunda", "Primera"]
+
+
+def test_las_notas_de_un_ejercicio_no_se_mezclan_con_las_de_otro(cliente, grupo_muscular_id):
+    press = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
+    ).json()["id"]
+    remo = cliente.post(
+        "/ejercicios", json={"nombre": "Remo", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+
+    cliente.post(f"/ejercicios/{press}/notas", json={"nota": "Del press"})
+    cliente.post(f"/ejercicios/{remo}/notas", json={"nota": "Del remo"})
+
+    assert [n["nota"] for n in cliente.get(f"/ejercicios/{press}/notas").json()] == ["Del press"]
+    assert [n["nota"] for n in cliente.get(f"/ejercicios/{remo}/notas").json()] == ["Del remo"]

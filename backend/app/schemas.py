@@ -49,6 +49,40 @@ class EjercicioOut(EjercicioBase):
     updated_at: datetime
 
 
+class NotaBase(BaseModel):
+    """El único campo que el cliente envía al crear o editar una nota.
+
+    usuario_id lo decide el backend y ejercicio_id viene de la ruta, así que
+    ninguno de los dos se declara aquí.
+    """
+
+    nota: str = Field(min_length=1, max_length=1000)
+
+
+class NotaCreate(NotaBase):
+    pass
+
+
+class NotaUpdate(NotaBase):
+    pass
+
+
+class NotaOut(NotaBase):
+    """Una nota tal y como se devuelve al cliente.
+
+    No resuelve el ejercicio completo (a diferencia de SerieOut): quien pide
+    las notas ya sabe de qué ejercicio son, está en la propia ruta.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    usuario_id: int
+    ejercicio_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class RutinaSlotBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un hueco."""
 

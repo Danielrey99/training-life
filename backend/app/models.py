@@ -1,7 +1,15 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -64,6 +72,34 @@ class Ejercicio(Base):
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), default=None)
     visibilidad: Mapped[str] = mapped_column(String(20), default="privado")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
+class NotaUsuarioEjercicio(Base):
+    """Una nota personal y privada de un usuario sobre un ejercicio, propio o
+    predefinido (ej. "en esta máquina el asiento va en el 4").
+
+    Separada de Ejercicio.descripcion porque esa es información general y
+    objetiva del ejercicio (y no editable si es predefinido), mientras que
+    una nota es subjetiva y solo la ve quien la escribió. Sin unicidad de
+    (usuario_id, ejercicio_id) a propósito: se pueden ir acumulando notas
+    independientes sobre el mismo ejercicio a lo largo del tiempo, cada una
+    con su propia fila, editable y borrable por separado.
+    """
+
+    __tablename__ = "notas_usuario_ejercicio"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    # CASCADE (a diferencia de rutina_slots, slot_alternativas y series hacia
+    # ejercicios, que son RESTRICT): una nota no es historial de progresión
+    # que haya que proteger, es un accesorio del ejercicio — huérfana no
+    # significa nada, así que se va con él sin avisar aparte.
+    ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="CASCADE"))
+    nota: Mapped[str] = mapped_column(String(1000))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow

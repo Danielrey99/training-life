@@ -40,6 +40,7 @@ from app.main import app  # noqa: E402
 # Tablas que los tests ensucian. `usuarios` y `grupos_musculares` quedan fuera a
 # propósito: las siembran las migraciones y todos los tests las necesitan.
 TABLAS_A_VACIAR = (
+    "notas_usuario_ejercicio",
     "series",
     "entrenamientos",
     "slot_alternativas",
@@ -58,9 +59,7 @@ def _crear_base_de_tests_si_no_existe() -> None:
     EXISTS`, así que hay que preguntar; y ese comando no puede ejecutarse
     dentro de una transacción, de ahí el AUTOCOMMIT.
     """
-    motor = create_engine(
-        engine.url.set(database="postgres"), isolation_level="AUTOCOMMIT"
-    )
+    motor = create_engine(engine.url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     try:
         with motor.connect() as conexion:
             existe = conexion.scalar(
@@ -108,9 +107,7 @@ def limpiar_tablas():
     siguiente, y para poder inspeccionar los datos que dejó un test que falló.
     """
     with engine.begin() as conexion:
-        conexion.execute(
-            text(f"TRUNCATE {', '.join(TABLAS_A_VACIAR)} RESTART IDENTITY CASCADE")
-        )
+        conexion.execute(text(f"TRUNCATE {', '.join(TABLAS_A_VACIAR)} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture

@@ -4,6 +4,10 @@ Es la parte más delicada del backend y donde han aparecido los dos únicos bugs
 reales del proyecto, así que es la primera que se cubre.
 """
 
+from sqlalchemy import func, select
+
+from app.models import NotaUsuarioEjercicio
+
 FECHA = "2026-09-04"
 
 
@@ -154,3 +158,95 @@ def test_borrar_en_definitivo_una_rutina_con_entrenamientos_y_series(cliente, gr
     assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
     # El ejercicio NO se borra: no era suyo el historial, solo estaba referenciado
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 200
+
+
+# --- Notas: se van con el ejercicio, pero solo con el suyo ---------------
+
+
+def crear_nota(cliente, ejercicio_id, texto):
+    respuesta = cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": texto})
+    assert respuesta.status_code == 201
+    return respuesta.json()["id"]
+
+
+def contar_notas(sesion_bd, ejercicio_id):
+    """Cuenta contra la base, no contra la API: tras borrar el ejercicio, sus
+    notas ya no son consultables por HTTP aunque siguieran existiendo."""
+    return sesion_bd.scalar(
+        select(func.count())
+        .select_from(NotaUsuarioEjercicio)
+        .where(NotaUsuarioEjercicio.ejercicio_id == ejercicio_id)
+    )
+
+
+def test_borrar_en_definitivo_un_ejercicio_en_uso_se_lleva_tambien_sus_notas(
+    cliente, sesion_bd, grupo_muscular_id
+):
+    """El ejercicio se usa como principal en un hueco (lo que obliga a
+    `?modo=definitivo`) y además está anotado.
+
+    Las notas no bloquean el borrado (su FK es CASCADE, no RESTRICT), pero
+    tienen que desaparecer con el ejercicio en vez de quedar huérfanas o
+    hacer reventar el borrado.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    crear_rutina_con_hueco(cliente, ejercicio_id)
+    crear_nota(cliente, ejercicio_id, "El asiento va en el 4")
+    crear_nota(cliente, ejercicio_id, "Mejor con agarre cerrado")
+
+    otro_ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, nombre="Remo")
+    crear_nota(cliente, otro_ejercicio_id, "Nota que no debe tocarse")
+
+    # El hueco sí lo bloquea: sin modo, 409. (Las notas por sí solas no
+    # bloquean nada: un ejercicio que solo tiene notas se borra directo.)
+    assert cliente.delete(f"/ejercicios/{ejercicio_id}").status_code == 409
+
+    respuesta = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo")
+
+    assert respuesta.status_code == 204, f"esperaba 204, llegó {respuesta.status_code}"
+    assert contar_notas(sesion_bd, ejercicio_id) == 0
+    # El radio del borrado no se pasa de largo: las notas de otro ejercicio siguen ahí
+    assert contar_notas(sesion_bd, otro_ejercicio_id) == 1
+
+
+def test_ocultar_un_ejercicio_conserva_sus_notas_y_reactivarlo_las_devuelve(
+    cliente, sesion_bd, grupo_muscular_id
+):
+    """`?modo=ocultar` es reversible y no debe perder nada: las notas siguen
+    en la base mientras el ejercicio está oculto, y vuelven a ser accesibles
+    en cuanto se reactiva."""
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    crear_rutina_con_hueco(cliente, ejercicio_id)
+    crear_nota(cliente, ejercicio_id, "El asiento va en el 4")
+
+    assert cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar").status_code == 204
+    assert contar_notas(sesion_bd, ejercicio_id) == 1
+
+    assert cliente.post(f"/ejercicios/{ejercicio_id}/reactivar").status_code == 200
+    notas = cliente.get(f"/ejercicios/{ejercicio_id}/notas").json()
+    assert [nota["nota"] for nota in notas] == ["El asiento va en el 4"]
+
+
+def test_el_aviso_de_borrado_dice_cuantas_notas_se_perderian(cliente, grupo_muscular_id):
+    """Las notas no bloquean el borrado, pero cuando otra cosa sí lo bloquea,
+    el aviso enumera lo que se perdería con `?modo=definitivo` — y las notas
+    forman parte de esa cuenta, aunque no sean el motivo del 409."""
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    crear_rutina_con_hueco(cliente, ejercicio_id)
+    crear_nota(cliente, ejercicio_id, "El asiento va en el 4")
+    crear_nota(cliente, ejercicio_id, "Mejor con agarre cerrado")
+
+    detalle = cliente.delete(f"/ejercicios/{ejercicio_id}").json()["detail"]
+
+    assert detalle["notas_que_se_perderian"] == 2
+    assert "notas" in detalle["mensaje"]
+
+
+def test_sin_notas_el_aviso_de_borrado_no_las_menciona(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    crear_rutina_con_hueco(cliente, ejercicio_id)
+
+    detalle = cliente.delete(f"/ejercicios/{ejercicio_id}").json()["detail"]
+
+    assert detalle["notas_que_se_perderian"] == 0
+    assert "notas" not in detalle["mensaje"]
