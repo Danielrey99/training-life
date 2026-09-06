@@ -1,7 +1,15 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+# Texto que tiene que decir algo. Los espacios de los extremos se recortan
+# ANTES de medir la longitud: con min_length a secas, una cadena de solo
+# espacios ("   ") pasaría la validación y se guardaría un nombre o una nota
+# en blanco, indistinguible de uno vacío.
+Nombre = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+TextoNota = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
 
 class GrupoMuscularOut(BaseModel):
@@ -21,7 +29,7 @@ class EjercicioBase(BaseModel):
     activo: esos los decide el backend, no el cliente.
     """
 
-    nombre: str = Field(min_length=1, max_length=100)
+    nombre: Nombre
     grupo_muscular_id: int
     descripcion: str | None = Field(default=None, max_length=500)
 
@@ -56,7 +64,7 @@ class NotaBase(BaseModel):
     ninguno de los dos se declara aquí.
     """
 
-    nota: str = Field(min_length=1, max_length=1000)
+    nota: TextoNota
 
 
 class NotaCreate(NotaBase):
@@ -130,7 +138,7 @@ class RutinaBase(BaseModel):
     endpoints anidados bajo /rutinas/{id}/slots.
     """
 
-    nombre: str = Field(min_length=1, max_length=100)
+    nombre: Nombre
     dia_habitual: str | None = Field(default=None, max_length=20)
 
 

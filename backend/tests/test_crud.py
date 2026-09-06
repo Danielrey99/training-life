@@ -176,6 +176,16 @@ def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente):
     assert respuesta.status_code == 404
 
 
+def test_un_nombre_formado_solo_por_espacios_no_se_acepta(cliente, grupo_muscular_id):
+    """`min_length=1` mide sin recortar, así que "   " lo esquivaría y se
+    guardaría un ejercicio (o una rutina) sin nombre visible."""
+    respuesta = cliente.post(
+        "/ejercicios", json={"nombre": "   ", "grupo_muscular_id": grupo_muscular_id}
+    )
+    assert respuesta.status_code == 422
+    assert cliente.post("/rutinas", json={"nombre": "  \n "}).status_code == 422
+
+
 # --- Notas del usuario sobre un ejercicio --------------------------------
 
 
@@ -212,3 +222,25 @@ def test_las_notas_de_un_ejercicio_no_se_mezclan_con_las_de_otro(cliente, grupo_
 
     assert [n["nota"] for n in cliente.get(f"/ejercicios/{press}/notas").json()] == ["Del press"]
     assert [n["nota"] for n in cliente.get(f"/ejercicios/{remo}/notas").json()] == ["Del remo"]
+
+
+def test_una_nota_en_blanco_no_se_acepta(cliente, grupo_muscular_id):
+    """El esquema ya declara `min_length=1`, así que la regla "una nota tiene
+    que decir algo" está tomada: una nota vacía da 422. Pero la longitud se
+    mide sin recortar espacios, así que `"   "` (o un salto de línea suelto)
+    la esquiva y se guarda una nota sin contenido, imposible de distinguir de
+    una vacía al mostrarla.
+
+    Por eso el texto se recorta antes de medirlo (`StringConstraints` con
+    `strip_whitespace=True`, en `schemas.py`), no solo aquí: el nombre del
+    ejercicio y el de la rutina tenían el mismo hueco.
+    """
+    ejercicio_id = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
+    ).json()["id"]
+
+    assert cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": ""}).status_code == 422
+    assert (
+        cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": "   "}).status_code == 422
+    )
