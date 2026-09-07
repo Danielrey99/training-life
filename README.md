@@ -54,6 +54,7 @@ Las 9 tablas del MVP, ya implementadas, con lo que más condiciona el diseño: q
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, mismo patrón de borrado)
 - [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso/repeticiones/RPE, base del historial de progresión)
 - [x] Backend: notas personales por ejercicio (privadas de cada usuario, también sobre los ejercicios predefinidos)
+- [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, aislamiento por usuario, CRUD)
 - [ ] Web: React consumiendo la API
 - [ ] Móvil: React Native + Expo

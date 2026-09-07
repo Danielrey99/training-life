@@ -202,6 +202,65 @@ class SerieOut(SerieBase):
     ejercicio: EjercicioOut
 
 
+class EjercicioMinimo(BaseModel):
+    """Lo justo para saber qué ejercicio fue, sin arrastrar EjercicioOut entero.
+
+    En el historial de un hueco esto se repite en cada serie de cada día, así que
+    devolver el ejercicio completo multiplicaría el tamaño de la respuesta.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+
+
+class SerieHistorial(BaseModel):
+    """Una serie dentro del historial.
+
+    No repite la fecha ni el ejercicio: los trae la sesión que la agrupa.
+    `slot_id` sí viene, porque el mismo ejercicio puede ocupar dos huecos de la
+    rutina (principal en uno, comodín en otro) y entonces un mismo día trae dos
+    tandas de series que solo se distinguen por ahí. Es `null` si el
+    entrenamiento fue libre.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    slot_id: int | None
+    numero_serie: int
+    peso: Decimal
+    repeticiones: int
+    rpe: Decimal | None
+    variante: str | None
+
+
+class SerieHistorialHueco(SerieHistorial):
+    """En el historial de un hueco sí importa con qué ejercicio se hizo cada serie:
+    puede ser el principal un día y un comodín otro.
+    """
+
+    ejercicio: EjercicioMinimo
+
+
+class SesionHistorial(BaseModel):
+    """Un día de entrenamiento con las series que tocaron ese ejercicio o ese hueco.
+
+    `rutina` es el nombre de la rutina que se siguió, o `null` si fue un
+    entrenamiento libre.
+    """
+
+    entrenamiento_id: int
+    fecha: date
+    rutina: str | None
+    series: list[SerieHistorial]
+
+
+class SesionHistorialHueco(SesionHistorial):
+    series: list[SerieHistorialHueco]
+
+
 class EntrenamientoBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un entrenamiento.
 

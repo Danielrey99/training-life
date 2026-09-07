@@ -1,11 +1,13 @@
+from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
+from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
 from app.routers.ejercicios import obtener_ejercicio_visible
 from app.schemas import (
@@ -16,6 +18,7 @@ from app.schemas import (
     RutinaSlotOut,
     RutinaSlotUpdate,
     RutinaUpdate,
+    SesionHistorialHueco,
 )
 
 router = APIRouter(prefix="/rutinas", tags=["rutinas"])
@@ -200,6 +203,24 @@ def _obtener_slot_propio(db: Session, rutina_id: int, slot_id: int, usuario_id: 
     return slot
 
 
+def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int, usuario_id: int) -> RutinaSlot:
+    """Para leer el historial de un hueco: 404 si no existe o no es tuyo.
+
+    A diferencia de `_obtener_slot_propio`, no exige que el hueco ni su rutina
+    estén activos: ocultarlos deja de ofrecerlos para entrenamientos nuevos,
+    pero no borra lo que ya se entrenó ahí. Y responde 404 en vez de 403, como
+    el resto de los GET del proyecto: en una lectura no hay ninguna acción para
+    la que el usuario pudiera "tener permiso de más".
+    """
+    rutina = db.get(Rutina, rutina_id)
+    if rutina is None or rutina.usuario_id != usuario_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+    slot = db.get(RutinaSlot, slot_id)
+    if slot is None or slot.rutina_id != rutina_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
+    return slot
+
+
 def _validar_orden_disponible(
     db: Session, rutina_id: int, orden: int, excluir_slot_id: int | None = None
 ) -> None:
@@ -301,6 +322,27 @@ def borrar_slot(
         db.delete(serie)
     db.delete(slot)
     db.commit()
+
+
+@router.get("/{rutina_id}/slots/{slot_id}/historial", response_model=list[SesionHistorialHueco])
+def historial_de_hueco(
+    rutina_id: int,
+    slot_id: int,
+    desde: date | None = None,
+    hasta: date | None = None,
+    limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """La progresión del hueco entero, no la de un ejercicio suelto: los días en
+    que se entrenó, con qué ejercicio se hizo cada serie y con cuánto peso.
+
+    Es la vista que justifica que `series` guarde `slot_id` además de
+    `ejercicio_id`: aquí cuentan por igual los días con el ejercicio principal y
+    los días en que tocó un comodín.
+    """
+    _obtener_slot_legible(db, rutina_id, slot_id, usuario_id)
+    return sesiones_con_series(db, usuario_id, Serie.slot_id == slot_id, desde, hasta, limite)
 
 
 # --- Comodines (slot_alternativas) ---------------------------------------

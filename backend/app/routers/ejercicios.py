@@ -1,11 +1,13 @@
+from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
+from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import (
     Ejercicio,
     Entrenamiento,
@@ -23,6 +25,7 @@ from app.schemas import (
     NotaCreate,
     NotaOut,
     NotaUpdate,
+    SesionHistorial,
 )
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
@@ -36,19 +39,28 @@ def _validar_grupo_muscular(db: Session, grupo_muscular_id: int) -> None:
         )
 
 
-def _es_visible(ejercicio: Ejercicio, usuario_id: int) -> bool:
-    """Biblioteca combinada: visible si es predefinido o si es del usuario actual."""
-    return ejercicio.activo and (ejercicio.es_predefinido or ejercicio.usuario_id == usuario_id)
+def obtener_ejercicio_del_usuario(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
+    """El ejercicio aunque esté ocultado, o 404 si no existe o es de otro.
+
+    Biblioteca combinada: cuentan los predefinidos y los propios. Es la
+    comprobación para *leer* historial — ocultar un ejercicio deja de ofrecerlo
+    para entrenamientos nuevos, pero no esconde lo que ya se hizo con él.
+    """
+    ejercicio = db.get(Ejercicio, ejercicio_id)
+    if ejercicio is None or not (ejercicio.es_predefinido or ejercicio.usuario_id == usuario_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    return ejercicio
 
 
 def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
-    """Devuelve el ejercicio si el usuario puede verlo, o lanza un 404.
+    """Lo mismo, pero además tiene que estar activo: es la comprobación para
+    *usar* el ejercicio (ponerlo en un hueco, registrar una serie, anotarlo).
 
     Pública (sin `_`) porque la usan también los otros routers para validar
     cualquier ejercicio_id que llegue en una petición.
     """
-    ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or not _es_visible(ejercicio, usuario_id):
+    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    if not ejercicio.activo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
 
@@ -290,6 +302,28 @@ def reactivar_ejercicio(
     db.commit()
     db.refresh(ejercicio)
     return ejercicio
+
+
+@router.get("/{ejercicio_id}/historial", response_model=list[SesionHistorial])
+def historial_de_ejercicio(
+    ejercicio_id: int,
+    desde: date | None = None,
+    hasta: date | None = None,
+    limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Los días en que se hizo este ejercicio, del más reciente al más antiguo,
+    con las series de cada día — la progresión de un ejercicio concreto.
+
+    Cuenta las veces que se hizo, siga o no una rutina. Para ver en cambio cómo
+    evoluciona un hueco entero (unos días con el ejercicio principal y otros con
+    un comodín), el endpoint es `/rutinas/{id}/slots/{slot_id}/historial`.
+    """
+    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    return sesiones_con_series(
+        db, usuario_id, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite
+    )
 
 
 # --- Notas del usuario sobre un ejercicio --------------------------------

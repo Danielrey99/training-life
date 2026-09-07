@@ -27,6 +27,12 @@ reales:
 `Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
 algo que otras tablas tengan que proteger, así que se borran directo.
 
+Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un
+ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina
+(`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo
+con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén
+ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
+
 Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por
 migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
 
@@ -41,6 +47,7 @@ backend/
 │   ├── models.py           # tablas (modelos SQLAlchemy)
 │   ├── schemas.py          # forma de los datos que entran/salen de la API (Pydantic)
 │   ├── auth.py             # quién es "el usuario actual" (hardcodeado hasta que exista JWT)
+│   ├── historial.py        # la consulta de progresión, compartida por dos endpoints
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
@@ -173,6 +180,7 @@ No hay ningún paso previo que recordar:
 | `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas |
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
+| `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -219,6 +227,7 @@ función; los endpoints no necesitan tocarse.
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible un ejercicio propio. |
+| `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?desde=`, `?hasta=` (fechas inclusivas) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
 
 ### Notas de un ejercicio
 
@@ -242,6 +251,7 @@ función; los endpoints no necesitan tocarse.
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
+| `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, y también sigue funcionando con el hueco o la rutina ocultados. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |
 
