@@ -1,14 +1,34 @@
-# backend
+# Backend ⚙️
 
-API REST del proyecto, construida con **FastAPI** (Python) sobre **PostgreSQL**, usando **SQLAlchemy** como ORM y **Alembic** para gestionar los cambios del esquema de base de datos (migraciones).
+API REST del proyecto, construida con **FastAPI** (Python) sobre **PostgreSQL**, usando
+**SQLAlchemy** como ORM y **Alembic** para gestionar los cambios del esquema de base de datos.
 
 Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre pasan por esta API.
 
+**Índice:** [Estado actual](#estado-actual) · [Estructura](#estructura) ·
+[Cómo ejecutarlo](#cómo-ejecutarlo) · [Modelos y migraciones](#modelos-y-migraciones-alembic) ·
+[Tests](#tests) · [Convenciones de código](#convenciones-de-código) ·
+[Variables de entorno](#variables-de-entorno) · [Autenticación](#autenticación-pendiente) ·
+[Endpoints](#endpoints-disponibles)
+
 ## Estado actual
 
-🚧 Backend del MVP completo: CRUD de `Ejercicio`, `Rutina` (con huecos y comodines), `Entrenamiento`/`Serie` (registro real, con peso/repeticiones/RPE) y notas personales por ejercicio. El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) protege ya todos los usos cruzados reales: un ejercicio usado en una rutina o con series registradas, una rutina con huecos o entrenamientos, un hueco con series registradas. `Entrenamiento`/`Serie` no tienen ese borrado lógico — son el propio historial, se borran directo.
+🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus
+huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE—
+y las notas personales por ejercicio.
 
-Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
+El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados
+reales:
+
+- un ejercicio usado en una rutina, o con series registradas
+- una rutina con huecos definidos o con entrenamientos
+- un hueco con series registradas
+
+`Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
+algo que otras tablas tengan que proteger, así que se borran directo.
+
+Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por
+migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
 
 ## Estructura
 
@@ -22,7 +42,7 @@ backend/
 │   ├── schemas.py          # forma de los datos que entran/salen de la API (Pydantic)
 │   ├── auth.py             # quién es "el usuario actual" (hardcodeado hasta que exista JWT)
 │   └── routers/            # los endpoints en sí, un archivo por entidad
-│       ├── ejercicios.py          # CRUD de ejercicios
+│       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
 │       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
 │       └── entrenamientos.py      # CRUD de entrenamientos y series, anidado
@@ -39,22 +59,45 @@ backend/
 ├── requirements.txt         # dependencias Python
 ├── requirements-dev.txt     # dependencias solo de desarrollo (tests, linter)
 ├── ruff.toml                # estilo del código: ancho de línea y qué queda fuera del formateo
+├── CONVENCIONES.md          # cómo se comenta y se formatea el código
 ├── Dockerfile                # receta para construir la imagen del backend
 ├── .dockerignore             # qué no copiar a la imagen al construirla (igual que .gitignore, pero para Docker)
 └── .env.example              # plantilla del .env para ejecutar el backend fuera de Docker
 ```
 
-Cómo se conectan, de abajo arriba: `database.py` es la base (no depende de nada más del proyecto) → `models.py` depende de `database.py` (usa su `Base` para definir las tablas) → `schemas.py` y `auth.py` son independientes entre sí (uno describe JSON, el otro quién pregunta) → cada archivo de `routers/` junta todo lo anterior (usa `database.py` para la sesión, `models.py` para consultar/crear filas, `schemas.py` para validar entrada/salida, `auth.py` para saber de quién son los datos) → `main.py` está arriba del todo, solo importa los `routers/` y los registra, sin lógica de negocio propia.
+Cómo dependen unos de otros, de arriba abajo:
 
-Los `routers/` no son del todo independientes entre sí: tanto `rutinas.py` como `entrenamientos.py` reutilizan una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el usuario actual), en vez de repetir esa lógica — tiene sentido, ya que tanto un hueco de rutina como una serie siempre referencian un ejercicio ya existente.
+```
+main.py         registra los routers y nada más, sin lógica de negocio propia
+   ↑
+routers/        los endpoints: juntan las cuatro piezas de abajo
+   ↑
+schemas.py      qué JSON entra y sale        auth.py    de quién son los datos
+models.py       las tablas
+   ↑
+database.py     la sesión y la conexión — no depende de nada más del proyecto
+```
 
-`alembic/` es un mundo aparte: solo lee `models.py` (para saber qué tablas debería haber) y `database.py` (para saber a qué Postgres conectarse), pero no lo usa la API en tiempo de ejecución — se ejecuta puntualmente para crear/actualizar tablas.
+Los `routers/` no son del todo independientes entre sí: `rutinas.py` y `entrenamientos.py`
+reutilizan una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el
+usuario actual) en vez de repetir esa lógica. Tiene sentido: tanto un hueco de rutina como una serie
+siempre referencian un ejercicio ya existente.
+
+`alembic/` va aparte. Solo lee `models.py` (qué tablas debería haber) y `database.py` (a qué
+Postgres conectarse), y la API no lo usa en tiempo de ejecución: se ejecuta puntualmente, para crear
+o actualizar tablas.
 
 ## Cómo ejecutarlo
 
-Lo normal es levantarlo junto con la base de datos desde la raíz del repo con `docker compose up` (ver el [README raíz](../README.md)). Ese comando construye la imagen, instala `requirements.txt`, **aplica las migraciones de Alembic pendientes** y arranca `uvicorn` con recarga automática — todo en un solo paso.
+Lo normal es levantarlo junto con la base de datos desde la raíz del repo con `docker compose up`
+(ver el [README raíz](../README.md)). Ese comando, de una vez:
 
-### Ejecutarlo suelto, sin Docker (por ejemplo para usar herramientas como Alembic desde tu propio editor)
+1. construye la imagen,
+2. instala `requirements.txt`,
+3. **aplica las migraciones pendientes**,
+4. y arranca `uvicorn` con recarga automática.
+
+### Sin Docker, por ejemplo para usar Alembic desde tu propio editor
 
 ```bash
 cd backend
@@ -63,7 +106,9 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Copia `backend/.env.example` a `backend/.env` — apunta a `localhost:5433`, el puerto que Postgres expone al host cuando el contenedor está levantado (necesitas tener `docker compose up -d postgres` corriendo, aunque no uses el contenedor del backend).
+Copia `backend/.env.example` a `backend/.env`: apunta a `localhost:5433`, el puerto que Postgres
+expone al host. Necesitas el contenedor de la base de datos levantado (`docker compose up -d
+postgres`), aunque no uses el del backend.
 
 ```bash
 uvicorn app.main:app --reload
@@ -71,7 +116,15 @@ uvicorn app.main:app --reload
 
 ## Modelos y migraciones (Alembic)
 
-Cada tabla de la base de datos se define primero como una clase Python en `app/models.py` (un modelo SQLAlchemy). Para que ese cambio se refleje de verdad en PostgreSQL hace falta generar y aplicar una migración:
+![Esquema de la base de datos de Training Life](../esquema_base_datos.svg)
+
+Las 9 tablas del MVP y sus claves ajenas, con la regla de borrado de cada una — `CASCADE` arrastra
+al hijo, `RESTRICT` impide borrar al padre mientras exista — y qué tablas llevan borrado lógico
+(columna `activo`) frente a las que son historial puro. El diagrama se mantiene a mano: al añadir o
+cambiar una tabla hay que actualizarlo.
+
+Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de
+verdad a PostgreSQL hace falta generar y aplicar una migración:
 
 ```bash
 # 1. Genera un archivo de migración comparando los modelos actuales contra la base de datos real
@@ -83,7 +136,12 @@ Cada tabla de la base de datos se define primero como una clase Python en `app/m
 .venv\Scripts\python -m alembic upgrade head
 ```
 
-Si solo usas Docker, no necesitas ejecutar `alembic upgrade head` a mano: el `Dockerfile` ya lo hace automáticamente cada vez que arranca el contenedor. El comando manual de arriba es para cuando generas una migración *nueva* (paso 1), que si quieres puedes hacerlo también sin Docker, contra el Postgres expuesto en `localhost:5433` — el bind mount cubre toda la carpeta `backend/`, así que la migración nueva llega al contenedor al instante, sin necesidad de reconstruir la imagen.
+Con Docker el paso 3 no hace falta: el contenedor ejecuta `alembic upgrade head` cada vez que
+arranca.
+
+El paso 1 sí es manual, y puedes hacerlo sin Docker contra el Postgres de `localhost:5433`. La
+migración que generes llega al contenedor al instante, sin reconstruir la imagen, porque el bind
+mount cubre toda la carpeta `backend/`.
 
 ## Tests
 
@@ -93,19 +151,22 @@ cd backend
 .venv\Scripts\python -m pytest tests/
 ```
 
-Los tests corren contra **PostgreSQL de verdad**, en una base de datos aparte
-(`training_life_test`) dentro del mismo contenedor que la de desarrollo, así que
-hace falta tener Postgres levantado (`docker compose up -d postgres`). No se usa
-SQLite a propósito: buena parte de la lógica del backend son cascadas de borrado
-y restricciones `ON DELETE`, que SQLite no reproduce — unos tests sobre SQLite
-pasarían en verde con esos fallos vivos.
+Corren contra **PostgreSQL de verdad**, en una base de datos aparte (`training_life_test`) dentro
+del mismo contenedor que la de desarrollo, así que hace falta tener Postgres levantado
+(`docker compose up -d postgres`).
 
-No hay ningún paso previo que recordar: si la base de tests todavía no existe (la
-primera vez, o después de un `docker compose down -v`), la propia tanda la crea.
-Su esquema se construye aplicando las migraciones de Alembic, así que cada
-ejecución comprueba de paso que la cadena de migraciones funciona desde cero. La
-base de desarrollo no se toca en ningún momento: si la conexión no apunta a
-`training_life_test`, los tests abortan antes de ejecutar nada.
+No se usa SQLite a propósito: buena parte de la lógica del backend son cascadas de borrado y
+restricciones `ON DELETE`, que SQLite no reproduce. Unos tests sobre SQLite pasarían en verde con
+esos fallos vivos.
+
+No hay ningún paso previo que recordar:
+
+- Si la base de tests no existe todavía —la primera vez, o tras un `docker compose down -v`— la
+  propia tanda la crea.
+- Su esquema se construye aplicando las migraciones, así que cada ejecución comprueba de paso que la
+  cadena funciona desde cero.
+- La base de desarrollo no se toca nunca: si la conexión no apunta a `training_life_test`, los tests
+  abortan antes de ejecutar nada.
 
 | Archivo | Qué cubre |
 |---|---|
@@ -114,134 +175,17 @@ base de desarrollo no se toca en ningún momento: si la conexión no apunta a
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
-## Convención de comentarios
+## Convenciones de código
 
-### `#` y docstring no son dos tamaños de lo mismo
+Cómo se comenta y se formatea el código está en **[CONVENCIONES.md](CONVENCIONES.md)**. En resumen:
 
-No se eligen según lo largo que sea el texto, sino según dónde van y para qué sirven:
-
-| | Dónde va | Qué es |
-|---|---|---|
-| **Docstring** `"""..."""` | La **primera línea** de un módulo, una clase o una función | Documentación de verdad: Python la guarda en `__doc__`, el editor la enseña al pasar el ratón y **FastAPI publica la de cada endpoint como su descripción en `/docs`** |
-| **Comentario** `#` | Cualquier otro sitio | Una nota para quien lea el código. Puede ocupar cinco líneas seguidas sin dejar por ello de ser un comentario |
-
-Un `"""..."""` colocado fuera de esa primera posición no documenta nada: es un texto que Python
-construye y tira acto seguido.
-
-Cada uno responde además a una pregunta distinta:
-
-- **El docstring dice qué es esto y por qué existe**, para quien lo usa sin abrirlo por dentro.
-- **El comentario dice por qué esta línea está así**, para quien vaya a modificarla.
-
-Por eso conviven sin pisarse:
-
-```python
-class NotaUsuarioEjercicio(Base):
-    """Una nota personal y privada de un usuario sobre un ejercicio, propio o
-    predefinido (ej. "en esta máquina el asiento va en el 4").
-    """
-
-    __tablename__ = "notas_usuario_ejercicio"
-
-    # CASCADE (a diferencia de rutina_slots, slot_alternativas y series hacia
-    # ejercicios, que son RESTRICT): una nota no es historial de progresión
-    # que haya que proteger, es un accesorio del ejercicio.
-    ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="CASCADE"))
-```
-
-### Formato del docstring
-
-Se sigue [PEP 257](https://peps.python.org/pep-0257/), la guía oficial de Python:
-
-- Termina siempre en punto.
-- De una línea, todo junto: `"""Visible si es predefinido o si es del usuario actual."""`
-- De varias líneas, el `"""` de cierre **baja a su propia línea**, para marcar dónde acaba la
-  explicación y empieza el código.
-- Escrito en español. Las clases se describen con un sustantivo ("Un hueco dentro de una
-  rutina..."); las funciones, en tercera persona ("Devuelve...", "Crea...").
-
-No se usan formatos con secciones (`Args:`, `Returns:`, estilo Google o NumPy): los tipos ya
-están en la firma de la función y FastAPI genera la documentación de la API a partir de los
-esquemas, así que repetirlos en prosa solo añade texto que se queda desactualizado.
-
-### Cuándo se escribe uno
-
-La regla de fondo es que **un docstring que repite el nombre en prosa es ruido**: poner
-`"""Crea una nota."""` encima de `def crear_nota()` no le cuenta nada a nadie.
-
-- **Módulo**: solo si el archivo tiene algo que contar que no se deduzca de su nombre. `models.py`
-  no lo necesita; `tests/conftest.py` sí, porque explica contra qué base de datos corren los tests.
-- **Clase**: siempre que represente una entidad del dominio, para dejar claro qué es y en qué se
-  diferencia de sus vecinas.
-- **Función**: cuando el nombre no baste — una decisión de diseño, un código de estado que sorprende,
-  una trampa conocida. Las funciones evidentes se quedan sin él.
-- **Test**: cuando el nombre no explique **por qué existe** ese test. Si cubre un fallo real que ya
-  ocurrió, el docstring cuenta cuál era.
-
-### Lo más corto que se entienda
-
-Un comentario existe para ahorrarle tiempo a quien lee, así que cada palabra de más juega en su
-contra. La prueba es sencilla: **si al quitar media frase el motivo sigue estando claro, sobraba;
-si al quitarla desaparece la razón, tenía que ser así de largo.**
-
-Esto no es un límite de líneas ni una invitación a amputar. Un porqué complicado necesita las
-líneas que necesite — lo que no puede es repetirse, adornarse ni explicar lo que el código ya dice:
-
-```python
-# Antes (seis líneas, dice dos veces lo mismo):
-    # flush obligatorio antes de tocar los huecos: series.slot_id → rutina_slots
-    # es RESTRICT, y marcar los borrados en el orden correcto no basta. Sin
-    # este flush todo viaja junto al commit, y SQLAlchemy ordena los DELETE
-    # según las relationship() que conoce — entre Serie y RutinaSlot no hay
-    # ninguna, así que emite el del hueco primero y la base de datos lo
-    # rechaza. El flush fuerza a que las series ya no existan.
-
-# Después (tres líneas, mismo porqué):
-    # flush obligatorio: sin él los DELETE viajan juntos al commit y SQLAlchemy
-    # los ordena por las relationship() que conoce — no hay ninguna entre Serie y
-    # RutinaSlot, así que borraría el hueco antes que sus series (RESTRICT).
-```
-
-### Comentarios `#`
-
-- Explican **por qué**, nunca **qué**: el qué ya lo dice el código de al lado.
-- Van en su propia línea, justo encima de aquello que comentan.
-- Al final de una línea de código solo caben apostillas de cuatro o cinco palabras, separadas por
-  dos espacios (`# noqa` y similares son instrucciones para las herramientas, no comentarios).
-- **Los banners de sección son la excepción a todo lo anterior**: no explican ningún porqué, parten
-  un archivo largo en bloques. Se usan cuando un archivo agrupa varios recursos —`ejercicios.py`
-  reúne los endpoints de ejercicios y los de sus notas; `rutinas.py`, los de rutinas, huecos y
-  comodines— y se escriben con el nombre del bloque y guiones de relleno hasta la columna 75:
-
-```python
-# --- Comodines (slot_alternativas) -----------------------------------------
-```
-
-- El mejor comentario es el que **justifica que una línea exista**:
-
-```python
-    # flush obligatorio antes de tocar los huecos: series.slot_id → rutina_slots
-    # es RESTRICT, y marcar los borrados en el orden correcto no basta.
-    db.flush()
-```
-
-Sin esas dos líneas, `db.flush()` parece prescindible y acaba desapareciendo en el primer refactor,
-devolviendo al backend un error 500 que ya se había arreglado una vez.
-
-### Formato
-
-El formato lo aplica [ruff](https://docs.astral.sh/ruff/) (viene en `requirements-dev.txt`), con la
-configuración de `ruff.toml`: **100 columnas**, y las migraciones de `alembic/versions/` excluidas,
-porque las genera Alembic con su propio estilo y reformatearlas solo ensucia los diffs.
-
-```bash
-.venv\Scripts\python -m ruff format .   # formatea
-.venv\Scripts\python -m ruff check .    # busca imports sin usar y similares
-```
-
-Nada de lo anterior lo comprueba una herramienta: que un comentario explique el *porqué* y no repita
-el nombre de la función no es verificable automáticamente, así que esta convención se sostiene al
-revisar el código, no en el linter.
+- **Docstring y `#` no se eligen por longitud, sino por posición**: el docstring documenta un módulo,
+  una clase o una función (y FastAPI publica el de cada endpoint en `/docs`); el `#` explica por qué
+  una línea concreta está así.
+- Docstrings según [PEP 257](https://peps.python.org/pep-0257/), en español, y **solo cuando el
+  nombre no basta**: repetir el nombre en prosa es ruido.
+- Comentarios lo más cortos que se entiendan, explicando el **porqué** y nunca el qué.
+- El formato lo aplica `ruff` a 100 columnas (`ruff.toml`).
 
 ## Variables de entorno
 
@@ -251,25 +195,44 @@ revisar el código, no en el linter.
 
 ## Autenticación (pendiente)
 
-Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`app/auth.py`, función `get_usuario_actual_id`) — la fila sembrada por migración. Cuando se implemente JWT, solo esa función cambia; los endpoints no necesitan tocarse.
+Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`app/auth.py`, función
+`get_usuario_actual_id`) — la fila sembrada por migración. Cuando se implemente JWT solo cambia esa
+función; los endpoints no necesitan tocarse.
 
 ## Endpoints disponibles
+
+### General
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/health` | Comprobación de que la API está viva. Devuelve `{"status": "ok"}`. |
 | `GET` | `/docs` | Documentación interactiva (Swagger UI), autogenerada por FastAPI. |
 | `GET` | `/grupos-musculares` | Lista el catálogo de grupos musculares (sembrado por migración, sin CRUD propio). |
+
+### Ejercicios
+
+| Método | Ruta | Descripción |
+|---|---|---|
 | `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, solo activos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id (404 si no existe o no es visible). |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible un ejercicio propio. |
+
+### Notas de un ejercicio
+
+| Método | Ruta | Descripción |
+|---|---|---|
 | `GET` | `/ejercicios/{id}/notas` | Lista tus notas personales sobre ese ejercicio, de la más reciente a la más antigua. Solo las tuyas, incluso si el ejercicio es predefinido y por tanto lo comparten todos los usuarios. |
 | `POST` | `/ejercicios/{id}/notas` | Añade una nota. Se pueden acumular varias sobre el mismo ejercicio: son independientes, no se sobreescriben. |
 | `PUT` | `/ejercicios/{id}/notas/{nota_id}` | Edita una nota propia (403 si es de otro usuario). |
 | `DELETE` | `/ejercicios/{id}/notas/{nota_id}` | Borra una nota suelta. Sin `?modo`: nada depende de una nota. |
+
+### Rutinas, huecos y comodines
+
+| Método | Ruta | Descripción |
+|---|---|---|
 | `GET` | `/rutinas` | Lista las rutinas activas del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
@@ -281,6 +244,11 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |
+
+### Entrenamientos y series
+
+| Método | Ruta | Descripción |
+|---|---|---|
 | `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
 | `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. |
