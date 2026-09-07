@@ -1,0 +1,81 @@
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+header {
+  border-bottom: 1px solid var(--borde);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+header h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.6rem;
+}
+
+nav a {
+  color: var(--texto-tenue);
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+nav a:hover {
+  color: var(--texto);
+}
+
+nav a.active {
+  color: var(--acento);
+  border-color: var(--borde);
+  background: var(--superficie);
+}
+
+.aviso {
+  color: var(--texto-tenue);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.aviso.error {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.tarjetas {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.etiqueta {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  color: var(--acento);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+
+.descripcion {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}

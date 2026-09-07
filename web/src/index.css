@@ -1,0 +1,37 @@
+:root {
+  --fondo: #14161a;
+  --superficie: #1c1f26;
+  --borde: #2c313b;
+  --texto: #e8eaed;
+  --texto-tenue: #9aa1ac;
+  --acento: #4ade80;
+  --error: #f87171;
+
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  color-scheme: dark light;
+  color: var(--texto);
+  background-color: var(--fondo);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+h1,
+h2 {
+  line-height: 1.2;
+}
+
+code {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
