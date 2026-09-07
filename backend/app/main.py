@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import ejercicios, entrenamientos, grupos_musculares, rutinas
 
@@ -6,6 +7,19 @@ app = FastAPI(
     title="Training Life API",
     description="API REST del proyecto Training Life (registro de entrenamientos de gimnasio).",
     version="0.1.0",
+)
+
+# El navegador bloquea las peticiones entre orígenes distintos, y en desarrollo
+# la web (localhost:5173, Vite) y esta API (localhost:8000) lo son. Se nombra el
+# origen en vez de abrir a todos: cuando exista JWT, un "*" dejaría que
+# cualquier página llamara a la API desde el navegador de un usuario con sesión.
+# En producción la web se servirá desde el mismo origen que la API y esto dejará
+# de hacer falta.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(grupos_musculares.router)
