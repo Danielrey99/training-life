@@ -6,7 +6,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 Backend del MVP completo: CRUD de `Ejercicio`, `Rutina` (con huecos y comodines) y `Entrenamiento`/`Serie` (registro real, con peso/repeticiones/RPE). El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) protege ya todos los usos cruzados reales: un ejercicio usado en una rutina o con series registradas, una rutina con huecos o entrenamientos, un hueco con series registradas. `Entrenamiento`/`Serie` no tienen ese borrado lógico — son el propio historial, se borran directo.
+🚧 Backend del MVP completo: CRUD de `Ejercicio`, `Rutina` (con huecos y comodines), `Entrenamiento`/`Serie` (registro real, con peso/repeticiones/RPE) y notas personales por ejercicio. El borrado con historial (`?modo=ocultar`/`?modo=definitivo`) protege ya todos los usos cruzados reales: un ejercicio usado en una rutina o con series registradas, una rutina con huecos o entrenamientos, un hueco con series registradas. `Entrenamiento`/`Serie` no tienen ese borrado lógico — son el propio historial, se borran directo.
 
 Mientras no exista autenticación real (JWT), el backend trabaja con un único usuario sembrado por migración (datos placeholder, no reales) y un `usuario_id` hardcodeado en el código.
 
@@ -38,8 +38,10 @@ backend/
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
 ├── requirements-dev.txt     # dependencias solo de desarrollo (tests, linter)
+├── ruff.toml                # estilo del código: ancho de línea y qué queda fuera del formateo
 ├── Dockerfile                # receta para construir la imagen del backend
-└── .dockerignore             # qué no copiar a la imagen al construirla (igual que .gitignore, pero para Docker)
+├── .dockerignore             # qué no copiar a la imagen al construirla (igual que .gitignore, pero para Docker)
+└── .env.example              # plantilla del .env para ejecutar el backend fuera de Docker
 ```
 
 Cómo se conectan, de abajo arriba: `database.py` es la base (no depende de nada más del proyecto) → `models.py` depende de `database.py` (usa su `Base` para definir las tablas) → `schemas.py` y `auth.py` son independientes entre sí (uno describe JSON, el otro quién pregunta) → cada archivo de `routers/` junta todo lo anterior (usa `database.py` para la sesión, `models.py` para consultar/crear filas, `schemas.py` para validar entrada/salida, `auth.py` para saber de quién son los datos) → `main.py` está arriba del todo, solo importa los `routers/` y los registra, sin lógica de negocio propia.
@@ -225,6 +227,21 @@ líneas que necesite — lo que no puede es repetirse, adornarse ni explicar lo 
 
 Sin esas dos líneas, `db.flush()` parece prescindible y acaba desapareciendo en el primer refactor,
 devolviendo al backend un error 500 que ya se había arreglado una vez.
+
+### Formato
+
+El formato lo aplica [ruff](https://docs.astral.sh/ruff/) (viene en `requirements-dev.txt`), con la
+configuración de `ruff.toml`: **100 columnas**, y las migraciones de `alembic/versions/` excluidas,
+porque las genera Alembic con su propio estilo y reformatearlas solo ensucia los diffs.
+
+```bash
+.venv\Scripts\python -m ruff format .   # formatea
+.venv\Scripts\python -m ruff check .    # busca imports sin usar y similares
+```
+
+Nada de lo anterior lo comprueba una herramienta: que un comentario explique el *porqué* y no repita
+el nombre de la función no es verificable automáticamente, así que esta convención se sostiene al
+revisar el código, no en el linter.
 
 ## Variables de entorno
 
