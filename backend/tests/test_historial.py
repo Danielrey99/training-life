@@ -614,3 +614,39 @@ def test_el_historial_de_los_huecos_de_una_rutina_ocultada_se_sigue_pudiendo_con
 
     assert respuesta.status_code == 200
     assert len(respuesta.json()[0]["series"]) == 2
+
+
+# --- Lo que protege la coherencia del historial ---------------------------
+
+
+def test_no_se_puede_mover_de_rutina_un_entrenamiento_con_series_en_huecos(cliente, escenario):
+    """Cambiar la rutina dejaría las series apuntando a huecos de la anterior, y
+    el historial de esos huecos mostraría una sesión con el nombre de otra
+    rutina. Se avisa con un 409 en vez de romper el historial en silencio.
+    """
+    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
+    registrar_serie(
+        cliente, entrenamiento_id, escenario["ejercicio_id"], slot_id=escenario["slot_id"]
+    )
+    otra_rutina_id = crear_rutina(cliente, nombre="Pull")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}",
+        json={"rutina_id": otra_rutina_id, "fecha": "2026-09-05"},
+    )
+
+    assert respuesta.status_code == 409
+    assert "huecos" in respuesta.json()["detail"]
+
+
+def test_un_entrenamiento_libre_si_puede_pasar_a_seguir_una_rutina(cliente, escenario):
+    """Sus series no referencian ningún hueco, así que no hay nada que romper."""
+    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05")
+    registrar_serie(cliente, entrenamiento_id, escenario["ejercicio_id"])
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}",
+        json={"rutina_id": escenario["rutina_id"], "fecha": "2026-09-05"},
+    )
+
+    assert respuesta.status_code == 200

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
@@ -46,6 +46,30 @@ def _validar_rutina_propia(db: Session, rutina_id: int, usuario_id: int) -> None
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ninguna rutina con id {rutina_id}",
+        )
+
+
+def _validar_cambio_de_rutina(db: Session, entrenamiento_id: int) -> None:
+    """Mover un entrenamiento a otra rutina dejaría sus series apuntando a huecos
+    de la rutina anterior, y el historial de esos huecos mostraría una sesión con
+    el nombre de una rutina que no es la suya.
+
+    Solo estorban las series atadas a un hueco: las de un entrenamiento libre no
+    referencian ninguna rutina, así que pueden acompañarlo sin romper nada.
+    """
+    atadas = db.scalar(
+        select(func.count())
+        .select_from(Serie)
+        .where(Serie.entrenamiento_id == entrenamiento_id, Serie.slot_id.is_not(None))
+    )
+    if atadas:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Este entrenamiento tiene {atadas} series registradas en huecos de su "
+                "rutina actual. Cambiarlo de rutina las dejaría apuntando a huecos que "
+                "ya no le corresponden: borra antes esas series, o deja la rutina como está."
+            ),
         )
 
 
@@ -99,6 +123,8 @@ def actualizar_entrenamiento(
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
+    if datos.rutina_id != entrenamiento.rutina_id:
+        _validar_cambio_de_rutina(db, entrenamiento_id)
     for campo, valor in datos.model_dump().items():
         setattr(entrenamiento, campo, valor)
     db.commit()
