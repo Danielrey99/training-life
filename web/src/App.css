@@ -4,13 +4,15 @@
   padding: 1.5rem 1rem 3rem;
 }
 
-header {
+/* Solo la cabecera de la página: las tarjetas tienen la suya, y sin el `>` esta
+   regla les colaría también la raya y el margen. */
+.app > header {
   border-bottom: 1px solid var(--borde);
   padding-bottom: 1rem;
   margin-bottom: 1.5rem;
 }
 
-header h1 {
+.app > header h1 {
   margin: 0 0 0.75rem;
   font-size: 1.6rem;
 }
