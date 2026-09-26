@@ -81,3 +81,156 @@ nav a.active {
   color: var(--texto-tenue);
   font-size: 0.9rem;
 }
+
+/* --- Formularios ------------------------------------------------------- */
+
+input,
+select {
+  font: inherit;
+  width: 100%;
+  color: var(--texto);
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--acento);
+  outline-offset: -1px;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  align-self: flex-start;
+  color: var(--fondo);
+  background: var(--acento);
+  border: 1px solid var(--acento);
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.secundario {
+  color: var(--texto);
+  background: var(--superficie);
+  border-color: var(--borde);
+}
+
+button.borrar {
+  color: var(--texto-tenue);
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0 0.4rem;
+}
+
+button.borrar:hover {
+  color: var(--error);
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* 120px es lo que necesita un selector de fecha para no salir cortado; por
+   debajo de eso el navegador recorta el año. */
+.campos {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.campos label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--texto-tenue);
+}
+
+/* Para los campos que no se entienden en una columna estrecha (un desplegable
+   de nombres largos, un texto libre): ocupan la fila entera. */
+.campos label.ancho {
+  grid-column: 1 / -1;
+}
+
+/* --- Sesión de entrenamiento ------------------------------------------- */
+
+.barra-sesion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.barra-sesion h2 {
+  margin: 0 0 0.2rem;
+}
+
+.huecos {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.hueco {
+  gap: 0.75rem;
+}
+
+.hueco-cabecera {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.series {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Con `wrap`, en el móvil el ejercicio y el RPE bajan a la línea siguiente en
+   vez de estirar la página entera a lo ancho. */
+.series li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--borde);
+}
+
+.series .numero {
+  min-width: 1.2rem;
+  color: var(--texto-tenue);
+  font-size: 0.85rem;
+}
+
+/* Alinea las cifras en columna aunque cambie el número de dígitos, y mantiene
+   "60 kg × 10" de una pieza al romper la línea. */
+.series .carga {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.series li button {
+  margin-left: auto;
+  align-self: center;
+}

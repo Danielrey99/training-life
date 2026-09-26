@@ -4,18 +4,21 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 API REST del [backend](../backend/README.md); nunca habla con la base de datos directamente.
 
 **Índice:** [Estado actual](#estado-actual) · [Cómo ejecutarlo](#cómo-ejecutarlo) ·
-[Estructura](#estructura) · [Hablar con la API](#hablar-con-la-api) ·
-[Variables de entorno](#variables-de-entorno)
+[Estructura](#estructura) · [Registrar un entrenamiento](#registrar-un-entrenamiento) ·
+[Hablar con la API](#hablar-con-la-api) · [Variables de entorno](#variables-de-entorno)
 
 ## Estado actual
 
-🚧 Recién empezada. Funciona el circuito completo —React pide datos, la API responde y la pantalla
-los pinta— con una sola pantalla: la biblioteca de ejercicios.
+🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento
+mientras se entrena.
+
+Esta primera pantalla se escribió para validar que el circuito funciona —React pide, la API responde,
+la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
 - [x] Pantalla de ejercicios
-- [ ] Registrar un entrenamiento (la que de verdad se usará en el gimnasio)
+- [x] Registrar un entrenamiento: elegir rutina, anotar series hueco a hueco y borrarlas
 - [ ] Rutinas, con sus huecos y comodines
 - [ ] Historial de progresión por ejercicio y por hueco
 
@@ -55,8 +58,28 @@ web/
     │   ├── tipos.ts      # la forma de lo que devuelve la API
     │   └── cliente.ts    # todas las llamadas, en un solo sitio
     └── paginas/          # una pantalla por archivo
-        └── Ejercicios.tsx
+        ├── Ejercicios.tsx
+        └── RegistrarEntrenamiento.tsx
 ```
+
+## Registrar un entrenamiento
+
+Es la pantalla que se usa en el gimnasio, y por eso es la que abre la web. Se elige la fecha y la
+rutina (o "entrenamiento libre"), y a partir de ahí cada hueco de la rutina tiene su propio bloque:
+lo que ya se ha hecho hoy, y un formulario para añadir la siguiente serie.
+
+Dos decisiones que se notan al usarla:
+
+- **Cada serie se guarda en cuanto se añade**, en vez de acumularlas para enviarlas al final. Una
+  sesión dura más de una hora y cerrar la pestaña sin querer no puede llevarse el entrenamiento.
+- **La sesión abierta vive en la URL** (`/registrar/{id}`), no en la memoria de la página. Recargar
+  desde el móvil deja donde estabas, y volver a entrar más tarde es cuestión de retomar la sesión
+  desde la lista.
+
+El formulario arranca con el ejercicio, el peso y la variante de la serie anterior, porque las
+series de un mismo hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. El RPE no
+se arrastra, que cambia en cada serie. El desplegable de ejercicio ofrece el principal del hueco y
+sus comodines; si un día se hace algo que no está en la rutina, va en el bloque de series sueltas.
 
 ## Hablar con la API
 

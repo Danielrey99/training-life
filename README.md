@@ -46,7 +46,7 @@ Las 9 tablas del MVP, ya implementadas, con lo que más condiciona el diseño: q
 
 ## Estado actual
 
-🚧 Backend del MVP completo (ejercicios, rutinas, entrenamientos/series, notas e historial de progresión). La web acaba de arrancar: ya consume la API. El móvil, sin empezar.
+🚧 Backend del MVP completo (ejercicios, rutinas, entrenamientos/series, notas e historial de progresión). La web ya sirve para entrenar: registra un entrenamiento serie a serie. El móvil, sin empezar.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -57,7 +57,8 @@ Las 9 tablas del MVP, ya implementadas, con lo que más condiciona el diseño: q
 - [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, aislamiento por usuario, CRUD)
 - [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
-- [ ] Web: registrar un entrenamiento, rutinas e historial
+- [x] Web: registrar un entrenamiento (elegir rutina y anotar las series hueco a hueco)
+- [ ] Web: rutinas e historial
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
 
