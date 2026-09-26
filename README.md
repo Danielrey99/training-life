@@ -25,8 +25,7 @@ training-life/
 ├── docker-compose.yml                       # orquesta los contenedores (backend + PostgreSQL)
 ├── .env.example                             # plantilla de variables de entorno para docker-compose.yml
 ├── .gitignore                               # qué no subir a git, por carpeta
-├── arquitectura_completa_training_life.svg  # diagrama de la arquitectura completa (ver más abajo)
-├── esquema_base_datos.svg                   # diagrama del modelo de datos (ver más abajo)
+├── docs/                                    # diagramas y diseño de la app (ver más abajo)
 └── README.md                                # este archivo
 ```
 
@@ -34,15 +33,24 @@ Cómo se conectan: `docker-compose.yml` es el que junta todo en tiempo de ejecuc
 
 ## Arquitectura
 
-![Arquitectura completa de Training Life](arquitectura_completa_training_life.svg)
+![Arquitectura completa de Training Life](docs/arquitectura_completa_training_life.svg)
 
 Diagrama de la arquitectura **completa y final** del proyecto (backend, web y móvil, con el recorrido de una petición de principio a fin). Sirve para entender de un vistazo cómo encajan todas las piezas entre sí — no refleja el estado actual del desarrollo, para eso está el checklist de la siguiente sección.
 
 ## Modelo de datos
 
-![Esquema de la base de datos de Training Life](esquema_base_datos.svg)
+![Esquema de la base de datos de Training Life](docs/esquema_base_datos.svg)
 
 Las 9 tablas del MVP, ya implementadas, con lo que más condiciona el diseño: qué relaciones arrastran el borrado (`CASCADE`), cuáles lo impiden mientras exista historial (`RESTRICT`), y qué tablas tienen borrado lógico frente a las que son historial puro y se borran de verdad.
+
+## Diseño de la app
+
+Antes de construir las pantallas de verdad, la app entera se diseñó en bocetos de móvil (390 px de ancho, pensada para usarse con una mano en el gimnasio). La web y el móvil tendrán las mismas pantallas y funciones; la versión de escritorio es la misma con más aire.
+
+- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 16 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
+- **[Mapa de navegación](docs/mapa-navegacion-training-life.png)**: cómo se pasa de una pantalla a otra, agrupado por las cuatro secciones de la barra de pestañas (Entrenar, Historial, Programas y Ejercicios).
+
+Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a cada una está su versión interactiva (`.html`), que se abre en el navegador y permite moverse y hacer zoom por el lienzo.
 
 ## Estado actual
 

@@ -123,7 +123,7 @@ uvicorn app.main:app --reload
 
 ## Modelos y migraciones (Alembic)
 
-![Esquema de la base de datos de Training Life](../esquema_base_datos.svg)
+![Esquema de la base de datos de Training Life](../docs/esquema_base_datos.svg)
 
 Las 9 tablas del MVP y sus claves ajenas, con la regla de borrado de cada una — `CASCADE` arrastra
 al hijo, `RESTRICT` impide borrar al padre mientras exista — y qué tablas llevan borrado lógico
