@@ -7,7 +7,7 @@ App de entrenamiento de gimnasio para uso personal — pensada para sustituir el
 | Capa | Tecnología |
 |---|---|
 | Backend | FastAPI (Python) + PostgreSQL, con SQLAlchemy (ORM) y Alembic (migraciones) |
-| Web | React |
+| Web | React + TypeScript, con Vite |
 | Móvil | React Native + Expo |
 | Infraestructura | Docker Compose |
 
@@ -56,6 +56,8 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 🚧 Backend del MVP completo (ejercicios, rutinas, entrenamientos/series, notas e historial de progresión). La web ya sirve para entrenar: registra un entrenamiento serie a serie. El móvil, sin empezar.
 
+El proyecto acaba de pasar por una fase de **diseño**: antes de seguir construyendo pantallas sueltas se ha definido la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salen los dos siguientes pasos: ampliar el modelo de datos con lo que pide ese diseño y rehacer la web siguiéndolo.
+
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar/reactivar) y `GrupoMuscular` (listar)
@@ -66,7 +68,9 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, aislamiento por usuario, CRUD)
 - [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
 - [x] Web: registrar un entrenamiento (elegir rutina y anotar las series hueco a hueco)
-- [ ] Web: rutinas e historial
+- [x] Diseño de la app completo: pantallas, navegación y comportamiento, en móvil primero
+- [ ] Backend: ampliar el modelo según el diseño — programas semanales (qué rutina toca cada día), planificación por fecha, sesiones abiertas y una biblioteca de ejercicios predefinidos
+- [ ] Web: rediseño según lo anterior — hoy, sesión, calendario, progresión, programas y ejercicios
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
 
@@ -94,16 +98,15 @@ Para detener todo: `docker compose down` (los datos de la base de datos persiste
 ## Roadmap de funcionalidades
 
 **MVP**
-- Registro de entrenamientos por día (ejercicio, series, repeticiones, peso, RPE)
-- Biblioteca de ejercicios
+- Registro de entrenamientos por día (ejercicio, series, repeticiones, peso y variante)
+- Biblioteca de ejercicios, con ejercicios predefinidos y propios
 - Historial de progresión por ejercicio
-- CRUD de rutinas/plantillas reutilizables
+- Rutinas reutilizables y programas semanales que las reparten en la semana
 
 **Nivel medio**
-- Gráficas de progresión y volumen semanal
-- Calculadora de 1RM estimado
+- Gráficas de progresión (peso, volumen y 1RM estimado) y resumen de volumen y constancia
+- Calendario de lo entrenado y planificación de los próximos días
 - Autenticación (JWT)
-- Vista de calendario semanal
 
 **Nivel avanzado**
 - Sugerencias automáticas de progresión de carga

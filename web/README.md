@@ -14,13 +14,18 @@ mientras se entrena.
 
 Esta primera pantalla se escribió para validar que el circuito funciona —React pide, la API responde,
 la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
+Con eso aprendido, la app se ha [diseñado entera](../README.md#diseño-de-la-app) antes de seguir,
+así que esta pantalla se rehará siguiendo ese diseño. Lo que se conserva es el comportamiento que
+ya funciona: la sesión en la URL, guardar cada serie en el momento y arrancar el formulario con la
+serie anterior.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
 - [x] Pantalla de ejercicios
 - [x] Registrar un entrenamiento: elegir rutina, anotar series hueco a hueco y borrarlas
-- [ ] Rutinas, con sus huecos y comodines
-- [ ] Historial de progresión por ejercicio y por hueco
+- [ ] Rehacer la web siguiendo los [bocetos](../docs/bocetos-movil-training-life.png), pantalla a
+  pantalla, empezando por *Hoy* y la sesión en curso: después el calendario y la progresión, los
+  programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 

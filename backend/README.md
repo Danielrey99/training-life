@@ -36,6 +36,23 @@ ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste co
 Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por
 migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
 
+**Próximo paso: ampliar el modelo con lo que pide el [diseño de la app](../README.md#diseño-de-la-app).**
+Lo que hay hoy basta para registrar entrenamientos, pero no para saber qué toca cada día. Los
+cambios previstos:
+
+- **Programas semanales**: qué rutina toca cada día de la semana. Una misma rutina puede estar en
+  varios programas y en varios días, y se guarda qué programa estaba activo en cada periodo, para
+  que el calendario compare cada mes con el plan que tocaba entonces.
+- **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
+- **Ocultar con fecha**: la columna `activo` pasa a ser `oculto_desde`, para poder decir desde
+  cuándo está oculta cada cosa. Así además *activo* queda solo para "el programa en uso".
+- **Sesiones abiertas**: marcar cuándo se termina un entrenamiento, para distinguir uno a medias de
+  uno acabado.
+- **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
+  biblioteca vacía.
+- Un filtro por ejercicio en el historial de un hueco, para comparar cada día con la última vez que
+  se hizo ese mismo ejercicio.
+
 ## Estructura
 
 ```
@@ -61,6 +78,7 @@ backend/
 │   ├── test_borrados.py     # borrado con historial y cascadas
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
+│   ├── test_historial.py    # la progresión por ejercicio y por hueco
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
