@@ -66,3 +66,25 @@ export type HuecoDeRutina = {
   ejercicio_principal: Ejercicio
   alternativas: Ejercicio[]
 }
+
+/**
+ * Lo que la web envía, que no es lo mismo que lo que recibe: son los esquemas
+ * `...Create` del backend, sin id, sin fechas y sin los campos que decide el
+ * servidor. Los números van como números, aunque vuelvan como texto.
+ */
+
+export type NuevoEntrenamiento = {
+  rutina_id: number | null
+  fecha: string
+  notas: string | null
+}
+
+export type NuevaSerie = {
+  ejercicio_id: number
+  slot_id: number | null
+  numero_serie: number
+  peso: number
+  repeticiones: number
+  rpe: number | null
+  variante: string | null
+}
