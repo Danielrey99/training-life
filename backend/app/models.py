@@ -141,13 +141,14 @@ class Rutina(Ocultable, Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
-    # passive_deletes=True: al borrar la rutina, no intentar gestionar sus
-    # huecos desde Python (SQLAlchemy por defecto pondría su FK a NULL, y
-    # como rutina_id no admite NULL, eso rompería con un error) — confiar en
-    # que el backend ya los borra explícitamente antes (o en el ON DELETE
-    # real de la base de datos).
+    # passive_deletes="all": al borrar la rutina, SQLAlchemy no toca sus huecos
+    # nunca, ni siquiera si la lista está cargada (con True a secas, en ese caso
+    # intentaría ponerles rutina_id a NULL). Quien decide es la FK, que es
+    # RESTRICT a propósito: borrar_rutina borra antes los huecos, explícitamente,
+    # y sin eso la base de datos rechaza el borrado. No lleva cascade como las
+    # demás porque aquí no se quiere que los huecos se vayan solos.
     slots: Mapped[list["RutinaSlot"]] = relationship(
-        order_by="RutinaSlot.orden", passive_deletes=True
+        order_by="RutinaSlot.orden", passive_deletes="all"
     )
     # viewonly: solo para leer en qué días de programa está. Así SQLAlchemy no
     # intenta gestionarlos al borrar la rutina (se van solos, ON DELETE CASCADE),
@@ -187,11 +188,11 @@ class RutinaSlot(Ocultable, Base):
     )
 
     ejercicio_principal: Mapped["Ejercicio"] = relationship()
-    # passive_deletes=True: mismo motivo que en Rutina.slots — al borrar el
-    # hueco, que sea la base de datos (ON DELETE CASCADE) la que borre sus
-    # comodines, sin que SQLAlchemy intente poner slot_id a NULL antes.
+    # Los comodines se borran con su hueco (ON DELETE CASCADE). passive_deletes
+    # solo no basta: con la lista cargada, SQLAlchemy intentaría poner su slot_id
+    # a NULL. Con el cascade, los cargados los borra él y los que no, la base.
     slot_alternativas: Mapped[list["SlotAlternativa"]] = relationship(
-        order_by="SlotAlternativa.id", passive_deletes=True
+        order_by="SlotAlternativa.id", cascade="all, delete-orphan", passive_deletes=True
     )
 
     @property
@@ -257,12 +258,11 @@ class Entrenamiento(Base):
         """
         return self.terminada_en is None and self.fecha == hoy()
 
-    # passive_deletes=True: mismo motivo que en Rutina.slots — al borrar el
-    # entrenamiento, que sea la base de datos (ON DELETE CASCADE) la que
-    # borre sus series, sin que SQLAlchemy intente poner entrenamiento_id a
-    # NULL antes (fallaría: esa columna no admite NULL).
+    # Las series se borran con su entrenamiento (ON DELETE CASCADE). Mismo patrón
+    # que en RutinaSlot.slot_alternativas: el cascade cubre la lista cargada, que
+    # passive_deletes solo no cubre.
     series: Mapped[list["Serie"]] = relationship(
-        order_by="Serie.numero_serie", passive_deletes=True
+        order_by="Serie.numero_serie", cascade="all, delete-orphan", passive_deletes=True
     )
 
 

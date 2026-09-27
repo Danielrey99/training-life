@@ -87,6 +87,7 @@ backend/
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
 │   ├── test_sesiones.py     # la sesión en curso: terminarla y no empezar dos a la vez
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
+│   ├── test_relaciones.py   # borrar un padre con sus hijos ya cargados en memoria
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -209,6 +210,7 @@ No hay ningún paso previo que recordar:
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
+| `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
