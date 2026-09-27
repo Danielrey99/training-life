@@ -61,7 +61,7 @@ El proyecto acaba de pasar por una fase de **diseño**: antes de seguir construy
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
-- [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar/reactivar) y `GrupoMuscular` (listar)
+- [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, mismo patrón de borrado)
 - [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso/repeticiones/RPE, base del historial de progresión)
 - [x] Backend: notas personales por ejercicio (privadas de cada usuario, también sobre los ejercicios predefinidos)

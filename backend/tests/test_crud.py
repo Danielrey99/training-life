@@ -16,7 +16,7 @@ def test_crear_editar_y_listar_un_ejercicio(cliente, grupo_muscular_id):
     ).json()
 
     assert creado["es_predefinido"] is False  # lo decide el backend, no el cliente
-    assert creado["activo"] is True
+    assert creado["oculto_desde"] is None
 
     cliente.put(
         f"/ejercicios/{creado['id']}",

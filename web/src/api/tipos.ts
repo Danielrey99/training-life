@@ -19,7 +19,8 @@ export type Ejercicio = {
   es_predefinido: boolean
   usuario_id: number | null
   visibilidad: string
-  activo: boolean
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
   created_at: string
   updated_at: string
 }
@@ -55,7 +56,8 @@ export type Rutina = {
   usuario_id: number
   nombre: string
   dia_habitual: string | null
-  activo: boolean
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
   slots: HuecoDeRutina[]
 }
 
@@ -66,7 +68,8 @@ export type HuecoDeRutina = {
   series_objetivo: number
   reps_min: number
   reps_max: number
-  activo: boolean
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
   ejercicio_principal: Ejercicio
   alternativas: Ejercicio[]
 }

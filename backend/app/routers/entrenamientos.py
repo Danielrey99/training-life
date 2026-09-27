@@ -45,7 +45,7 @@ def _obtener_entrenamiento_propio(
 
 def _validar_rutina_propia(db: Session, rutina_id: int, usuario_id: int) -> None:
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or not rutina.activo or rutina.usuario_id != usuario_id:
+    if rutina is None or rutina.oculto or rutina.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ninguna rutina con id {rutina_id}",

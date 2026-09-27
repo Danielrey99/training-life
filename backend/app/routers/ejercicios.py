@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
+from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import (
     Ejercicio,
@@ -53,14 +54,14 @@ def obtener_ejercicio_del_usuario(db: Session, ejercicio_id: int, usuario_id: in
 
 
 def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
-    """Lo mismo, pero además tiene que estar activo: es la comprobación para
+    """Lo mismo, pero además no puede estar oculto: es la comprobación para
     *usar* el ejercicio (ponerlo en un hueco, registrar una serie, anotarlo).
 
     Pública (sin `_`) porque la usan también los otros routers para validar
     cualquier ejercicio_id que llegue en una petición.
     """
     ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
-    if not ejercicio.activo:
+    if ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
 
@@ -128,18 +129,18 @@ def listar_ejercicios(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Por defecto, biblioteca combinada: ejercicios predefinidos + los
-    creados por el usuario actual (solo activos). Con `ocultos=true`, lista
+    creados por el usuario actual, sin los ocultos. Con `ocultos=true`, lista
     en cambio los propios que el usuario ha ocultado — para poder
-    reactivarlos (`POST /ejercicios/{id}/reactivar`) o borrarlos
+    volver a mostrarlos (`POST /ejercicios/{id}/mostrar`) o borrarlos
     definitivamente.
     """
     if ocultos:
         stmt = select(Ejercicio).where(
-            Ejercicio.activo.is_(False), Ejercicio.usuario_id == usuario_id
+            Ejercicio.oculto_desde.is_not(None), Ejercicio.usuario_id == usuario_id
         )
     else:
         stmt = select(Ejercicio).where(
-            Ejercicio.activo.is_(True),
+            Ejercicio.oculto_desde.is_(None),
             (Ejercicio.es_predefinido.is_(True)) | (Ejercicio.usuario_id == usuario_id),
         )
     return db.scalars(stmt.order_by(Ejercicio.nombre)).all()
@@ -182,7 +183,7 @@ def actualizar_ejercicio(
     (cuando exista JWT) no se pueden editar por aquí.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or not ejercicio.activo:
+    if ejercicio is None or ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     if ejercicio.usuario_id != usuario_id:
         raise HTTPException(
@@ -208,12 +209,12 @@ def borrar_ejercicio(
 
     - Sin usos (ver `_usos_de_ejercicio`): se borra de verdad, sin preguntar nada.
     - En uso: hace falta indicar `modo` explícitamente — `modo=ocultar`
-      (borrado lógico: `activo=False`, conserva todo) o `modo=definitivo`
+      (borrado lógico: `oculto_desde=hoy`, conserva todo) o `modo=definitivo`
       (borra también las filas dependientes, sin vuelta atrás). Sin `modo`,
       el 409 explica dónde se usa.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or not ejercicio.activo:
+    if ejercicio is None or ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     if ejercicio.usuario_id != usuario_id:
         raise HTTPException(
@@ -222,7 +223,7 @@ def borrar_ejercicio(
         )
 
     if modo == "ocultar":
-        ejercicio.activo = False
+        ejercicio.oculto_desde = hoy()
         db.commit()
         return
 
@@ -283,22 +284,22 @@ def borrar_ejercicio(
     db.commit()
 
 
-@router.post("/{ejercicio_id}/reactivar", response_model=EjercicioOut)
-def reactivar_ejercicio(
+@router.post("/{ejercicio_id}/mostrar", response_model=EjercicioOut)
+def mostrar_ejercicio(
     ejercicio_id: int,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Deshace un `modo=ocultar`: vuelve a hacer visible un ejercicio propio."""
+    """Deshace un `modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo."""
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     if ejercicio.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede reactivar un ejercicio que no es tuyo",
+            detail="No se puede mostrar un ejercicio que no es tuyo",
         )
-    ejercicio.activo = True
+    ejercicio.oculto_desde = None
     db.commit()
     db.refresh(ejercicio)
     return ejercicio

@@ -20,6 +20,22 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class Ocultable:
+    """Lo que se puede ocultar: deja de ofrecerse para usarlo, pero conserva
+    todo lo que ya se hizo con ello.
+
+    Se guarda desde cuándo está oculto y no un sí/no, porque la app enseña esa
+    fecha ("oculto desde el 10 de septiembre"). El sí/no se deduce de ella, sin
+    guardarlo aparte: dos columnas que dicen lo mismo acaban contradiciéndose.
+    """
+
+    oculto_desde: Mapped[date | None] = mapped_column(Date, default=None)
+
+    @property
+    def oculto(self) -> bool:
+        return self.oculto_desde is not None
+
+
 class Usuario(Base):
     """Usuario de la app.
 
@@ -50,7 +66,7 @@ class GrupoMuscular(Base):
     nombre: Mapped[str] = mapped_column(String(50), unique=True)
 
 
-class Ejercicio(Base):
+class Ejercicio(Ocultable, Base):
     """Un ejercicio de la biblioteca (ej. 'Press banca', 'Sentadilla').
 
     Biblioteca combinada: ejercicios predefinidos (es_predefinido=True,
@@ -72,7 +88,6 @@ class Ejercicio(Base):
     es_predefinido: Mapped[bool] = mapped_column(Boolean, default=False)
     usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), default=None)
     visibilidad: Mapped[str] = mapped_column(String(20), default="privado")
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -107,7 +122,7 @@ class NotaUsuarioEjercicio(Base):
     )
 
 
-class Rutina(Base):
+class Rutina(Ocultable, Base):
     """Una rutina/plantilla del usuario (ej. "Push", "Leg", "Pull") — el
     plan, no un entrenamiento concreto de un día. No existen rutinas
     predefinidas: siempre son propias de un usuario.
@@ -119,7 +134,6 @@ class Rutina(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     nombre: Mapped[str] = mapped_column(String(100))
     dia_habitual: Mapped[str | None] = mapped_column(String(20), default=None)
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -135,7 +149,7 @@ class Rutina(Base):
     )
 
 
-class RutinaSlot(Base):
+class RutinaSlot(Ocultable, Base):
     """Un "hueco" dentro de una rutina (ej. "empuje horizontal", hueco 1 del
     Push) — no un ejercicio fijo: tiene un ejercicio principal y, aparte,
     puede tener comodines (ver SlotAlternativa).
@@ -156,7 +170,6 @@ class RutinaSlot(Base):
     series_objetivo: Mapped[int] = mapped_column()
     reps_min: Mapped[int] = mapped_column()
     reps_max: Mapped[int] = mapped_column()
-    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -197,8 +210,7 @@ class SlotAlternativa(Base):
 class Entrenamiento(Base):
     """Una sesión real de entrenamiento, en una fecha concreta.
 
-    A diferencia de Ejercicio/Rutina/RutinaSlot, no tiene borrado lógico
-    (`activo`): es el propio historial, no algo que otras tablas referencien
+    A diferencia de Ejercicio/Rutina/RutinaSlot, no se puede ocultar: es el propio historial, no algo que otras tablas referencien
     con historial que proteger — nada depende de un entrenamiento concreto
     salvo sus propias series, que se borran con él (CASCADE). Por eso su
     DELETE es directo, sin parámetro `modo` de por medio.

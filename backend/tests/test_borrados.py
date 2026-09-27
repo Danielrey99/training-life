@@ -6,6 +6,7 @@ del proyecto, así que es la primera que se cubre.
 
 from sqlalchemy import func, select
 
+from app.fechas import hoy
 from app.models import NotaUsuarioEjercicio
 
 FECHA = "2026-09-04"
@@ -76,7 +77,7 @@ def test_un_ejercicio_en_uso_no_se_borra_sin_modo_y_dice_donde_se_usa(cliente, g
     assert usos[0]["rutina_id"] == rutina_id
 
 
-def test_ocultar_un_ejercicio_lo_saca_del_listado_pero_se_puede_reactivar(
+def test_ocultar_un_ejercicio_lo_saca_del_listado_pero_se_puede_volver_a_mostrar(
     cliente, grupo_muscular_id
 ):
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
@@ -86,8 +87,32 @@ def test_ocultar_un_ejercicio_lo_saca_del_listado_pero_se_puede_reactivar(
     assert cliente.get("/ejercicios").json() == []
     assert len(cliente.get("/ejercicios?ocultos=true").json()) == 1
 
-    assert cliente.post(f"/ejercicios/{ejercicio_id}/reactivar").status_code == 200
+    assert cliente.post(f"/ejercicios/{ejercicio_id}/mostrar").status_code == 200
     assert len(cliente.get("/ejercicios").json()) == 1
+
+
+def test_ocultar_guarda_desde_cuando_y_mostrar_lo_borra(cliente, grupo_muscular_id):
+    """La app enseña "oculto desde el …": esa fecha es la de hoy al ocultar, y
+    vuelve a ser nula al mostrar. Igual para ejercicios, rutinas y huecos.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    rutas = [
+        (f"/ejercicios/{ejercicio_id}", "/ejercicios?ocultos=true"),
+        (f"/rutinas/{rutina_id}", "/rutinas?ocultas=true"),
+    ]
+
+    for ruta, listado_de_ocultos in rutas:
+        assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
+        [oculto] = cliente.get(listado_de_ocultos).json()
+        assert oculto["oculto_desde"] == hoy().isoformat()
+
+        mostrado = cliente.post(f"{ruta}/mostrar").json()
+        assert mostrado["oculto_desde"] is None
+
+    assert cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=ocultar").status_code == 204
+    [hueco] = cliente.get(f"/rutinas/{rutina_id}").json()["slots"]
+    assert hueco["oculto_desde"] == hoy().isoformat()
 
 
 def test_borrar_un_ejercicio_en_definitivo_arrastra_los_huecos_que_lo_usan(
@@ -210,7 +235,7 @@ def test_borrar_en_definitivo_un_ejercicio_en_uso_se_lleva_tambien_sus_notas(
     assert contar_notas(sesion_bd, otro_ejercicio_id) == 1
 
 
-def test_ocultar_un_ejercicio_conserva_sus_notas_y_reactivarlo_las_devuelve(
+def test_ocultar_un_ejercicio_conserva_sus_notas_y_mostrarlo_las_devuelve(
     cliente, sesion_bd, grupo_muscular_id
 ):
     """`?modo=ocultar` es reversible y no debe perder nada: las notas siguen
@@ -224,7 +249,7 @@ def test_ocultar_un_ejercicio_conserva_sus_notas_y_reactivarlo_las_devuelve(
     assert cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar").status_code == 204
     assert contar_notas(sesion_bd, ejercicio_id) == 1
 
-    assert cliente.post(f"/ejercicios/{ejercicio_id}/reactivar").status_code == 200
+    assert cliente.post(f"/ejercicios/{ejercicio_id}/mostrar").status_code == 200
     notas = cliente.get(f"/ejercicios/{ejercicio_id}/notas").json()
     assert [nota["nota"] for nota in notas] == ["El asiento va en el 4"]
 

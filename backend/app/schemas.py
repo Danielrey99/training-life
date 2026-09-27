@@ -25,7 +25,7 @@ class EjercicioBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un ejercicio.
 
     Deliberadamente no incluye usuario_id, es_predefinido, visibilidad ni
-    activo: esos los decide el backend, no el cliente.
+    oculto_desde: esos los decide el backend, no el cliente.
     """
 
     nombre: Nombre
@@ -52,7 +52,7 @@ class EjercicioOut(EjercicioBase):
     es_predefinido: bool
     usuario_id: int | None
     visibilidad: str
-    activo: bool
+    oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
 
@@ -125,7 +125,7 @@ class RutinaSlotOut(RutinaSlotBase):
 
     id: int
     rutina_id: int
-    activo: bool
+    oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
     ejercicio_principal: EjercicioOut
@@ -158,7 +158,7 @@ class RutinaOut(RutinaBase):
 
     id: int
     usuario_id: int
-    activo: bool
+    oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
     slots: list[RutinaSlotOut]

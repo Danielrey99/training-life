@@ -252,7 +252,7 @@ function SesionActiva({
   // Un hueco oculto no sirve para huecos nuevos, pero si ya tiene series de esta
   // sesión hay que seguir enseñándolas: si no, desaparecerían sin explicación.
   const huecos = (rutina?.slots ?? [])
-    .filter((hueco) => hueco.activo || sesion.series.some((serie) => serie.slot_id === hueco.id))
+    .filter((hueco) => !hueco.oculto_desde || sesion.series.some((serie) => serie.slot_id === hueco.id))
     .sort((uno, otro) => uno.orden - otro.orden)
 
   const sueltas = sesion.series.filter((serie) => serie.slot_id === null)
@@ -276,8 +276,8 @@ function SesionActiva({
       {sesion.rutina_id !== null && !rutina && (
         <p className="aviso">
           La rutina de esta sesión está oculta, así que no se pueden añadir series a sus huecos.
-          Reactívala con <code>POST /rutinas/{sesion.rutina_id}/reactivar</code> para seguir donde
-          lo dejaste.
+          Puedes volver a mostrarla con <code>POST /rutinas/{sesion.rutina_id}/mostrar</code> para
+          seguir donde lo dejaste.
         </p>
       )}
 
@@ -336,12 +336,12 @@ function BloqueDeHueco({
         <span className="etiqueta">
           {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
         </span>
-        {!hueco.activo && <span className="etiqueta">Oculto</span>}
+        {hueco.oculto_desde && <span className="etiqueta">Oculto</span>}
       </header>
 
       <ListaDeSeries series={hechas} borrar={borrar} mostrarEjercicio={opciones.length > 1} />
 
-      {hueco.activo && (
+      {!hueco.oculto_desde && (
         <FormularioDeSerie
           opciones={opciones}
           numeroSerie={siguienteNumero(hechas)}

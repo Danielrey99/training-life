@@ -24,6 +24,10 @@ reales:
 - una rutina con huecos definidos o con entrenamientos
 - un hueco con series registradas
 
+Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un
+simple sí/no: la app enseña esa fecha, y el sí/no se deduce de ella. Lo contrario de ocultar es
+*mostrar* (`POST .../mostrar`).
+
 `Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
 algo que otras tablas tengan que proteger, así que se borran directo.
 
@@ -48,8 +52,6 @@ cambios previstos:
   varios programas y en varios días, y se guarda qué programa estaba activo en cada periodo, para
   que el calendario compare cada mes con el plan que tocaba entonces.
 - **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
-- **Ocultar con fecha**: la columna `activo` pasa a ser `oculto_desde`, para poder decir desde
-  cuándo está oculta cada cosa. Así además *activo* queda solo para "el programa en uso".
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
 
@@ -147,7 +149,7 @@ uvicorn app.main:app --reload
 
 Las 9 tablas del MVP y sus claves ajenas, con la regla de borrado de cada una — `CASCADE` arrastra
 al hijo, `RESTRICT` impide borrar al padre mientras exista — y qué tablas llevan borrado lógico
-(columna `activo`) frente a las que son historial puro. El diagrama se mantiene a mano: al añadir o
+(columna `oculto_desde`) frente a las que son historial puro. El diagrama se mantiene a mano: al añadir o
 cambiar una tabla hay que actualizarlo.
 
 Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de
@@ -243,12 +245,12 @@ función; los endpoints no necesitan tocarse.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, solo activos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
+| `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, sin los ocultos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id (404 si no existe o no es visible). |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
-| `POST` | `/ejercicios/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible un ejercicio propio. |
+| `POST` | `/ejercicios/{id}/mostrar` | Deshace un `?modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo. |
 | `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?desde=`, `?hasta=` (fechas inclusivas) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
 
 ### Notas de un ejercicio
@@ -269,7 +271,7 @@ función; los endpoints no necesitan tocarse.
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
 | `PUT` | `/rutinas/{id}` | Edita el nombre/día habitual de una rutina propia. |
 | `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial; si tiene, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos y comodines, en transacción). |
-| `POST` | `/rutinas/{id}/reactivar` | Deshace un `?modo=ocultar` — vuelve a hacer visible una rutina propia. |
+| `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |

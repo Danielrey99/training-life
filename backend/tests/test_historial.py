@@ -634,7 +634,7 @@ def test_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina(cliente, escenario):
 # aparecer para entrenamientos nuevos, pero el historial existente queda
 # intacto"). Si al ocultar algo su historial deja de poder consultarse, ese
 # historial se conserva en la base pero es inalcanzable por la API — el mismo
-# agujero que ya obligó a añadir `?ocultos=true` y `POST /{id}/reactivar`.
+# agujero que ya obligó a añadir `?ocultos=true` y `POST /{id}/mostrar`.
 
 
 def test_el_historial_de_un_ejercicio_ocultado_se_sigue_pudiendo_consultar(cliente, escenario):
