@@ -342,6 +342,8 @@ class ProgramaCreate(BaseModel):
 
     nombre: Nombre
     dias: list[ProgramaDiaCreate] = []
+    # "Activarlo al crearlo": deja de estar activo el que lo fuera hasta ahora.
+    activar: bool = False
 
     @model_validator(mode="after")
     def _validar_dias_sin_repetir(self):
@@ -370,3 +372,14 @@ class ProgramaOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     dias: list[ProgramaDiaOut]
+
+
+class PeriodoOut(BaseModel):
+    """Un tramo en que un programa estuvo activo, de `desde` a `hasta` (sin
+    incluirlo); `hasta` nulo si sigue activo.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    desde: date
+    hasta: date | None

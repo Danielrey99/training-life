@@ -6,12 +6,14 @@ tiene como mucho una rutina, y ocultar una rutina no la quita de los días que y
 la tenían.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 
-from app.models import Programa, Rutina, Usuario
+from app.fechas import hoy
+from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina, Usuario
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -284,3 +286,180 @@ def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias(cliente, grupo
 
     assert respuesta.status_code == 409
     assert "2 días de programa" in respuesta.json()["detail"]
+
+
+# --- Activar y desactivar ------------------------------------------------
+#
+# Qué programa está activo se guarda en periodos de `desde` a `hasta` (sin
+# incluirlo). Los escenarios con un periodo que empezó hace días se montan
+# insertándolo a mano, porque por la API todo empieza hoy.
+
+
+def activo_desde_hace(sesion_bd, programa_id, dias) -> None:
+    sesion_bd.add(
+        ProgramaPeriodo(programa_id=programa_id, usuario_id=1, desde=hoy() - timedelta(days=dias))
+    )
+    sesion_bd.commit()
+
+
+def periodos(sesion_bd, programa_id) -> list[tuple]:
+    sesion_bd.expire_all()
+    return [
+        (periodo.desde, periodo.hasta)
+        for periodo in sesion_bd.scalars(
+            select(ProgramaPeriodo)
+            .where(ProgramaPeriodo.programa_id == programa_id)
+            .order_by(ProgramaPeriodo.desde)
+        )
+    ]
+
+
+def test_crear_un_programa_activo(cliente):
+    respuesta = cliente.post("/programas", json={"nombre": "PPL", "activar": True})
+
+    assert respuesta.json()["activo"] is True
+    assert respuesta.json()["activo_desde"] == hoy().isoformat()
+
+
+def test_activar_otro_programa_cierra_hoy_el_periodo_del_anterior(cliente, sesion_bd):
+    anterior = crear_programa(cliente, "Anterior")
+    activo_desde_hace(sesion_bd, anterior["id"], 30)
+    nuevo = crear_programa(cliente, "Nuevo")
+
+    respuesta = cliente.post(f"/programas/{nuevo['id']}/activar")
+
+    assert respuesta.json()["activo_desde"] == hoy().isoformat()
+    assert cliente.get(f"/programas/{anterior['id']}").json()["activo"] is False
+    # Hoy ya le toca al nuevo: el anterior cubre hasta ayer.
+    assert periodos(sesion_bd, anterior["id"]) == [(hoy() - timedelta(days=30), hoy())]
+
+
+def test_nunca_hay_dos_programas_activos(cliente):
+    for nombre in ("A", "B", "C"):
+        cliente.post("/programas", json={"nombre": nombre, "activar": True})
+
+    activos = [p["nombre"] for p in cliente.get("/programas").json() if p["activo"]]
+
+    assert activos == ["C"]
+
+
+def test_activar_y_desactivar_el_mismo_dia_no_deja_rastro(cliente, sesion_bd):
+    """Un periodo que no llegó a cubrir ningún día se borra en vez de cerrarse."""
+    programa = crear_programa(cliente)
+
+    cliente.post(f"/programas/{programa['id']}/activar")
+    respuesta = cliente.post(f"/programas/{programa['id']}/desactivar")
+
+    assert respuesta.json()["activo"] is False
+    assert periodos(sesion_bd, programa["id"]) == []
+
+
+def test_volver_a_activar_el_mismo_dia_reabre_el_periodo(cliente, sesion_bd):
+    """Desactivar por error y corregirlo no parte el periodo en dos."""
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 10)
+
+    cliente.post(f"/programas/{programa['id']}/desactivar")
+    cliente.post(f"/programas/{programa['id']}/activar")
+
+    assert periodos(sesion_bd, programa["id"]) == [(hoy() - timedelta(days=10), None)]
+
+
+def test_activar_el_que_ya_esta_activo_no_hace_nada(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 5)
+
+    cliente.post(f"/programas/{programa['id']}/activar")
+
+    assert periodos(sesion_bd, programa["id"]) == [(hoy() - timedelta(days=5), None)]
+
+
+def test_desactivar_uno_que_no_esta_activo_no_hace_nada(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+
+    respuesta = cliente.post(f"/programas/{programa['id']}/desactivar")
+
+    assert respuesta.status_code == 200
+    assert periodos(sesion_bd, programa["id"]) == []
+
+
+def test_un_programa_oculto_no_se_puede_activar(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+    ocultar_programa_a_mano(sesion_bd, programa["id"])
+
+    assert cliente.post(f"/programas/{programa['id']}/activar").status_code == 409
+
+
+def test_la_base_de_datos_no_admite_dos_periodos_abiertos_del_mismo_usuario(cliente, sesion_bd):
+    """La red por debajo de la comprobación del endpoint: el índice único parcial."""
+    uno, otro = crear_programa(cliente, "Uno"), crear_programa(cliente, "Otro")
+    activo_desde_hace(sesion_bd, uno["id"], 3)
+
+    sesion_bd.add(ProgramaPeriodo(programa_id=otro["id"], usuario_id=1, desde=hoy()))
+    with pytest.raises(IntegrityError):
+        sesion_bd.commit()
+    sesion_bd.rollback()
+
+
+def test_activar_un_programa_ajeno_da_403(cliente, sesion_bd, otro_usuario_id):
+    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
+    sesion_bd.add(ajeno)
+    sesion_bd.commit()
+
+    assert cliente.post(f"/programas/{ajeno.id}/activar").status_code == 403
+
+
+# --- Ocultar, mostrar y borrar -------------------------------------------
+
+
+def test_ocultar_el_programa_activo_lo_desactiva_y_mostrarlo_no_lo_reactiva(cliente):
+    programa = cliente.post("/programas", json={"nombre": "PPL", "activar": True}).json()
+    ruta = f"/programas/{programa['id']}"
+
+    assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
+    oculto = cliente.get(ruta).json()
+    mostrado = cliente.post(f"{ruta}/mostrar").json()
+
+    assert (oculto["activo"], oculto["oculto_desde"]) == (False, hoy().isoformat())
+    assert (mostrado["activo"], mostrado["oculto_desde"]) == (False, None)
+
+
+def test_un_programa_que_nunca_estuvo_activo_se_borra_directo(cliente):
+    programa = crear_programa(cliente, dias=[(1, crear_rutina(cliente))])
+
+    assert cliente.delete(f"/programas/{programa['id']}").status_code == 204
+    assert cliente.get(f"/programas/{programa['id']}").status_code == 404
+
+
+def test_borrar_un_programa_que_estuvo_activo_pide_elegir_y_dice_cuando(cliente, sesion_bd):
+    """Sus periodos son el historial: sin ellos el calendario no sabe qué tocaba."""
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 20)
+
+    respuesta = cliente.delete(f"/programas/{programa['id']}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"]["periodos"] == [
+        {"desde": (hoy() - timedelta(days=20)).isoformat(), "hasta": None}
+    ]
+
+
+def test_borrar_en_definitivo_un_programa_se_lleva_sus_dias_y_periodos(cliente, sesion_bd):
+    """Sin passive_deletes en sus dos relaciones, SQLAlchemy intentaría poner a
+    NULL la FK de los días y periodos antes de borrarlo, y fallaría con un 500.
+    """
+    programa = crear_programa(cliente, dias=[(1, crear_rutina(cliente))])
+    activo_desde_hace(sesion_bd, programa["id"], 20)
+
+    respuesta = cliente.delete(f"/programas/{programa['id']}?modo=definitivo")
+
+    assert respuesta.status_code == 204
+    for tabla in (ProgramaDia, ProgramaPeriodo):
+        assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == 0
+
+
+def test_un_programa_oculto_se_puede_borrar(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+    ocultar_programa_a_mano(sesion_bd, programa["id"])
+
+    assert cliente.delete(f"/programas/{programa['id']}").status_code == 204

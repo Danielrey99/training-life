@@ -1,13 +1,22 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
-from app.models import Programa, ProgramaDia
+from app.fechas import hoy
+from app.models import Programa, ProgramaDia, ProgramaPeriodo
 from app.ocultos import exigir_visible
 from app.routers.rutinas import obtener_rutina_visible
-from app.schemas import ProgramaCreate, ProgramaDiaUpdate, ProgramaOut, ProgramaUpdate
+from app.schemas import (
+    PeriodoOut,
+    ProgramaCreate,
+    ProgramaDiaUpdate,
+    ProgramaOut,
+    ProgramaUpdate,
+)
 
 router = APIRouter(prefix="/programas", tags=["programas"])
 
@@ -22,8 +31,12 @@ def _obtener_programa_legible(db: Session, programa_id: int, usuario_id: int) ->
     return programa
 
 
-def _obtener_programa_propio(db: Session, programa_id: int, usuario_id: int) -> Programa:
-    """Para modificar: 404 si no existe, 403 si no es tuyo y 409 si está oculto."""
+def _obtener_programa_propio(
+    db: Session, programa_id: int, usuario_id: int, admitir_oculto: bool = False
+) -> Programa:
+    """Para modificar: 404 si no existe, 403 si no es tuyo y 409 si está oculto,
+    salvo con `admitir_oculto`, que es para borrarlo o volver a mostrarlo.
+    """
     programa = db.get(Programa, programa_id)
     if programa is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
@@ -32,8 +45,60 @@ def _obtener_programa_propio(db: Session, programa_id: int, usuario_id: int) -> 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No se puede modificar un programa que no es tuyo",
         )
-    exigir_visible(programa, "Este programa está oculto: muéstralo antes de cambiarlo.")
+    if not admitir_oculto:
+        exigir_visible(programa, "Este programa está oculto: muéstralo antes de cambiarlo.")
     return programa
+
+
+# --- Periodos: qué programa está activo -----------------------------------
+#
+# Un periodo cubre de `desde` a `hasta` sin incluir `hasta`: al cambiar de
+# programa, el que se va cierra con `hasta` = hoy y el que llega abre con
+# `desde` = hoy, así que hoy le toca al nuevo y no se solapan.
+
+
+def _cerrar_periodo_abierto(db: Session, usuario_id: int) -> None:
+    """Deja al usuario sin programa activo.
+
+    Si el periodo empezó hoy, no llegó a cubrir ningún día: se borra en vez de
+    cerrarse, para que activar y desactivar el mismo día no deje rastro.
+    """
+    periodo = db.scalar(
+        select(ProgramaPeriodo).where(
+            ProgramaPeriodo.usuario_id == usuario_id, ProgramaPeriodo.hasta.is_(None)
+        )
+    )
+    if periodo is None:
+        return
+    if periodo.desde == hoy():
+        db.delete(periodo)
+    else:
+        periodo.hasta = hoy()
+    # Antes de abrir otro: el índice único de periodos abiertos no admite dos a la
+    # vez, y sin flush SQLAlchemy podría mandar primero el INSERT del nuevo.
+    db.flush()
+
+
+def _activar(db: Session, programa: Programa) -> None:
+    """Pone el programa en uso y saca de uso al que lo estuviera. Activar el que
+    ya está activo no hace nada.
+    """
+    if programa.activo:
+        return
+    _cerrar_periodo_abierto(db, programa.usuario_id)
+    # Si se desactivó hoy mismo, se reabre ese periodo en vez de empezar otro.
+    ultimo = db.scalar(
+        select(ProgramaPeriodo)
+        .where(ProgramaPeriodo.programa_id == programa.id)
+        .order_by(ProgramaPeriodo.desde.desc(), ProgramaPeriodo.id.desc())
+        .limit(1)
+    )
+    if ultimo is not None and ultimo.hasta == hoy():
+        ultimo.hasta = None
+    else:
+        db.add(
+            ProgramaPeriodo(programa_id=programa.id, usuario_id=programa.usuario_id, desde=hoy())
+        )
 
 
 @router.get("", response_model=list[ProgramaOut])
@@ -73,6 +138,9 @@ def crear_programa(
         ProgramaDia(dia_semana=dia.dia_semana, rutina_id=dia.rutina_id) for dia in datos.dias
     ]
     db.add(programa)
+    if datos.activar:
+        db.flush()  # para que el programa tenga id antes de abrirle un periodo
+        _activar(db, programa)
     db.commit()
     db.refresh(programa)
     return programa
@@ -90,6 +158,105 @@ def actualizar_programa(
     db.commit()
     db.refresh(programa)
     return programa
+
+
+@router.post("/{programa_id}/activar", response_model=ProgramaOut)
+def activar_programa(
+    programa_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo pone en uso: es el que dirá qué toca hoy. El que estuviera activo deja
+    de estarlo, en la misma transacción. Un programa oculto no se puede activar.
+    """
+    programa = _obtener_programa_propio(db, programa_id, usuario_id)
+    _activar(db, programa)
+    db.commit()
+    db.refresh(programa)
+    return programa
+
+
+@router.post("/{programa_id}/desactivar", response_model=ProgramaOut)
+def desactivar_programa(
+    programa_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo saca de uso y deja al usuario sin programa activo. Si no estaba activo,
+    no hace nada.
+    """
+    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+    if programa.activo:
+        _cerrar_periodo_abierto(db, usuario_id)
+        db.commit()
+        db.refresh(programa)
+    return programa
+
+
+@router.post("/{programa_id}/mostrar", response_model=ProgramaOut)
+def mostrar_programa(
+    programa_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Deshace un `modo=ocultar`. No lo vuelve a activar aunque lo estuviera:
+    qué programa está en uso se decide activándolo.
+    """
+    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+    programa.oculto_desde = None
+    db.commit()
+    db.refresh(programa)
+    return programa
+
+
+@router.delete("/{programa_id}", status_code=status.HTTP_204_NO_CONTENT)
+def borrar_programa(
+    programa_id: int,
+    modo: Literal["ocultar", "definitivo"] | None = None,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Borra un programa propio.
+
+    Aquí el historial que hay que proteger son sus **periodos**: sin ellos, el
+    calendario ya no sabe qué tocaba los días en que estuvo activo. Las sesiones
+    no dependen del programa y nunca se tocan.
+
+    - Si nunca estuvo activo, se borra directamente.
+    - Si lo estuvo, hace falta `modo=ocultar` (conserva todo; si era el activo,
+      deja de serlo) o `modo=definitivo` (se van también sus días y periodos).
+    """
+    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+
+    if modo == "ocultar":
+        if programa.activo:
+            _cerrar_periodo_abierto(db, usuario_id)
+        # Si ya estaba oculto, se conserva desde cuándo.
+        if programa.oculto_desde is None:
+            programa.oculto_desde = hoy()
+        db.commit()
+        return
+
+    if programa.periodos and modo != "definitivo":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": (
+                    "Este programa ha estado activo. Si lo borras, el calendario dejará de "
+                    "saber qué tocaba esos días (tus sesiones no se tocan). Repite la "
+                    "petición con ?modo=ocultar (conserva todo) o ?modo=definitivo."
+                ),
+                "periodos": [
+                    PeriodoOut.model_validate(periodo).model_dump(mode="json")
+                    for periodo in programa.periodos
+                ],
+            },
+        )
+
+    # Días y periodos se van por ON DELETE CASCADE (con passive_deletes en las
+    # dos relaciones, SQLAlchemy no intenta desvincularlos antes).
+    db.delete(programa)
+    db.commit()
 
 
 # --- Días del programa ---------------------------------------------------

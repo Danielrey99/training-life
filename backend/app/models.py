@@ -319,13 +319,18 @@ class Programa(Ocultable, Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
-    # passive_deletes=True en las dos: los días y los periodos se borran con el
-    # programa por ON DELETE CASCADE, y SQLAlchemy no debe intentar desvincularlos.
+    # Días y periodos se borran con el programa. passive_deletes solo no basta: si
+    # la lista ya está cargada (y lo está al comprobar si tiene periodos antes de
+    # borrarlo), SQLAlchemy intenta poner su programa_id a NULL. Con el cascade,
+    # los cargados los borra él y los que no, el ON DELETE CASCADE de la base.
     dias: Mapped[list["ProgramaDia"]] = relationship(
-        order_by="ProgramaDia.dia_semana", passive_deletes=True, back_populates="programa"
+        order_by="ProgramaDia.dia_semana",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        back_populates="programa",
     )
     periodos: Mapped[list["ProgramaPeriodo"]] = relationship(
-        order_by="ProgramaPeriodo.desde", passive_deletes=True
+        order_by="ProgramaPeriodo.desde", cascade="all, delete-orphan", passive_deletes=True
     )
 
     @property

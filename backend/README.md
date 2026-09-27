@@ -52,9 +52,6 @@ migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en e
 Lo que hay hoy basta para registrar entrenamientos, pero no para saber qué toca cada día. Los
 cambios previstos:
 
-- **Activar un programa**: los programas y sus días ya existen, pero todavía no se puede poner uno en
-  uso. Se guardará qué programa estaba activo en cada periodo, para que el calendario compare cada
-  mes con el plan que tocaba entonces. También falta ocultarlos y borrarlos.
 - **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
@@ -211,7 +208,7 @@ No hay ningún paso previo que recordar:
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
-| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, y qué les pasa a los días cuando su rutina se oculta o se borra |
+| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -299,10 +296,21 @@ descanso.
 |---|---|---|
 | `GET` | `/programas` | Lista los programas visibles del usuario. Con `?ocultos=true`, los que ha ocultado. |
 | `GET` | `/programas/{id}` | Un programa con sus días, también si está oculto. Cada día trae su rutina con su `oculto_desde`: una rutina oculta sigue en el día (se enseña en gris y cuenta como descanso), para que mostrarla de nuevo lo deje como estaba. |
-| `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}]}`): o se guarda todo o nada. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
+| `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}], activar}`): o se guarda todo o nada. Con `activar: true` queda en uso desde hoy. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
 | `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
 | `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye: un día, una rutina. |
 | `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso (404 si ya lo era). |
+| `POST` | `/programas/{id}/activar` | Lo pone en uso desde hoy; el que estuviera activo deja de estarlo en la misma transacción. Activar el que ya lo está no cambia nada, y uno oculto no se puede activar (409). |
+| `POST` | `/programas/{id}/desactivar` | Lo saca de uso y deja al usuario sin programa activo. |
+| `DELETE` | `/programas/{id}` | Si nunca estuvo activo, se borra directo. Si lo estuvo, exige `?modo=ocultar` (conserva todo; si era el activo, deja de serlo) o `?modo=definitivo` (se van también sus días y sus periodos); sin ninguno, 409 con los periodos en que estuvo activo. Las sesiones nunca se tocan. |
+| `POST` | `/programas/{id}/mostrar` | Deshace un `?modo=ocultar`. No lo vuelve a activar aunque lo estuviera. |
+
+**Solo puede haber un programa activo**, o ninguno. Se guarda en qué periodos estuvo activo cada uno
+(de `desde` a `hasta`, sin incluir `hasta`), para que el calendario compare cada mes con el programa
+que tocaba entonces y no con el de hoy; por eso, para borrar uno que estuvo activo hay que elegir.
+Activar y desactivar un programa el mismo día no deja rastro, y volver a activarlo el día en que se
+desactivó retoma el mismo periodo. Además de comprobarlo el backend, un índice único parcial en la
+base de datos impide que un usuario tenga dos periodos abiertos a la vez.
 
 Borrar una rutina no se bloquea por estar en un programa: los días que la tenían pasan a descanso.
 Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta también esos días.
