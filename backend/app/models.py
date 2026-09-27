@@ -330,7 +330,10 @@ class Programa(Ocultable, Base):
         back_populates="programa",
     )
     periodos: Mapped[list["ProgramaPeriodo"]] = relationship(
-        order_by="ProgramaPeriodo.desde", cascade="all, delete-orphan", passive_deletes=True
+        order_by="ProgramaPeriodo.desde",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        back_populates="programa",
     )
 
     @property
@@ -398,3 +401,5 @@ class ProgramaPeriodo(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     desde: Mapped[date] = mapped_column(Date)
     hasta: Mapped[date | None] = mapped_column(Date, default=None)
+
+    programa: Mapped["Programa"] = relationship(back_populates="periodos")

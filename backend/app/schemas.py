@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -383,3 +383,20 @@ class PeriodoOut(BaseModel):
 
     desde: date
     hasta: date | None
+
+
+# --- Plan ----------------------------------------------------------------
+
+
+class DiaPlanOut(BaseModel):
+    """Qué toca un día. `descanso` es verdadero si no hay rutina o si la que hay
+    estaba oculta ese día: entonces la rutina viene igual, para enseñarla en gris.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    fecha: date
+    origen: Literal["programa", "sin_programa"]
+    programa_id: int | None
+    rutina: RutinaMinima | None
+    descanso: bool

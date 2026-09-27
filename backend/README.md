@@ -70,12 +70,14 @@ backend/
 │   ├── historial.py        # la consulta de progresión, compartida por dos endpoints
 │   ├── fechas.py           # qué día es "hoy" en la zona horaria del usuario, no la del servidor
 │   ├── ocultos.py          # qué se puede hacer con algo oculto (leer y borrar sí, editar no)
+│   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
 │       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
 │       ├── entrenamientos.py      # CRUD de entrenamientos y series, anidado
-│       └── programas.py           # programas y qué rutina toca cada día de la semana
+│       ├── programas.py           # programas y qué rutina toca cada día de la semana
+│       └── plan.py                # el plan de un rango de fechas
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -88,6 +90,7 @@ backend/
 │   ├── test_sesiones.py     # la sesión en curso: terminarla y no empezar dos a la vez
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
 │   ├── test_relaciones.py   # borrar un padre con sus hijos ya cargados en memoria
+│   ├── test_plan.py         # qué toca cada día, también en el pasado
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -211,6 +214,7 @@ No hay ningún paso previo que recordar:
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
+| `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, y una rutina oculta que cuenta como descanso desde su fecha |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -316,6 +320,12 @@ base de datos impide que un usuario tenga dos periodos abiertos a la vez.
 
 Borrar una rutina no se bloquea por estar en un programa: los días que la tenían pasan a descanso.
 Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta también esos días.
+
+### Plan: qué toca cada día
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/plan?desde=&hasta=` | Qué toca cada día del rango (incluidos los extremos, como mucho 400 días): la rutina, de qué programa sale (`origen`: `programa` o `sin_programa`) y si es `descanso`. Cada día se resuelve con el programa que estaba activo **ese día**, así que sirve igual para el calendario (un mes pasado se compara con el plan de entonces) que para los próximos días. Un día con una rutina que ya estaba oculta esa fecha es descanso, pero trae la rutina igual, para enseñarla en gris. |
 
 ### Entrenamientos y series
 
