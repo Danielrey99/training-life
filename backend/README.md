@@ -163,10 +163,10 @@ uvicorn app.main:app --reload
 
 ![Esquema de la base de datos de Training Life](../docs/esquema_base_datos.svg)
 
-Las 9 tablas del MVP y sus claves ajenas, con la regla de borrado de cada una — `CASCADE` arrastra
-al hijo, `RESTRICT` impide borrar al padre mientras exista — y qué tablas llevan borrado lógico
-(columna `oculto_desde`) frente a las que son historial puro. El diagrama se mantiene a mano: al añadir o
-cambiar una tabla hay que actualizarlo.
+Las 13 tablas y sus claves ajenas, con la regla de borrado de cada una —`CASCADE` arrastra al
+hijo, `RESTRICT` impide borrar al padre mientras exista— y qué tablas se pueden ocultar (columna
+`oculto_desde`), cuáles son historial y cuáles son accesorios que se borran con su padre. El diagrama
+se mantiene a mano: al añadir o cambiar una tabla hay que actualizarlo.
 
 Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de
 verdad a PostgreSQL hace falta generar y aplicar una migración:

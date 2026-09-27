@@ -41,7 +41,7 @@ Diagrama de la arquitectura **completa y final** del proyecto (backend, web y m�
 
 ![Esquema de la base de datos de Training Life](docs/esquema_base_datos.svg)
 
-Las 9 tablas del MVP, ya implementadas, con lo que más condiciona el diseño: qué relaciones arrastran el borrado (`CASCADE`), cuáles lo impiden mientras exista historial (`RESTRICT`), y qué tablas tienen borrado lógico frente a las que son historial puro y se borran de verdad.
+Las 13 tablas de la app, con lo que más condiciona el diseño: qué relaciones arrastran el borrado (`CASCADE`), cuáles lo impiden mientras exista historial (`RESTRICT`), y qué tablas se pueden ocultar, cuáles son historial y cuáles son accesorios que se borran con su padre. Además de la biblioteca de ejercicios, las rutinas y lo entrenado, están los programas semanales, en qué fechas estuvo activo cada uno y los días que se cambian a mano.
 
 ## Diseño de la app
 
