@@ -140,7 +140,6 @@ class RutinaBase(BaseModel):
     """
 
     nombre: Nombre
-    dia_habitual: str | None = Field(default=None, max_length=20)
 
 
 class RutinaCreate(RutinaBase):
@@ -159,6 +158,8 @@ class RutinaOut(RutinaBase):
     id: int
     usuario_id: int
     oculto_desde: date | None
+    # En cuántos programas visibles aparece: la lista de rutinas lo enseña.
+    num_programas: int
     created_at: datetime
     updated_at: datetime
     slots: list[RutinaSlotOut]
@@ -295,3 +296,77 @@ class EntrenamientoOut(EntrenamientoBase):
     created_at: datetime
     updated_at: datetime
     series: list[SerieOut]
+
+
+# --- Programas -----------------------------------------------------------
+
+
+class RutinaMinima(BaseModel):
+    """Lo justo de una rutina para pintarla en un día del programa, incluido si
+    está oculta: un día con una rutina oculta se enseña en gris y cuenta como
+    descanso.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    oculto_desde: date | None
+
+
+DiaSemana = Annotated[int, Field(ge=1, le=7, description="1 = lunes … 7 = domingo")]
+
+
+class ProgramaDiaCreate(BaseModel):
+    dia_semana: DiaSemana
+    rutina_id: int
+
+
+class ProgramaDiaUpdate(BaseModel):
+    """Body para poner una rutina en un día. El día va en la ruta."""
+
+    rutina_id: int
+
+
+class ProgramaDiaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    dia_semana: int
+    rutina: RutinaMinima
+
+
+class ProgramaCreate(BaseModel):
+    """Un programa nuevo con sus días de una vez: la pantalla de crear programa
+    no guarda nada hasta pulsar Crear. Los días que no se manden son descanso.
+    """
+
+    nombre: Nombre
+    dias: list[ProgramaDiaCreate] = []
+
+    @model_validator(mode="after")
+    def _validar_dias_sin_repetir(self):
+        dias = [dia.dia_semana for dia in self.dias]
+        if len(dias) != len(set(dias)):
+            raise ValueError("Un día no puede tener dos rutinas: hay días repetidos")
+        return self
+
+
+class ProgramaUpdate(BaseModel):
+    """Solo el nombre: los días se cambian uno a uno, con sus propios endpoints."""
+
+    nombre: Nombre
+
+
+class ProgramaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    usuario_id: int
+    nombre: str
+    oculto_desde: date | None
+    # Los dos se deducen de sus periodos (ver Programa.activo).
+    activo: bool
+    activo_desde: date | None
+    created_at: datetime
+    updated_at: datetime
+    dias: list[ProgramaDiaOut]

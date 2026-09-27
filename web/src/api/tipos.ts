@@ -55,9 +55,10 @@ export type Rutina = {
   id: number
   usuario_id: number
   nombre: string
-  dia_habitual: string | null
   // Desde cuándo está oculto; nulo si está visible.
   oculto_desde: string | null
+  // En cuántos programas visibles aparece.
+  num_programas: number
   slots: HuecoDeRutina[]
 }
 

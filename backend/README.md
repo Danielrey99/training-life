@@ -15,7 +15,8 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus
 huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE—
-y las notas personales por ejercicio.
+y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué
+rutina toca cada día de la semana.
 
 El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados
 reales:
@@ -51,9 +52,9 @@ migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en e
 Lo que hay hoy basta para registrar entrenamientos, pero no para saber qué toca cada día. Los
 cambios previstos:
 
-- **Programas semanales**: qué rutina toca cada día de la semana. Una misma rutina puede estar en
-  varios programas y en varios días, y se guarda qué programa estaba activo en cada periodo, para
-  que el calendario compare cada mes con el plan que tocaba entonces.
+- **Activar un programa**: los programas y sus días ya existen, pero todavía no se puede poner uno en
+  uso. Se guardará qué programa estaba activo en cada periodo, para que el calendario compare cada
+  mes con el plan que tocaba entonces. También falta ocultarlos y borrarlos.
 - **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
@@ -76,7 +77,8 @@ backend/
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
 │       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
-│       └── entrenamientos.py      # CRUD de entrenamientos y series, anidado
+│       ├── entrenamientos.py      # CRUD de entrenamientos y series, anidado
+│       └── programas.py           # programas y qué rutina toca cada día de la semana
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -87,6 +89,7 @@ backend/
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
 │   ├── test_sesiones.py     # la sesión en curso: terminarla y no empezar dos a la vez
+│   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -208,6 +211,7 @@ No hay ningún paso previo que recordar:
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
+| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, y qué les pasa a los días cuando su rutina se oculta o se borra |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -273,7 +277,7 @@ función; los endpoints no necesitan tocarse.
 | `GET` | `/rutinas` | Lista las rutinas activas del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
-| `PUT` | `/rutinas/{id}` | Edita el nombre/día habitual de una rutina propia (409 si está oculta). |
+| `PUT` | `/rutinas/{id}` | Edita el nombre de una rutina propia (409 si está oculta). |
 | `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial; si tiene, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos y comodines, en transacción). |
 | `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
@@ -283,6 +287,25 @@ función; los endpoints no necesitan tocarse.
 | `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, más `?ejercicio_id=` para quedarse solo con las series de ese ejercicio en el hueco: es la "última vez" con la que se compara al entrenar (con `?hasta=` el día anterior y `?limite=1`), que tiene que ser con el mismo ejercicio y no con el comodín de otra semana. También sigue funcionando con el hueco o la rutina ocultados. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |
+
+### Programas
+
+Un programa reparte rutinas en la semana: qué rutina toca cada día (1 = lunes … 7 = domingo). Las
+rutinas no pertenecen a ningún programa: la misma puede estar en varios programas y en varios días
+de uno, y cada rutina dice en cuántos programas aparece (`num_programas`). Un día sin rutina es
+descanso.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/programas` | Lista los programas visibles del usuario. Con `?ocultos=true`, los que ha ocultado. |
+| `GET` | `/programas/{id}` | Un programa con sus días, también si está oculto. Cada día trae su rutina con su `oculto_desde`: una rutina oculta sigue en el día (se enseña en gris y cuenta como descanso), para que mostrarla de nuevo lo deje como estaba. |
+| `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}]}`): o se guarda todo o nada. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
+| `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
+| `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye: un día, una rutina. |
+| `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso (404 si ya lo era). |
+
+Borrar una rutina no se bloquea por estar en un programa: los días que la tenían pasan a descanso.
+Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta también esos días.
 
 ### Entrenamientos y series
 

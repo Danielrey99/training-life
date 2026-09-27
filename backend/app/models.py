@@ -3,12 +3,15 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -133,7 +136,6 @@ class Rutina(Ocultable, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     nombre: Mapped[str] = mapped_column(String(100))
-    dia_habitual: Mapped[str | None] = mapped_column(String(20), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -147,6 +149,15 @@ class Rutina(Ocultable, Base):
     slots: Mapped[list["RutinaSlot"]] = relationship(
         order_by="RutinaSlot.orden", passive_deletes=True
     )
+    # viewonly: solo para leer en qué días de programa está. Así SQLAlchemy no
+    # intenta gestionarlos al borrar la rutina (se van solos, ON DELETE CASCADE),
+    # que es justo la trampa en la que ya se cayó con Entrenamiento.series.
+    dias_de_programa: Mapped[list["ProgramaDia"]] = relationship(viewonly=True)
+
+    @property
+    def num_programas(self) -> int:
+        """En cuántos programas visibles aparece, para la lista de rutinas."""
+        return len({dia.programa_id for dia in self.dias_de_programa if not dia.programa.oculto})
 
 
 class RutinaSlot(Ocultable, Base):
@@ -285,3 +296,100 @@ class Serie(Base):
     )
 
     ejercicio: Mapped["Ejercicio"] = relationship()
+
+
+# --- Programas -----------------------------------------------------------
+
+
+class Programa(Ocultable, Base):
+    """Reparte rutinas en la semana: qué rutina toca cada día.
+
+    Las rutinas no son del programa: la misma puede estar en varios programas y
+    en varios días de uno. Por eso la relación va en `programa_dias`, y no con
+    un `programa_id` en `rutinas`, que ataría cada rutina a un solo programa.
+    """
+
+    __tablename__ = "programas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    nombre: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    # passive_deletes=True en las dos: los días y los periodos se borran con el
+    # programa por ON DELETE CASCADE, y SQLAlchemy no debe intentar desvincularlos.
+    dias: Mapped[list["ProgramaDia"]] = relationship(
+        order_by="ProgramaDia.dia_semana", passive_deletes=True, back_populates="programa"
+    )
+    periodos: Mapped[list["ProgramaPeriodo"]] = relationship(
+        order_by="ProgramaPeriodo.desde", passive_deletes=True
+    )
+
+    @property
+    def activo(self) -> bool:
+        """En uso: el que dice qué toca hoy. Es el que tiene un periodo abierto."""
+        return any(periodo.hasta is None for periodo in self.periodos)
+
+    @property
+    def activo_desde(self) -> date | None:
+        return next((periodo.desde for periodo in self.periodos if periodo.hasta is None), None)
+
+
+class ProgramaDia(Base):
+    """Qué rutina toca un día de la semana en un programa. Un día sin fila es
+    descanso.
+    """
+
+    __tablename__ = "programa_dias"
+    __table_args__ = (
+        UniqueConstraint(
+            "programa_id", "dia_semana", name="programa_dias_programa_id_dia_semana_key"
+        ),
+        CheckConstraint("dia_semana BETWEEN 1 AND 7", name="programa_dias_dia_semana_check"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    programa_id: Mapped[int] = mapped_column(ForeignKey("programas.id", ondelete="CASCADE"))
+    # 1 = lunes … 7 = domingo, como date.isoweekday().
+    dia_semana: Mapped[int] = mapped_column()
+    # CASCADE y no RESTRICT: un día sin su rutina no significa nada, es un
+    # accesorio del programa como un comodín lo es de su hueco. Si la rutina se
+    # borra, ese día pasa a descanso.
+    rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="CASCADE"))
+
+    programa: Mapped["Programa"] = relationship(back_populates="dias")
+    rutina: Mapped["Rutina"] = relationship()
+
+
+class ProgramaPeriodo(Base):
+    """Un tramo de tiempo en que un programa estuvo activo, de `desde` a `hasta`
+    (sin incluir `hasta`). Abierto, con `hasta` nulo, mientras sigue activo.
+
+    Existe para que el calendario compare cada mes con el programa que tocaba
+    entonces, y no con el de hoy.
+    """
+
+    __tablename__ = "programa_periodos"
+    __table_args__ = (
+        CheckConstraint("hasta IS NULL OR hasta >= desde", name="programa_periodos_rango_check"),
+        # Solo un periodo abierto por usuario: solo un programa activo. Lo
+        # comprueba antes el endpoint; esto es la red por si dos peticiones a la
+        # vez se colaran.
+        Index(
+            "ix_programa_periodos_usuario_abierto",
+            "usuario_id",
+            unique=True,
+            postgresql_where=text("hasta IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    programa_id: Mapped[int] = mapped_column(ForeignKey("programas.id", ondelete="CASCADE"))
+    # Repite el del programa porque el índice de arriba necesita tenerlo en la
+    # propia tabla. Lo pone siempre el backend, copiado del programa.
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    desde: Mapped[date] = mapped_column(Date)
+    hasta: Mapped[date | None] = mapped_column(Date, default=None)

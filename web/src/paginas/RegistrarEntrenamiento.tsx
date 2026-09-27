@@ -185,7 +185,6 @@ function ElegirSesion({
               {rutinas.map((rutina) => (
                 <option key={rutina.id} value={rutina.id}>
                   {rutina.nombre}
-                  {rutina.dia_habitual ? ` · ${rutina.dia_habitual}` : ''}
                 </option>
               ))}
             </select>

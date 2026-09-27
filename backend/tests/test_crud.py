@@ -41,9 +41,7 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
         json={"nombre": "Press en máquina", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
 
-    rutina_id = cliente.post("/rutinas", json={"nombre": "Push", "dia_habitual": "Lunes"}).json()[
-        "id"
-    ]
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
     slot_id = cliente.post(
         f"/rutinas/{rutina_id}/slots",
         json={

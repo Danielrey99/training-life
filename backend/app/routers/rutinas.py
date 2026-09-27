@@ -2,14 +2,14 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
-from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
+from app.models import Entrenamiento, ProgramaDia, Rutina, RutinaSlot, Serie, SlotAlternativa
 from app.ocultos import exigir_visible
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
@@ -36,6 +36,22 @@ def _obtener_rutina_legible(db: Session, rutina_id: int, usuario_id: int) -> Rut
     rutina = db.get(Rutina, rutina_id)
     if rutina is None or rutina.usuario_id != usuario_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+    return rutina
+
+
+def obtener_rutina_visible(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
+    """Para *usar* una rutina que llega en una petición (asignarla a un día de un
+    programa): 404 si no existe, es de otro o está oculta, igual que
+    `obtener_ejercicio_visible`. Lo oculto deja de ofrecerse para elegir.
+
+    Pública porque la usan también otros routers.
+    """
+    rutina = db.get(Rutina, rutina_id)
+    if rutina is None or rutina.usuario_id != usuario_id or rutina.oculto:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No existe ninguna rutina con id {rutina_id}",
+        )
     return rutina
 
 
@@ -168,13 +184,26 @@ def borrar_rutina(
         return
 
     if _tiene_dependientes(db, rutina_id) and modo != "definitivo":
+        # Los días de programa no bloquean el borrado (se van solos, en cascada),
+        # pero si otra cosa ya lo bloquea, el aviso cuenta también lo que se pierde ahí.
+        dias = db.scalar(
+            select(func.count()).select_from(ProgramaDia).where(ProgramaDia.rutina_id == rutina_id)
+        )
+        if dias == 1:
+            en_programas = " Además, está asignada a 1 día de programa, que pasaría a descanso."
+        elif dias:
+            en_programas = (
+                f" Además, está asignada a {dias} días de programa, que pasarían a descanso."
+            )
+        else:
+            en_programas = ""
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "Esta rutina tiene huecos definidos (o historial de entrenamientos). "
                 "Repite la petición con ?modo=ocultar (conserva todo, deja de estar "
                 "disponible para entrenamientos nuevos) o ?modo=definitivo (lo borra "
-                "todo, sin poder deshacerlo)."
+                "todo, sin poder deshacerlo)." + en_programas
             ),
         )
 
