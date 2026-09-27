@@ -66,20 +66,9 @@ def test_mandar_usuario_id_en_el_body_no_sirve_para_suplantar(cliente, otro_usua
 
 
 @pytest.fixture
-def ejercicio_compartido_id(sesion_bd, grupo_muscular_id) -> int:
-    """Un ejercicio predefinido: visible para todos, de nadie en concreto.
-
-    Se inserta a mano porque `POST /ejercicios` nunca crea predefinidos.
-    """
-    ejercicio = Ejercicio(
-        nombre="Sentadilla (predefinida)",
-        grupo_muscular_id=grupo_muscular_id,
-        es_predefinido=True,
-        usuario_id=None,
-    )
-    sesion_bd.add(ejercicio)
-    sesion_bd.commit()
-    return ejercicio.id
+def ejercicio_compartido_id(ejercicio_predefinido_id) -> int:
+    """Un ejercicio predefinido: visible para todos, de nadie en concreto."""
+    return ejercicio_predefinido_id
 
 
 @pytest.fixture

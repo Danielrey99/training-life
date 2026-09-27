@@ -495,3 +495,6 @@ Hablado, sin prisa: se decidirá cuando la app esté en uso.
   ocultaría para todos.
 - **Temporizador de descanso** entre series, en E2.
 - **Peso corporal**, para comparar con el peso levantado.
+- **Cardio**: la app está pensada para series de peso por repeticiones, y el cardio (cinta, bici,
+  remo) se mide de otra forma, con tiempo, distancia o ritmo. Tendría sentido como grupo aparte,
+  con su propio registro.

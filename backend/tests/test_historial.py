@@ -524,24 +524,16 @@ def registrar_serie_ajena(sesion_bd, usuario_id, ejercicio_id, fecha, slot_id=No
 
 
 def test_el_historial_de_un_ejercicio_predefinido_no_muestra_series_de_otro_usuario(
-    cliente, sesion_bd, grupo_muscular_id, otro_usuario_id
+    cliente, sesion_bd, ejercicio_predefinido_id, otro_usuario_id
 ):
     """Un ejercicio predefinido lo comparten todos los usuarios, así que el
     filtro por dueño no puede estar en el ejercicio: tiene que estar en el
     entrenamiento al que pertenece cada serie.
     """
-    ejercicio = Ejercicio(
-        nombre="Sentadilla (predefinida)",
-        grupo_muscular_id=grupo_muscular_id,
-        es_predefinido=True,
-        usuario_id=None,
-    )
-    sesion_bd.add(ejercicio)
-    sesion_bd.commit()
-    registrar_serie_ajena(sesion_bd, otro_usuario_id, ejercicio.id, "2026-09-05")
-    entrenar(cliente, "2026-09-01", ejercicio.id, series=1)
+    registrar_serie_ajena(sesion_bd, otro_usuario_id, ejercicio_predefinido_id, "2026-09-05")
+    entrenar(cliente, "2026-09-01", ejercicio_predefinido_id, series=1)
 
-    historial = historial_de_ejercicio(cliente, ejercicio.id)
+    historial = historial_de_ejercicio(cliente, ejercicio_predefinido_id)
 
     assert [sesion["fecha"] for sesion in historial] == ["2026-09-01"]
     assert [float(serie["peso"]) for serie in historial[0]["series"]] == [60.0]

@@ -38,7 +38,8 @@ from app.database import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
 # Tablas que los tests ensucian. `usuarios` y `grupos_musculares` quedan fuera a
-# propósito: las siembran las migraciones y todos los tests las necesitan.
+# propósito: las siembran las migraciones y todos los tests las necesitan. Por lo
+# mismo, `ejercicios` no se vacía entera (ver `limpiar_tablas`).
 TABLAS_A_VACIAR = (
     "excepciones_del_plan",
     "programa_periodos",
@@ -50,7 +51,6 @@ TABLAS_A_VACIAR = (
     "slot_alternativas",
     "rutina_slots",
     "rutinas",
-    "ejercicios",
 )
 
 
@@ -112,6 +112,9 @@ def limpiar_tablas():
     """
     with engine.begin() as conexion:
         conexion.execute(text(f"TRUNCATE {', '.join(TABLAS_A_VACIAR)} RESTART IDENTITY CASCADE"))
+        # Los ejercicios predefinidos los siembra una migración y se quedan; solo
+        # se borran los que crean los tests, que siempre tienen dueño.
+        conexion.execute(text("DELETE FROM ejercicios WHERE usuario_id IS NOT NULL"))
 
 
 @pytest.fixture
@@ -138,3 +141,22 @@ def sesion_bd():
         yield sesion
     finally:
         sesion.close()
+
+
+@pytest.fixture
+def ejercicio_predefinido_id(sesion_bd) -> int:
+    """Uno de los ejercicios predefinidos que siembra la migración.
+
+    Los tests no crean predefinidos: usan los sembrados. La limpieza entre tests
+    solo borra los ejercicios con dueño, así que uno predefinido creado por un test
+    se quedaría para siempre en la base de tests.
+    """
+    from sqlalchemy import select
+
+    from app.models import Ejercicio
+
+    return sesion_bd.scalar(
+        select(Ejercicio.id).where(
+            Ejercicio.es_predefinido.is_(True), Ejercicio.nombre == "Sentadilla con barra"
+        )
+    )

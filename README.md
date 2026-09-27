@@ -55,9 +55,9 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 Backend del MVP completo (ejercicios, rutinas, entrenamientos/series, notas e historial de progresión). La web ya sirve para entrenar: registra un entrenamiento serie a serie. El móvil, sin empezar.
+🚧 Backend completo para el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. La web ya sirve para entrenar: registra un entrenamiento serie a serie. El móvil, sin empezar.
 
-El proyecto acaba de pasar por una fase de **diseño**: antes de seguir construyendo pantallas sueltas se ha definido la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salen los dos siguientes pasos: ampliar el modelo de datos con lo que pide ese diseño y rehacer la web siguiéndolo.
+El proyecto acaba de pasar por una fase de **diseño**: antes de seguir construyendo pantallas sueltas se ha definido la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salieron dos pasos: ampliar el modelo de datos con lo que pedía ese diseño, ya hecho, y rehacer la web siguiéndolo, que es lo siguiente.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -70,7 +70,7 @@ El proyecto acaba de pasar por una fase de **diseño**: antes de seguir construy
 - [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
 - [x] Web: registrar un entrenamiento (elegir rutina y anotar las series hueco a hueco)
 - [x] Diseño de la app completo: pantallas, navegación y comportamiento, en móvil primero
-- [ ] Backend: ampliar el modelo según el diseño — programas semanales (qué rutina toca cada día), planificación por fecha, sesiones abiertas y una biblioteca de ejercicios predefinidos
+- [x] Backend: ampliar el modelo según el diseño — programas semanales (qué rutina toca cada día), planificación por fecha, sesiones abiertas y una biblioteca de ejercicios predefinidos
 - [ ] Web: rediseño según lo anterior — hoy, sesión, calendario, progresión, programas y ejercicios
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC

@@ -85,12 +85,15 @@ def test_ocultar_un_ejercicio_lo_saca_del_listado_pero_se_puede_volver_a_mostrar
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     crear_rutina_con_hueco(cliente, ejercicio_id)
 
+    def ids(ruta):
+        return [ejercicio["id"] for ejercicio in cliente.get(ruta).json()]
+
     assert cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar").status_code == 204
-    assert cliente.get("/ejercicios").json() == []
-    assert len(cliente.get("/ejercicios?ocultos=true").json()) == 1
+    assert ejercicio_id not in ids("/ejercicios")
+    assert ids("/ejercicios?ocultos=true") == [ejercicio_id]
 
     assert cliente.post(f"/ejercicios/{ejercicio_id}/mostrar").status_code == 200
-    assert len(cliente.get("/ejercicios").json()) == 1
+    assert ejercicio_id in ids("/ejercicios")
 
 
 def test_ocultar_guarda_desde_cuando_y_mostrar_lo_borra(cliente, grupo_muscular_id):

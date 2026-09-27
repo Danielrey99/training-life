@@ -48,12 +48,21 @@ ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste co
 Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por
 migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
 
-**Próximo paso: ampliar el modelo con lo que pide el [diseño de la app](../README.md#diseño-de-la-app).**
-Lo que hay hoy basta para registrar entrenamientos, pero no para saber qué toca cada día. Los
-cambios previstos:
+La biblioteca viene con **59 ejercicios predefinidos**, sembrados por migración y repartidos por
+los 17 grupos musculares, para que la app no arranque vacía: se puede montar una rutina sin crear
+ningún ejercicio antes. Son de todos y de nadie, así que no se pueden editar, ocultar ni borrar;
+las notas sobre ellos, en cambio, son de cada usuario.
 
-- **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
-  biblioteca vacía.
+Los **grupos musculares** tampoco se crean desde la API: son 17 fijos, sembrados por migración, los
+que se usan para clasificar ejercicios de gimnasio: Pecho, Espalda, Trapecio, Lumbar, Hombro,
+Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Glúteo, Aductores,
+Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un
+solo grupo, y con grupos muy finos cualquier elección sería engañosa.
+
+**Próximo paso:** el backend ya tiene todo lo que pide el [diseño de la app](../README.md#diseño-de-la-app),
+así que lo siguiente es rehacer la web siguiendo ese diseño. Del backend queda pendiente, para
+cuando lo pida la pantalla del calendario, calcular qué días se entrenaron, se movieron o no se
+hicieron.
 
 ## Estructura
 
@@ -214,7 +223,7 @@ No hay ningún paso previo que recordar:
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
-| `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
+| `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
 
 ## Convenciones de código
 
