@@ -50,8 +50,6 @@ cambios previstos:
   uno acabado.
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
-- Un filtro por ejercicio en el historial de un hueco, para comparar cada día con la última vez que
-  se hizo ese mismo ejercicio.
 
 ## Estructura
 
@@ -198,7 +196,7 @@ No hay ningún paso previo que recordar:
 | `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas |
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
-| `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha |
+| `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -269,7 +267,7 @@ función; los endpoints no necesitan tocarse.
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
-| `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, y también sigue funcionando con el hueco o la rutina ocultados. |
+| `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, más `?ejercicio_id=` para quedarse solo con las series de ese ejercicio en el hueco: es la "última vez" con la que se compara al entrenar (con `?hasta=` el día anterior y `?limite=1`), que tiene que ser con el mismo ejercicio y no con el comodín de otra semana. También sigue funcionando con el hueco o la rutina ocultados. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |
 

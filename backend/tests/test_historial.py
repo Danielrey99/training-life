@@ -264,6 +264,98 @@ def test_el_mismo_ejercicio_en_dos_huecos_cuenta_entero_para_el_ejercicio_y_por_
     assert por_hueco == {escenario["slot_id"]: 60.0, segundo_slot_id: 25.0}
 
 
+# --- Filtro por ejercicio en el historial de un hueco --------------------
+#
+# Al entrenar se compara con la última vez que se hizo ESE ejercicio en ESE
+# hueco, no con la última sesión del hueco: si la semana pasada tocó el comodín,
+# sus pesos no sirven de referencia para el principal.
+
+
+@pytest.fixture
+def hueco_con_comodin(cliente, grupo_muscular_id, escenario):
+    """El escenario de siempre, con un comodín en el hueco y tres días: el
+    principal el 1, el comodín el 8 y otra vez el principal el 15.
+    """
+    comodin_id = crear_ejercicio(cliente, grupo_muscular_id, "Press banca en máquina")
+    respuesta = cliente.post(
+        f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/alternativas",
+        json={"ejercicio_id": comodin_id},
+    )
+    assert respuesta.status_code == 201
+    for fecha, ejercicio_id in [
+        ("2026-09-01", escenario["ejercicio_id"]),
+        ("2026-09-08", comodin_id),
+        ("2026-09-15", escenario["ejercicio_id"]),
+    ]:
+        entrenar(cliente, fecha, ejercicio_id, escenario["rutina_id"], escenario["slot_id"])
+    return {**escenario, "comodin_id": comodin_id}
+
+
+def test_el_filtro_por_ejercicio_separa_el_principal_del_comodin(cliente, hueco_con_comodin):
+    rutina_id, slot_id = hueco_con_comodin["rutina_id"], hueco_con_comodin["slot_id"]
+
+    todo = historial_de_hueco(cliente, rutina_id, slot_id)
+    principal = historial_de_hueco(
+        cliente, rutina_id, slot_id, ejercicio_id=hueco_con_comodin["ejercicio_id"]
+    )
+    comodin = historial_de_hueco(
+        cliente, rutina_id, slot_id, ejercicio_id=hueco_con_comodin["comodin_id"]
+    )
+
+    assert [sesion["fecha"] for sesion in todo] == ["2026-09-15", "2026-09-08", "2026-09-01"]
+    assert [sesion["fecha"] for sesion in principal] == ["2026-09-15", "2026-09-01"]
+    assert [sesion["fecha"] for sesion in comodin] == ["2026-09-08"]
+
+
+def test_la_ultima_vez_de_un_ejercicio_salta_los_dias_en_que_toco_el_comodin(
+    cliente, hueco_con_comodin
+):
+    """Es la consulta de la "última vez": el día anterior como tope y una sola
+    sesión. Sin el filtro devolvería el día del comodín.
+    """
+    ultima_vez = historial_de_hueco(
+        cliente,
+        hueco_con_comodin["rutina_id"],
+        hueco_con_comodin["slot_id"],
+        ejercicio_id=hueco_con_comodin["ejercicio_id"],
+        hasta="2026-09-14",
+        limite=1,
+    )
+
+    assert [sesion["fecha"] for sesion in ultima_vez] == ["2026-09-01"]
+
+
+def test_el_filtro_acepta_un_ejercicio_ocultado(cliente, hueco_con_comodin):
+    """Ocultar un ejercicio no esconde lo que se hizo con él."""
+    assert (
+        cliente.delete(f"/ejercicios/{hueco_con_comodin['comodin_id']}?modo=ocultar").status_code
+        == 204
+    )
+
+    comodin = historial_de_hueco(
+        cliente,
+        hueco_con_comodin["rutina_id"],
+        hueco_con_comodin["slot_id"],
+        ejercicio_id=hueco_con_comodin["comodin_id"],
+    )
+
+    assert [sesion["fecha"] for sesion in comodin] == ["2026-09-08"]
+
+
+def test_el_filtro_con_un_ejercicio_ajeno_o_inexistente_da_404(
+    cliente, sesion_bd, grupo_muscular_id, otro_usuario_id, escenario
+):
+    ajeno = Ejercicio(
+        nombre="Press de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
+    )
+    sesion_bd.add(ajeno)
+    sesion_bd.commit()
+    ruta = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/historial"
+
+    assert cliente.get(ruta, params={"ejercicio_id": ajeno.id}).status_code == 404
+    assert cliente.get(ruta, params={"ejercicio_id": 999999}).status_code == 404
+
+
 # --- El límite cuenta sesiones, no series --------------------------------
 
 

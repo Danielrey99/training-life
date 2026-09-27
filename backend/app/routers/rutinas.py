@@ -2,14 +2,14 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
-from app.routers.ejercicios import obtener_ejercicio_visible
+from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     ComodinCreate,
     RutinaCreate,
@@ -328,6 +328,7 @@ def borrar_slot(
 def historial_de_hueco(
     rutina_id: int,
     slot_id: int,
+    ejercicio_id: int | None = None,
     desde: date | None = None,
     hasta: date | None = None,
     limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
@@ -340,9 +341,18 @@ def historial_de_hueco(
     Es la vista que justifica que `series` guarde `slot_id` además de
     `ejercicio_id`: aquí cuentan por igual los días con el ejercicio principal y
     los días en que tocó un comodín.
+
+    Con `ejercicio_id`, solo las series de ese ejercicio en este hueco: es la
+    "última vez" con la que se compara al entrenar, que tiene que ser con el mismo
+    ejercicio y no con el comodín que tocó la semana pasada.
     """
     _obtener_slot_legible(db, rutina_id, slot_id, usuario_id)
-    return sesiones_con_series(db, usuario_id, Serie.slot_id == slot_id, desde, hasta, limite)
+    filtro = Serie.slot_id == slot_id
+    if ejercicio_id is not None:
+        # Legible y no visible: un ejercicio ocultado sigue teniendo historial.
+        obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+        filtro = and_(filtro, Serie.ejercicio_id == ejercicio_id)
+    return sesiones_con_series(db, usuario_id, filtro, desde, hasta, limite)
 
 
 # --- Comodines (slot_alternativas) ---------------------------------------
