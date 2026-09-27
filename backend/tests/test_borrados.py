@@ -7,7 +7,7 @@ del proyecto, así que es la primera que se cubre.
 from sqlalchemy import func, select
 
 from app.fechas import hoy
-from app.models import NotaUsuarioEjercicio
+from app.models import NotaUsuarioEjercicio, Serie
 
 FECHA = "2026-09-04"
 
@@ -160,6 +160,24 @@ def test_un_hueco_con_series_registradas_no_se_borra_sin_modo(cliente, grupo_mus
     registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
 
     assert cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}").status_code == 409
+
+
+def test_borrar_en_definitivo_un_hueco_con_series_borra_tambien_las_series(
+    cliente, sesion_bd, grupo_muscular_id
+):
+    """Test de regresión: sin un flush entre borrar las series y borrar el hueco,
+    SQLAlchemy mandaba primero el DELETE del hueco y Postgres lo rechazaba (500),
+    igual que pasó con los ejercicios.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=definitivo")
+
+    assert respuesta.status_code == 204
+    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
+    assert sesion_bd.scalar(select(func.count()).select_from(Serie)) == 0
 
 
 # --- Rutina: el caso que destapó el bug de passive_deletes ---------------

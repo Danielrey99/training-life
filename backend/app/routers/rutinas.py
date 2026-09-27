@@ -318,6 +318,10 @@ def borrar_slot(
     # series.slot_id es RESTRICT: hay que borrar antes las series que lo usan.
     for serie in db.scalars(select(Serie).where(Serie.slot_id == slot_id)).all():
         db.delete(serie)
+    # Sin flush, SQLAlchemy puede mandar el DELETE del hueco antes que el de sus
+    # series (no hay relación declarada entre ambos que le diga el orden), y
+    # Postgres lo rechaza porque las series aún lo referencian.
+    db.flush()
     db.delete(slot)
     db.commit()
 
