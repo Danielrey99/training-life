@@ -1,16 +1,17 @@
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
-from app.models import Programa, ProgramaDia, ProgramaPeriodo
+from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo
 from app.ocultos import exigir_visible
 from app.routers.rutinas import obtener_rutina_visible
 from app.schemas import (
+    ActivarPrograma,
     PeriodoOut,
     ProgramaCreate,
     ProgramaDiaUpdate,
@@ -163,14 +164,25 @@ def actualizar_programa(
 @router.post("/{programa_id}/activar", response_model=ProgramaOut)
 def activar_programa(
     programa_id: int,
+    datos: ActivarPrograma | None = None,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Lo pone en uso: es el que dirá qué toca hoy. El que estuviera activo deja
     de estarlo, en la misma transacción. Un programa oculto no se puede activar.
+
+    Con `quitar_excepciones`, borra además los días cambiados a mano de hoy en
+    adelante, que se planificaron pensando en el programa anterior. Los pasados
+    se quedan: dicen qué tocaba entonces.
     """
     programa = _obtener_programa_propio(db, programa_id, usuario_id)
     _activar(db, programa)
+    if datos is not None and datos.quitar_excepciones:
+        db.execute(
+            delete(ExcepcionDelPlan).where(
+                ExcepcionDelPlan.usuario_id == usuario_id, ExcepcionDelPlan.fecha >= hoy()
+            )
+        )
     db.commit()
     db.refresh(programa)
     return programa

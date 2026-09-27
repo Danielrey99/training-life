@@ -40,6 +40,7 @@ from app.main import app  # noqa: E402
 # Tablas que los tests ensucian. `usuarios` y `grupos_musculares` quedan fuera a
 # propósito: las siembran las migraciones y todos los tests las necesitan.
 TABLAS_A_VACIAR = (
+    "excepciones_del_plan",
     "programa_periodos",
     "programa_dias",
     "programas",

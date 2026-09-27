@@ -9,7 +9,15 @@ from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
-from app.models import Entrenamiento, ProgramaDia, Rutina, RutinaSlot, Serie, SlotAlternativa
+from app.models import (
+    Entrenamiento,
+    ExcepcionDelPlan,
+    ProgramaDia,
+    Rutina,
+    RutinaSlot,
+    Serie,
+    SlotAlternativa,
+)
 from app.ocultos import exigir_visible
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
@@ -53,6 +61,18 @@ def obtener_rutina_visible(db: Session, rutina_id: int, usuario_id: int) -> Ruti
             detail=f"No existe ninguna rutina con id {rutina_id}",
         )
     return rutina
+
+
+def _aviso_de_dias(cuantos: int, que_les_pasa: str) -> str:
+    """Una frase del aviso de borrado: " Además, está en 3 días …", en singular o
+    plural según haga falta. `que_les_pasa` lleva {s} y {n} donde van las
+    terminaciones del plural.
+    """
+    if not cuantos:
+        return ""
+    plural = cuantos != 1
+    texto = que_les_pasa.format(s="s" if plural else "", n="n" if plural else "")
+    return f" Además, está en {cuantos} día{'s' if plural else ''} {texto}."
 
 
 def _obtener_rutina_propia(
@@ -184,19 +204,24 @@ def borrar_rutina(
         return
 
     if _tiene_dependientes(db, rutina_id) and modo != "definitivo":
-        # Los días de programa no bloquean el borrado (se van solos, en cascada),
-        # pero si otra cosa ya lo bloquea, el aviso cuenta también lo que se pierde ahí.
-        dias = db.scalar(
-            select(func.count()).select_from(ProgramaDia).where(ProgramaDia.rutina_id == rutina_id)
+        # Los días de programa y los días planificados con ella no bloquean el
+        # borrado (se van solos, en cascada), pero si otra cosa ya lo bloquea, el
+        # aviso cuenta también lo que se pierde ahí.
+        en_programas = _aviso_de_dias(
+            db.scalar(
+                select(func.count())
+                .select_from(ProgramaDia)
+                .where(ProgramaDia.rutina_id == rutina_id)
+            ),
+            "de programa, que pasaría{n} a descanso",
+        ) + _aviso_de_dias(
+            db.scalar(
+                select(func.count())
+                .select_from(ExcepcionDelPlan)
+                .where(ExcepcionDelPlan.rutina_id == rutina_id)
+            ),
+            "planificado{s} a mano, que volvería{n} a lo que diga el programa",
         )
-        if dias == 1:
-            en_programas = " Además, está asignada a 1 día de programa, que pasaría a descanso."
-        elif dias:
-            en_programas = (
-                f" Además, está asignada a {dias} días de programa, que pasarían a descanso."
-            )
-        else:
-            en_programas = ""
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(

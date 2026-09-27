@@ -403,3 +403,33 @@ class ProgramaPeriodo(Base):
     hasta: Mapped[date | None] = mapped_column(Date, default=None)
 
     programa: Mapped["Programa"] = relationship(back_populates="periodos")
+
+
+class ExcepcionDelPlan(Base):
+    """Lo que toca un día concreto cuando no es lo que dice el programa: otra
+    rutina o descanso. Es lo que se cambia en la pantalla de planificar.
+
+    Qué toca el día X: su excepción si la tiene; si no, lo que diga el programa
+    que esté activo ese día.
+    """
+
+    __tablename__ = "excepciones_del_plan"
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "fecha", name="excepciones_del_plan_usuario_id_fecha_key"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    fecha: Mapped[date] = mapped_column(Date)
+    # Nula = ese día es descanso. CASCADE y no SET NULL: si la rutina se borra,
+    # el día vuelve a lo que diga el programa, en vez de quedarse en un descanso
+    # que nadie eligió.
+    rutina_id: Mapped[int | None] = mapped_column(
+        ForeignKey("rutinas.id", ondelete="CASCADE"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    rutina: Mapped["Rutina | None"] = relationship()

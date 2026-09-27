@@ -396,7 +396,35 @@ class DiaPlanOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     fecha: date
-    origen: Literal["programa", "sin_programa"]
+    origen: Literal["excepcion", "programa", "sin_programa"]
     programa_id: int | None
     rutina: RutinaMinima | None
     descanso: bool
+
+
+class ExcepcionUpdate(BaseModel):
+    """Qué toca un día concreto en vez de lo que diga el programa. `rutina_id`
+    nulo es descanso. La fecha va en la ruta.
+    """
+
+    rutina_id: int | None
+
+
+class ExcepcionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    fecha: date
+    rutina: RutinaMinima | None
+
+
+class IntercambioCreate(BaseModel):
+    """Dos días que intercambian lo que les toca: lo de uno pasa al otro."""
+
+    fecha_a: date
+    fecha_b: date
+
+
+class ActivarPrograma(BaseModel):
+    # Al cambiar de programa, lo que se planificó a mano para los próximos días
+    # se hizo pensando en el anterior; la pantalla ofrece quitarlo.
+    quitar_excepciones: bool = False

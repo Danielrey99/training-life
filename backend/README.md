@@ -52,7 +52,6 @@ migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en e
 Lo que hay hoy basta para registrar entrenamientos, pero no para saber qué toca cada día. Los
 cambios previstos:
 
-- **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
 
@@ -214,7 +213,7 @@ No hay ningún paso previo que recordar:
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
-| `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, y una rutina oculta que cuenta como descanso desde su fecha |
+| `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -306,7 +305,7 @@ descanso.
 | `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
 | `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye: un día, una rutina. |
 | `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso (404 si ya lo era). |
-| `POST` | `/programas/{id}/activar` | Lo pone en uso desde hoy; el que estuviera activo deja de estarlo en la misma transacción. Activar el que ya lo está no cambia nada, y uno oculto no se puede activar (409). |
+| `POST` | `/programas/{id}/activar` | Lo pone en uso desde hoy; el que estuviera activo deja de estarlo en la misma transacción. Con `{quitar_excepciones: true}` borra además los días cambiados a mano de hoy en adelante, que se planificaron pensando en el programa anterior. Activar el que ya lo está no cambia nada, y uno oculto no se puede activar (409). |
 | `POST` | `/programas/{id}/desactivar` | Lo saca de uso y deja al usuario sin programa activo. |
 | `DELETE` | `/programas/{id}` | Si nunca estuvo activo, se borra directo. Si lo estuvo, exige `?modo=ocultar` (conserva todo; si era el activo, deja de serlo) o `?modo=definitivo` (se van también sus días y sus periodos); sin ninguno, 409 con los periodos en que estuvo activo. Las sesiones nunca se tocan. |
 | `POST` | `/programas/{id}/mostrar` | Deshace un `?modo=ocultar`. No lo vuelve a activar aunque lo estuviera. |
@@ -325,7 +324,15 @@ Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta tamb
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/plan?desde=&hasta=` | Qué toca cada día del rango (incluidos los extremos, como mucho 400 días): la rutina, de qué programa sale (`origen`: `programa` o `sin_programa`) y si es `descanso`. Cada día se resuelve con el programa que estaba activo **ese día**, así que sirve igual para el calendario (un mes pasado se compara con el plan de entonces) que para los próximos días. Un día con una rutina que ya estaba oculta esa fecha es descanso, pero trae la rutina igual, para enseñarla en gris. |
+| `GET` | `/plan?desde=&hasta=` | Qué toca cada día del rango (incluidos los extremos, como mucho 400 días): la rutina, de dónde sale (`origen`: `excepcion` si se cambió a mano, `programa` o `sin_programa`) y si es `descanso`. Cada día se resuelve con el programa que estaba activo **ese día**, así que sirve igual para el calendario (un mes pasado se compara con el plan de entonces) que para los próximos días. Un día con una rutina que ya estaba oculta esa fecha es descanso, pero trae la rutina igual, para enseñarla en gris. |
+| `GET` | `/plan/excepciones` | Los días cambiados a mano, con `?desde=` y `?hasta=` opcionales. Con `desde` = hoy, los que se perderían al activar otro programa quitándolos. |
+| `PUT` | `/plan/excepciones/{fecha}` | Cambia lo que toca un día: otra rutina, o descanso con `rutina_id` nulo. Sustituye si ya estaba cambiado, y se guarda aunque coincida con el programa (queda marcado como cambiado). Solo de hoy en adelante (422 si la fecha ya pasó); 404 si la rutina no es tuya o está oculta. |
+| `DELETE` | `/plan/excepciones/{fecha}` | *Restablecer este día*: vuelve a lo que diga el programa (404 si no estaba cambiado). |
+| `DELETE` | `/plan/excepciones?desde=&hasta=` | *Restablecer la semana*: devuelve al programa los días del rango, sin tocar los que ya pasaron. |
+| `POST` | `/plan/intercambiar` | Intercambia lo que toca a dos días (`{fecha_a, fecha_b}`) en una sola transacción. Una rutina oculta ese día se mueve como descanso. |
+
+Lo que toca un día es, por orden: lo que se cambió a mano para ese día, o lo que diga el programa
+que estaba activo ese día, o nada. Si una rutina se borra, sus días planificados vuelven al programa.
 
 ### Entrenamientos y series
 
