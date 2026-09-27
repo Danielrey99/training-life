@@ -12,9 +12,9 @@ def test_la_api_responde(cliente):
 
 
 def test_las_migraciones_sembraron_los_grupos_musculares(cliente):
-    grupos = cliente.get("/grupos-musculares").json()
-    assert len(grupos) == 11
-    assert "Pecho" in [grupo["nombre"] for grupo in grupos]
+    nombres = [grupo["nombre"] for grupo in cliente.get("/grupos-musculares").json()]
+    assert len(nombres) == 17
+    assert {"Pecho", "Trapecio", "Aductores", "Abductores"} <= set(nombres)
 
 
 def test_cada_test_arranca_sin_ejercicios(cliente, grupo_muscular_id):
