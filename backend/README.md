@@ -27,6 +27,10 @@ reales:
 `Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
 algo que otras tablas tengan que proteger, así que se borran directo.
 
+Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Solo puede haber una a
+la vez, y una que se quedó abierta de un día para otro cuenta como terminada sin que nadie tenga que
+cerrarla. "Hoy" se calcula en la zona horaria del usuario, no en la del servidor.
+
 Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un
 ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina
 (`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo
@@ -46,8 +50,6 @@ cambios previstos:
 - **Planificación por fecha**: cambiar qué toca un día concreto sin tocar el programa.
 - **Ocultar con fecha**: la columna `activo` pasa a ser `oculto_desde`, para poder decir desde
   cuándo está oculta cada cosa. Así además *activo* queda solo para "el programa en uso".
-- **Sesiones abiertas**: marcar cuándo se termina un entrenamiento, para distinguir uno a medias de
-  uno acabado.
 - **Ejercicios predefinidos** sembrados por migración, para que la app no arranque con la
   biblioteca vacía.
 
@@ -78,6 +80,7 @@ backend/
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
+│   ├── test_sesiones.py     # la sesión en curso: terminarla y no empezar dos a la vez
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -198,6 +201,7 @@ No hay ningún paso previo que recordar:
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
+| `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona |
 
 ## Convenciones de código
@@ -277,9 +281,10 @@ función; los endpoints no necesitan tocarse.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. |
+| `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes, y `?en_curso=true` para quedarse solo con la sesión en curso, si la hay. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
-| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. |
+| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. Si es de hoy y ya hay otra sesión en curso, devuelve 409 con el id de esa sesión: solo puede haber una abierta a la vez. Apuntar un día pasado no choca con nada. |
+| `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
 | `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
 | `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). |

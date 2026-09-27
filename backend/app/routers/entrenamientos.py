@@ -1,9 +1,12 @@
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
+from app.fechas import hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
 from app.routers.ejercicios import obtener_ejercicio_visible
 from app.schemas import (
@@ -73,16 +76,61 @@ def _validar_cambio_de_rutina(db: Session, entrenamiento_id: int) -> None:
         )
 
 
+def _validar_sin_sesion_en_curso(
+    db: Session, usuario_id: int, excepto_id: int | None = None
+) -> None:
+    """Solo puede haber una sesión en curso: o se termina la empezada o se
+    cancela, y entonces se elige otra.
+
+    Se comprueba aquí y no con un índice porque depende de qué día es hoy, y eso
+    no cabe en una restricción de la base de datos.
+    """
+    stmt = select(Entrenamiento.id).where(
+        Entrenamiento.usuario_id == usuario_id,
+        Entrenamiento.fecha == hoy(),
+        Entrenamiento.terminada_en.is_(None),
+    )
+    if excepto_id is not None:
+        stmt = stmt.where(Entrenamiento.id != excepto_id)
+    abierta = db.scalar(stmt.limit(1))
+    if abierta is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra.",
+                "entrenamiento_id": abierta,
+            },
+        )
+
+
 @router.get("", response_model=list[EntrenamientoOut])
 def listar_entrenamientos(
+    desde: date | None = None,
+    hasta: date | None = None,
+    en_curso: bool = False,
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    stmt = (
-        select(Entrenamiento)
-        .where(Entrenamiento.usuario_id == usuario_id)
-        .order_by(Entrenamiento.fecha.desc())
-    )
+    """Los entrenamientos del usuario, del más reciente al más antiguo.
+
+    `desde` y `hasta` (incluidos) sirven para pedir una semana o un mes. Con
+    `en_curso=true` devuelve solo la sesión en curso, si la hay: una lista con uno
+    o ningún elemento, que es lo que necesita la pantalla de hoy para ofrecer
+    *Continuar* en vez de *Empezar*.
+    """
+    if desde is not None and hasta is not None and desde > hasta:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El rango de fechas está invertido: 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
+        )
+    stmt = select(Entrenamiento).where(Entrenamiento.usuario_id == usuario_id)
+    if desde is not None:
+        stmt = stmt.where(Entrenamiento.fecha >= desde)
+    if hasta is not None:
+        stmt = stmt.where(Entrenamiento.fecha <= hasta)
+    if en_curso:
+        stmt = stmt.where(Entrenamiento.fecha == hoy(), Entrenamiento.terminada_en.is_(None))
+    stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc())
     return db.scalars(stmt).all()
 
 
@@ -106,6 +154,9 @@ def crear_entrenamiento(
     """
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
+    # Una sesión de otro día no estorba: apuntar un día pasado no es empezar a entrenar.
+    if datos.fecha == hoy():
+        _validar_sin_sesion_en_curso(db, usuario_id)
     entrenamiento = Entrenamiento(**datos.model_dump(), usuario_id=usuario_id)
     db.add(entrenamiento)
     db.commit()
@@ -125,10 +176,33 @@ def actualizar_entrenamiento(
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     if datos.rutina_id != entrenamiento.rutina_id:
         _validar_cambio_de_rutina(db, entrenamiento_id)
+    # Mover a hoy una sesión sin terminar la convierte en otra sesión en curso.
+    if datos.fecha == hoy() and entrenamiento.terminada_en is None:
+        _validar_sin_sesion_en_curso(db, usuario_id, excepto_id=entrenamiento_id)
     for campo, valor in datos.model_dump().items():
         setattr(entrenamiento, campo, valor)
     db.commit()
     db.refresh(entrenamiento)
+    return entrenamiento
+
+
+@router.post("/{entrenamiento_id}/terminar", response_model=EntrenamientoOut)
+def terminar_entrenamiento(
+    entrenamiento_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Da la sesión por terminada. Terminarla otra vez no hace nada: se conserva
+    la hora de la primera, que es cuando de verdad se acabó.
+
+    Terminada no significa cerrada: se le pueden seguir añadiendo o corrigiendo
+    series, que es lo que hace la edición de un día ya pasado.
+    """
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    if entrenamiento.terminada_en is None:
+        entrenamiento.terminada_en = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(entrenamiento)
     return entrenamiento
 
 

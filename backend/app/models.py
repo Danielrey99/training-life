@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.fechas import hoy
 
 
 def _utcnow() -> datetime:
@@ -214,10 +215,24 @@ class Entrenamiento(Base):
     )
     fecha: Mapped[date] = mapped_column(Date)
     notas: Mapped[str | None] = mapped_column(String(1000), default=None)
+    # Nula mientras la sesión está abierta. Es lo que distingue una sesión a
+    # medias de una acabada, que por lo demás son idénticas.
+    terminada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
+
+    @property
+    def en_curso(self) -> bool:
+        """Abierta y de hoy: la que se puede continuar.
+
+        Una sesión que se quedó sin terminar de un día para otro cuenta como
+        terminada, así que no hace falta cerrarla a medianoche: basta con mirar la
+        fecha al leer. Por lo mismo, una sesión pasada que se está apuntando a
+        posteriori tampoco está en curso.
+        """
+        return self.terminada_en is None and self.fecha == hoy()
 
     # passive_deletes=True: mismo motivo que en Rutina.slots — al borrar el
     # entrenamiento, que sea la base de datos (ON DELETE CASCADE) la que

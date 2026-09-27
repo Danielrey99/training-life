@@ -43,6 +43,10 @@ export type Entrenamiento = {
   rutina_id: number | null
   fecha: string
   notas: string | null
+  // Nula mientras la sesión sigue abierta.
+  terminada_en: string | null
+  // Abierta y de hoy: la que se puede continuar. La calcula el backend.
+  en_curso: boolean
   series: Serie[]
 }
 

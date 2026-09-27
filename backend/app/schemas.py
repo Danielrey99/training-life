@@ -288,6 +288,10 @@ class EntrenamientoOut(EntrenamientoBase):
 
     id: int
     usuario_id: int
+    # Las dos las decide el servidor: terminada_en se pone con POST .../terminar,
+    # y en_curso se calcula al leer (ver Entrenamiento.en_curso).
+    terminada_en: datetime | None
+    en_curso: bool
     created_at: datetime
     updated_at: datetime
     series: list[SerieOut]
