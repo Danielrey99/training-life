@@ -63,6 +63,7 @@ backend/
 │   ├── schemas.py          # forma de los datos que entran/salen de la API (Pydantic)
 │   ├── auth.py             # quién es "el usuario actual" (hardcodeado hasta que exista JWT)
 │   ├── historial.py        # la consulta de progresión, compartida por dos endpoints
+│   ├── fechas.py           # qué día es "hoy" en la zona horaria del usuario, no la del servidor
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
@@ -216,6 +217,7 @@ Cómo se comenta y se formatea el código está en **[CONVENCIONES.md](CONVENCIO
 | Variable | Dónde se define | Descripción |
 |---|---|---|
 | `DATABASE_URL` | Inyectada por `docker-compose.yml` (raíz) cuando se ejecuta en Docker; o por `backend/.env` cuando se ejecuta suelto | Cadena de conexión a PostgreSQL. Dentro de Docker el host es `postgres` (nombre del servicio); fuera de Docker es `localhost:5433` (puerto publicado al host). |
+| `ZONA_HORARIA` | Opcional; por defecto `Europe/Madrid` | En qué zona horaria se calcula qué día es "hoy" (la sesión en curso, lo que se puede planificar). El contenedor corre en UTC, y sin esto una sesión empezada pasada la medianoche en España caería en el día anterior. |
 
 ## Autenticación (pendiente)
 
