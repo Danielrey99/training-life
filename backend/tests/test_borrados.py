@@ -4,10 +4,12 @@ Es la parte más delicada del backend y donde han aparecido los tres bugs reales
 del proyecto, así que es la primera que se cubre.
 """
 
-from sqlalchemy import func, select
+from datetime import date
+
+from sqlalchemy import func, select, update
 
 from app.fechas import hoy
-from app.models import NotaUsuarioEjercicio, Serie
+from app.models import Ejercicio, NotaUsuarioEjercicio, Serie
 
 FECHA = "2026-09-04"
 
@@ -296,3 +298,138 @@ def test_sin_notas_el_aviso_de_borrado_no_las_menciona(cliente, grupo_muscular_i
 
     assert detalle["notas_que_se_perderian"] == 0
     assert "notas" not in detalle["mensaje"]
+
+
+# --- Lo oculto: se puede abrir, borrar y mostrar, pero no editar ---------
+#
+# Cada cosa oculta tiene su vista "está oculta", con Mostrar y Borrar. Para eso
+# tiene que poder abrirse (GET por id), borrarse y mostrarse; lo que no se puede
+# es editarla o usarla sin mostrarla antes (409, no 404: el GET sí la devuelve).
+
+
+def ocultar(cliente, ruta):
+    assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
+
+
+def test_un_ejercicio_y_una_rutina_ocultos_se_pueden_abrir(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, _ = crear_rutina_con_hueco(cliente, ejercicio_id)
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+    ocultar(cliente, f"/rutinas/{rutina_id}")
+
+    for ruta in (f"/ejercicios/{ejercicio_id}", f"/rutinas/{rutina_id}"):
+        respuesta = cliente.get(ruta)
+        assert respuesta.status_code == 200
+        assert respuesta.json()["oculto_desde"] == hoy().isoformat()
+
+
+def test_las_notas_de_un_ejercicio_oculto_se_pueden_leer_y_escribir(cliente, grupo_muscular_id):
+    """Las notas no usan el ejercicio: son del usuario, y un buen sitio para
+    apuntar por qué se ocultó.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    ruta = f"/ejercicios/{ejercicio_id}/notas"
+    vieja_id = cliente.post(ruta, json={"nota": "Codos pegados"}).json()["id"]
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+
+    nueva = cliente.post(ruta, json={"nota": "Oculto: me molesta el hombro"})
+    editada = cliente.put(f"{ruta}/{nueva.json()['id']}", json={"nota": "Oculto por el hombro"})
+    borrada = cliente.delete(f"{ruta}/{vieja_id}")
+
+    assert (nueva.status_code, editada.status_code, borrada.status_code) == (201, 200, 204)
+    assert [nota["nota"] for nota in cliente.get(ruta).json()] == ["Oculto por el hombro"]
+
+
+def test_editar_algo_oculto_da_409(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(
+        cliente, crear_ejercicio(cliente, grupo_muscular_id)
+    )
+    hueco = {
+        "ejercicio_principal_id": ejercicio_id,
+        "orden": 1,
+        "series_objetivo": 3,
+        "reps_min": 8,
+        "reps_max": 12,
+    }
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+
+    editar_ejercicio = cliente.put(
+        f"/ejercicios/{ejercicio_id}",
+        json={"nombre": "Otro nombre", "grupo_muscular_id": grupo_muscular_id},
+    )
+    editar_hueco = cliente.put(f"/rutinas/{rutina_id}/slots/{slot_id}", json=hueco)
+
+    assert editar_ejercicio.status_code == 409
+    assert editar_hueco.status_code == 409
+
+
+def test_en_una_rutina_oculta_no_se_puede_editar_nada(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    comodin_id = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    ocultar(cliente, f"/rutinas/{rutina_id}")
+    hueco = {
+        "ejercicio_principal_id": ejercicio_id,
+        "orden": 2,
+        "series_objetivo": 3,
+        "reps_min": 8,
+        "reps_max": 12,
+    }
+
+    assert cliente.put(f"/rutinas/{rutina_id}", json={"nombre": "Pull"}).status_code == 409
+    assert cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco).status_code == 409
+    assert (
+        cliente.post(
+            f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas",
+            json={"ejercicio_id": comodin_id},
+        ).status_code
+        == 409
+    )
+
+
+def test_algo_oculto_se_puede_borrar_en_definitivo(cliente, grupo_muscular_id):
+    """Es el Borrar de la vista "está oculto"."""
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+    ocultar(cliente, f"/rutinas/{rutina_id}")
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+
+    for ruta in (
+        f"/rutinas/{rutina_id}/slots/{slot_id}",
+        f"/rutinas/{rutina_id}",
+        f"/ejercicios/{ejercicio_id}",
+    ):
+        assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 204
+
+    assert cliente.get(f"/rutinas/{rutina_id}").status_code == 404
+    assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
+
+
+def test_un_hueco_oculto_se_puede_volver_a_mostrar(cliente, grupo_muscular_id):
+    rutina_id, slot_id = crear_rutina_con_hueco(
+        cliente, crear_ejercicio(cliente, grupo_muscular_id)
+    )
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+
+    respuesta = cliente.post(f"/rutinas/{rutina_id}/slots/{slot_id}/mostrar")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["oculto_desde"] is None
+
+
+def test_ocultar_algo_ya_oculto_conserva_desde_cuando(cliente, sesion_bd, grupo_muscular_id):
+    """La fecha es la de la primera vez: volver a ocultar no la mueve."""
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+    sesion_bd.execute(
+        update(Ejercicio).where(Ejercicio.id == ejercicio_id).values(oculto_desde=date(2026, 1, 15))
+    )
+    sesion_bd.commit()
+
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+
+    assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["oculto_desde"] == "2026-01-15"

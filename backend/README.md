@@ -26,7 +26,10 @@ reales:
 
 Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un
 simple sí/no: la app enseña esa fecha, y el sí/no se deduce de ella. Lo contrario de ocultar es
-*mostrar* (`POST .../mostrar`).
+*mostrar* (`POST .../mostrar`). Lo oculto se puede abrir, borrar y volver a mostrar, pero no editar ni
+usar: eso da 409 hasta que se muestre. Las notas son la excepción: se pueden añadir, editar y borrar
+también en un ejercicio oculto, porque son tuyas y no lo usan (y son un buen sitio para apuntar por
+qué se ocultó).
 
 `Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
 algo que otras tablas tengan que proteger, así que se borran directo.
@@ -68,6 +71,7 @@ backend/
 │   ├── auth.py             # quién es "el usuario actual" (hardcodeado hasta que exista JWT)
 │   ├── historial.py        # la consulta de progresión, compartida por dos endpoints
 │   ├── fechas.py           # qué día es "hoy" en la zona horaria del usuario, no la del servidor
+│   ├── ocultos.py          # qué se puede hacer con algo oculto (leer y borrar sí, editar no)
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
@@ -246,9 +250,9 @@ función; los endpoints no necesitan tocarse.
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, sin los ocultos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
-| `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id (404 si no existe o no es visible). |
+| `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id, también si está oculto (404 si no existe o es de otro usuario). |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
-| `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido). |
+| `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido, 409 si está oculto: hay que mostrarlo antes). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/mostrar` | Deshace un `?modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo. |
 | `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?desde=`, `?hasta=` (fechas inclusivas) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
@@ -257,7 +261,7 @@ función; los endpoints no necesitan tocarse.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/ejercicios/{id}/notas` | Lista tus notas personales sobre ese ejercicio, de la más reciente a la más antigua. Solo las tuyas, incluso si el ejercicio es predefinido y por tanto lo comparten todos los usuarios. |
+| `GET` | `/ejercicios/{id}/notas` | Lista tus notas personales sobre ese ejercicio, de la más reciente a la más antigua. Solo las tuyas, incluso si el ejercicio es predefinido y por tanto lo comparten todos los usuarios. Funciona también con el ejercicio oculto, igual que añadir, editar o borrar notas. |
 | `POST` | `/ejercicios/{id}/notas` | Añade una nota. Se pueden acumular varias sobre el mismo ejercicio: son independientes, no se sobreescriben. |
 | `PUT` | `/ejercicios/{id}/notas/{nota_id}` | Edita una nota propia (403 si es de otro usuario). |
 | `DELETE` | `/ejercicios/{id}/notas/{nota_id}` | Borra una nota suelta. Sin `?modo`: nada depende de una nota. |
@@ -267,14 +271,15 @@ función; los endpoints no necesitan tocarse.
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/rutinas` | Lista las rutinas activas del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
-| `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados. |
+| `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
-| `PUT` | `/rutinas/{id}` | Edita el nombre/día habitual de una rutina propia. |
+| `PUT` | `/rutinas/{id}` | Edita el nombre/día habitual de una rutina propia (409 si está oculta). |
 | `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial; si tiene, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos y comodines, en transacción). |
 | `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
-| `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco. |
+| `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
+| `POST` | `/rutinas/{id}/slots/{slot_id}/mostrar` | Deshace un `?modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio. |
 | `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, más `?ejercicio_id=` para quedarse solo con las series de ese ejercicio en el hueco: es la "última vez" con la que se compara al entrenar (con `?hasta=` el día anterior y `?limite=1`), que tiene que ser con el mismo ejercicio y no con el comodín de otra semana. También sigue funcionando con el hueco o la rutina ocultados. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}/alternativas/{ejercicio_id}` | Quita un comodín del hueco. |

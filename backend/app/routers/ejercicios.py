@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
+from app.ocultos import exigir_visible
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import (
     Ejercicio,
@@ -152,7 +153,8 @@ def obtener_ejercicio(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    # Legible y no visible: la ficha de un ejercicio oculto necesita abrirlo.
+    return obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
 
 
 @router.post("", response_model=EjercicioOut, status_code=status.HTTP_201_CREATED)
@@ -183,13 +185,14 @@ def actualizar_ejercicio(
     (cuando exista JWT) no se pueden editar por aquí.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or ejercicio.oculto:
+    if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     if ejercicio.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No se puede editar un ejercicio que no es tuyo",
         )
+    exigir_visible(ejercicio, "Este ejercicio está oculto: muéstralo antes de editarlo.")
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
     for campo, valor in datos.model_dump().items():
         setattr(ejercicio, campo, valor)
@@ -213,8 +216,9 @@ def borrar_ejercicio(
       (borra también las filas dependientes, sin vuelta atrás). Sin `modo`,
       el 409 explica dónde se usa.
     """
+    # Admite lo oculto: la ficha de un ejercicio oculto ofrece borrarlo.
     ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or ejercicio.oculto:
+    if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     if ejercicio.usuario_id != usuario_id:
         raise HTTPException(
@@ -223,7 +227,9 @@ def borrar_ejercicio(
         )
 
     if modo == "ocultar":
-        ejercicio.oculto_desde = hoy()
+        # Si ya estaba oculto, se conserva desde cuándo.
+        if ejercicio.oculto_desde is None:
+            ejercicio.oculto_desde = hoy()
         db.commit()
         return
 
@@ -340,8 +346,11 @@ def _obtener_nota_propia(
     basta con comprobar que el padre es accesible: un ejercicio predefinido
     lo ven todos los usuarios, así que el dueño hay que comprobarlo en la
     propia nota.
+
+    Admite ejercicios ocultos: las notas son del usuario y no "usan" el
+    ejercicio, y una nota es justo donde apuntar por qué se ocultó.
     """
-    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
     nota = db.get(NotaUsuarioEjercicio, nota_id)
     if nota is None or nota.ejercicio_id != ejercicio_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
@@ -363,7 +372,9 @@ def listar_notas(
     a la más antigua. Nunca incluye las de otros usuarios, ni siquiera cuando
     el ejercicio es predefinido y por tanto compartido.
     """
-    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    # También si está oculto: las notas se pueden leer y escribir igual (ver
+    # `_obtener_nota_propia`).
+    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
     stmt = (
         select(NotaUsuarioEjercicio)
         .where(
@@ -383,9 +394,10 @@ def crear_nota(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Añade una nota al ejercicio. Se pueden acumular varias sobre el mismo
-    ejercicio: cada una es independiente, no se sobreescriben.
+    ejercicio: cada una es independiente, no se sobreescriben. También en uno
+    oculto, por ejemplo para apuntar por qué se ocultó.
     """
-    obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
     nota = NotaUsuarioEjercicio(
         **datos.model_dump(), usuario_id=usuario_id, ejercicio_id=ejercicio_id
     )

@@ -10,6 +10,7 @@ from app.database import get_db
 from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
+from app.ocultos import exigir_visible
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     ComodinCreate,
@@ -28,24 +29,32 @@ router = APIRouter(prefix="/rutinas", tags=["rutinas"])
 # --- Rutinas -------------------------------------------------------------
 
 
-def _obtener_rutina_visible(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
-    """Para GET: 404 tanto si no existe como si no es tuya (no hay rutinas predefinidas)."""
+def _obtener_rutina_legible(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
+    """Para leer: 404 tanto si no existe como si no es tuya (no hay rutinas
+    predefinidas). Admite las ocultas, que tienen su propia vista.
+    """
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.oculto or rutina.usuario_id != usuario_id:
+    if rutina is None or rutina.usuario_id != usuario_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
     return rutina
 
 
-def _obtener_rutina_propia(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
-    """Para PUT/DELETE: 404 si no existe, 403 si existe pero no es tuya."""
+def _obtener_rutina_propia(
+    db: Session, rutina_id: int, usuario_id: int, admitir_oculta: bool = False
+) -> Rutina:
+    """Para modificar: 404 si no existe, 403 si no es tuya y 409 si está oculta,
+    salvo con `admitir_oculta`, que es para borrarla o volver a mostrarla.
+    """
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.oculto:
+    if rutina is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
     if rutina.usuario_id != usuario_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No se puede modificar una rutina que no es tuya",
         )
+    if not admitir_oculta:
+        exigir_visible(rutina, "Esta rutina está oculta: muéstrala antes de cambiarla.")
     return rutina
 
 
@@ -87,7 +96,7 @@ def obtener_rutina(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return _obtener_rutina_visible(db, rutina_id, usuario_id)
+    return _obtener_rutina_legible(db, rutina_id, usuario_id)
 
 
 @router.post("", response_model=RutinaOut, status_code=status.HTTP_201_CREATED)
@@ -128,14 +137,7 @@ def mostrar_rutina(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deshace un `modo=ocultar`: la rutina vuelve a ofrecerse para usarla."""
-    rutina = db.get(Rutina, rutina_id)
-    if rutina is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
-    if rutina.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede mostrar una rutina que no es tuya",
-        )
+    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
     rutina.oculto_desde = None
     db.commit()
     db.refresh(rutina)
@@ -156,10 +158,12 @@ def borrar_rutina(
     - Con huecos o entrenamientos: hace falta `modo=ocultar` (conserva todo)
       o `modo=definitivo` (lo borra todo, sin vuelta atrás).
     """
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id)
+    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
 
     if modo == "ocultar":
-        rutina.oculto_desde = hoy()
+        # Si ya estaba oculta, se conserva desde cuándo.
+        if rutina.oculto_desde is None:
+            rutina.oculto_desde = hoy()
         db.commit()
         return
 
@@ -193,11 +197,18 @@ def borrar_rutina(
 # --- Huecos (rutina_slots) -----------------------------------------------
 
 
-def _obtener_slot_propio(db: Session, rutina_id: int, slot_id: int, usuario_id: int) -> RutinaSlot:
-    _obtener_rutina_propia(db, rutina_id, usuario_id)  # valida que la rutina es tuya
+def _obtener_slot_propio(
+    db: Session, rutina_id: int, slot_id: int, usuario_id: int, admitir_oculto: bool = False
+) -> RutinaSlot:
+    """Para modificar un hueco: los mismos códigos que `_obtener_rutina_propia`, y
+    el 409 salta tanto si está oculto el hueco como si lo está su rutina.
+    """
+    _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=admitir_oculto)
     slot = db.get(RutinaSlot, slot_id)
-    if slot is None or slot.oculto or slot.rutina_id != rutina_id:
+    if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
+    if not admitir_oculto:
+        exigir_visible(slot, "Este hueco está oculto: muéstralo antes de cambiarlo.")
     return slot
 
 
@@ -210,9 +221,7 @@ def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int, usuario_id:
     el resto de los GET del proyecto: en una lectura no hay ninguna acción para
     la que el usuario pudiera "tener permiso de más".
     """
-    rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.usuario_id != usuario_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+    _obtener_rutina_legible(db, rutina_id, usuario_id)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
@@ -298,10 +307,12 @@ def borrar_slot(
       `modo=definitivo` (borra también las series que lo usan, sin vuelta
       atrás).
     """
-    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
+    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id, admitir_oculto=True)
 
     if modo == "ocultar":
-        slot.oculto_desde = hoy()
+        # Si ya estaba oculto, se conserva desde cuándo.
+        if slot.oculto_desde is None:
+            slot.oculto_desde = hoy()
         db.commit()
         return
 
@@ -324,6 +335,21 @@ def borrar_slot(
     db.flush()
     db.delete(slot)
     db.commit()
+
+
+@router.post("/{rutina_id}/slots/{slot_id}/mostrar", response_model=RutinaSlotOut)
+def mostrar_slot(
+    rutina_id: int,
+    slot_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Deshace un `modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio."""
+    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id, admitir_oculto=True)
+    slot.oculto_desde = None
+    db.commit()
+    db.refresh(slot)
+    return slot
 
 
 @router.get("/{rutina_id}/slots/{slot_id}/historial", response_model=list[SesionHistorialHueco])
