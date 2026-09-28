@@ -222,8 +222,13 @@ Comportamiento:
   solo las reps.
 - **El número de la siguiente serie es el mayor + 1**, no la cuenta: si se borra una del medio, no
   se repite un número.
-- **Cambiar al comodín** es tocar el nombre del ejercicio: sale un desplegable con el principal y
-  sus comodines, y se queda elegido para el resto del hueco.
+- **Cambiar al comodín**: si el hueco tiene comodines, junto al nombre del ejercicio hay una flecha
+  en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre
+  no abre nada) se despliegan el principal y sus comodines, cada uno con su última vez, y el de hoy
+  marcado. Al elegir un comodín, la última vez, el peso con el que arranca el formulario y las
+  series que se apunten pasan a ser de ese ejercicio, y el hueco plegado lo dice con la etiqueta
+  *comodín*. Se queda elegido para el resto del hueco. Si el principal está oculto, el hueco empieza
+  ya con el comodín; un hueco sin comodines no lleva flecha, porque no hay nada que elegir.
 - **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un
   punto verde, y al mantenerlas pulsadas (o con el ratón encima) sale un globo por encima del dedo.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, que pasa a *Guardar cambios ·
@@ -443,7 +448,8 @@ biblioteca de predefinidos, así que se puede montar una rutina sin crear ningun
 3. Hace la primera serie, ajusta las reps si cambian y pulsa *Guardar serie 1*. El botón pasa a
    *Guardar serie 2*, con los mismos valores.
 4. Repite. Al acabar el hueco, despliega el siguiente.
-5. En el hueco 3 la máquina está ocupada: toca el nombre del ejercicio y elige el comodín.
+5. En el hueco 3 la máquina está ocupada: toca la flecha junto al nombre del ejercicio y elige
+   el comodín. La última vez y el peso pasan a ser los del comodín.
 6. Se equivoca al apuntar una serie: el lápiz la carga en el formulario y la corrige.
 7. Al acabar, *Terminar sesión* y confirma. H2 le enseña en qué huecos mejoró. Escribe una nota si
    quiere y pulsa *Cerrar*.
