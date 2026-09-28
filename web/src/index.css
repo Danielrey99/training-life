@@ -64,3 +64,84 @@ code {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Botones -----------------------------------------------------------------
+   La jerarquía de los bocetos: verde relleno para la acción principal (una por
+   pantalla), con recuadro para una acción normal y solo texto para la secundaria
+   o la peligrosa. Nunca por debajo de 44 px de alto, que es lo que pide un dedo.
+   Se reinician todas las propiedades porque `button` trae estilo propio. */
+
+.boton {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: stretch;
+  border-radius: var(--radio-pequeno);
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.boton-principal {
+  min-height: 52px;
+  font-size: 16px;
+  border-color: var(--acento);
+  background: var(--acento);
+  color: var(--fondo);
+}
+
+.boton-peligro {
+  border-color: var(--error);
+  background: var(--error);
+  color: var(--fondo);
+}
+
+.boton-texto {
+  min-height: 44px;
+  font-size: 14px;
+  border-color: transparent;
+  background: none;
+  color: var(--texto-tenue);
+}
+
+.boton-texto.peligro {
+  color: var(--error);
+}
+
+/* Un icono que se pulsa (el lápiz, la ✕): 44 px de zona táctil aunque se vea pequeño. */
+.boton-icono {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radio-pequeno);
+  background: none;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}
+
+.boton-icono:hover {
+  color: var(--texto);
+}
+
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
