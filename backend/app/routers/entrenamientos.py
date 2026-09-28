@@ -140,7 +140,15 @@ def obtener_entrenamiento(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    """404 tanto si no existe como si es de otro usuario, como el resto de los GET:
+    un 403 confirmaría que ese id existe.
+    """
+    entrenamiento = db.get(Entrenamiento, entrenamiento_id)
+    if entrenamiento is None or entrenamiento.usuario_id != usuario_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
+        )
+    return entrenamiento
 
 
 @router.post("", response_model=EntrenamientoOut, status_code=status.HTTP_201_CREATED)

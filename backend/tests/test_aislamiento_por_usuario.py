@@ -262,6 +262,8 @@ def test_el_listado_no_incluye_entrenamientos_de_otro_usuario(cliente, entrenami
 def test_no_se_puede_ver_editar_ni_borrar_un_entrenamiento_ajeno(cliente, entrenamiento_ajeno):
     ruta = f"/entrenamientos/{entrenamiento_ajeno['id']}"
 
+    # 404 y no 403 al leer, como el resto de los GET: no delata que el id existe.
+    assert cliente.get(ruta).status_code == 404
     assert cliente.put(ruta, json={"fecha": "2026-09-02"}).status_code == 403
     assert cliente.post(f"{ruta}/terminar").status_code == 403
     assert cliente.delete(ruta).status_code == 403
