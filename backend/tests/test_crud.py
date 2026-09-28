@@ -6,6 +6,8 @@ refactor rompe algo básico sin que te des cuenta.
 
 from decimal import Decimal
 
+import pytest
+
 FECHA = "2026-09-04"
 
 
@@ -425,3 +427,51 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_
     respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca))
 
     assert respuesta.status_code == 404
+
+
+# --- Límites de los números ----------------------------------------------
+#
+# Los esquemas ponen el mínimo a cada número pero no el máximo, y la base de datos
+# sí lo tiene: `peso` es NUMERIC(6, 2) (hasta 9999.99) y los enteros son INTEGER
+# (hasta 2**31 - 1). Lo que se pasa llega hasta Postgres y revienta con un 500 en
+# vez de un 422 que diga qué campo está mal.
+
+DEMASIADO = 2**31
+
+
+def test_el_peso_maximo_que_cabe_se_guarda(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca, peso="9999.99")
+    )
+
+    assert respuesta.status_code == 201
+    assert Decimal(respuesta.json()["peso"]) == Decimal("9999.99")
+
+
+@pytest.mark.parametrize(
+    "campo, valor", [("peso", 10000), ("repeticiones", DEMASIADO), ("numero_serie", DEMASIADO)]
+)
+def test_una_serie_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, campo, valor):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json={**_serie(banca), campo: valor}
+    )
+
+    assert respuesta.status_code == 422
+
+
+@pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_max"])
+def test_un_hueco_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, campo):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/rutinas/{rutina_id}/slots", json={**_hueco(banca), campo: DEMASIADO}
+    )
+
+    assert respuesta.status_code == 422

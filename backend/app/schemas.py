@@ -95,10 +95,12 @@ class RutinaSlotBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un hueco."""
 
     ejercicio_principal_id: int
-    orden: int = Field(gt=0)
-    series_objetivo: int = Field(gt=0)
-    reps_min: int = Field(gt=0)
-    reps_max: int = Field(gt=0)
+    # Los topes no son de la base de datos (que admite mucho más), sino de lo que
+    # tiene sentido: un número fuera de ellos solo puede ser un error al teclear.
+    orden: int = Field(gt=0, le=100)
+    series_objetivo: int = Field(gt=0, le=50)
+    reps_min: int = Field(gt=0, le=1000)
+    reps_max: int = Field(gt=0, le=1000)
 
     @model_validator(mode="after")
     def _validar_rango_reps(self):
@@ -176,9 +178,11 @@ class SerieBase(BaseModel):
 
     ejercicio_id: int
     slot_id: int | None = None
-    numero_serie: int = Field(gt=0)
-    peso: Decimal = Field(ge=0)
-    repeticiones: int = Field(gt=0)
+    numero_serie: int = Field(gt=0, le=100)
+    # 9999,99 es lo que cabe en la columna (NUMERIC(6,2)): sin este tope, un peso
+    # mayor llegaba a la base de datos y la respuesta era un 500.
+    peso: Decimal = Field(ge=0, le=Decimal("9999.99"))
+    repeticiones: int = Field(gt=0, le=1000)
     rpe: Decimal | None = Field(default=None, ge=0, le=10)
     variante: str | None = Field(default=None, max_length=100)
 
