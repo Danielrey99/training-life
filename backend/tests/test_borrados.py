@@ -4,7 +4,7 @@ Es la parte más delicada del backend y donde han aparecido los tres bugs reales
 del proyecto, así que es la primera que se cubre.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import func, select, update
 
@@ -436,3 +436,103 @@ def test_ocultar_algo_ya_oculto_conserva_desde_cuando(cliente, sesion_bd, grupo_
     ocultar(cliente, f"/ejercicios/{ejercicio_id}")
 
     assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["oculto_desde"] == "2026-01-15"
+
+
+# --- Los predefinidos no son de nadie ------------------------------------
+
+
+def test_un_ejercicio_predefinido_no_se_puede_editar_ocultar_ni_borrar(
+    cliente, ejercicio_predefinido_id, grupo_muscular_id
+):
+    """Vienen con la app y los comparten todos los usuarios: cambiarlos o
+    borrarlos afectaría a todos. 403, porque existen pero no son tuyos.
+    """
+    ruta = f"/ejercicios/{ejercicio_predefinido_id}"
+
+    editar = cliente.put(ruta, json={"nombre": "Otra cosa", "grupo_muscular_id": grupo_muscular_id})
+
+    assert editar.status_code == 403
+    assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 403
+    assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 403
+    assert cliente.get(ruta).json()["nombre"] == "Sentadilla con barra"
+
+
+# --- Borrar un ejercicio que es comodín ----------------------------------
+
+
+def test_borrar_en_definitivo_un_ejercicio_lo_quita_de_comodin_sin_tocar_el_hueco(
+    cliente, grupo_muscular_id
+):
+    """Un comodín es un accesorio del hueco: el ejercicio se va y el hueco se
+    queda con su principal. Es distinto de borrar el principal, que se lleva el
+    hueco entero.
+    """
+    principal = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, principal)
+    cliente.post(
+        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin}
+    )
+
+    sin_modo = cliente.delete(f"/ejercicios/{comodin}")
+    definitivo = cliente.delete(f"/ejercicios/{comodin}?modo=definitivo")
+
+    assert sin_modo.status_code == 409
+    assert sin_modo.json()["detail"]["usos"][0]["rol"] == "comodín"
+    assert definitivo.status_code == 204
+    [hueco] = cliente.get(f"/rutinas/{rutina_id}").json()["slots"]
+    assert hueco["ejercicio_principal"]["id"] == principal
+    assert hueco["alternativas"] == []
+
+
+# --- Lo oculto y lo que ya se registró con ello ---------------------------
+#
+# Ocultar deja de ofrecer algo para lo nuevo, pero el historial se queda. Por eso
+# usar algo oculto en una serie *nueva* se rechaza, pero corregir lo que ya se
+# apuntó con ello (una serie vieja, las notas de un día pasado) no debería.
+
+
+def serie_de(ejercicio_id, slot_id, numero=1, repeticiones=8) -> dict:
+    return {
+        "ejercicio_id": ejercicio_id,
+        "slot_id": slot_id,
+        "numero_serie": numero,
+        "peso": 60,
+        "repeticiones": repeticiones,
+    }
+
+
+def test_borrar_en_definitivo_una_rutina_usada_en_programa_y_plan_con_historial(
+    cliente, grupo_muscular_id
+):
+    """El escenario completo: la rutina tiene huecos, series, está en el programa
+    activo y en un día planificado a mano. Todo se va, sin chocar con ningún
+    RESTRICT, y los días vuelven a descanso o al programa.
+    """
+    hoy_ = hoy().isoformat()
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    otra = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    programa = cliente.post(
+        "/programas",
+        json={
+            "nombre": "PPL",
+            "activar": True,
+            "dias": [{"dia_semana": d, "rutina_id": rutina_id} for d in range(1, 8)],
+        },
+    ).json()["id"]
+    cliente.put(f"/plan/excepciones/{hoy_}", json={"rutina_id": rutina_id})
+    manana = (hoy() + timedelta(days=1)).isoformat()
+    cliente.put(f"/plan/excepciones/{manana}", json={"rutina_id": otra})
+
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}?modo=definitivo")
+
+    assert respuesta.status_code == 204, respuesta.text
+    assert cliente.get(f"/programas/{programa}").json()["dias"] == []
+    dias = cliente.get("/plan", params={"desde": hoy_, "hasta": manana}).json()
+    assert [(d["origen"], d["descanso"]) for d in dias] == [
+        ("programa", True),
+        ("excepcion", False),
+    ]
+    assert cliente.get("/entrenamientos").json() == []

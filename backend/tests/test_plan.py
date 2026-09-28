@@ -374,3 +374,105 @@ def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias_planificados(
         "está en 1 día planificado a mano, que volvería a lo que diga el programa"
         in (respuesta.json()["detail"])
     )
+
+
+def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push):
+    """Con `desde` = hoy son los que se perderían al activar otro programa."""
+    for dias in (0, 2, 5):
+        planificar(cliente, HOY + timedelta(days=dias), semana_push["pull"])
+
+    def fechas(**filtros):
+        params = {clave: valor.isoformat() for clave, valor in filtros.items()}
+        return [e["fecha"] for e in cliente.get("/plan/excepciones", params=params).json()]
+
+    en_medio = [(HOY + timedelta(days=2)).isoformat()]
+    assert fechas(desde=HOY + timedelta(days=1), hasta=HOY + timedelta(days=4)) == en_medio
+    assert len(fechas(desde=HOY + timedelta(days=1))) == 2
+    assert len(fechas(hasta=HOY + timedelta(days=2))) == 2
+    respuesta = cliente.get(
+        "/plan/excepciones",
+        params={"desde": HOY.isoformat(), "hasta": (HOY - timedelta(days=1)).isoformat()},
+    )
+    assert respuesta.status_code == 422
+
+
+def test_los_dias_planificados_de_otro_usuario_no_cuentan(cliente, sesion_bd, semana_push):
+    otro = sesion_bd.scalar(select(Usuario).where(Usuario.email == "otro@example.com"))
+    if otro is None:
+        otro = Usuario(nombre="Otro", email="otro@example.com", password_hash="sin-login")
+        sesion_bd.add(otro)
+        sesion_bd.flush()
+    ajena = Rutina(usuario_id=otro.id, nombre="De otro")
+    sesion_bd.add(ajena)
+    sesion_bd.flush()
+    sesion_bd.add(ExcepcionDelPlan(usuario_id=otro.id, fecha=HOY, rutina_id=ajena.id))
+    sesion_bd.commit()
+
+    dia = plan(cliente, HOY, HOY)[HOY.isoformat()]
+
+    assert (dia["origen"], rutina_de(dia)) == ("programa", "Push")
+    assert cliente.get("/plan/excepciones").json() == []
+
+
+# --- Bordes y combinaciones con lo oculto --------------------------------
+
+
+def test_un_periodo_cubre_su_ultimo_dia_aunque_el_rango_empiece_justo_ahi(cliente, sesion_bd):
+    """Un rango de un solo día en el último día de un periodo, y otro en su `hasta`:
+    el primero es del programa viejo, el segundo ya del nuevo. Así se comprueba
+    también el filtro de la consulta, no solo el recorrido día a día.
+    """
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    viejo = crear_programa(cliente, "Viejo", [(d, pull) for d in range(1, 8)])
+    nuevo = crear_programa(cliente, "Nuevo", [(d, push) for d in range(1, 8)])
+    cambio = HOY - timedelta(days=5)
+    periodo(sesion_bd, viejo, HOY - timedelta(days=10), cambio)
+    periodo(sesion_bd, nuevo, cambio)
+
+    ultimo_del_viejo = cambio - timedelta(days=1)
+    dia_viejo = plan(cliente, ultimo_del_viejo, ultimo_del_viejo)[ultimo_del_viejo.isoformat()]
+    dia_nuevo = plan(cliente, cambio, cambio)[cambio.isoformat()]
+    antes_de_todo = HOY - timedelta(days=11)
+
+    assert (dia_viejo["programa_id"], rutina_de(dia_viejo)) == (viejo, "Pull")
+    assert (dia_nuevo["programa_id"], rutina_de(dia_nuevo)) == (nuevo, "Push")
+    assert plan(cliente, antes_de_todo, antes_de_todo)[antes_de_todo.isoformat()]["origen"] == (
+        "sin_programa"
+    )
+
+
+def test_intercambiar_un_dia_con_la_rutina_oculta_lo_mueve_como_descanso(cliente, semana_push):
+    """Lo promete el docstring de intercambiar: lo oculto no se vuelve a planificar.
+    Hoy toca Push (oculta, así que descanso) y mañana Pull (a mano).
+    """
+    manana = HOY + timedelta(days=1)
+    planificar(cliente, manana, semana_push["pull"])
+    cliente.delete(f"/rutinas/{semana_push['push']}?modo=ocultar")
+
+    respuesta = cliente.post(
+        "/plan/intercambiar", json={"fecha_a": HOY.isoformat(), "fecha_b": manana.isoformat()}
+    )
+
+    assert respuesta.status_code == 200
+    hoy_, despues = respuesta.json()
+    assert (rutina_de(hoy_), hoy_["descanso"]) == ("Pull", False)
+    assert (despues["rutina"], despues["descanso"], despues["origen"]) == (None, True, "excepcion")
+
+
+def test_ocultar_el_programa_activo_deja_hoy_sin_programa_pero_respeta_lo_planificado(
+    cliente, semana_push
+):
+    """Las excepciones son del usuario, no del programa: sobreviven a que el
+    programa deje de estar activo.
+    """
+    manana = HOY + timedelta(days=1)
+    planificar(cliente, manana, semana_push["pull"])
+
+    cliente.delete(f"/programas/{semana_push['programa']}?modo=ocultar")
+    dias = plan(cliente, HOY, manana)
+
+    assert dias[HOY.isoformat()]["origen"] == "sin_programa"
+    assert (dias[manana.isoformat()]["origen"], rutina_de(dias[manana.isoformat()])) == (
+        "excepcion",
+        "Pull",
+    )

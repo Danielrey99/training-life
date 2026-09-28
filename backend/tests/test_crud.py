@@ -238,3 +238,190 @@ def test_una_nota_en_blanco_no_se_acepta(cliente, grupo_muscular_id):
     assert (
         cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": "   "}).status_code == 422
     )
+
+
+# --- Editar y borrar: rutinas, huecos y comodines ------------------------
+
+
+def _ejercicio(cliente, grupo_muscular_id, nombre) -> int:
+    return cliente.post(
+        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+
+
+def _hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
+    return {
+        "ejercicio_principal_id": ejercicio_id,
+        "orden": orden,
+        "series_objetivo": series,
+        "reps_min": reps[0],
+        "reps_max": reps[1],
+    }
+
+
+def test_cambiar_el_nombre_de_una_rutina(cliente):
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    respuesta = cliente.put(f"/rutinas/{rutina_id}", json={"nombre": "Empuje"})
+
+    assert respuesta.status_code == 200
+    assert cliente.get(f"/rutinas/{rutina_id}").json()["nombre"] == "Empuje"
+
+
+def test_editar_un_hueco_cambia_su_ejercicio_y_su_objetivo(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    maquina = _ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    slot_id = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca)).json()["id"]
+
+    # Mismo orden que ya tenía: no choca consigo mismo.
+    respuesta = cliente.put(
+        f"/rutinas/{rutina_id}/slots/{slot_id}", json=_hueco(maquina, series=3, reps=(8, 12))
+    )
+
+    assert respuesta.status_code == 200
+    hueco = respuesta.json()
+    assert hueco["ejercicio_principal"]["nombre"] == "Press en máquina"
+    assert (hueco["series_objetivo"], hueco["reps_min"], hueco["reps_max"]) == (3, 8, 12)
+
+
+def test_mover_un_hueco_al_orden_de_otro_da_409(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca, orden=1))
+    segundo = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca, orden=2)).json()
+
+    respuesta = cliente.put(
+        f"/rutinas/{rutina_id}/slots/{segundo['id']}", json=_hueco(banca, orden=1)
+    )
+
+    assert respuesta.status_code == 409
+
+
+def test_quitar_un_comodin_y_no_poder_repetirlo(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    maquina = _ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    slot_id = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca)).json()["id"]
+    ruta = f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas"
+
+    assert cliente.post(ruta, json={"ejercicio_id": maquina}).status_code == 201
+    # El mismo ejercicio dos veces como comodín del mismo hueco no tiene sentido.
+    assert cliente.post(ruta, json={"ejercicio_id": maquina}).status_code == 409
+
+    assert cliente.delete(f"{ruta}/{maquina}").status_code == 204
+    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"][0]["alternativas"] == []
+    # Ya no era comodín: no hay nada que quitar.
+    assert cliente.delete(f"{ruta}/{maquina}").status_code == 404
+
+
+def test_un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo(cliente, grupo_muscular_id):
+    """Ocultar significa que deja de ofrecerse para usarlo."""
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    cliente.delete(f"/ejercicios/{banca}?modo=ocultar")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    assert cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca)).status_code == 404
+
+
+# --- Editar y borrar: entrenamientos y series ----------------------------
+
+
+def _serie(ejercicio_id, numero=1, peso=60, repeticiones=8, slot_id=None) -> dict:
+    return {
+        "ejercicio_id": ejercicio_id,
+        "slot_id": slot_id,
+        "numero_serie": numero,
+        "peso": peso,
+        "repeticiones": repeticiones,
+    }
+
+
+def test_corregir_una_serie(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    ruta = f"/entrenamientos/{entrenamiento_id}/series"
+    serie_id = cliente.post(ruta, json=_serie(banca)).json()["id"]
+
+    respuesta = cliente.put(
+        f"{ruta}/{serie_id}",
+        json={**_serie(banca, peso=62.5, repeticiones=7), "variante": "agarre cerrado"},
+    )
+
+    assert respuesta.status_code == 200
+    corregida = respuesta.json()
+    assert Decimal(corregida["peso"]) == Decimal("62.5")
+    assert (corregida["repeticiones"], corregida["variante"]) == (7, "agarre cerrado")
+
+
+def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    ruta = f"/entrenamientos/{entrenamiento_id}/series"
+    primera = cliente.post(ruta, json=_serie(banca, numero=1)).json()["id"]
+    cliente.post(ruta, json=_serie(banca, numero=2))
+
+    assert cliente.delete(f"{ruta}/{primera}").status_code == 204
+
+    series = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
+    assert [serie["numero_serie"] for serie in series] == [2]
+    assert cliente.delete(f"{ruta}/{primera}").status_code == 404
+
+
+def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    uno = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    otro = cliente.post("/entrenamientos", json={"fecha": "2026-09-05"}).json()["id"]
+    serie_id = cliente.post(f"/entrenamientos/{uno}/series", json=_serie(banca)).json()["id"]
+
+    assert cliente.delete(f"/entrenamientos/{otro}/series/{serie_id}").status_code == 404
+
+
+def test_cancelar_una_sesion_la_borra_con_sus_series(cliente, grupo_muscular_id):
+    """Es el Cancelar sesión del diseño: como si no se hubiera empezado."""
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca))
+
+    assert cliente.delete(f"/entrenamientos/{entrenamiento_id}").status_code == 204
+
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
+    assert cliente.get(f"/ejercicios/{banca}/historial").json() == []
+
+
+def test_una_serie_no_puede_apuntar_a_un_hueco_de_otra_rutina(cliente, grupo_muscular_id):
+    """El hueco tiene que ser de la rutina de ese entrenamiento: si no, el
+    historial de ese hueco mostraría una sesión de otra rutina.
+    """
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    hueco_de_pull = cliente.post(f"/rutinas/{pull}/slots", json=_hueco(banca)).json()["id"]
+    entrenamiento_id = cliente.post(
+        "/entrenamientos", json={"rutina_id": push, "fecha": FECHA}
+    ).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca, slot_id=hueco_de_pull)
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    cliente.delete(f"/rutinas/{push}?modo=ocultar")
+
+    respuesta = cliente.post("/entrenamientos", json={"rutina_id": push, "fecha": FECHA})
+
+    assert respuesta.status_code == 404
+
+
+def test_un_ejercicio_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    cliente.delete(f"/ejercicios/{banca}?modo=ocultar")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+
+    respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca))
+
+    assert respuesta.status_code == 404
