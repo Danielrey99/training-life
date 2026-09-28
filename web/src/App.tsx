@@ -1,28 +1,26 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
+import { Pestanas } from './componentes/Pestanas'
 import { Ejercicios } from './paginas/Ejercicios'
+import { PorHacer } from './paginas/PorHacer'
 import { RegistrarEntrenamiento } from './paginas/RegistrarEntrenamiento'
 import './App.css'
 
-/** El armazón: la cabecera fija y el hueco donde se pinta cada pantalla. */
+/** El armazón: las pestañas de las cuatro secciones y el hueco donde se pinta cada pantalla. */
 export default function App() {
   return (
-    <div className="app">
-      <header>
-        <h1>Training Life 🏋️</h1>
-        <nav>
-          <NavLink to="/registrar">Registrar</NavLink>
-          <NavLink to="/ejercicios">Ejercicios</NavLink>
-        </nav>
-      </header>
+    <div className="armazon">
+      <Pestanas />
 
-      <main>
+      <main className="contenido">
         <Routes>
-          {/* La raíz lleva a registrar, que es a lo que se entra en el gimnasio. */}
+          {/* Hasta que exista Hoy, Entrenar abre la pantalla de registrar. */}
           <Route path="/" element={<Navigate to="/registrar" replace />} />
           <Route path="/registrar" element={<RegistrarEntrenamiento />} />
           {/* La sesión abierta va en la URL: recargar no echa atrás. */}
           <Route path="/registrar/:entrenamientoId" element={<RegistrarEntrenamiento />} />
+          <Route path="/historial" element={<PorHacer seccion="El historial" />} />
+          <Route path="/programas" element={<PorHacer seccion="Programas y rutinas" />} />
           <Route path="/ejercicios" element={<Ejercicios />} />
           <Route path="*" element={<p className="aviso">Esa página no existe.</p>} />
         </Routes>

@@ -5,7 +5,15 @@
   --texto: #e8eaed;
   --texto-tenue: #9aa1ac;
   --acento: #4ade80;
+  --acento-suave: #86efac;
   --error: #f87171;
+  /* Lo que flota sobre una superficie: desplegables y globos. */
+  --superficie-alta: #22262e;
+
+  --radio: 8px;
+  --radio-pequeno: 6px;
+  --alto-pestanas: 64px;
+  --ancho-lateral: 220px;
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -34,4 +42,25 @@ code {
   border-radius: 4px;
   padding: 0.1em 0.35em;
   font-size: 0.9em;
+}
+
+.icono {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.icono-pequeno {
+  width: 18px;
+  height: 18px;
+}
+
+/* Las cifras con el mismo ancho, para que las columnas de pesos y reps no bailen. */
+.num {
+  font-variant-numeric: tabular-nums;
 }

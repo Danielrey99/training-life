@@ -23,6 +23,9 @@ serie anterior.
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
 - [x] Pantalla de ejercicios
 - [x] Registrar un entrenamiento: elegir rutina, anotar series hueco a hueco y borrarlas
+- [x] El armazón del diseño: las cuatro secciones (Entrenar, Historial, Programas, Ejercicios)
+  en una barra abajo en el móvil y en una columna a la izquierda en el PC, y el cliente de la API
+  completo, con los tipos al día
 - [ ] Rehacer la web siguiendo los [bocetos](../docs/bocetos-movil-training-life.png), pantalla a
   pantalla, empezando por *Hoy* y la sesión en curso: después el calendario y la progresión, los
   programas y rutinas, y la biblioteca de ejercicios
@@ -56,14 +59,18 @@ web/
 ├── public/               # archivos servidos tal cual (el favicon)
 └── src/
     ├── main.tsx          # arranca React y monta el router
-    ├── App.tsx           # la cabecera y las rutas
-    ├── index.css         # colores y estilos generales
+    ├── App.tsx           # las pestañas y las rutas
+    ├── index.css         # colores, medidas e iconos generales
     ├── App.css           # estilos del armazón y de las tarjetas
     ├── api/
     │   ├── tipos.ts      # la forma de lo que devuelve la API
     │   └── cliente.ts    # todas las llamadas, en un solo sitio
+    ├── componentes/      # piezas que usan varias pantallas
+    │   ├── Icono.tsx     # los iconos de trazo de los bocetos
+    │   └── Pestanas.tsx  # la barra de las cuatro secciones
     └── paginas/          # una pantalla por archivo
         ├── Ejercicios.tsx
+        ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
         └── RegistrarEntrenamiento.tsx
 ```
 

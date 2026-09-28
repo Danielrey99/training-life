@@ -1,38 +1,75 @@
-.app {
-  max-width: 900px;
+/* --- Armazón ---------------------------------------------------------------
+   Móvil primero: las pestañas van fijas abajo, al alcance del pulgar, y el
+   contenido deja sitio debajo para que la barra no tape lo último. En el PC la
+   misma barra pasa a ser una columna a la izquierda. */
+
+.contenido {
+  max-width: 720px;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1rem 1rem calc(var(--alto-pestanas) + 1.5rem + env(safe-area-inset-bottom));
 }
 
-/* Solo la cabecera de la página: las tarjetas tienen la suya, y sin el `>` esta
-   regla les colaría también la raya y el margen. */
-.app > header {
-  border-bottom: 1px solid var(--borde);
-  padding-bottom: 1rem;
-  margin-bottom: 1.5rem;
+.pestanas {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  padding: 6px 8px calc(10px + env(safe-area-inset-bottom));
 }
 
-.app > header h1 {
-  margin: 0 0 0.75rem;
-  font-size: 1.6rem;
-}
-
-nav a {
+.pestana {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   color: var(--texto-tenue);
+  font-size: 11px;
   text-decoration: none;
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid transparent;
+  border-radius: var(--radio);
 }
 
-nav a:hover {
+.pestana:hover {
   color: var(--texto);
 }
 
-nav a.active {
+.pestana.activa {
   color: var(--acento);
-  border-color: var(--borde);
-  background: var(--superficie);
+}
+
+@media (min-width: 900px) {
+  .contenido {
+    margin-left: calc(var(--ancho-lateral) + max(0px, (100vw - var(--ancho-lateral) - 720px) / 2));
+    margin-right: auto;
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  .pestanas {
+    inset: 0 auto 0 0;
+    width: var(--ancho-lateral);
+    grid-template-columns: none;
+    align-content: start;
+    gap: 4px;
+    border-top: none;
+    border-right: 1px solid var(--borde);
+    padding: 1.5rem 12px;
+  }
+
+  .pestana {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 12px;
+    font-size: 15px;
+  }
+
+  .pestana.activa {
+    background: var(--fondo);
+  }
 }
 
 .aviso {
