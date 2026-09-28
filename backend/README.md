@@ -200,6 +200,16 @@ cd backend
 .venv\Scripts\python -m pytest tests/
 ```
 
+Para ver qué líneas del código no ejecuta ningún test:
+
+```bash
+.venv\Scripts\python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
+```
+
+La cobertura está en torno al 99 %. Lo que queda fuera son algunos 404 de ids que no existen y
+variantes menores de casos ya probados; no se persigue el 100 % por el número, sino que cada regla
+del backend tenga un test que falle si se rompe.
+
 Corren contra **PostgreSQL de verdad**, en una base de datos aparte (`training_life_test`) dentro
 del mismo contenedor que la de desarrollo, así que hace falta tener Postgres levantado
 (`docker compose up -d postgres`).
