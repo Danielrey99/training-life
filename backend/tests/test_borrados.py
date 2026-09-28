@@ -502,6 +502,43 @@ def serie_de(ejercicio_id, slot_id, numero=1, repeticiones=8) -> dict:
     }
 
 
+def test_un_hueco_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=serie_de(ejercicio_id, slot_id, 2)
+    )
+
+    # 404 y no 409: lo oculto deja de ofrecerse, así que para elegirlo es como si no
+    # existiera, igual que un ejercicio oculto en una serie nueva.
+    assert respuesta.status_code == 404
+    assert len(cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]) == 1
+
+
+def test_una_serie_de_un_hueco_oculto_se_puede_corregir_sin_cambiarle_el_hueco(
+    cliente, grupo_muscular_id
+):
+    """Corregir lo que ya se apuntó no es elegir nada nuevo: el hueco oculto que la
+    serie ya tenía no estorba.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    [serie] = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}",
+        json={**serie_de(ejercicio_id, slot_id, 1), "repeticiones": 6},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["repeticiones"] == 6
+
+
 def test_borrar_en_definitivo_una_rutina_usada_en_programa_y_plan_con_historial(
     cliente, grupo_muscular_id
 ):

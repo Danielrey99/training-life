@@ -353,6 +353,6 @@ que estaba activo ese día, o nada. Si una rutina se borra, sus días planificad
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
 | `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
-| `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
+| `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). El hueco tiene que ser de la rutina de ese entrenamiento y estar visible (404 si no). Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
 | `PUT` | `/entrenamientos/{id}/series/{serie_id}` | Edita una serie. |
 | `DELETE` | `/entrenamientos/{id}/series/{serie_id}` | Borra una serie suelta. |

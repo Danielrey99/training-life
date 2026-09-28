@@ -245,9 +245,15 @@ def _obtener_serie_propia(
     return serie
 
 
-def _validar_slot(db: Session, slot_id: int, rutina_id: int | None) -> None:
+def _validar_slot(
+    db: Session, slot_id: int, rutina_id: int | None, slot_actual: int | None = None
+) -> None:
     """El slot_id de una serie, si se manda, tiene que ser un hueco real de
     la rutina de ese entrenamiento — no tiene sentido en un entrenamiento libre.
+
+    Y no puede estar oculto: lo oculto deja de ofrecerse, así que para elegirlo es
+    como si no existiera (404). Salvo si es el hueco que la serie ya tenía
+    (`slot_actual`): corregir lo que ya se apuntó no es elegir nada nuevo.
     """
     if rutina_id is None:
         raise HTTPException(
@@ -255,7 +261,8 @@ def _validar_slot(db: Session, slot_id: int, rutina_id: int | None) -> None:
             detail="Este entrenamiento es libre (sin rutina): no puede tener slot_id",
         )
     slot = db.get(RutinaSlot, slot_id)
-    if slot is None or slot.rutina_id != rutina_id:
+    oculto_y_nuevo = slot is not None and slot.oculto and slot_id != slot_actual
+    if slot is None or slot.rutina_id != rutina_id or oculto_y_nuevo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ningún hueco con id {slot_id} en la rutina de este entrenamiento",
@@ -294,7 +301,7 @@ def actualizar_serie(
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
     obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
     if datos.slot_id is not None:
-        _validar_slot(db, datos.slot_id, entrenamiento.rutina_id)
+        _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, slot_actual=serie.slot_id)
     for campo, valor in datos.model_dump().items():
         setattr(serie, campo, valor)
     db.commit()
