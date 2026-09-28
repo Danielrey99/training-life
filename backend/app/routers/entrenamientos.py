@@ -8,7 +8,7 @@ from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
-from app.routers.ejercicios import obtener_ejercicio_visible
+from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     EntrenamientoCreate,
     EntrenamientoOut,
@@ -180,7 +180,9 @@ def actualizar_entrenamiento(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
-    if datos.rutina_id is not None:
+    # La rutina solo se valida si cambia: una sesión de una rutina que se ocultó
+    # después tiene que poder corregirse (notas, fecha) sin mostrarla antes.
+    if datos.rutina_id is not None and datos.rutina_id != entrenamiento.rutina_id:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     if datos.rutina_id != entrenamiento.rutina_id:
         _validar_cambio_de_rutina(db, entrenamiento_id)
@@ -299,7 +301,13 @@ def actualizar_serie(
 ):
     serie = _obtener_serie_propia(db, entrenamiento_id, serie_id, usuario_id)
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
+    # Corregir lo que ya se apuntó no es elegir nada nuevo: si el ejercicio no
+    # cambia, basta con que sea legible (puede estar oculto). Si cambia por otro,
+    # ese otro tiene que estar visible, como al apuntar una serie nueva.
+    if datos.ejercicio_id == serie.ejercicio_id:
+        obtener_ejercicio_del_usuario(db, datos.ejercicio_id, usuario_id)
+    else:
+        obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
     if datos.slot_id is not None:
         _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, slot_actual=serie.slot_id)
     for campo, valor in datos.model_dump().items():

@@ -27,8 +27,12 @@ reales:
 
 Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un
 simple sí/no: la app enseña esa fecha, y el sí/no se deduce de ella. Lo contrario de ocultar es
-*mostrar* (`POST .../mostrar`). Lo oculto se puede abrir, borrar y volver a mostrar, pero no editar ni
-usar: eso da 409 hasta que se muestre. Las notas son la excepción: se pueden añadir, editar y borrar
+*mostrar* (`POST .../mostrar`). Lo oculto se puede abrir, borrar y volver a mostrar, pero no editar:
+eso da 409 hasta que se muestre. Y no se puede **elegir** en otro sitio (un ejercicio oculto para una
+serie nueva, una rutina oculta para un día del programa): eso da 404, porque lo oculto deja de
+ofrecerse y para elegirlo es como si no existiera. Lo que ya se apuntó con algo oculto sí se puede
+corregir: el peso o las repeticiones de una serie de un ejercicio oculto, o las notas y la fecha de
+una sesión de una rutina oculta. Las notas son la excepción: se pueden añadir, editar y borrar
 también en un ejercicio oculto, porque son tuyas y no lo usan (y son un buen sitio para apuntar por
 qué se ocultó).
 

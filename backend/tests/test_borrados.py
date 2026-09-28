@@ -539,6 +539,47 @@ def test_una_serie_de_un_hueco_oculto_se_puede_corregir_sin_cambiarle_el_hueco(
     assert respuesta.json()["repeticiones"] == 6
 
 
+def test_se_puede_corregir_una_serie_ya_registrada_de_un_ejercicio_oculto(
+    cliente, grupo_muscular_id
+):
+    """El README promete que una sesión terminada admite series corregidas "para
+    poder editar un día ya pasado", y ocultar promete conservar el historial.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    [serie] = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
+    ocultar(cliente, f"/ejercicios/{ejercicio_id}")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}",
+        json=serie_de(ejercicio_id, slot_id, repeticiones=10),
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["repeticiones"] == 10
+
+
+def test_se_pueden_editar_las_notas_de_un_dia_cuya_rutina_se_oculto_despues(
+    cliente, grupo_muscular_id
+):
+    """Tampoco hay salida por otro lado: mandar `rutina_id` nulo para esquivarlo
+    choca con el 409 de las series atadas a huecos.
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+    ocultar(cliente, f"/rutinas/{rutina_id}")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}",
+        json={"rutina_id": rutina_id, "fecha": FECHA, "notas": "Me dolía el hombro"},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["notas"] == "Me dolía el hombro"
+
+
 def test_borrar_en_definitivo_una_rutina_usada_en_programa_y_plan_con_historial(
     cliente, grupo_muscular_id
 ):
@@ -573,3 +614,37 @@ def test_borrar_en_definitivo_una_rutina_usada_en_programa_y_plan_con_historial(
         ("excepcion", False),
     ]
     assert cliente.get("/entrenamientos").json() == []
+
+
+def test_una_serie_no_se_puede_cambiar_a_otro_ejercicio_oculto(cliente, grupo_muscular_id):
+    """Corregir sí, elegir algo oculto no: cambiar el ejercicio de una serie es
+    elegir uno, y lo oculto no se ofrece.
+    """
+    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    maquina = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, banca)
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, banca)
+    [serie] = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
+    ocultar(cliente, f"/ejercicios/{maquina}")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}",
+        json=serie_de(maquina, slot_id, 1),
+    )
+
+    assert respuesta.status_code == 404
+
+
+def test_un_entrenamiento_no_se_puede_pasar_a_otra_rutina_oculta(cliente):
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    entrenamiento_id = cliente.post(
+        "/entrenamientos", json={"rutina_id": push, "fecha": FECHA}
+    ).json()["id"]
+    ocultar(cliente, f"/rutinas/{pull}")
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}", json={"rutina_id": pull, "fecha": FECHA}
+    )
+
+    assert respuesta.status_code == 404
