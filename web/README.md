@@ -89,7 +89,14 @@ sus comodines; si un día se hace algo que no está en la rutina, va en el bloqu
 ## Hablar con la API
 
 Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan
-errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados.
+errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre ya
+todos los endpoints del backend, agrupados por recurso, aunque todavía no los use ninguna pantalla.
+
+Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el
+motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual
+llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que
+reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede
+ofrecer continuarla.
 
 Esa separación es la que permitirá cambiar cosas en un solo archivo más adelante — añadir el token
 cuando exista JWT, reintentar peticiones fallidas o meter una caché — sin recorrer todas las
