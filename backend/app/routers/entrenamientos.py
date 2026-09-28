@@ -76,6 +76,18 @@ def _validar_cambio_de_rutina(db: Session, entrenamiento_id: int) -> None:
         )
 
 
+def _validar_fecha_no_futura(fecha: date) -> None:
+    """Se registra lo que se entrenó, no lo que se va a entrenar: el futuro se
+    planifica (`/plan`), no se apunta. Y una sesión del futuro sin terminar
+    pasaría sola a estar en curso al llegar su día, sin que nadie la empezara.
+    """
+    if fecha > hoy():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El {fecha} todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+        )
+
+
 def _validar_sin_sesion_en_curso(
     db: Session, usuario_id: int, excepto_id: int | None = None
 ) -> None:
@@ -160,6 +172,7 @@ def crear_entrenamiento(
     """Crea la sesión "vacía" (sin series todavía) — se añaden aparte, con
     POST /entrenamientos/{id}/series. rutina_id es opcional (entrenamiento libre).
     """
+    _validar_fecha_no_futura(datos.fecha)
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     # Una sesión de otro día no estorba: apuntar un día pasado no es empezar a entrenar.
@@ -180,6 +193,7 @@ def actualizar_entrenamiento(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    _validar_fecha_no_futura(datos.fecha)
     # La rutina solo se valida si cambia: una sesión de una rutina que se ocultó
     # después tiene que poder corregirse (notas, fecha) sin mostrarla antes.
     if datos.rutina_id is not None and datos.rutina_id != entrenamiento.rutina_id:

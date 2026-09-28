@@ -186,3 +186,29 @@ def test_el_listado_con_el_rango_invertido_da_422(cliente):
     )
 
     assert respuesta.status_code == 422
+
+
+# --- El futuro no se registra --------------------------------------------
+
+
+def test_no_se_puede_apuntar_un_entrenamiento_en_el_futuro(cliente):
+    """El futuro se planifica, no se apunta. Y una sesión de mañana sin terminar
+    pasaría sola a estar en curso al llegar el día, sin que nadie la empezara.
+    """
+    manana = HOY + timedelta(days=1)
+
+    respuesta = cliente.post("/entrenamientos", json={"fecha": manana.isoformat()})
+
+    assert respuesta.status_code == 422
+    assert cliente.get("/entrenamientos").json() == []
+
+
+def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
+    sesion = empezar(cliente, AYER)
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion['id']}", json={"fecha": (HOY + timedelta(days=1)).isoformat()}
+    )
+
+    assert respuesta.status_code == 422
+    assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
