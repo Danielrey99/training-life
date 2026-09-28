@@ -1,9 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
 import { Ejercicios } from './paginas/Ejercicios'
 import { PorHacer } from './paginas/PorHacer'
 import { RegistrarEntrenamiento } from './paginas/RegistrarEntrenamiento'
+import { Sesion } from './paginas/sesion/Sesion'
 import './App.css'
 
 /** El armazón: las pestañas de las cuatro secciones y el hueco donde se pinta cada pantalla. */
@@ -18,7 +19,9 @@ export default function App() {
           <Route path="/" element={<Navigate to="/registrar" replace />} />
           <Route path="/registrar" element={<RegistrarEntrenamiento />} />
           {/* La sesión abierta va en la URL: recargar no echa atrás. */}
-          <Route path="/registrar/:entrenamientoId" element={<RegistrarEntrenamiento />} />
+          <Route path="/sesion/:entrenamientoId" element={<Sesion />} />
+          {/* Donde vivía antes la sesión, por si quedó guardada en el móvil. */}
+          <Route path="/registrar/:entrenamientoId" element={<RedirigirASesion />} />
           <Route path="/historial" element={<PorHacer seccion="El historial" />} />
           <Route path="/programas" element={<PorHacer seccion="Programas y rutinas" />} />
           <Route path="/ejercicios" element={<Ejercicios />} />
@@ -27,4 +30,9 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+function RedirigirASesion() {
+  const { entrenamientoId } = useParams()
+  return <Navigate to={`/sesion/${entrenamientoId}`} replace />
 }

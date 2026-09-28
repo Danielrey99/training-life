@@ -1,0 +1,504 @@
+/* E2 · Sesión en curso. Las medidas salen del boceto a 390 px. */
+
+.sesion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- Cabecera: volver, y la rutina con el resumen de la sesión ----------- */
+
+.sesion-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -4px -8px 0;
+}
+
+.sesion-titulo {
+  flex-grow: 1;
+  text-align: center;
+}
+
+.sesion-titulo h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.sesion-titulo p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.sesion-hueco-derecho {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.huecos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.etiqueta-chica {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--texto-tenue);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.rotulo {
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+/* --- Hueco plegado: una fila que se toca para desplegarlo ---------------- */
+
+.hueco-plegado {
+  font: inherit;
+  align-self: stretch;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-tenue);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hueco-plegado-nombre {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 15px;
+  color: var(--texto);
+}
+
+.hueco-cuenta {
+  font-size: 13px;
+}
+
+.hueco-plegado .completo {
+  color: var(--acento);
+  display: flex;
+}
+
+/* Hecho, el nombre pasa a segundo plano: lo que queda por hacer es lo que manda. */
+.hueco-plegado:has(.hueco-cuenta.completo) .hueco-plegado-nombre {
+  color: var(--texto-tenue);
+}
+
+/* --- Hueco abierto ------------------------------------------------------- */
+
+.hueco-abierto {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+/* Relativa porque de ella cuelga el desplegable de la flecha. */
+.hueco-cabecera {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.hueco-nombre {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.objetivo {
+  font-size: 12.5px;
+  color: var(--acento);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+/* La flecha del comodín: un botón propio, con recuadro y en verde, para que se
+   vea que hace algo. Abierta, se enciende. */
+.flecha-comodin {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  color: var(--acento);
+  cursor: pointer;
+}
+
+.flecha-comodin.abierta {
+  border-color: var(--acento);
+}
+
+.desplegable {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--superficie-alta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.desplegable li + li {
+  border-top: 1px solid var(--borde);
+}
+
+.opcion {
+  font: inherit;
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px;
+  background: none;
+  border: none;
+  color: var(--acento);
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcion:hover:not(:disabled) {
+  background: var(--superficie);
+}
+
+.opcion:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.opcion-texto {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.opcion-nombre {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.opcion-detalle {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.opcion-hueco {
+  width: 18px;
+  flex-shrink: 0;
+}
+
+/* --- Última vez, en fichas ----------------------------------------------- */
+
+.ultima-vez {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.fichas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ficha {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  font-size: 14px;
+  /* Mantener pulsado no debe seleccionar el texto ni abrir el menú del sistema. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ficha.pulsada {
+  background: var(--superficie);
+  border-color: var(--acento);
+}
+
+.ficha-numero {
+  font-size: 11px;
+  color: var(--texto-tenue);
+}
+
+.ficha-punto {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--acento);
+  opacity: 0.7;
+}
+
+/* Por encima de la ficha, que es donde el dedo no lo tapa. */
+.globo {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 6px 12px;
+  background: var(--texto);
+  color: var(--fondo);
+  border-radius: var(--radio-pequeno);
+  font-size: 13px;
+  font-weight: 600;
+  font-style: italic;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.globo::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--texto);
+}
+
+/* --- Las series de hoy --------------------------------------------------- */
+
+.hoy ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--borde);
+}
+
+.hoy-rotulo {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.serie {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-top: 1px solid var(--borde);
+}
+
+/* La ✕ pega al borde: su zona táctil se come el margen del bloque. */
+.serie .quitar {
+  margin-right: -12px;
+}
+
+.serie-numero {
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.serie-texto {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.serie-carga {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.serie-variante,
+.serie-ejercicio {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.serie-variante {
+  font-style: italic;
+}
+
+.serie.editando .serie-numero,
+.serie.editando .boton-icono:not(.quitar) {
+  color: var(--acento);
+  font-weight: 700;
+}
+
+/* --- Formulario ---------------------------------------------------------- */
+
+.formulario-serie {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.editando-aviso {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--acento);
+}
+
+.campos-serie {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.campo-etiqueta {
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.pasos {
+  height: 48px;
+  display: flex;
+  align-items: stretch;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  overflow: hidden;
+}
+
+.pasos button {
+  width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.pasos button:first-child {
+  border-right: 1px solid var(--borde);
+}
+
+.pasos button:last-child {
+  border-left: 1px solid var(--borde);
+}
+
+.pasos input {
+  flex-grow: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--texto);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pasos:focus-within {
+  border-color: var(--acento);
+}
+
+.pasos input:focus {
+  outline: none;
+}
+
+.campo-texto {
+  font: inherit;
+  height: 44px;
+  width: 100%;
+  padding: 0 10px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  color: var(--texto);
+  font-size: 15px;
+}
+
+.fallo {
+  margin: 0;
+  font-size: 14px;
+  color: var(--error);
+}
+
+.nota {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+/* --- Pie: terminar o cancelar -------------------------------------------- */
+
+.sesion-pie {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+.sesion-pie .boton-texto {
+  align-self: center;
+}
