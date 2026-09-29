@@ -135,7 +135,8 @@ def crear_programa(
     for dia in datos.dias:
         obtener_rutina_visible(db, dia.rutina_id, usuario_id)
     programa = Programa(usuario_id=usuario_id, nombre=datos.nombre)
-    programa.dias = [
+    # Todavía no ha gobernado ningún día: sus filas valen desde siempre.
+    programa.filas_dias = [
         ProgramaDia(dia_semana=dia.dia_semana, rutina_id=dia.rutina_id) for dia in datos.dias
     ]
     db.add(programa)
@@ -276,6 +277,40 @@ def borrar_programa(
 # --- Días del programa ---------------------------------------------------
 
 
+def _cambiar_dia(db: Session, programa: Programa, dia_semana: int, rutina_id: int | None) -> None:
+    """Pone `rutina_id` en un día del programa (o lo deja en descanso, con None)
+    sin reescribir el pasado: la fila que valía hasta hoy se cierra y se abre
+    otra desde hoy, así los días que ya pasaron siguen resolviéndose con la vieja.
+
+    Si el programa nunca ha estado activo antes de hoy, no hay pasado que
+    conservar: se sustituye la fila sin más, y así editar un programa nuevo
+    no va dejando filas cerradas que no dicen nada.
+    """
+    desde = hoy()
+    filas = [fila for fila in programa.filas_dias if fila.dia_semana == dia_semana]
+    vigente = next((fila for fila in filas if fila.hasta is None), None)
+    if vigente is not None and vigente.rutina_id == rutina_id:
+        return
+    gobierna_el_pasado = any(periodo.desde < desde for periodo in programa.periodos)
+    for fila in filas:
+        if not gobierna_el_pasado or (fila.desde is not None and fila.desde >= desde):
+            # Nunca valió para un día pasado: se puede borrar.
+            programa.filas_dias.remove(fila)
+        elif fila.hasta is None or fila.hasta > desde:
+            fila.hasta = desde
+    # Antes de abrir la nueva: la unicidad de "una fila vigente por día" la
+    # comprueba la base al insertar, y SQLAlchemy emite los DELETE después de los INSERT.
+    db.flush()
+    if rutina_id is not None:
+        programa.filas_dias.append(
+            ProgramaDia(
+                dia_semana=dia_semana,
+                rutina_id=rutina_id,
+                desde=desde if gobierna_el_pasado else None,
+            )
+        )
+
+
 @router.put("/{programa_id}/dias/{dia_semana}", response_model=ProgramaOut)
 def poner_rutina_en_dia(
     programa_id: int,
@@ -289,19 +324,7 @@ def poner_rutina_en_dia(
     """
     programa = _obtener_programa_propio(db, programa_id, usuario_id)
     obtener_rutina_visible(db, datos.rutina_id, usuario_id)
-    # Se busca antes y se actualiza, en vez de insertar y dejar que la unicidad
-    # de programa y día salte en la base de datos con un error crudo.
-    dia = db.scalar(
-        select(ProgramaDia).where(
-            ProgramaDia.programa_id == programa_id, ProgramaDia.dia_semana == dia_semana
-        )
-    )
-    if dia is None:
-        db.add(
-            ProgramaDia(programa_id=programa_id, dia_semana=dia_semana, rutina_id=datos.rutina_id)
-        )
-    else:
-        dia.rutina_id = datos.rutina_id
+    _cambiar_dia(db, programa, dia_semana, datos.rutina_id)
     db.commit()
     db.refresh(programa)
     return programa
@@ -314,16 +337,11 @@ def quitar_rutina_de_dia(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Deja el día en descanso."""
-    _obtener_programa_propio(db, programa_id, usuario_id)
-    dia = db.scalar(
-        select(ProgramaDia).where(
-            ProgramaDia.programa_id == programa_id, ProgramaDia.dia_semana == dia_semana
-        )
-    )
-    if dia is None:
+    """Deja el día en descanso desde hoy; los días pasados no cambian."""
+    programa = _obtener_programa_propio(db, programa_id, usuario_id)
+    if not any(fila.dia_semana == dia_semana for fila in programa.dias):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso"
         )
-    db.delete(dia)
+    _cambiar_dia(db, programa, dia_semana, None)
     db.commit()

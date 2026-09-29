@@ -73,7 +73,7 @@ def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> lis
         )
         .options(
             selectinload(ProgramaPeriodo.programa)
-            .selectinload(Programa.dias)
+            .selectinload(Programa.filas_dias)
             .selectinload(ProgramaDia.rutina)
         )
     ).all()
@@ -105,8 +105,16 @@ def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> lis
             rutina = excepcion.rutina
             origen = "excepcion"
         elif periodo is not None:
+            # La fila vigente ESE día, no la de hoy: editar el programa no cambia el pasado.
             dia = next(
-                (d for d in periodo.programa.dias if d.dia_semana == fecha.isoweekday()), None
+                (
+                    d
+                    for d in periodo.programa.filas_dias
+                    if d.dia_semana == fecha.isoweekday()
+                    and (d.desde is None or d.desde <= fecha)
+                    and (d.hasta is None or fecha < d.hasta)
+                ),
+                None,
             )
             rutina = dia.rutina if dia else None
             origen = "programa"

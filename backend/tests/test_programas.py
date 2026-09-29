@@ -511,3 +511,186 @@ def test_un_programa_oculto_que_estuvo_activo_sigue_pidiendo_modo_para_borrarlo(
     assert cliente.delete(ruta).status_code == 409
     assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 204
     assert cliente.get(ruta).status_code == 404
+
+
+# --- Editar un programa no cambia el pasado ------------------------------
+#
+# Cada día de programa tiene vigencia: cambiarlo cierra la fila de antes y abre
+# otra desde hoy. Se comprueba mirando lo que devuelve /plan para los días
+# pasados, que es lo que pinta el calendario.
+
+
+def rutina_del_dia(cliente, fecha):
+    dia = cliente.get(
+        "/plan", params={"desde": fecha.isoformat(), "hasta": fecha.isoformat()}
+    ).json()[0]
+    return dia["rutina"]["nombre"] if dia["rutina"] else None
+
+
+def mismo_dia_de_la_semana_pasada():
+    """Hace una semana: el mismo día de la semana que hoy, ya en el pasado."""
+    return hoy() - timedelta(days=7)
+
+
+def filas_del_dia(sesion_bd, programa_id, dia_semana) -> list[tuple]:
+    sesion_bd.expire_all()
+    return [
+        (fila.rutina_id, fila.desde, fila.hasta)
+        for fila in sesion_bd.scalars(
+            select(ProgramaDia)
+            .where(ProgramaDia.programa_id == programa_id, ProgramaDia.dia_semana == dia_semana)
+            .order_by(ProgramaDia.id)
+        )
+    ]
+
+
+def test_cambiar_un_dia_de_un_programa_activo_no_cambia_los_dias_pasados(cliente, sesion_bd):
+    """El que caza que el plan se resuelva con la plantilla de hoy en vez de con
+    la fila vigente cada día.
+    """
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    dia = hoy().isoweekday()
+    programa = crear_programa(cliente, dias=[(dia, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+    cliente.post(f"/programas/{programa['id']}/activar")
+
+    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": leg})
+
+    assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
+    assert rutina_del_dia(cliente, hoy()) == "Leg"
+    assert rutina_del_dia(cliente, hoy() + timedelta(days=7)) == "Leg"
+
+
+def test_dejar_en_descanso_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd):
+    push = crear_rutina(cliente, "Push")
+    dia = hoy().isoweekday()
+    programa = crear_programa(cliente, dias=[(dia, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    assert cliente.delete(f"/programas/{programa['id']}/dias/{dia}").status_code == 204
+
+    assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
+    assert rutina_del_dia(cliente, hoy()) is None
+    # Ya es descanso: quitarlo otra vez da 404, aunque quede su fila cerrada.
+    assert cliente.delete(f"/programas/{programa['id']}/dias/{dia}").status_code == 404
+
+
+def test_anadir_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd):
+    push = crear_rutina(cliente, "Push")
+    dia = hoy().isoweekday()
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": push})
+
+    assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) is None
+    assert rutina_del_dia(cliente, hoy()) == "Push"
+
+
+def test_un_programa_que_ya_no_esta_activo_conserva_su_pasado_al_editarlo(cliente, sesion_bd):
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    dia = hoy().isoweekday()
+    programa = crear_programa(cliente, dias=[(dia, push)])
+    sesion_bd.add(
+        ProgramaPeriodo(
+            programa_id=programa["id"],
+            usuario_id=1,
+            desde=hoy() - timedelta(days=14),
+            hasta=hoy() - timedelta(days=3),
+        )
+    )
+    sesion_bd.commit()
+
+    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": leg})
+
+    assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
+
+
+def test_editar_un_programa_que_nunca_estuvo_activo_no_guarda_historial(cliente, sesion_bd):
+    """Sin pasado que conservar, la fila se sustituye: no se acumulan filas cerradas."""
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push)])
+
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+
+    assert filas_del_dia(sesion_bd, programa["id"], 1) == [(leg, None, None)]
+
+
+def test_cambiar_dos_veces_el_mismo_dia_hoy_no_deja_filas_vacias(cliente, sesion_bd):
+    """La fila abierta hoy no llegó a valer para ningún día: se sustituye, no se
+    cierra en el mismo día que empezó.
+    """
+    push, pull, leg = (crear_rutina(cliente, nombre) for nombre in ("Push", "Pull", "Leg"))
+    programa = crear_programa(cliente, dias=[(1, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": pull})
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+
+    assert filas_del_dia(sesion_bd, programa["id"], 1) == [
+        (push, None, hoy()),
+        (leg, hoy(), None),
+    ]
+
+
+def test_poner_la_misma_rutina_no_parte_el_dia(cliente, sesion_bd):
+    push = crear_rutina(cliente, "Push")
+    programa = crear_programa(cliente, dias=[(1, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": push})
+
+    assert filas_del_dia(sesion_bd, programa["id"], 1) == [(push, None, None)]
+
+
+def test_el_programa_solo_ensena_sus_dias_vigentes(cliente, sesion_bd):
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push), (3, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+    cliente.delete(f"/programas/{programa['id']}/dias/3")
+
+    assert rutinas_por_dia(cliente.get(f"/programas/{programa['id']}").json()) == {1: "Leg"}
+
+
+def test_num_programas_solo_cuenta_dias_vigentes(cliente, sesion_bd):
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+
+    assert cliente.get(f"/rutinas/{push}").json()["num_programas"] == 0
+    assert cliente.get(f"/rutinas/{leg}").json()["num_programas"] == 1
+
+
+def test_borrar_en_definitivo_un_programa_se_lleva_tambien_las_filas_viejas(cliente, sesion_bd):
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push)])
+    activo_desde_hace(sesion_bd, programa["id"], 14)
+    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+
+    assert cliente.delete(f"/programas/{programa['id']}?modo=definitivo").status_code == 204
+    assert filas_del_dia(sesion_bd, programa["id"], 1) == []
+
+
+def test_la_base_no_admite_dos_filas_vigentes_del_mismo_dia(cliente, sesion_bd):
+    """Las cerradas sí conviven; dos abiertas del mismo día, no."""
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push)])
+
+    sesion_bd.add(
+        ProgramaDia(
+            programa_id=programa["id"],
+            dia_semana=1,
+            rutina_id=leg,
+            desde=hoy() - timedelta(days=30),
+            hasta=hoy() - timedelta(days=20),
+        )
+    )
+    sesion_bd.commit()
+    sesion_bd.add(ProgramaDia(programa_id=programa["id"], dia_semana=1, rutina_id=leg))
+    with pytest.raises(IntegrityError):
+        sesion_bd.commit()
+    sesion_bd.rollback()

@@ -211,7 +211,7 @@ def borrar_rutina(
             db.scalar(
                 select(func.count())
                 .select_from(ProgramaDia)
-                .where(ProgramaDia.rutina_id == rutina_id)
+                .where(ProgramaDia.rutina_id == rutina_id, ProgramaDia.hasta.is_(None))
             ),
             "de programa, que pasaría{n} a descanso",
         ) + _aviso_de_dias(

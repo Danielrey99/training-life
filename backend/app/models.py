@@ -157,8 +157,16 @@ class Rutina(Ocultable, Base):
 
     @property
     def num_programas(self) -> int:
-        """En cuántos programas visibles aparece, para la lista de rutinas."""
-        return len({dia.programa_id for dia in self.dias_de_programa if not dia.programa.oculto})
+        """En cuántos programas visibles aparece hoy, para la lista de rutinas. Las
+        filas cerradas no cuentan: son de lo que tocaba antes.
+        """
+        return len(
+            {
+                dia.programa_id
+                for dia in self.dias_de_programa
+                if dia.hasta is None and not dia.programa.oculto
+            }
+        )
 
 
 class RutinaSlot(Ocultable, Base):
@@ -328,7 +336,9 @@ class Programa(Ocultable, Base):
     # la lista ya está cargada (y lo está al comprobar si tiene periodos antes de
     # borrarlo), SQLAlchemy intenta poner su programa_id a NULL. Con el cascade,
     # los cargados los borra él y los que no, el ON DELETE CASCADE de la base.
-    dias: Mapped[list["ProgramaDia"]] = relationship(
+    # Todas las filas, también las que ya no están vigentes: son las que dicen qué
+    # tocaba en el pasado (ver ProgramaDia). La plantilla de hoy es `dias`.
+    filas_dias: Mapped[list["ProgramaDia"]] = relationship(
         order_by="ProgramaDia.dia_semana",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -342,6 +352,14 @@ class Programa(Ocultable, Base):
     )
 
     @property
+    def dias(self) -> list["ProgramaDia"]:
+        """La plantilla de ahora: solo las filas vigentes, una por día como mucho.
+        Para saber qué tocaba un día pasado hay que mirar `filas_dias` con su
+        vigencia, no esto.
+        """
+        return [fila for fila in self.filas_dias if fila.hasta is None]
+
+    @property
     def activo(self) -> bool:
         """En uso: el que dice qué toca hoy. Es el que tiene un periodo abierto."""
         return any(periodo.hasta is None for periodo in self.periodos)
@@ -352,16 +370,30 @@ class Programa(Ocultable, Base):
 
 
 class ProgramaDia(Base):
-    """Qué rutina toca un día de la semana en un programa. Un día sin fila es
-    descanso.
+    """Qué rutina toca un día de la semana en un programa, y desde cuándo hasta
+    cuándo. Un día sin fila vigente es descanso.
+
+    La vigencia existe para que editar un programa no reescriba el pasado:
+    cambiar la rutina de un día cierra la fila de antes (`hasta` = hoy) y abre
+    otra (`desde` = hoy), y los días pasados siguen resolviéndose con la vieja.
+    Intervalo semiabierto, como los periodos: de `desde` a `hasta` sin incluirlo.
+    `desde` nulo = desde siempre; `hasta` nulo = vigente.
     """
 
     __tablename__ = "programa_dias"
     __table_args__ = (
-        UniqueConstraint(
-            "programa_id", "dia_semana", name="programa_dias_programa_id_dia_semana_key"
-        ),
         CheckConstraint("dia_semana BETWEEN 1 AND 7", name="programa_dias_dia_semana_check"),
+        CheckConstraint(
+            "desde IS NULL OR hasta IS NULL OR hasta > desde", name="programa_dias_vigencia_check"
+        ),
+        # Una sola fila vigente por día: un día, una rutina. Las cerradas no chocan.
+        Index(
+            "ix_programa_dias_programa_dia_abierto",
+            "programa_id",
+            "dia_semana",
+            unique=True,
+            postgresql_where=text("hasta IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -372,8 +404,10 @@ class ProgramaDia(Base):
     # accesorio del programa como un comodín lo es de su hueco. Si la rutina se
     # borra, ese día pasa a descanso.
     rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="CASCADE"))
+    desde: Mapped[date | None] = mapped_column(Date, default=None)
+    hasta: Mapped[date | None] = mapped_column(Date, default=None)
 
-    programa: Mapped["Programa"] = relationship(back_populates="dias")
+    programa: Mapped["Programa"] = relationship(back_populates="filas_dias")
     rutina: Mapped["Rutina"] = relationship()
 
 

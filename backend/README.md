@@ -330,8 +330,8 @@ descanso.
 | `GET` | `/programas/{id}` | Un programa con sus días, también si está oculto. Cada día trae su rutina con su `oculto_desde`: una rutina oculta sigue en el día (se enseña en gris y cuenta como descanso), para que mostrarla de nuevo lo deje como estaba. |
 | `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}], activar}`): o se guarda todo o nada. Con `activar: true` queda en uso desde hoy. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
 | `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
-| `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye: un día, una rutina. |
-| `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso (404 si ya lo era). |
+| `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye desde hoy: un día, una rutina. **Los días pasados no cambian**: cada día de programa guarda desde cuándo y hasta cuándo vale, así que cambiarlo cierra la fila de antes y abre otra, y el calendario sigue comparando el pasado con lo que tocaba entonces. Si el programa nunca estuvo activo, no hay pasado que conservar y la fila se sustituye sin más. |
+| `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso desde hoy, sin cambiar los días pasados (404 si ya lo era). |
 | `POST` | `/programas/{id}/activar` | Lo pone en uso desde hoy; el que estuviera activo deja de estarlo en la misma transacción. Con `{quitar_excepciones: true}` borra además los días cambiados a mano de hoy en adelante, que se planificaron pensando en el programa anterior. Activar el que ya lo está no cambia nada, y uno oculto no se puede activar (409). |
 | `POST` | `/programas/{id}/desactivar` | Lo saca de uso y deja al usuario sin programa activo. |
 | `DELETE` | `/programas/{id}` | Si nunca estuvo activo, se borra directo. Si lo estuvo, exige `?modo=ocultar` (conserva todo; si era el activo, deja de serlo) o `?modo=definitivo` (se van también sus días y sus periodos); sin ninguno, 409 con los periodos en que estuvo activo. Las sesiones nunca se tocan. |
