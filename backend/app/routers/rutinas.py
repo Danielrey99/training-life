@@ -333,6 +333,11 @@ def actualizar_slot(
     # sigue enseñando, y corregir sus series o reps no es elegirlo de nuevo.
     if datos.ejercicio_principal_id != slot.ejercicio_principal_id:
         obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
+        if any(comodin.id == datos.ejercicio_principal_id for comodin in slot.alternativas):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ese ejercicio ya es comodín de este hueco: quítalo antes de hacerlo principal",
+            )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump().items():
         setattr(slot, campo, valor)
@@ -458,6 +463,11 @@ def anadir_comodin(
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
     obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
 
+    if datos.ejercicio_id == slot.ejercicio_principal_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ese ejercicio ya es el principal de este hueco",
+        )
     ya_existe = db.scalar(
         select(SlotAlternativa).where(
             SlotAlternativa.slot_id == slot_id,

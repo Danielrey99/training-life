@@ -910,3 +910,31 @@ def test_el_aviso_de_borrar_un_principal_cuenta_las_series_hechas_con_el_comodin
 
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"]["series_de_comodines_que_se_perderian"] == 1
+
+
+def test_un_ejercicio_no_puede_ser_comodin_de_su_propio_hueco(cliente, grupo_muscular_id):
+    principal, _, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+
+    respuesta = cliente.post(
+        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": principal}
+    )
+
+    assert respuesta.status_code == 409
+
+
+def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_muscular_id):
+    """El camino contrario al anterior: acabaría siendo las dos cosas a la vez."""
+    _, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+
+    respuesta = cliente.put(
+        f"/rutinas/{rutina_id}/slots/{slot_id}",
+        json={
+            "ejercicio_principal_id": comodin,
+            "orden": 1,
+            "series_objetivo": 4,
+            "reps_min": 6,
+            "reps_max": 10,
+        },
+    )
+
+    assert respuesta.status_code == 409
