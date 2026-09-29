@@ -229,6 +229,11 @@ class Entrenamiento(Base):
     """
 
     __tablename__ = "entrenamientos"
+    # Una sesión por día como mucho, del tipo que sea: se entrena una rutina al
+    # día. La API lo comprueba antes (_validar_dia_libre) para dar un 409 legible.
+    __table_args__ = (
+        UniqueConstraint("usuario_id", "fecha", name="entrenamientos_usuario_id_fecha_key"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))

@@ -127,36 +127,6 @@ def test_cada_dia_es_una_entrada_y_van_de_la_mas_reciente_a_la_mas_antigua(clien
     assert [sesion["rutina"] for sesion in historial] == ["Push", "Push"]
 
 
-def test_dos_entrenamientos_del_mismo_dia_son_dos_sesiones_separadas(cliente, escenario):
-    """Un día con dos sesiones (mañana y tarde) no debe colapsar en una sola
-    entrada: la agrupación es por entrenamiento, no por fecha.
-    """
-    primero = entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=2,
-    )
-    segundo = entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=3,
-    )
-
-    historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
-
-    assert len(historial) == 2
-    assert {sesion["entrenamiento_id"] for sesion in historial} == {primero, segundo}
-    assert {sesion["fecha"] for sesion in historial} == {"2026-09-05"}
-    por_entrenamiento = {sesion["entrenamiento_id"]: len(sesion["series"]) for sesion in historial}
-    assert por_entrenamiento == {primero: 2, segundo: 3}
-
-
 def test_un_entrenamiento_libre_aparece_en_el_historial_con_rutina_nula(cliente, escenario):
     """Sin plantilla detrás no hay nombre de rutina que mostrar, pero la sesión
     cuenta igual para la progresión del ejercicio.

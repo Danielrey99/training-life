@@ -39,9 +39,13 @@ qué se ocultó).
 `Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
 algo que otras tablas tengan que proteger, así que se borran directo.
 
-Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Solo puede haber una a
-la vez, y una que se quedó abierta de un día para otro cuenta como terminada sin que nadie tenga que
-cerrarla. "Hoy" se calcula en la zona horaria del usuario, no en la del servidor.
+Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Una que se quedó
+abierta de un día para otro cuenta como terminada sin que nadie tenga que cerrarla. "Hoy" se calcula
+en la zona horaria del usuario, no en la del servidor.
+
+**Se entrena una rutina al día**: como mucho una sesión por día, del tipo que sea, y la base de datos
+lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta
+como cancelada: no ocupa su día, y se borra en cuanto otra lo necesita.
 
 Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un
 ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina
@@ -99,7 +103,7 @@ backend/
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
-│   ├── test_sesiones.py     # la sesión en curso: terminarla y no empezar dos a la vez
+│   ├── test_sesiones.py     # la sesión en curso y una sesión por día
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
 │   ├── test_relaciones.py   # borrar un padre con sus hijos ya cargados en memoria
 │   ├── test_plan.py         # qué toca cada día, también en el pasado
@@ -233,7 +237,7 @@ No hay ningún paso previo que recordar:
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
-| `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, que no se puedan empezar dos a la vez y los filtros del listado |
+| `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
@@ -363,9 +367,9 @@ que estaba activo ese día, o nada. Si una rutina se borra, sus días planificad
 |---|---|---|
 | `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes, y `?en_curso=true` para quedarse solo con la sesión en curso, si la hay. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
-| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. Si es de hoy y ya hay otra sesión en curso, devuelve 409 con el id de esa sesión: solo puede haber una abierta a la vez. Apuntar un día pasado no choca con nada; un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. |
+| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. |
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
-| `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
+| `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Moverlo a un día que ya tiene sesión da el mismo 409 que al crearlo. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
 | `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). El hueco tiene que ser de la rutina de ese entrenamiento y estar visible (404 si no), el ejercicio tiene que ser su principal o uno de sus comodines (422 si no), y un entrenamiento libre no admite `slot_id` (422). La variante en blanco se guarda como nula. Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
 | `PUT` | `/entrenamientos/{id}/series/{serie_id}` | Edita una serie, con las mismas reglas. Corregir lo ya apuntado sin cambiar de ejercicio ni de hueco vale aunque el hueco se ocultara o el ejercicio dejara de ser comodín. |

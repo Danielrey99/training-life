@@ -88,31 +88,40 @@ def _validar_fecha_no_futura(fecha: date) -> None:
         )
 
 
-def _validar_sin_sesion_en_curso(
-    db: Session, usuario_id: int, excepto_id: int | None = None
+def _validar_dia_libre(
+    db: Session, usuario_id: int, fecha: date, excepto_id: int | None = None
 ) -> None:
-    """Solo puede haber una sesión en curso: o se termina la empezada o se
-    cancela, y entonces se elige otra.
+    """Una sesión por día como mucho, del tipo que sea: se entrena una rutina al
+    día. Lo garantiza también la base de datos; esto es para dar un 409 que diga
+    cuál es la otra sesión (la pantalla de hoy lo usa para ofrecer *Continuar*) y
+    si está en curso.
 
-    Se comprueba aquí y no con un índice porque depende de qué día es hoy, y eso
-    no cabe en una restricción de la base de datos.
+    Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada:
+    no se hizo nada. Si es la que ocupa el día, se borra y el día queda libre.
     """
-    stmt = select(Entrenamiento.id).where(
-        Entrenamiento.usuario_id == usuario_id,
-        Entrenamiento.fecha == hoy(),
-        Entrenamiento.terminada_en.is_(None),
+    stmt = select(Entrenamiento).where(
+        Entrenamiento.usuario_id == usuario_id, Entrenamiento.fecha == fecha
     )
     if excepto_id is not None:
         stmt = stmt.where(Entrenamiento.id != excepto_id)
-    abierta = db.scalar(stmt.limit(1))
-    if abierta is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "mensaje": "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra.",
-                "entrenamiento_id": abierta,
-            },
-        )
+    otra = db.scalar(stmt)
+    if otra is None:
+        return
+    if not otra.en_curso and not otra.series:
+        db.delete(otra)
+        # Antes que el INSERT o el UPDATE de la otra, o chocarían en la unicidad.
+        db.flush()
+        return
+    mensaje = (
+        "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra."
+        if otra.en_curso
+        else "Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo, cambia"
+        " antes la fecha de la otra desde su día en el historial."
+    )
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"mensaje": mensaje, "entrenamiento_id": otra.id, "en_curso": otra.en_curso},
+    )
 
 
 @router.get("", response_model=list[EntrenamientoOut])
@@ -175,9 +184,7 @@ def crear_entrenamiento(
     _validar_fecha_no_futura(datos.fecha)
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
-    # Una sesión de otro día no estorba: apuntar un día pasado no es empezar a entrenar.
-    if datos.fecha == hoy():
-        _validar_sin_sesion_en_curso(db, usuario_id)
+    _validar_dia_libre(db, usuario_id, datos.fecha)
     entrenamiento = Entrenamiento(**datos.model_dump(), usuario_id=usuario_id)
     db.add(entrenamiento)
     db.commit()
@@ -200,9 +207,8 @@ def actualizar_entrenamiento(
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     if datos.rutina_id != entrenamiento.rutina_id:
         _validar_cambio_de_rutina(db, entrenamiento_id)
-    # Mover a hoy una sesión sin terminar la convierte en otra sesión en curso.
-    if datos.fecha == hoy() and entrenamiento.terminada_en is None:
-        _validar_sin_sesion_en_curso(db, usuario_id, excepto_id=entrenamiento_id)
+    if datos.fecha != entrenamiento.fecha:
+        _validar_dia_libre(db, usuario_id, datos.fecha, excepto_id=entrenamiento_id)
     for campo, valor in datos.model_dump().items():
         setattr(entrenamiento, campo, valor)
     db.commit()

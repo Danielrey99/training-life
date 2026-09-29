@@ -1,5 +1,5 @@
 """Tests de la sesión en curso: `terminada_en`, `en_curso`, `POST .../terminar`,
-los filtros del listado y la regla de que solo puede haber una sesión en curso.
+los filtros del listado y la regla de una sesión por día.
 
 "En curso" depende de qué día es hoy, así que las fechas de estos tests se
 calculan con `app.fechas.hoy()`, la misma función que usa el backend, en vez de
@@ -84,7 +84,19 @@ def test_no_se_puede_terminar_una_sesion_que_no_existe(cliente):
     assert cliente.post("/entrenamientos/999999/terminar").status_code == 404
 
 
-# --- Una sola sesión en curso --------------------------------------------
+# --- Una sesión por día --------------------------------------------------
+
+
+def con_una_serie(cliente, grupo_muscular_id, sesion_id) -> None:
+    """Una sesión con algo hecho: sin series contaría como cancelada."""
+    ejercicio_id = cliente.post(
+        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    respuesta = cliente.post(
+        f"/entrenamientos/{sesion_id}/series",
+        json={"ejercicio_id": ejercicio_id, "numero_serie": 1, "peso": 60, "repeticiones": 8},
+    )
+    assert respuesta.status_code == 201
 
 
 def test_con_una_sesion_en_curso_no_se_puede_empezar_otra_hoy(cliente):
@@ -93,14 +105,49 @@ def test_con_una_sesion_en_curso_no_se_puede_empezar_otra_hoy(cliente):
     respuesta = cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()})
 
     assert respuesta.status_code == 409
-    # Dice cuál es, para que la pantalla pueda ofrecer continuarla.
+    # Dice cuál es y que está en curso, para que la pantalla ofrezca continuarla.
     assert respuesta.json()["detail"]["entrenamiento_id"] == abierta["id"]
+    assert respuesta.json()["detail"]["en_curso"] is True
 
 
-def test_al_terminar_la_sesion_en_curso_ya_se_puede_empezar_otra(cliente):
-    terminar(cliente, empezar(cliente)["id"])
+def test_terminada_la_sesion_de_hoy_no_se_puede_empezar_otra(cliente, grupo_muscular_id):
+    """Se entrena una rutina al día: terminar la de hoy no deja el día libre."""
+    sesion = empezar(cliente)
+    con_una_serie(cliente, grupo_muscular_id, sesion["id"])
+    terminar(cliente, sesion["id"])
+
+    respuesta = cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()})
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"]["entrenamiento_id"] == sesion["id"]
+    assert respuesta.json()["detail"]["en_curso"] is False
+
+
+def test_una_sesion_de_hoy_terminada_sin_series_no_ocupa_el_dia(cliente):
+    """Sin nada hecho cuenta como cancelada: el día queda libre y se borra al
+    empezar otra.
+    """
+    vacia = terminar(cliente, empezar(cliente)["id"])
 
     assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
+    assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
+
+
+def test_un_dia_pasado_con_sesion_no_admite_otra(cliente, grupo_muscular_id):
+    sesion = empezar(cliente, AYER)
+    con_una_serie(cliente, grupo_muscular_id, sesion["id"])
+
+    respuesta = cliente.post("/entrenamientos", json={"fecha": AYER.isoformat()})
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"]["en_curso"] is False
+
+
+def test_una_sesion_pasada_sin_series_no_ocupa_su_dia(cliente):
+    vacia = empezar(cliente, AYER)
+
+    assert cliente.post("/entrenamientos", json={"fecha": AYER.isoformat()}).status_code == 201
+    assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
 
 
 def test_una_sesion_en_curso_no_impide_apuntar_un_dia_pasado(cliente):
@@ -116,13 +163,25 @@ def test_una_sesion_de_ayer_sin_terminar_no_impide_empezar_hoy(cliente):
     assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
 
 
-def test_no_se_puede_mover_a_hoy_una_sesion_abierta_si_ya_hay_otra_en_curso(cliente):
+def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_muscular_id):
     empezar(cliente)
     de_ayer = empezar(cliente, AYER)
+    con_una_serie(cliente, grupo_muscular_id, de_ayer["id"])
 
     respuesta = cliente.put(f"/entrenamientos/{de_ayer['id']}", json={"fecha": HOY.isoformat()})
 
     assert respuesta.status_code == 409
+    assert cliente.get(f"/entrenamientos/{de_ayer['id']}").json()["fecha"] == AYER.isoformat()
+
+
+def test_una_sesion_se_puede_mover_a_un_dia_libre(cliente):
+    de_ayer = empezar(cliente, AYER)
+    otro_dia = (AYER - timedelta(days=1)).isoformat()
+
+    respuesta = cliente.put(f"/entrenamientos/{de_ayer['id']}", json={"fecha": otro_dia})
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["fecha"] == otro_dia
 
 
 def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
@@ -135,14 +194,27 @@ def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
     assert respuesta.status_code == 200
 
 
-def test_si_se_puede_mover_a_hoy_una_sesion_ya_terminada(cliente):
-    """Una sesión terminada no está en curso aunque sea de hoy, así que no choca."""
-    empezar(cliente)
-    de_ayer = terminar(cliente, empezar(cliente, AYER)["id"])
+def test_la_base_no_admite_dos_sesiones_del_mismo_usuario_el_mismo_dia(sesion_bd):
+    """La regla vive también en la base, por si algo se salta la API."""
+    from sqlalchemy.exc import IntegrityError
 
-    respuesta = cliente.put(f"/entrenamientos/{de_ayer['id']}", json={"fecha": HOY.isoformat()})
+    from app.auth import get_usuario_actual_id
+    from app.models import Entrenamiento
 
-    assert respuesta.status_code == 200
+    usuario_id = get_usuario_actual_id()
+    sesion_bd.add_all([Entrenamiento(usuario_id=usuario_id, fecha=AYER) for _ in range(2)])
+    with pytest.raises(IntegrityError):
+        sesion_bd.commit()
+    sesion_bd.rollback()
+
+
+def test_la_sesion_de_otro_usuario_no_ocupa_mi_dia(cliente, sesion_bd, otro_usuario_id):
+    from app.models import Entrenamiento
+
+    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, fecha=HOY))
+    sesion_bd.commit()
+
+    assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
 
 
 # --- Filtros del listado -------------------------------------------------
