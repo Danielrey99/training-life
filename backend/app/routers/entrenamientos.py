@@ -262,26 +262,46 @@ def _obtener_serie_propia(
 
 
 def _validar_slot(
-    db: Session, slot_id: int, rutina_id: int | None, slot_actual: int | None = None
+    db: Session,
+    slot_id: int,
+    rutina_id: int | None,
+    ejercicio_id: int,
+    actual: tuple[int | None, int] | None = None,
 ) -> None:
     """El slot_id de una serie, si se manda, tiene que ser un hueco real de
-    la rutina de ese entrenamiento — no tiene sentido en un entrenamiento libre.
+    la rutina de ese entrenamiento — no tiene sentido en un entrenamiento libre
+    (422: son datos incoherentes, no un conflicto con el estado).
 
-    Y no puede estar oculto: lo oculto deja de ofrecerse, así que para elegirlo es
-    como si no existiera (404). Salvo si es el hueco que la serie ya tenía
-    (`slot_actual`): corregir lo que ya se apuntó no es elegir nada nuevo.
+    No puede estar oculto: lo oculto deja de ofrecerse, así que para elegirlo es
+    como si no existiera (404). Y el ejercicio tiene que ser el principal del
+    hueco o uno de sus comodines (422): si no, el historial del hueco mezclaría
+    ejercicios que no son suyos.
+
+    `actual` es el (hueco, ejercicio) que la serie ya tenía, al editarla:
+    corregir lo que ya se apuntó no es elegir nada nuevo, así que el hueco puede
+    estar oculto y el ejercicio haber dejado de ser comodín.
     """
     if rutina_id is None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Este entrenamiento es libre (sin rutina): no puede tener slot_id",
         )
     slot = db.get(RutinaSlot, slot_id)
-    oculto_y_nuevo = slot is not None and slot.oculto and slot_id != slot_actual
+    oculto_y_nuevo = slot is not None and slot.oculto and (actual is None or slot_id != actual[0])
     if slot is None or slot.rutina_id != rutina_id or oculto_y_nuevo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ningún hueco con id {slot_id} en la rutina de este entrenamiento",
+        )
+    if actual == (slot_id, ejercicio_id):
+        return
+    ejercicios_del_hueco = {slot.ejercicio_principal_id} | {
+        comodin.id for comodin in slot.alternativas
+    }
+    if ejercicio_id not in ejercicios_del_hueco:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Ese ejercicio no es ni el principal ni un comodín de este hueco",
         )
 
 
@@ -297,7 +317,7 @@ def crear_serie(
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
     obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
     if datos.slot_id is not None:
-        _validar_slot(db, datos.slot_id, entrenamiento.rutina_id)
+        _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, datos.ejercicio_id)
     serie = Serie(**datos.model_dump(), entrenamiento_id=entrenamiento_id)
     db.add(serie)
     db.commit()
@@ -323,7 +343,13 @@ def actualizar_serie(
     else:
         obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
     if datos.slot_id is not None:
-        _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, slot_actual=serie.slot_id)
+        _validar_slot(
+            db,
+            datos.slot_id,
+            entrenamiento.rutina_id,
+            datos.ejercicio_id,
+            actual=(serie.slot_id, serie.ejercicio_id),
+        )
     for campo, valor in datos.model_dump().items():
         setattr(serie, campo, valor)
     db.commit()

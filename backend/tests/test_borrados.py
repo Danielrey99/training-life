@@ -938,3 +938,59 @@ def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_
     )
 
     assert respuesta.status_code == 409
+
+
+def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente, grupo_muscular_id):
+    """Si no, el historial del hueco mezclaría ejercicios que no son suyos."""
+    principal, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    otro = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
+    entrenamiento_id = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
+    ).json()["id"]
+    ruta = f"/entrenamientos/{entrenamiento_id}/series"
+
+    assert cliente.post(ruta, json=serie(otro, slot_id)).status_code == 422
+    assert cliente.post(ruta, json=serie(principal, slot_id)).status_code == 201
+    assert cliente.post(ruta, json=serie(comodin, slot_id)).status_code == 201
+
+
+def test_una_serie_se_puede_corregir_aunque_su_ejercicio_ya_no_sea_comodin(
+    cliente, grupo_muscular_id
+):
+    """Corregir lo que ya se apuntó no es elegir nada nuevo. Pero cambiarla a un
+    ejercicio que no es del hueco sigue sin valer.
+    """
+    _, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    otro = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
+    entrenamiento_id = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
+    ).json()["id"]
+    ruta = f"/entrenamientos/{entrenamiento_id}/series"
+    serie_id = cliente.post(ruta, json=serie(comodin, slot_id)).json()["id"]
+    cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas/{comodin}")
+
+    corregida = cliente.put(f"{ruta}/{serie_id}", json=serie(comodin, slot_id, peso=65))
+    cambiada = cliente.put(f"{ruta}/{serie_id}", json=serie(otro, slot_id))
+
+    assert corregida.status_code == 200
+    assert corregida.json()["peso"] == "65.00"
+    assert cambiada.status_code == 422
+
+
+def test_en_una_sesion_de_una_rutina_ya_oculta_se_pueden_seguir_apuntando_series(
+    cliente, grupo_muscular_id
+):
+    """La sesión ya estaba empezada: completarla es corregir, no elegir la rutina
+    oculta de nuevo (decisión del autor).
+    """
+    principal, _, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    entrenamiento_id = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
+    ).json()["id"]
+    ocultar(cliente, f"/rutinas/{rutina_id}")
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=serie(principal, slot_id)
+    )
+
+    assert respuesta.status_code == 201

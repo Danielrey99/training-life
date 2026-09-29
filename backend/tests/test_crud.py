@@ -133,7 +133,8 @@ def test_un_entrenamiento_libre_no_admite_slot_id(cliente, grupo_muscular_id):
             "repeticiones": 10,
         },
     )
-    assert respuesta.status_code == 409
+    # 422 y no 409: son datos incoherentes, no un choque con el estado de algo.
+    assert respuesta.status_code == 422
 
 
 def test_un_hueco_no_admite_reps_max_menor_que_reps_min(cliente, grupo_muscular_id):
