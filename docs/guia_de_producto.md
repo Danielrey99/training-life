@@ -64,11 +64,21 @@ Un nombre para cada cosa, el mismo en la interfaz, en el código y en esta guía
 | **Serie** | Lo que se hizo: peso × repeticiones, y su variante si la tiene | "60 kg × 10" |
 | **Variante** | Matiz de ejecución que no merece un ejercicio aparte | "agarre cerrado" |
 | **Planificar** | Cambiar qué toca un día concreto sin tocar el programa | "El miércoles 23, Push en vez de Pull" |
+| **Recuperar** | Hacer más tarde un entrenamiento que se quedó sin hacer. Cuenta como el de aquel día | "El Push del lunes, el martes" |
+| **Adelantar** | Hacer antes el entrenamiento de un día que todavía no ha llegado. Cuenta como el de ese día | "El Pull del miércoles, el martes" |
 | **Ocultar** | Quitar algo de la vista sin perder su historial. Lo contrario es **Mostrar** | — |
 
 **Las rutinas son del usuario, no de un programa.** La misma rutina puede estar en varios programas
 y en varios días del mismo programa, y editarla la cambia en todos. Para que dos versiones
 diverjan, se duplica.
+
+**Cada sesión cuenta para un día del plan**: el que tocaba o el que se recupera o adelanta, y un
+día solo lo cuenta una sesión. Lo decide el botón que se pulsa (*Empezar*, *Recuperar*,
+*Adelantar*), así que la app nunca tiene que adivinar qué pretendía cada entrenamiento. Las
+sesiones sin programa, o sin rutina, no cuentan para ninguno.
+
+**Una sesión por día, como mucho**, sea del tipo que sea: hoy, un día pasado o uno movido. Si hoy
+ya se entrenó, no se ofrece nada más.
 
 **"Activo" solo significa "programa en uso".** Lo que no está oculto es *visible*, y para sacar
 algo de ocultos el botón es *Mostrar*, nunca *Activar*: así un programa oculto no se confunde con
@@ -117,7 +127,8 @@ Concretos, para poder comprobar si una pantalla los cumple.
     superficie `#1c1f26`, borde `#2c313b`, texto `#e8eaed` y `#9aa1ac`, acento verde `#4ade80`.
 12. **Jerarquía de botones**: verde relleno para la acción principal (una por pantalla); con
     recuadro para las normales; solo texto para las secundarias o peligrosas. Al menos 44 px de
-    alto.
+    alto. Única excepción: los *Recuperar* de *Por recuperar* van siempre en verde, también junto
+    a *Empezar* en un día de entrenamiento.
 13. **Si un bloque está vacío, no se enseña**: sin descripción no hay rótulo ni recuadro de
     descripción.
 
@@ -137,7 +148,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 | | Pantalla | Qué es | Se llega desde |
 |---|---|---|---|
-| **E1** | Hoy | Qué toca hoy, la semana, la última sesión y otras rutinas | Pestaña Entrenar |
+| **E1** | Hoy | Qué toca hoy, la semana, lo que queda por recuperar, la última sesión y otras rutinas | Pestaña Entrenar |
 | **E2** | Sesión en curso | Registrar serie a serie | E1, H1 (día pasado) |
 | **H1** | Calendario | El mes: entrenado, faltado, movido y próximo | Pestaña Historial |
 | **H2** | Un día | Ver y corregir una sesión | H1, E1, E2 al terminar |
@@ -166,10 +177,10 @@ opcional sirviendo a dos rutas.
 
 ### E1 · Hoy
 
-La pantalla de entrada. Arriba, la **tira de la semana**, con un punto en los días entrenados.
-Debajo, una **tarjeta** que dice qué toca hoy según el programa activo, con un botón grande
-*Empezar Push*. Más abajo, la **última sesión hecha** (lleva a H2) y una **lista de otras
-rutinas**.
+La pantalla de entrada. Arriba, la **tira de la semana**, con las mismas marcas que el calendario
+(ver [H1](#h1--calendario)). Debajo, una **tarjeta** con lo de hoy según el programa activo. Más
+abajo, **Por recuperar** si queda algo sin hacer, la **última sesión hecha** (lleva a H2) y una
+**lista de otras rutinas**.
 
 Qué enseña la tarjeta según el día:
 
@@ -177,13 +188,25 @@ Qué enseña la tarjeta según el día:
 |---|---|
 | Día de entrenamiento | *Hoy toca Push*, con *Empezar Push* |
 | Con una sesión empezada y sin terminar | *Continuar Push*, que vuelve a E2 sin preguntar |
+| Hoy ya se entrenó | *Hoy · Pull · Hecho*, sin botón y sin lista de otras rutinas: se entrena una rutina al día |
+| Lo de hoy ya se hizo por adelantado | *Hoy tocaba Pull · Hecho por adelantado el martes*. El día se comporta como un descanso |
 | Día de descanso | *Descanso* y qué toca mañana, sin botón grande |
-| Descanso, con una rutina que se quedó sin hacer | Además, una tarjeta pequeña: *Te quedó Push del lunes*, con *Recuperar* |
+| Descanso con la semana ya hecha | *Descanso* y qué toca el próximo día, sin lista: *Esta semana ya está hecha* |
 | Sin programa activo | *Sin programa*, con *Elegir un programa* (lleva a P1) |
 | Primera vez | Una bienvenida (ver [La primera vez](#la-primera-vez)) |
 
-La tarjeta de *Recuperar* es un atajo para el caso más común: sale en los días de descanso hasta el
-siguiente día de entrenamiento, se haga o no, y luego desaparece.
+**Por recuperar.** Lo que se quedó sin hacer se puede recuperar **hasta el día antes del mismo día
+de la semana siguiente** (el Push del lunes, hasta el domingo). Mientras tanto, E1 lo enseña todo en
+una lista, cada entrenamiento con su plazo; el que caduca hoy lo dice en ámbar (*hoy es el último
+día*). Cada uno lleva su *Recuperar*, que pregunta antes y abre E2; esa sesión cuenta como la del día
+que se recupera.
+
+- **En un día de descanso**, recuperar no cuesta nada: el plan no cambia.
+- **En un día de entrenamiento también se puede**, sin pasar por Planificar. Como se entrena una
+  rutina al día, lo que tocaba hoy queda por recuperar, y la confirmación lo dice: *Solo se hace una
+  rutina al día: el Pull de hoy quedará pendiente, y podrás recuperarlo hasta el martes 22*.
+- **Si hoy ya se entrenó o hay una sesión a medias**, la lista sigue saliendo, como recordatorio,
+  pero sin botón: *Recupéralo otro día, hasta el domingo 20*.
 
 **Qué ofrece la lista de abajo**, y qué pregunta al elegir:
 
@@ -191,17 +214,15 @@ siguiente día de entrenamiento, se haga o no, y luego desaparece.
   posteriores. Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí* cambia el plan de los
   dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *No* lo deja todo como estaba.
   No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
-- **En un día de descanso** se llama *Entrenar hoy de todas formas*. Lo que ya está hecho esta
-  semana no sale; lo que no, se puede hacer, siempre preguntando antes (*¿Adelantar el Pull del
-  miércoles?*, o *recuperar* si era de un día pasado). Adelantar no cambia el plan: el calendario
-  lo pinta como movido.
+- **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, se llama *Entrenar hoy
+  de todas formas* y ofrece adelantar lo que queda de esta semana, preguntando antes (*¿Adelantar el
+  Pull del miércoles?*). Adelantar no cambia el plan. Lo que ya está hecho no sale, y lo que se
+  recupera va en *Por recuperar*.
 - **Una rutina se puede hacer tantas veces como aparezca en la semana del programa, ni una más.**
   Para entrenar más, se cambia el programa.
 - **Sin programa activo** salen todas las rutinas, sin límite de veces: sin plan no hay nada que
   contar, intercambiar ni adelantar. Empezar una sigue pidiendo confirmación.
-- **Con una sesión abierta** la lista no sale: primero se termina o se cancela la empezada.
-- **No se cubre, a propósito,** el día de entrenamiento con una rutina anterior sin hacer (el
-  miércoles toca Pull y el Push del lunes no se hizo): esa rutina se queda sin hacer.
+- **Con una sesión abierta, o si hoy ya se entrenó,** la lista no sale.
 
 ### E2 · Sesión en curso
 
@@ -234,6 +255,8 @@ Comportamiento:
 - **Editar una serie**: el lápiz la carga en el mismo formulario, que pasa a *Guardar cambios ·
   serie 2* con un *Cancelar*. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la base de datos lo admite, pero la interfaz no lo pide ni lo enseña.
+- **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha:
+  *Recuperando el Push del lunes 14*.
 - **Cada serie se guarda al pulsar su botón**, así que se puede salir de E2 a otras pantallas y
   volver: la sesión queda abierta.
 - **Al pie**, *Terminar sesión* y, en rojo, *Cancelar sesión*. Terminar pregunta (y dice cuánto se
@@ -248,36 +271,45 @@ Comportamiento:
 ### H1 · Calendario
 
 El mes, con un **color por día de la semana** (no por rutina; más adelante podrá personalizarse).
-Cada día lleva una marca:
+Cada día lleva una marca, que dice a la vez qué tocaba y qué se hizo ese día:
 
 | Marca | Significa |
 |---|---|
-| Punto lleno | Entrenado |
+| Punto lleno | Ese día se hizo lo que tocaba (o se recuperó o adelantó otro, ver abajo) |
 | Aro vacío | Tocaba y no se hizo |
-| Aro con flecha | Movido: la flecha apunta al día en que se hizo, hacia delante (recuperado después) o hacia atrás (adelantado) |
+| Aro con flecha → | Lo que tocaba se hizo más tarde, otro día (recuperado) |
+| Aro con flecha ← | Lo que tocaba se hizo antes, otro día (adelantado) |
+| Punto lleno con flecha | Ese día se hizo otra rutina, y la suya se hizo otro día |
+| Punto lleno y aro | Ese día se hizo otra rutina, y la suya sigue sin hacer |
 | Apagado | Próximo |
 
-Un día movido conserva el color del día en que tocaba. Debajo, las cifras del mes (entrenados,
-movidos, no hechos) y dos botones: *Planificar los próximos días* (H4) y *Ver resumen* (H5).
+**El punto lleno lleva el color de lo que se hizo; el aro y la flecha, el de lo que tocaba.** Así,
+si el martes se adelantó el Pull del miércoles, el martes lleva el punto del Pull y el miércoles el
+aro con la flecha hacia atrás. La leyenda va plegada bajo las cifras (*Ver leyenda*), porque se
+consulta poco.
 
-**Tocar un día entrenado** lleva a H2. **Tocar un día pasado sin sesión** abre una hoja para
-apuntar lo que se hizo: se elige la rutina (pregunta antes) y se abre E2 con esa fecha. Sirve para
-pasar la libreta de meses anteriores o para el día que se entrenó y se olvidó apuntar. No cambia
-lo planificado: registra lo que pasó.
+Debajo, las cifras del mes (entrenados, movidos, no hechos) y dos botones: *Planificar los próximos
+días* (H4) y *Ver resumen* (H5).
 
-**Cómo se decide si un día está entrenado, movido o no hecho**, sin que el usuario marque nada:
+**Tocar un día enseña siempre lo que se hizo ese día**, nunca lo de otro:
 
-1. Se recorren los días planificados **en orden**. Cada uno se queda con **su propia sesión** si la
-   tiene → *entrenado*.
-2. Si no la tiene, coge la primera sesión libre de esa rutina **dentro de su ventana** —entre la
-   vez anterior que tocaba y la siguiente, sin incluirlas— → *movido*.
-3. Si no hay ninguna → *no hecho*.
-4. Cada sesión se usa **una sola vez**.
+- Si ese día hubo sesión, lleva a H2.
+- Si no, se comporta como un descanso, aunque su rutina se hiciera otro día. Si es un día pasado,
+  abre una hoja para apuntar lo que se hizo: ofrece lo mismo que habría ofrecido Hoy aquel día
+  (*Recuperar el Pull del miércoles 9*, si seguía en plazo) y las demás rutinas, que se apuntan sin
+  contar para ningún día del programa. Elegir pregunta antes y abre E2 con esa fecha. Sirve para
+  pasar la libreta de meses anteriores o para el día que se entrenó y se olvidó apuntar. No cambia
+  lo planificado: registra lo que pasó.
+
+**Cómo se decide si un día está hecho, movido o sin hacer**, sin que el usuario marque nada: cada
+sesión cuenta para un día (ver [Vocabulario](#vocabulario)). Un día planificado está **hecho** si lo
+cuenta una sesión de ese mismo día, **movido** si lo cuenta una de otro día, y **sin hacer** si no
+lo cuenta ninguna y ya pasó.
 
 Cada mes se compara con **el programa que estaba activo entonces**, no con el de hoy: si no, un mes
-de hace un año marcaría como faltados días que entonces no tocaban. No se cubren los entrenamientos
-extra (hacer Push dos veces en una semana con un solo día de Push): eso se resuelve añadiendo el
-día al programa.
+de hace un año marcaría como faltados días que entonces no tocaban. Por lo mismo, **editar un
+programa o activar otro no cambia los días que ya pasaron** ni los que ya están hechos por
+adelantado.
 
 ### H2 · Un día
 
@@ -285,10 +317,20 @@ La única pantalla de ver un día. Arriba, las cifras (series, volumen y huecos 
 hueco: qué ejercicio se hizo (y si fue el comodín), sus series, una insignia de mejora (`+2 kg`,
 `+3 reps`, `igual`, `nuevo`) y la última vez en fichas. La comparación **mira siempre hacia atrás
 desde ese día**, con la última vez que se hizo ese ejercicio en ese hueco, y por eso lleva su
-fecha. La flecha de cada hueco lleva a su progresión (H3).
+fecha. La flecha de cada hueco lleva a su progresión (H3). Si la sesión cuenta para otro día, la
+cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
 
 **Editar**: lápiz y ✕ en cada serie. El lápiz despliega el formulario bajo la serie y cada cambio
-se guarda con su *Guardar cambios*; la ✕ pregunta antes. *Listo* sale del modo editar.
+se guarda con su *Guardar cambios*; la ✕ pregunta antes. *Listo* sale del modo editar. Además:
+
+- **La fecha pasa a ser un campo**, por si la sesión se apuntó en otro día. Sigue contando para
+  el mismo día del plan, así que solo puede ir donde se habría podido hacer: hacia delante, hasta
+  el día antes del mismo día de la semana siguiente; hacia atrás, dentro de la misma semana. Un
+  día que ya tiene sesión tampoco vale. En los dos casos el cambio no se hace y el campo explica
+  por qué (y, si el día está ocupado, que la otra sesión se mueve desde su propio día).
+- **Al pie, *Borrar este día*** en rojo: quita la sesión entera con sus series, para arreglar un
+  día o una rutina apuntados por error. Pregunta antes. El día que contaba vuelve a quedar sin
+  hacer, y se puede recuperar si sigue en plazo.
 
 ### H3 · Progresión
 
@@ -316,13 +358,19 @@ marca.
   la rutina del programa, que dejaría el día marcado como cambiado.
 - *Restablecer la semana* devuelve los siete días, y pregunta antes.
 - El pasado no se planifica: lo que pasó se registra (desde H1), no se cambia.
+- **Arriba, lo pendiente de recuperar**, para tenerlo presente al planificar. Solo informa: se
+  recupera desde Hoy, adonde lleva.
+- **Un día ya hecho por adelantado** lleva *hecho el martes*. Si su rutina se pasa a otro día de
+  la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento
+  sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
 - Al activar otro programa, la app avisa de los días planificados y ofrece quitarlos.
 
 ### H5 · Resumen
 
 Progresión general, no por ejercicio: el volumen por semana o por mes, de todo o de una rutina; el
 reparto del mes por rutina; las series por grupo muscular; y la **constancia del año**, con dos
-alturas por mes (gris = planificado, verde = entrenado; el hueco es lo que se faltó).
+alturas por mes (gris = planificado, verde = entrenado; el hueco es lo que se faltó). Lo
+recuperado y lo adelantado cuentan como entrenado, en el mes del día que tocaba.
 
 ## Programas y rutinas
 
@@ -454,9 +502,14 @@ biblioteca de predefinidos, así que se puede montar una rutina sin crear ningun
 7. Al acabar, *Terminar sesión* y confirma. H2 le enseña en qué huecos mejoró. Escribe una nota si
    quiere y pulsa *Cerrar*.
 
-**"No pude ir el lunes y voy el martes"**: el martes, E1 dice *Descanso* y debajo *Te quedó Push
-del lunes*, con *Recuperar*. Confirma y entrena. El calendario pinta después el lunes como movido
-al martes. Si no lo recupera antes del siguiente día de entrenamiento, el lunes queda como no hecho.
+**"No pude ir el lunes y voy el martes"**: el martes, E1 dice *Descanso* y, en *Por recuperar*,
+*Push del lunes 14 · hasta el domingo 20*, con *Recuperar*. Confirma y entrena. El calendario
+pinta después el lunes con la flecha y el martes con el punto del Push. Si no lo recupera antes del
+domingo, el lunes queda como no hecho.
+
+**"Falté el lunes y el miércoles toca Pull"**: el miércoles, *Por recuperar* sigue ofreciendo el
+Push. Si lo recupera ese día, el Pull del miércoles pasa a *Por recuperar*, con su propio plazo, y
+así se va corriendo la semana.
 
 **"Esta semana el miércoles no puedo"**: Historial → *Planificar los próximos días* → el miércoles →
 *Descanso*, o la rutina que prefiera. El programa no cambia; solo ese día.
@@ -475,18 +528,16 @@ del historial, con la flecha del hueco.
 
 ## Lo que necesita del backend
 
-La mayor parte ya existe: ejercicios, rutinas con sus huecos y comodines, sesiones y series, notas,
-y el historial de progresión por ejercicio y por hueco. Lo que este diseño pide y aún no está:
+Lo que pedía la primera versión de este diseño ya existe: programas, qué programa estuvo activo en
+cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos y
+el historial de un hueco filtrado por ejercicio. Lo que piden las reglas de recuperar y adelantar:
 
 | Qué | Para qué pantalla |
 |---|---|
-| **Programas** y qué rutina toca cada día de la semana | E1, H1, P1, P2, P5 |
-| **Qué programa estuvo activo en cada periodo** | H1 y H5: comparar cada mes con el plan que tocaba entonces |
-| **Días planificados**: una rutina (o descanso) para una fecha concreta, que manda sobre el programa | E1, H1, H4 |
-| **Ocultar con fecha** en vez de un sí/no, en programas, rutinas, huecos y ejercicios | El *oculto desde…* de las vistas ocultas |
-| **Sesión terminada**: cuándo se terminó una sesión, vacío mientras está abierta | E1: *Empezar* o *Continuar* |
-| **Ejercicios predefinidos** sembrados con la app | X1 y la primera vez |
-| **Historial de un hueco filtrado por ejercicio** | La última vez de E2 y H2 |
+| **Qué día del plan cuenta cada sesión**, fijado al empezarla | E1, E2, H1, H2, H4, H5 |
+| **Una sesión por día**, también al apuntar un día pasado o al cambiar una fecha | E1, H1, H2 |
+| **El estado de cada día** (hecho, movido, sin hacer, próximo) y lo que se puede recuperar o adelantar, calculado en el backend para que web y móvil digan lo mismo | E1, H1, H4, H5 |
+| **Días de programa con fecha de vigencia**, para que editar un programa no reescriba el pasado | H1, H5 |
 
 ## Por decidir
 
@@ -496,7 +547,6 @@ Hablado, sin prisa: se decidirá cuando la app esté en uso.
   hueco, y el comodín los hereda. Queda por ver si cada ejercicio del hueco debería llevar los
   suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4
   para un caso raro.
-- **El día de entrenamiento con una rutina anterior sin hacer**, que ahora no se cubre a propósito.
 - **Ocultar predefinidos**: haría falta guardarlo por usuario, porque ocultar la fila compartida la
   ocultaría para todos.
 - **Temporizador de descanso** entre series, en E2.
