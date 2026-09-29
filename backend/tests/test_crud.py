@@ -606,3 +606,40 @@ def test_un_nombre_se_guarda_sin_los_espacios_de_los_lados(cliente, grupo_muscul
     ).json()
 
     assert creado["nombre"] == "Press banca"
+
+
+# --- Textos opcionales ---------------------------------------------------
+
+
+def test_los_textos_opcionales_en_blanco_se_guardan_como_nulos(cliente, grupo_muscular_id):
+    """ "Sin descripción" o "sin variante" es siempre null, nunca "" ni unos espacios
+    que no dicen nada. Lo que sí dice algo se guarda recortado.
+    """
+    en_blanco = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Curl", "grupo_muscular_id": grupo_muscular_id, "descripcion": "   "},
+    ).json()
+    con_texto = cliente.post(
+        "/ejercicios",
+        json={
+            "nombre": "Remo",
+            "grupo_muscular_id": grupo_muscular_id,
+            "descripcion": "  Con barra  ",
+        },
+    ).json()
+    entrenamiento = cliente.post("/entrenamientos", json={"fecha": FECHA, "notas": ""}).json()
+    serie = cliente.post(
+        f"/entrenamientos/{entrenamiento['id']}/series",
+        json={
+            "ejercicio_id": en_blanco["id"],
+            "numero_serie": 1,
+            "peso": 20,
+            "repeticiones": 10,
+            "variante": "  ",
+        },
+    ).json()
+
+    assert en_blanco["descripcion"] is None
+    assert con_texto["descripcion"] == "Con barra"
+    assert entrenamiento["notas"] is None
+    assert serie["variante"] is None

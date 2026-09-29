@@ -2,12 +2,30 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 # Texto que tiene que decir algo: se recorta ANTES de medir la longitud, porque
 # con min_length a secas una cadena de solo espacios ("   ") pasaría el filtro.
 Nombre = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 TextoNota = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+def _vacio_a_nulo(valor):
+    if isinstance(valor, str):
+        return valor.strip() or None
+    return valor
+
+
+# Texto que se puede dejar en blanco: recortado y, si no queda nada, nulo. Así
+# "" o "   " no se guardan como si dijeran algo, y "sin variante" es siempre null.
+TextoOpcional = Annotated[str | None, BeforeValidator(_vacio_a_nulo)]
 
 
 class GrupoMuscularOut(BaseModel):
@@ -30,7 +48,7 @@ class EjercicioBase(BaseModel):
 
     nombre: Nombre
     grupo_muscular_id: int
-    descripcion: str | None = Field(default=None, max_length=500)
+    descripcion: TextoOpcional = Field(default=None, max_length=500)
 
 
 class EjercicioCreate(EjercicioBase):
@@ -184,7 +202,7 @@ class SerieBase(BaseModel):
     peso: Decimal = Field(ge=0, le=Decimal("9999.99"))
     repeticiones: int = Field(gt=0, le=1000)
     rpe: Decimal | None = Field(default=None, ge=0, le=10)
-    variante: str | None = Field(default=None, max_length=100)
+    variante: TextoOpcional = Field(default=None, max_length=100)
 
 
 class SerieCreate(SerieBase):
@@ -275,7 +293,7 @@ class EntrenamientoBase(BaseModel):
 
     rutina_id: int | None = None
     fecha: date
-    notas: str | None = Field(default=None, max_length=1000)
+    notas: TextoOpcional = Field(default=None, max_length=1000)
 
 
 class EntrenamientoCreate(EntrenamientoBase):
