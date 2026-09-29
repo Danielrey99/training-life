@@ -265,8 +265,10 @@ def borrar_programa(
             },
         )
 
-    # Días y periodos se van por ON DELETE CASCADE (con passive_deletes en las
-    # dos relaciones, SQLAlchemy no intenta desvincularlos antes).
+    # Días y periodos se van con el programa. Los periodos ya están cargados
+    # (se han leído arriba para decidir si pedir modo), y con la lista cargada
+    # passive_deletes no basta: los borra el cascade="all, delete-orphan" de la
+    # relación; los que no estuvieran cargados, el ON DELETE CASCADE.
     db.delete(programa)
     db.commit()
 
