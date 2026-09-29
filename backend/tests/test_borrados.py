@@ -847,14 +847,6 @@ def test_un_hueco_no_puede_cambiar_su_principal_a_un_ejercicio_oculto(cliente, g
     assert cliente.put(f"/rutinas/{rutina_id}/slots/{slot_id}", json=hueco).status_code == 404
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Posible fallo, a decidir: actualizar_slot exige que el principal esté visible "
-        "aunque no cambie, así que ocultar el ejercicio deja el hueco sin poder editarse "
-        "(404). Series y entrenamientos solo validan lo oculto si cambia por otro."
-    ),
-)
 def test_un_hueco_cuyo_principal_se_oculto_se_puede_editar_sin_cambiarlo(
     cliente, grupo_muscular_id
 ):

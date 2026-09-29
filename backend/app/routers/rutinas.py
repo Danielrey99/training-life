@@ -329,7 +329,10 @@ def actualizar_slot(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
+    # El principal solo se valida si cambia: si se ocultó después, el hueco lo
+    # sigue enseñando, y corregir sus series o reps no es elegirlo de nuevo.
+    if datos.ejercicio_principal_id != slot.ejercicio_principal_id:
+        obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump().items():
         setattr(slot, campo, valor)
