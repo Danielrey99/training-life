@@ -114,8 +114,8 @@ Decisiones que se notan al usarla:
   pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
 
 Mientras no exista la pantalla de *Hoy*, a la sesión se entra desde una pantalla provisional que
-permite elegir la fecha y la rutina, o continuar una sesión ya empezada. Si al empezar ya hay otra
-sesión en curso ese día, lleva a ella en vez de dar un error.
+permite elegir la fecha y la rutina, o continuar una sesión ya empezada. Como se entrena una rutina
+al día, si ese día ya tiene una sesión lleva a ella en vez de dar un error.
 
 ## Hablar con la API
 

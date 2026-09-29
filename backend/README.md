@@ -67,10 +67,12 @@ Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Gl
 Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un
 solo grupo, y con grupos muy finos cualquier elección sería engañosa.
 
-**Próximo paso:** el backend ya tiene todo lo que pide el [diseño de la app](../README.md#diseño-de-la-app),
-así que lo siguiente es rehacer la web siguiendo ese diseño. Del backend queda pendiente, para
-cuando lo pida la pantalla del calendario, calcular qué días se entrenaron, se movieron o no se
-hicieron.
+**Próximo paso:** el seguimiento del plan que pide el [diseño de la app](../README.md#diseño-de-la-app).
+Cada sesión guardará qué día del plan cuenta (el que tocaba, o el que se recupera o se adelanta), y
+sobre eso la API dirá qué días se hicieron, se movieron o se faltaron, qué se puede recuperar (hasta
+el día antes del mismo día de la semana siguiente) y qué se puede adelantar. Ya están hechas las dos
+bases de esa parte: una sesión por día, y que editar un programa no cambie los días pasados. La web
+se rehace en paralelo, pantalla a pantalla.
 
 ## Estructura
 
@@ -238,7 +240,7 @@ No hay ningún paso previo que recordar:
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
-| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
+| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
@@ -303,7 +305,7 @@ función; los endpoints no necesitan tocarse.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/rutinas` | Lista las rutinas activas del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
+| `GET` | `/rutinas` | Lista las rutinas visibles del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
 | `PUT` | `/rutinas/{id}` | Edita el nombre de una rutina propia (409 si está oculta). |

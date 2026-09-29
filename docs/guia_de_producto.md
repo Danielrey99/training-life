@@ -80,6 +80,10 @@ sesiones sin programa, o sin rutina, no cuentan para ninguno.
 **Una sesión por día, como mucho**, sea del tipo que sea: hoy, un día pasado o uno movido. Si hoy
 ya se entrenó, no se ofrece nada más.
 
+**Una sesión sin ninguna serie, cuando ya no está en curso, cuenta como cancelada**: no se hizo nada.
+No ocupa su día, y lo que iba a recuperar o adelantar vuelve a estar como estaba (si se abrió el
+Pull del miércoles el martes y no se apuntó nada, el miércoles sigue tocando Pull).
+
 **"Activo" solo significa "programa en uso".** Lo que no está oculto es *visible*, y para sacar
 algo de ocultos el botón es *Mostrar*, nunca *Activar*: así un programa oculto no se confunde con
 uno que no está en uso.
@@ -207,11 +211,14 @@ que se recupera.
   rutina al día: el Pull de hoy quedará pendiente, y podrás recuperarlo hasta el martes 22*.
 - **Si hoy ya se entrenó o hay una sesión a medias**, la lista sigue saliendo, como recordatorio,
   pero sin botón: *Recupéralo otro día, hasta el domingo 20*.
+- **Solo se recupera lo del programa activo.** Al activar otro programa, o al quedarse sin ninguno,
+  lo que se faltó con el anterior sigue en el calendario como no hecho, pero deja de ofrecerse:
+  del programa antiguo queda solo lo hecho.
 
 **Qué ofrece la lista de abajo**, y qué pregunta al elegir:
 
 - **En un día de entrenamiento** se llama *Otra rutina del programa* y solo ofrece rutinas de días
-  posteriores. Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí* cambia el plan de los
+  posteriores de esta semana, hasta el domingo, como adelantar. Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí* cambia el plan de los
   dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *No* lo deja todo como estaba.
   No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
 - **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, se llama *Entrenar hoy
@@ -458,7 +465,9 @@ Cada uno tiene su sitio: el ejercicio en su ficha (X2), el hueco en P4, y el pro
 el modo editar de P2 y P3.
 
 - **Sin historial, borrar es directo**, porque no hay nada que perder (tras la confirmación de
-  siempre).
+  siempre). Una rutina que ya estuvo en el plan algún día pasado cuenta como con historial, aunque
+  no se entrenara: borrarla quitaría esos días del calendario, así que pide elegir entre ocultarla o
+  borrarla, como un programa que estuvo activo.
 - **Con historial, borrar cuenta lo que se pierde** —cuántas series, qué huecos, qué notas— y ofrece
   ocultar en su lugar. En rojo, porque no se puede deshacer.
 - **Ocultar es reversible de verdad.** Una rutina oculta no sale del programa: el día la conserva,
@@ -530,14 +539,16 @@ del historial, con la flecha del hueco.
 
 Lo que pedía la primera versión de este diseño ya existe: programas, qué programa estuvo activo en
 cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos y
-el historial de un hueco filtrado por ejercicio. Lo que piden las reglas de recuperar y adelantar:
+el historial de un hueco filtrado por ejercicio. De lo que piden las reglas de recuperar y adelantar,
+ya están **una sesión por día** y **los días de programa con fecha de vigencia** (editar un programa
+no reescribe el pasado). Falta:
 
 | Qué | Para qué pantalla |
 |---|---|
-| **Qué día del plan cuenta cada sesión**, fijado al empezarla | E1, E2, H1, H2, H4, H5 |
-| **Una sesión por día**, también al apuntar un día pasado o al cambiar una fecha | E1, H1, H2 |
+| **Qué día del plan cuenta cada sesión**, fijado al empezarla, y el plazo para mover su fecha | E1, E2, H1, H2, H4, H5 |
 | **El estado de cada día** (hecho, movido, sin hacer, próximo) y lo que se puede recuperar o adelantar, calculado en el backend para que web y móvil digan lo mismo | E1, H1, H4, H5 |
-| **Días de programa con fecha de vigencia**, para que editar un programa no reescriba el pasado | H1, H5 |
+| **Que Planificar respete lo ya hecho por adelantado**, al cambiar un día o el programa | H4, P2 |
+| **Que borrar una rutina que ya estuvo en el plan pida elegir** entre ocultarla o borrarla | P3 |
 
 ## Por decidir
 
