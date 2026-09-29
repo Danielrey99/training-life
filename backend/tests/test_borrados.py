@@ -741,14 +741,6 @@ def test_una_rutina_con_sesiones_pero_sin_huecos_pide_modo_para_borrarla(cliente
     assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Fallo real: borrar_ejercicio solo borra las series de ESE ejercicio antes de "
-        "borrar sus huecos; las series del comodín en ese mismo hueco siguen apuntando "
-        "a él (RESTRICT) y el DELETE del hueco revienta con un 500 (ForeignKeyViolation)."
-    ),
-)
 def test_borrar_en_definitivo_el_principal_de_un_hueco_con_series_del_comodin(
     cliente, grupo_muscular_id
 ):
@@ -886,3 +878,43 @@ def test_un_hueco_cuyo_principal_se_oculto_se_puede_editar_sin_cambiarlo(
 
     assert respuesta.status_code == 200
     assert respuesta.json()["series_objetivo"] == 5
+
+
+# --- Coherencia entre huecos, comodines y series -------------------------
+
+
+def con_comodin(cliente, grupo_muscular_id):
+    """Un hueco con Press banca de principal y Press en máquina de comodín."""
+    principal = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, principal)
+    respuesta = cliente.post(
+        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin}
+    )
+    assert respuesta.status_code == 201
+    return principal, comodin, rutina_id, slot_id
+
+
+def serie(ejercicio_id, slot_id, peso=60):
+    return {
+        "ejercicio_id": ejercicio_id,
+        "slot_id": slot_id,
+        "numero_serie": 1,
+        "peso": peso,
+        "repeticiones": 8,
+    }
+
+
+def test_el_aviso_de_borrar_un_principal_cuenta_las_series_hechas_con_el_comodin(
+    cliente, grupo_muscular_id
+):
+    """Borrar el principal en definitivo se lleva el hueco entero, también lo que se
+    hizo en él con el comodín: el aviso tiene que decirlo antes.
+    """
+    principal, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    registrar_serie(cliente, rutina_id, slot_id, comodin)
+
+    respuesta = cliente.delete(f"/ejercicios/{principal}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"]["series_de_comodines_que_se_perderian"] == 1

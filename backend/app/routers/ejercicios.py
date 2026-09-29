@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
@@ -65,6 +65,13 @@ def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -
     if ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
+
+
+def _huecos_donde_es_principal(ejercicio_id: int):
+    """Los ids de los huecos donde este ejercicio es el principal, como subconsulta:
+    son los que se borran enteros con el ejercicio.
+    """
+    return select(RutinaSlot.id).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
 
 
 def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
@@ -248,6 +255,16 @@ def borrar_ejercicio(
                 NotaUsuarioEjercicio.usuario_id == usuario_id,
             )
         )
+        # Los huecos donde es principal se borran enteros, así que se llevan
+        # también las series que se hicieron en ellos con un comodín.
+        series_de_comodines = db.scalar(
+            select(func.count())
+            .select_from(Serie)
+            .where(
+                Serie.slot_id.in_(_huecos_donde_es_principal(ejercicio_id)),
+                Serie.ejercicio_id != ejercicio_id,
+            )
+        )
         mensaje = (
             "Este ejercicio está en uso. Repite la petición con "
             "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
@@ -255,6 +272,11 @@ def borrar_ejercicio(
             "comodines y series registradas que lo usan, sin poder "
             "deshacerlo)."
         )
+        if series_de_comodines:
+            mensaje += (
+                " Con ?modo=definitivo se borrarán también las series hechas con un comodín"
+                f" en los huecos donde es el principal ({series_de_comodines})."
+            )
         if notas:
             mensaje += (
                 f" Con ?modo=definitivo perderás también tus notas sobre este ejercicio ({notas})."
@@ -264,6 +286,7 @@ def borrar_ejercicio(
             detail={
                 "mensaje": mensaje,
                 "usos": usos,
+                "series_de_comodines_que_se_perderian": series_de_comodines,
                 "notas_que_se_perderian": notas,
             },
         )
@@ -272,7 +295,16 @@ def borrar_ejercicio(
     # slot_alternativas y series hacia ejercicios son RESTRICT, así que hay
     # que borrar antes las filas dependientes explícitamente (los comodines
     # de cada hueco se van solos, en cascada por FK).
-    for serie in db.scalars(select(Serie).where(Serie.ejercicio_id == ejercicio_id)).all():
+    # Las series del ejercicio y, además, todas las de los huecos que se van a
+    # borrar: las hechas con un comodín también apuntan al hueco (RESTRICT).
+    for serie in db.scalars(
+        select(Serie).where(
+            or_(
+                Serie.ejercicio_id == ejercicio_id,
+                Serie.slot_id.in_(_huecos_donde_es_principal(ejercicio_id)),
+            )
+        )
+    ).all():
         db.delete(serie)
     # flush obligatorio: sin él los DELETE viajan juntos al commit y SQLAlchemy
     # los ordena por las relationship() que conoce — no hay ninguna entre Serie y
