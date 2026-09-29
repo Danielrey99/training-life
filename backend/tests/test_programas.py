@@ -6,14 +6,14 @@ tiene como mucho una rutina, y ocultar una rutina no la quita de los días que y
 la tenían.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
-from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina, Usuario
+from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -40,23 +40,8 @@ def rutinas_por_dia(programa) -> dict:
     return {dia["dia_semana"]: dia["rutina"]["nombre"] for dia in programa["dias"]}
 
 
-def ocultar_programa_a_mano(sesion_bd, programa_id):
-    """Ocultar un programa por la API llega en el siguiente paso; de momento, a mano."""
-    sesion_bd.execute(
-        update(Programa).where(Programa.id == programa_id).values(oculto_desde=date(2026, 9, 1))
-    )
-    sesion_bd.commit()
-
-
-@pytest.fixture
-def otro_usuario_id(sesion_bd) -> int:
-    email = "otro@example.com"
-    usuario = sesion_bd.scalar(select(Usuario).where(Usuario.email == email))
-    if usuario is None:
-        usuario = Usuario(nombre="Otro", email=email, password_hash="sin-login")
-        sesion_bd.add(usuario)
-        sesion_bd.commit()
-    return usuario.id
+def ocultar_programa(cliente, programa_id):
+    assert cliente.delete(f"/programas/{programa_id}?modo=ocultar").status_code == 204
 
 
 # --- Crear ---------------------------------------------------------------
@@ -156,7 +141,7 @@ def test_num_programas_no_cuenta_los_programas_ocultos(cliente, sesion_bd):
     push = crear_rutina(cliente)
     crear_programa(cliente, "Visible", dias=[(1, push)])
     oculto = crear_programa(cliente, "Oculto", dias=[(1, push)])
-    ocultar_programa_a_mano(sesion_bd, oculto["id"])
+    ocultar_programa(cliente, oculto["id"])
 
     assert cliente.get(f"/rutinas/{push}").json()["num_programas"] == 1
 
@@ -167,7 +152,7 @@ def test_num_programas_no_cuenta_los_programas_ocultos(cliente, sesion_bd):
 def test_listar_separa_los_programas_visibles_de_los_ocultos(cliente, sesion_bd):
     crear_programa(cliente, "Visible")
     oculto = crear_programa(cliente, "Oculto")
-    ocultar_programa_a_mano(sesion_bd, oculto["id"])
+    ocultar_programa(cliente, oculto["id"])
 
     visibles = [programa["nombre"] for programa in cliente.get("/programas").json()]
     ocultos = [programa["nombre"] for programa in cliente.get("/programas?ocultos=true").json()]
@@ -218,14 +203,44 @@ def test_un_dia_fuera_de_rango_en_la_ruta_da_422(cliente):
     assert respuesta.status_code == 422
 
 
-def test_un_programa_oculto_no_se_puede_editar(cliente, sesion_bd):
+def test_un_programa_oculto_no_se_puede_editar(cliente):
     push = crear_rutina(cliente)
-    programa = crear_programa(cliente)
-    ocultar_programa_a_mano(sesion_bd, programa["id"])
+    programa = crear_programa(cliente, dias=[(1, push)])
+    ocultar_programa(cliente, programa["id"])
     ruta = f"/programas/{programa['id']}"
 
     assert cliente.put(ruta, json={"nombre": "Otro"}).status_code == 409
-    assert cliente.put(f"{ruta}/dias/1", json={"rutina_id": push}).status_code == 409
+    assert cliente.put(f"{ruta}/dias/2", json={"rutina_id": push}).status_code == 409
+    # Dejar un día en descanso también es editar.
+    assert cliente.delete(f"{ruta}/dias/1").status_code == 409
+    assert rutinas_por_dia(cliente.get(ruta).json()) == {1: "Push"}
+
+
+def test_no_se_puede_poner_una_rutina_oculta_en_un_dia(cliente):
+    """Elegir algo oculto en otro sitio da 404: deja de ofrecerse."""
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    programa = crear_programa(cliente, dias=[(1, push)])
+    assert cliente.delete(f"/rutinas/{pull}?modo=ocultar").status_code == 204
+
+    respuesta = cliente.put(f"/programas/{programa['id']}/dias/3", json={"rutina_id": pull})
+
+    assert respuesta.status_code == 404
+    assert rutinas_por_dia(cliente.get(f"/programas/{programa['id']}").json()) == {1: "Push"}
+
+
+def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente):
+    """Un día, una rutina: la nueva sustituye a la oculta, que sigue en la
+    biblioteca (oculta) pero pierde ese día.
+    """
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    programa = crear_programa(cliente, dias=[(6, push)])
+    assert cliente.delete(f"/rutinas/{push}?modo=ocultar").status_code == 204
+
+    respuesta = cliente.put(f"/programas/{programa['id']}/dias/6", json={"rutina_id": pull})
+
+    assert respuesta.status_code == 200
+    assert rutinas_por_dia(respuesta.json()) == {6: "Pull"}
+    assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] is not None
 
 
 def test_un_programa_de_otro_usuario_no_se_ve_ni_se_edita(cliente, sesion_bd, otro_usuario_id):
@@ -375,17 +390,23 @@ def test_activar_el_que_ya_esta_activo_no_hace_nada(cliente, sesion_bd):
 
 
 def test_desactivar_uno_que_no_esta_activo_no_hace_nada(cliente, sesion_bd):
-    programa = crear_programa(cliente)
+    """Ni en él ni en el que sí está activo: cerrar "el periodo abierto" del
+    usuario sin mirar de qué programa es desactivaría el otro.
+    """
+    activo = crear_programa(cliente, "Activo")
+    activo_desde_hace(sesion_bd, activo["id"], 5)
+    programa = crear_programa(cliente, "Inactivo")
 
     respuesta = cliente.post(f"/programas/{programa['id']}/desactivar")
 
     assert respuesta.status_code == 200
     assert periodos(sesion_bd, programa["id"]) == []
+    assert periodos(sesion_bd, activo["id"]) == [(hoy() - timedelta(days=5), None)]
 
 
 def test_un_programa_oculto_no_se_puede_activar(cliente, sesion_bd):
     programa = crear_programa(cliente)
-    ocultar_programa_a_mano(sesion_bd, programa["id"])
+    ocultar_programa(cliente, programa["id"])
 
     assert cliente.post(f"/programas/{programa['id']}/activar").status_code == 409
 
@@ -424,6 +445,18 @@ def test_ocultar_el_programa_activo_lo_desactiva_y_mostrarlo_no_lo_reactiva(clie
     assert (mostrado["activo"], mostrado["oculto_desde"]) == (False, None)
 
 
+def test_ocultar_un_programa_que_no_esta_activo_no_desactiva_el_activo(cliente, sesion_bd):
+    """Ocultar el activo lo desactiva; ocultar otro no toca al activo."""
+    activo = crear_programa(cliente, "Activo")
+    activo_desde_hace(sesion_bd, activo["id"], 5)
+    otro = crear_programa(cliente, "Otro")
+
+    ocultar_programa(cliente, otro["id"])
+
+    assert cliente.get(f"/programas/{activo['id']}").json()["activo"] is True
+    assert periodos(sesion_bd, activo["id"]) == [(hoy() - timedelta(days=5), None)]
+
+
 def test_un_programa_que_nunca_estuvo_activo_se_borra_directo(cliente):
     programa = crear_programa(cliente, dias=[(1, crear_rutina(cliente))])
 
@@ -445,8 +478,11 @@ def test_borrar_un_programa_que_estuvo_activo_pide_elegir_y_dice_cuando(cliente,
 
 
 def test_borrar_en_definitivo_un_programa_se_lleva_sus_dias_y_periodos(cliente, sesion_bd):
-    """Sin passive_deletes en sus dos relaciones, SQLAlchemy intentaría poner a
-    NULL la FK de los días y periodos antes de borrarlo, y fallaría con un 500.
+    """Test de regresión: daba un 500 (`NotNullViolation` en
+    `programa_periodos.programa_id`). El endpoint lee `programa.periodos` para
+    decidir si pedir `modo`, y con esa lista ya cargada `passive_deletes=True` no
+    basta: SQLAlchemy intentaba poner a NULL la FK de los periodos en vez de
+    borrarlos. Se arregló con `cascade="all, delete-orphan"` en las dos relaciones.
     """
     programa = crear_programa(cliente, dias=[(1, crear_rutina(cliente))])
     activo_desde_hace(sesion_bd, programa["id"], 20)
@@ -458,8 +494,20 @@ def test_borrar_en_definitivo_un_programa_se_lleva_sus_dias_y_periodos(cliente, 
         assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == 0
 
 
-def test_un_programa_oculto_se_puede_borrar(cliente, sesion_bd):
+def test_un_programa_oculto_se_puede_borrar(cliente):
     programa = crear_programa(cliente)
-    ocultar_programa_a_mano(sesion_bd, programa["id"])
+    ocultar_programa(cliente, programa["id"])
 
     assert cliente.delete(f"/programas/{programa['id']}").status_code == 204
+
+
+def test_un_programa_oculto_que_estuvo_activo_sigue_pidiendo_modo_para_borrarlo(cliente, sesion_bd):
+    """Estar oculto no quita el historial: sus periodos siguen protegidos."""
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 20)
+    ocultar_programa(cliente, programa["id"])
+    ruta = f"/programas/{programa['id']}"
+
+    assert cliente.delete(ruta).status_code == 409
+    assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 204
+    assert cliente.get(ruta).status_code == 404

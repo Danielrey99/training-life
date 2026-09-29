@@ -22,22 +22,10 @@ from app.models import (
     ProgramaDia,
     ProgramaPeriodo,
     Rutina,
+    RutinaSlot,
     Serie,
-    Usuario,
+    SlotAlternativa,
 )
-
-
-@pytest.fixture
-def otro_usuario_id(sesion_bd) -> int:
-    """Un segundo usuario, distinto del que usa la API."""
-    email = "otro@example.com"
-    usuario = sesion_bd.scalar(select(Usuario).where(Usuario.email == email))
-    if usuario is None:
-        usuario = Usuario(nombre="Otro", email=email, password_hash="sin-login")
-        sesion_bd.add(usuario)
-        sesion_bd.commit()
-    assert usuario.id != USUARIO_SEMBRADO_ID
-    return usuario.id
 
 
 @pytest.fixture
@@ -69,6 +57,200 @@ def test_mandar_usuario_id_en_el_body_no_sirve_para_suplantar(cliente, otro_usua
     """Pydantic ignora los campos que no declara, así que el dueño lo decide el backend."""
     rutina = cliente.post("/rutinas", json={"nombre": "Push", "usuario_id": otro_usuario_id}).json()
     assert rutina["usuario_id"] == USUARIO_SEMBRADO_ID
+
+
+def test_las_rutinas_ocultas_de_otro_usuario_no_se_listan(cliente, sesion_bd, otro_usuario_id):
+    sesion_bd.add(Rutina(usuario_id=otro_usuario_id, nombre="Oculta de otro", oculto_desde=hoy()))
+    sesion_bd.commit()
+
+    assert cliente.get("/rutinas", params={"ocultas": True}).json() == []
+
+
+@pytest.fixture
+def hueco_ajeno(sesion_bd, otro_usuario_id, rutina_ajena_id, grupo_muscular_id) -> dict:
+    """Un hueco en la rutina de otro usuario, con un ejercicio suyo de principal y
+    otro de comodín.
+    """
+    principal = Ejercicio(
+        nombre="Press de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
+    )
+    comodin = Ejercicio(
+        nombre="Máquina de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
+    )
+    sesion_bd.add_all([principal, comodin])
+    sesion_bd.flush()
+    hueco = RutinaSlot(
+        rutina_id=rutina_ajena_id,
+        ejercicio_principal_id=principal.id,
+        orden=1,
+        series_objetivo=4,
+        reps_min=6,
+        reps_max=10,
+    )
+    sesion_bd.add(hueco)
+    sesion_bd.flush()
+    sesion_bd.add(SlotAlternativa(slot_id=hueco.id, ejercicio_id=comodin.id))
+    sesion_bd.commit()
+    return {"rutina_id": rutina_ajena_id, "slot_id": hueco.id, "comodin_id": comodin.id}
+
+
+def _estado_de_la_rutina_ajena(sesion_bd, hueco) -> tuple:
+    sesion_bd.expire_all()
+    rutina = sesion_bd.get(Rutina, hueco["rutina_id"])
+    slot = sesion_bd.get(RutinaSlot, hueco["slot_id"])
+    return (
+        rutina.nombre,
+        rutina.oculto_desde,
+        slot.orden,
+        slot.series_objetivo,
+        slot.oculto_desde,
+        [comodin.ejercicio_id for comodin in slot.slot_alternativas],
+    )
+
+
+def test_ningun_verbo_de_una_rutina_ajena_ni_de_sus_huecos_la_modifica(
+    cliente, sesion_bd, hueco_ajeno, grupo_muscular_id
+):
+    """Los huecos y comodines se protegen protegiendo su rutina: hay que ver que
+    esa comprobación está en cada verbo, no solo en el PUT de la rutina.
+    """
+    antes = _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno)
+    propio = cliente.post(
+        "/ejercicios", json={"nombre": "Mío", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    rutina = f"/rutinas/{hueco_ajeno['rutina_id']}"
+    slot = f"{rutina}/slots/{hueco_ajeno['slot_id']}"
+    hueco = {
+        "ejercicio_principal_id": propio,
+        "orden": 2,
+        "series_objetivo": 3,
+        "reps_min": 8,
+        "reps_max": 12,
+    }
+
+    assert cliente.put(rutina, json={"nombre": "Secuestrada"}).status_code == 403
+    assert cliente.post(f"{rutina}/mostrar").status_code == 403
+    assert cliente.post(f"{rutina}/slots", json=hueco).status_code == 403
+    assert cliente.put(slot, json={**hueco, "orden": 1}).status_code == 403
+    assert cliente.post(f"{slot}/mostrar").status_code == 403
+    assert cliente.post(f"{slot}/alternativas", json={"ejercicio_id": propio}).status_code == 403
+    assert cliente.delete(f"{slot}/alternativas/{hueco_ajeno['comodin_id']}").status_code == 403
+    for modo in ("", "?modo=ocultar", "?modo=definitivo"):
+        assert cliente.delete(f"{slot}{modo}").status_code == 403
+        assert cliente.delete(f"{rutina}{modo}").status_code == 403
+    assert _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno) == antes
+
+
+def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, grupo_muscular_id):
+    """Las dos rutinas son del usuario, pero la ruta tiene que cuadrar: si no, se
+    podría borrar o editar un hueco "desde" una rutina que no es la suya.
+    """
+    ejercicio = cliente.post(
+        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    hueco = {
+        "ejercicio_principal_id": ejercicio,
+        "orden": 1,
+        "series_objetivo": 4,
+        "reps_min": 6,
+        "reps_max": 10,
+    }
+    slot_id = cliente.post(f"/rutinas/{push}/slots", json=hueco).json()["id"]
+
+    assert cliente.put(f"/rutinas/{pull}/slots/{slot_id}", json=hueco).status_code == 404
+    assert cliente.delete(f"/rutinas/{pull}/slots/{slot_id}").status_code == 404
+    assert len(cliente.get(f"/rutinas/{push}").json()["slots"]) == 1
+
+
+# --- Ejercicios propios de otro usuario ----------------------------------
+
+
+@pytest.fixture
+def ejercicio_ajeno_id(sesion_bd, otro_usuario_id, grupo_muscular_id) -> int:
+    ejercicio = Ejercicio(
+        nombre="Ejercicio de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
+    )
+    sesion_bd.add(ejercicio)
+    sesion_bd.commit()
+    return ejercicio.id
+
+
+def test_los_ejercicios_de_otro_usuario_no_se_listan_ni_entre_los_ocultos(
+    cliente, sesion_bd, ejercicio_ajeno_id, otro_usuario_id, grupo_muscular_id
+):
+    sesion_bd.add(
+        Ejercicio(
+            nombre="Oculto de otro",
+            grupo_muscular_id=grupo_muscular_id,
+            usuario_id=otro_usuario_id,
+            oculto_desde=hoy(),
+        )
+    )
+    sesion_bd.commit()
+
+    visibles = [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]]
+
+    assert visibles == []
+    assert cliente.get("/ejercicios", params={"ocultos": True}).json() == []
+
+
+def test_ningun_verbo_de_un_ejercicio_ajeno_lo_modifica(
+    cliente, sesion_bd, ejercicio_ajeno_id, grupo_muscular_id
+):
+    """404 al leer (no delata que existe) y 403 al tocarlo, sin cambiar nada."""
+    ruta = f"/ejercicios/{ejercicio_ajeno_id}"
+
+    assert cliente.get(ruta).status_code == 404
+    assert (
+        cliente.put(
+            ruta, json={"nombre": "Mío", "grupo_muscular_id": grupo_muscular_id}
+        ).status_code
+        == 403
+    )
+    assert cliente.post(f"{ruta}/mostrar").status_code == 403
+    for modo in ("", "?modo=ocultar", "?modo=definitivo"):
+        assert cliente.delete(f"{ruta}{modo}").status_code == 403
+
+    sesion_bd.expire_all()
+    ejercicio = sesion_bd.get(Ejercicio, ejercicio_ajeno_id)
+    assert (ejercicio.nombre, ejercicio.oculto_desde) == ("Ejercicio de otro", None)
+
+
+def test_no_se_puede_usar_un_ejercicio_ajeno_en_huecos_comodines_ni_series(
+    cliente, ejercicio_ajeno_id, grupo_muscular_id
+):
+    """Elegir un ejercicio que no es tuyo da 404: para ti no existe."""
+    propio = cliente.post(
+        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    def hueco(ejercicio_id, orden):
+        return {
+            "ejercicio_principal_id": ejercicio_id,
+            "orden": orden,
+            "series_objetivo": 4,
+            "reps_min": 6,
+            "reps_max": 10,
+        }
+
+    slot_id = cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco(propio, 1)).json()["id"]
+    slot = f"/rutinas/{rutina_id}/slots/{slot_id}"
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": "2026-09-03"}).json()["id"]
+
+    assert (
+        cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco(ejercicio_ajeno_id, 2)).status_code
+        == 404
+    )
+    assert cliente.put(slot, json=hueco(ejercicio_ajeno_id, 1)).status_code == 404
+    assert (
+        cliente.post(f"{slot}/alternativas", json={"ejercicio_id": ejercicio_ajeno_id}).status_code
+        == 404
+    )
+    serie = {"ejercicio_id": ejercicio_ajeno_id, "numero_serie": 1, "peso": 60, "repeticiones": 8}
+    assert cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=serie).status_code == 404
 
 
 # --- Notas sobre ejercicios ----------------------------------------------
@@ -305,6 +487,31 @@ def test_no_se_puede_empezar_un_entrenamiento_con_una_rutina_ajena(cliente, ruti
     assert respuesta.status_code == 404
 
 
+def test_no_se_puede_pasar_un_entrenamiento_propio_a_una_rutina_ajena(cliente, rutina_ajena_id):
+    propio = cliente.post("/entrenamientos", json={"fecha": "2026-09-03"}).json()["id"]
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{propio}", json={"rutina_id": rutina_ajena_id, "fecha": "2026-09-03"}
+    )
+
+    assert respuesta.status_code == 404
+    assert cliente.get(f"/entrenamientos/{propio}").json()["rutina_id"] is None
+
+
+def test_la_sesion_en_curso_de_otro_usuario_ni_se_lista_ni_impide_empezar_la_mia(
+    cliente, sesion_bd, otro_usuario_id
+):
+    """La regla de una sola sesión en curso es por usuario: la comprobación busca
+    "la" sesión abierta de hoy, sin id concreto, y sin el filtro por dueño la del
+    otro me bloquearía.
+    """
+    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, fecha=hoy()))
+    sesion_bd.commit()
+
+    assert cliente.get("/entrenamientos", params={"en_curso": True}).json() == []
+    assert cliente.post("/entrenamientos", json={"fecha": hoy().isoformat()}).status_code == 201
+
+
 # --- Programas y plan ----------------------------------------------------
 #
 # Lo que más riesgo tiene aquí no es leer datos ajenos, sino las operaciones que
@@ -389,12 +596,29 @@ def test_ningun_verbo_de_un_programa_ajeno_lo_modifica(cliente, sesion_bd, progr
     propia = cliente.post("/rutinas", json={"nombre": "Mía"}).json()["id"]
     ruta = f"/programas/{programa_ajeno_activo['id']}"
 
+    assert cliente.get(ruta).status_code == 404
+    assert cliente.put(ruta, json={"nombre": "Secuestrado"}).status_code == 403
+    assert cliente.post(f"{ruta}/activar", json={"quitar_excepciones": True}).status_code == 403
     assert cliente.post(f"{ruta}/desactivar").status_code == 403
     assert cliente.post(f"{ruta}/mostrar").status_code == 403
     assert cliente.put(f"{ruta}/dias/2", json={"rutina_id": propia}).status_code == 403
     assert cliente.delete(f"{ruta}/dias/1").status_code == 403
+    assert cliente.delete(ruta).status_code == 403
     assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 403
     assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 403
+    assert _estado_ajeno(sesion_bd, programa_ajeno_activo) == antes
+
+
+def test_restablecer_un_dia_no_toca_el_dia_planificado_de_otro_usuario(
+    cliente, sesion_bd, programa_ajeno_activo
+):
+    """Mañana está cambiado a mano, pero por el otro: para mí no hay nada que
+    restablecer.
+    """
+    antes = _estado_ajeno(sesion_bd, programa_ajeno_activo)
+    manana = (hoy() + timedelta(days=1)).isoformat()
+
+    assert cliente.delete(f"/plan/excepciones/{manana}").status_code == 404
     assert _estado_ajeno(sesion_bd, programa_ajeno_activo) == antes
 
 

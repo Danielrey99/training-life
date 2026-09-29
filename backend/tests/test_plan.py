@@ -9,10 +9,10 @@ API todo empieza hoy.
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from app.fechas import hoy
-from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina, Usuario
+from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
 
 HOY = hoy()
 
@@ -128,17 +128,11 @@ def test_un_programa_oculto_sigue_contando_para_los_dias_en_que_estuvo_activo(cl
     assert rutina_de(dias[(HOY - timedelta(days=7)).isoformat()]) == "Push"
 
 
-def test_los_programas_de_otro_usuario_no_cuentan(cliente, sesion_bd):
-    # La tabla de usuarios no se vacía entre tests: se reutiliza si ya existe.
-    otro = sesion_bd.scalar(select(Usuario).where(Usuario.email == "otro@example.com"))
-    if otro is None:
-        otro = Usuario(nombre="Otro", email="otro@example.com", password_hash="sin-login")
-        sesion_bd.add(otro)
-        sesion_bd.flush()
-    ajeno = Programa(usuario_id=otro.id, nombre="De otro")
+def test_los_programas_de_otro_usuario_no_cuentan(cliente, sesion_bd, otro_usuario_id):
+    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
     sesion_bd.add(ajeno)
     sesion_bd.flush()
-    periodo(sesion_bd, ajeno.id, HOY - timedelta(days=3), usuario_id=otro.id)
+    periodo(sesion_bd, ajeno.id, HOY - timedelta(days=3), usuario_id=otro_usuario_id)
 
     dias = plan(cliente, HOY, HOY)
 
@@ -276,6 +270,22 @@ def test_restablecer_la_semana_no_toca_los_dias_pasados(cliente, sesion_bd, sema
     assert quedan == [ayer.isoformat(), fuera.isoformat()]
 
 
+def test_restablecer_un_rango_invertido_da_422_y_no_borra_nada(cliente, semana_push):
+    """Igual que en el resto de los rangos: un `desde` posterior a `hasta` solo
+    puede ser un error de quien llama, y aquí además un borrado silencioso.
+    """
+    manana = HOY + timedelta(days=1)
+    planificar(cliente, manana, semana_push["pull"])
+
+    respuesta = cliente.delete(
+        "/plan/excepciones",
+        params={"desde": (HOY + timedelta(days=6)).isoformat(), "hasta": HOY.isoformat()},
+    )
+
+    assert respuesta.status_code == 422
+    assert [e["fecha"] for e in cliente.get("/plan/excepciones").json()] == [manana.isoformat()]
+
+
 def test_intercambiar_dos_dias_cruza_lo_que_toca_cada_uno(cliente, semana_push):
     """Hoy Push (del programa) y pasado mañana Pull (cambiado): quedan al revés."""
     pasado = HOY + timedelta(days=2)
@@ -315,6 +325,9 @@ def test_intercambiar_pide_dos_dias_distintos_y_de_hoy_en_adelante(cliente, sema
 
     assert intercambiar(HOY, HOY).status_code == 422
     assert intercambiar(ayer, HOY).status_code == 422
+    # El pasado no se planifica, vaya en el primer día o en el segundo.
+    assert intercambiar(HOY, ayer).status_code == 422
+    assert cliente.get("/plan/excepciones").json() == []
 
 
 def test_activar_otro_programa_quitando_lo_planificado_solo_borra_desde_hoy(
@@ -396,16 +409,13 @@ def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push
     assert respuesta.status_code == 422
 
 
-def test_los_dias_planificados_de_otro_usuario_no_cuentan(cliente, sesion_bd, semana_push):
-    otro = sesion_bd.scalar(select(Usuario).where(Usuario.email == "otro@example.com"))
-    if otro is None:
-        otro = Usuario(nombre="Otro", email="otro@example.com", password_hash="sin-login")
-        sesion_bd.add(otro)
-        sesion_bd.flush()
-    ajena = Rutina(usuario_id=otro.id, nombre="De otro")
+def test_los_dias_planificados_de_otro_usuario_no_cuentan(
+    cliente, sesion_bd, semana_push, otro_usuario_id
+):
+    ajena = Rutina(usuario_id=otro_usuario_id, nombre="De otro")
     sesion_bd.add(ajena)
     sesion_bd.flush()
-    sesion_bd.add(ExcepcionDelPlan(usuario_id=otro.id, fecha=HOY, rutina_id=ajena.id))
+    sesion_bd.add(ExcepcionDelPlan(usuario_id=otro_usuario_id, fecha=HOY, rutina_id=ajena.id))
     sesion_bd.commit()
 
     dia = plan(cliente, HOY, HOY)[HOY.isoformat()]

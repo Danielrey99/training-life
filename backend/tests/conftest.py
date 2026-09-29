@@ -144,6 +144,29 @@ def sesion_bd():
 
 
 @pytest.fixture
+def otro_usuario_id(sesion_bd) -> int:
+    """Un segundo usuario, distinto del que usa la API, para los tests de aislamiento.
+
+    Mientras no haya JWT la API trabaja siempre con el usuario sembrado, así que
+    los datos ajenos se insertan con `sesion_bd` a nombre de este. La tabla de
+    usuarios no se vacía entre tests: se reutiliza si ya existe.
+    """
+    from sqlalchemy import select
+
+    from app.auth import USUARIO_SEMBRADO_ID
+    from app.models import Usuario
+
+    email = "otro@example.com"
+    usuario = sesion_bd.scalar(select(Usuario).where(Usuario.email == email))
+    if usuario is None:
+        usuario = Usuario(nombre="Otro", email=email, password_hash="sin-login")
+        sesion_bd.add(usuario)
+        sesion_bd.commit()
+    assert usuario.id != USUARIO_SEMBRADO_ID
+    return usuario.id
+
+
+@pytest.fixture
 def ejercicio_predefinido_id(sesion_bd) -> int:
     """Uno de los ejercicios predefinidos que siembra la migración.
 

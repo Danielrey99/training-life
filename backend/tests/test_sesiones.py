@@ -6,8 +6,11 @@ calculan con `app.fechas.hoy()`, la misma función que usa el backend, en vez de
 escribirse a mano.
 """
 
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone
 
+import pytest
+
+from app import fechas
 from app.fechas import hoy
 
 HOY = hoy()
@@ -212,3 +215,41 @@ def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
 
     assert respuesta.status_code == 422
     assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
+
+
+# --- "Hoy" es el de Madrid, no el del servidor ----------------------------
+#
+# El contenedor corre en UTC. Entre medianoche y la 1 o las 2 de la madrugada
+# (según el horario de verano), en España ya es el día siguiente y en UTC todavía
+# no: si el backend usara la fecha del servidor, la sesión de las 00:30 quedaría
+# en el día anterior o se rechazaría por "futura". Se congela el reloj de
+# `app.fechas` en uno de esos instantes; todo lo que pasa por `hoy()` lo ve.
+
+# 30 de junio de 2025, 22:30 en UTC = 1 de julio, 00:30 en Madrid (CEST, UTC+2). Lejos
+# de la fecha real a propósito: si `hoy()` dejara de pasar por el reloj de Madrid,
+# estos tests no podrían acertar por casualidad.
+INSTANTE_UTC = datetime(2025, 6, 30, 22, 30, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def madrugada_en_madrid(monkeypatch):
+    class RelojCongelado(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return INSTANTE_UTC.astimezone(tz)
+
+    monkeypatch.setattr(fechas, "datetime", RelojCongelado)
+
+
+def test_hoy_es_la_fecha_de_madrid_aunque_en_utc_siga_siendo_ayer(madrugada_en_madrid):
+    assert INSTANTE_UTC.date() == date(2025, 6, 30)
+    assert fechas.hoy() == date(2025, 7, 1)
+
+
+def test_a_las_00_30_en_espana_se_empieza_la_sesion_del_dia_nuevo(cliente, madrugada_en_madrid):
+    """Ni "futura" (422) ni en el día anterior: es la sesión en curso de hoy."""
+    respuesta = cliente.post("/entrenamientos", json={"fecha": "2025-07-01"})
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["en_curso"] is True
+    assert cliente.post("/entrenamientos", json={"fecha": "2025-07-02"}).status_code == 422

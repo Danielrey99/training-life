@@ -431,10 +431,13 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_
 
 # --- Límites de los números ----------------------------------------------
 #
-# Los esquemas ponen el mínimo a cada número pero no el máximo, y la base de datos
-# sí lo tiene: `peso` es NUMERIC(6, 2) (hasta 9999.99) y los enteros son INTEGER
-# (hasta 2**31 - 1). Lo que se pasa llega hasta Postgres y revienta con un 500 en
-# vez de un 422 que diga qué campo está mal.
+# La base de datos tiene sus propios máximos (`peso` es NUMERIC(6, 2), hasta
+# 9999.99; los enteros son INTEGER, hasta 2**31 - 1), y un número que no cabía
+# llegaba hasta Postgres y reventaba con un 500. Ahora los esquemas ponen topes
+# por debajo: el peso, lo que cabe en la columna; el resto, de sentido común
+# (repeticiones y reps ≤ 1000, número de serie y orden ≤ 100, series objetivo
+# ≤ 50). Los primeros tests comprueban que nada llega a Postgres; los de los
+# bordes, que los topes son los decididos.
 
 DEMASIADO = 2**31
 
@@ -475,3 +478,130 @@ def test_un_hueco_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, c
     )
 
     assert respuesta.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "campo, tope",
+    [("numero_serie", 100), ("repeticiones", 1000), ("peso", Decimal("9999.99"))],
+)
+def test_una_serie_admite_su_tope_justo_y_no_uno_mas(cliente, grupo_muscular_id, campo, tope):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    ruta = f"/entrenamientos/{entrenamiento_id}/series"
+    paso = Decimal("0.01") if campo == "peso" else 1
+
+    justo = cliente.post(ruta, json={**_serie(banca), campo: str(tope)})
+    pasado = cliente.post(ruta, json={**_serie(banca), campo: str(tope + paso)})
+
+    assert (justo.status_code, pasado.status_code) == (201, 422)
+
+
+@pytest.mark.parametrize(
+    "campo, tope", [("orden", 100), ("series_objetivo", 50), ("reps_max", 1000)]
+)
+def test_un_hueco_admite_su_tope_justo_y_no_uno_mas(cliente, grupo_muscular_id, campo, tope):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    ruta = f"/rutinas/{rutina_id}/slots"
+
+    pasado = cliente.post(ruta, json={**_hueco(banca), campo: tope + 1})
+    justo = cliente.post(ruta, json={**_hueco(banca), campo: tope})
+
+    assert (justo.status_code, pasado.status_code) == (201, 422)
+
+
+def test_reps_min_tambien_tiene_tope(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca, reps=(1001, 1001)))
+
+    assert respuesta.status_code == 422
+
+
+def test_el_peso_puede_ser_cero_para_los_ejercicios_con_el_propio_cuerpo(
+    cliente, grupo_muscular_id
+):
+    """Dominadas o fondos sin lastre: 0 kg es un dato válido, no un error."""
+    dominadas = _ejercicio(cliente, grupo_muscular_id, "Dominadas")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(dominadas, peso=0)
+    )
+
+    assert respuesta.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "campo, valor",
+    [("peso", -1), ("repeticiones", 0), ("numero_serie", 0), ("rpe", 11), ("rpe", -1)],
+)
+def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, campo, valor):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json={**_serie(banca), campo: valor}
+    )
+
+    assert respuesta.status_code == 422
+
+
+@pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_min"])
+def test_un_hueco_con_un_cero_da_422(cliente, grupo_muscular_id, campo):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+
+    respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json={**_hueco(banca), campo: 0})
+
+    assert respuesta.status_code == 422
+
+
+# --- Textos que no caben en su columna -----------------------------------
+#
+# Mismo riesgo que con los números: cada texto tiene su longitud máxima en la
+# base de datos, y si el esquema no la repite, uno más largo llega a Postgres y
+# la respuesta es un 500 en vez de un 422.
+
+
+def test_ningun_texto_mas_largo_que_su_columna_llega_a_la_base(cliente, grupo_muscular_id):
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    programa_id = cliente.post("/programas", json={"nombre": "PPL"}).json()["id"]
+    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    grupo = grupo_muscular_id
+
+    peticiones = [
+        ("post", "/ejercicios", {"nombre": "x" * 101, "grupo_muscular_id": grupo}),
+        ("put", f"/ejercicios/{banca}", {"nombre": "x" * 101, "grupo_muscular_id": grupo}),
+        (
+            "post",
+            "/ejercicios",
+            {"nombre": "Remo", "grupo_muscular_id": grupo, "descripcion": "x" * 501},
+        ),
+        ("post", f"/ejercicios/{banca}/notas", {"nota": "x" * 1001}),
+        ("post", "/rutinas", {"nombre": "x" * 101}),
+        ("put", f"/rutinas/{rutina_id}", {"nombre": "x" * 101}),
+        ("post", "/programas", {"nombre": "x" * 101}),
+        ("put", f"/programas/{programa_id}", {"nombre": "x" * 101}),
+        ("post", "/entrenamientos", {"fecha": "2026-09-01", "notas": "x" * 1001}),
+        ("put", f"/entrenamientos/{entrenamiento_id}", {"fecha": FECHA, "notas": "x" * 1001}),
+        (
+            "post",
+            f"/entrenamientos/{entrenamiento_id}/series",
+            {**_serie(banca), "variante": "x" * 101},
+        ),
+    ]
+
+    for metodo, ruta, cuerpo in peticiones:
+        respuesta = getattr(cliente, metodo)(ruta, json=cuerpo)
+        assert respuesta.status_code == 422, f"{metodo.upper()} {ruta}: {respuesta.status_code}"
+
+
+def test_un_nombre_se_guarda_sin_los_espacios_de_los_lados(cliente, grupo_muscular_id):
+    creado = cliente.post(
+        "/ejercicios", json={"nombre": "  Press banca  ", "grupo_muscular_id": grupo_muscular_id}
+    ).json()
+
+    assert creado["nombre"] == "Press banca"

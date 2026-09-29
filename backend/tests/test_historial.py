@@ -9,9 +9,8 @@ usuario se cuela por el camino.
 """
 
 import pytest
-from sqlalchemy import select
 
-from app.models import Ejercicio, Entrenamiento, Rutina, RutinaSlot, Serie, Usuario
+from app.models import Ejercicio, Entrenamiento, Rutina, RutinaSlot, Serie
 
 # --- Ayudantes para montar escenarios ------------------------------------
 
@@ -494,17 +493,6 @@ def test_un_rango_invertido_se_rechaza(cliente, escenario):
 # se insertan directamente en la base: es la única forma de montar el escenario.
 
 
-@pytest.fixture
-def otro_usuario_id(sesion_bd) -> int:
-    email = "otro@example.com"
-    usuario = sesion_bd.scalar(select(Usuario).where(Usuario.email == email))
-    if usuario is None:
-        usuario = Usuario(nombre="Otro", email=email, password_hash="sin-login")
-        sesion_bd.add(usuario)
-        sesion_bd.commit()
-    return usuario.id
-
-
 def registrar_serie_ajena(sesion_bd, usuario_id, ejercicio_id, fecha, slot_id=None) -> None:
     """Un entrenamiento de otro usuario con una serie dentro, insertado a mano."""
     entrenamiento = Entrenamiento(usuario_id=usuario_id, fecha=fecha)
@@ -734,3 +722,34 @@ def test_un_entrenamiento_libre_si_puede_pasar_a_seguir_una_rutina(cliente, esce
     )
 
     assert respuesta.status_code == 200
+
+
+def test_no_se_puede_pasar_a_libre_un_entrenamiento_con_series_en_huecos(cliente, escenario):
+    """Quitarle la rutina es otra forma de cambiársela: las series seguirían
+    apuntando a huecos de una rutina que la sesión ya no dice seguir.
+    """
+    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
+    registrar_serie(
+        cliente, entrenamiento_id, escenario["ejercicio_id"], slot_id=escenario["slot_id"]
+    )
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}", json={"rutina_id": None, "fecha": "2026-09-05"}
+    )
+
+    assert respuesta.status_code == 409
+    assert (
+        cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["rutina_id"]
+        == (escenario["rutina_id"])
+    )
+
+
+@pytest.mark.parametrize("limite", [0, 501])
+def test_el_limite_va_de_1_a_500_sesiones(cliente, escenario, limite):
+    rutas = [
+        f"/ejercicios/{escenario['ejercicio_id']}/historial",
+        f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/historial",
+    ]
+
+    for ruta in rutas:
+        assert cliente.get(ruta, params={"limite": limite}).status_code == 422
