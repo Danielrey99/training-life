@@ -22,3 +22,16 @@ export function colorDelDia(diaSemana: number): string {
 // Lo que se hizo sin contar para ningún día (un entrenamiento libre, una rutina
 // sin programa): no tiene día del que tomar el color.
 export const SIN_DIA = '#9aa1ac'
+
+/**
+ * El color de una rutina que se hizo sin contar para ningún día: el del día en que
+ * la tiene el programa activo, para que se reconozca en el calendario. Sin
+ * programa, o si la rutina no está en él, el neutro.
+ */
+export function colorDeRutina(
+  dias: { dia_semana: number; rutina: { id: number } }[] | undefined,
+  rutinaId: number | null | undefined,
+): string {
+  const suDia = dias?.find((dia) => dia.rutina.id === rutinaId)
+  return suDia ? colorDelDia(suDia.dia_semana) : SIN_DIA
+}

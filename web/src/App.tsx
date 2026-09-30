@@ -1,10 +1,10 @@
-import { Link, Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
 import { Ejercicios } from './paginas/Ejercicios'
+import { Calendario } from './paginas/historial/Calendario'
 import { Hoy } from './paginas/hoy/Hoy'
 import { PorHacer } from './paginas/PorHacer'
-import { RegistrarEntrenamiento } from './paginas/RegistrarEntrenamiento'
 import { Sesion } from './paginas/sesion/Sesion'
 import './App.css'
 
@@ -17,21 +17,14 @@ export default function App() {
       <main className="contenido">
         <Routes>
           <Route path="/" element={<Hoy />} />
-          {/* Hasta que exista el calendario, es donde se apunta un día pasado. */}
-          <Route path="/registrar" element={<RegistrarEntrenamiento />} />
           {/* La sesión abierta va en la URL: recargar no echa atrás. */}
           <Route path="/sesion/:entrenamientoId" element={<Sesion />} />
-          {/* Donde vivía antes la sesión, por si quedó guardada en el móvil. */}
+          <Route path="/historial" element={<Calendario />} />
+          <Route path="/historial/:fecha" element={<PorHacer seccion="El día" />} />
+          {/* Direcciones antiguas, por si quedaron guardadas en el móvil: registrar un
+              día pasado vive ahora en el calendario, y la sesión, en /sesion. */}
+          <Route path="/registrar" element={<Navigate to="/historial" replace />} />
           <Route path="/registrar/:entrenamientoId" element={<RedirigirASesion />} />
-          <Route
-            path="/historial"
-            element={
-              <PorHacer seccion="El historial">
-                Mientras tanto, un día pasado se apunta en{' '}
-                <Link to="/registrar">Registrar un entrenamiento</Link>.
-              </PorHacer>
-            }
-          />
           <Route path="/programas" element={<PorHacer seccion="Programas y rutinas" />} />
           <Route path="/ejercicios" element={<Ejercicios />} />
           <Route path="*" element={<p className="aviso">Esa página no existe.</p>} />

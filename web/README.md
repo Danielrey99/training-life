@@ -15,8 +15,8 @@ mientras se entrena.
 La primera versión se escribió para validar que el circuito funciona —React pide, la API responde,
 la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
 Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la
-web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso y la
-pantalla de entrada, *Hoy*.
+web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la
+pantalla de entrada (*Hoy*) y el calendario del historial.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -27,8 +27,9 @@ pantalla de entrada, *Hoy*.
   completo, con los tipos al día
 - [x] La sesión en curso, siguiendo los bocetos
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): el
-  calendario y la progresión, los programas y rutinas, y la biblioteca de ejercicios
+- [x] El calendario del historial, y apuntar desde él un día pasado
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): ver y
+  editar un día, la progresión, los programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -74,7 +75,9 @@ web/
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
         ├── Ejercicios.tsx
         ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
-        ├── RegistrarEntrenamiento.tsx   # apuntar un día pasado, hasta que exista el calendario
+        ├── historial/    # la pestaña de Historial
+        │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
+        │   └── HojaRegistrar.tsx        # apuntar un día pasado
         ├── hoy/          # la pantalla de entrada
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
         └── sesion/       # la sesión en curso
@@ -142,8 +145,22 @@ debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo d
   descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para
   entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
 
-Mientras no exista el calendario, un día pasado se apunta en `/registrar`, enlazado desde la pestaña
-de Historial: se elige la fecha y la rutina, y si ese día ya tiene una sesión lleva a ella.
+## Historial
+
+El calendario (`/historial`) enseña el mes con las mismas marcas que la semana de *Hoy*, y debajo
+tres cifras: cuántos días planificados se entrenaron (también los movidos), cuántos se movieron y
+cuántos se quedaron sin hacer. La leyenda va plegada, porque se consulta poco. El mes va en la URL
+(`?mes=2026-09`), para que volver de un día no devuelva al mes actual.
+
+**Tocar un día enseña siempre lo que se hizo ese día**, nunca lo del día en que se hizo su rutina:
+si hubo sesión, abre el día; si es hoy, lleva a *Hoy*; y si es un día pasado sin sesión, abre una
+hoja para apuntar lo que se hizo. Esa hoja ofrece lo mismo que habría ofrecido *Hoy* aquel día (lo
+que tocaba, lo que seguía por recuperar y lo que se podía adelantar), y además cualquier otra rutina,
+que se apunta sin contar para ningún día del programa. Sirve para pasar a la app la libreta de
+meses anteriores, o para el día que se entrenó y se olvidó apuntar.
+
+Lo que se hizo sin contar para ningún día lleva el color del día de su rutina en el programa activo,
+para que se reconozca; solo sale en gris si la rutina no está en el programa.
 
 ## Hablar con la API
 

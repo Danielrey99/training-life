@@ -1,5 +1,5 @@
 import type { DiaSeguimiento } from '../api/tipos'
-import { colorDelDia, SIN_DIA } from '../utiles/colores'
+import { colorDelDia, colorDeRutina } from '../utiles/colores'
 import { diaDeLaSemana } from '../utiles/fechas'
 
 import './MarcaDelDia.css'
@@ -23,15 +23,25 @@ function Flecha({ color, haciaAtras }: { color: string; haciaAtras: boolean }) {
  * si aún no ha llegado. Por eso salen combinadas: "●○" es que se hizo otra cosa y
  * lo suyo sigue sin hacer, y "←●" que lo suyo se hizo antes y ese día, otra cosa.
  */
-export function MarcaDelDia({ dia }: { dia: DiaSeguimiento }) {
+export function MarcaDelDia({
+  dia,
+  diasDelPrograma,
+}: {
+  dia: DiaSeguimiento
+  // Los del programa activo, para dar color a lo que se hizo sin contar para ningún día.
+  diasDelPrograma?: { dia_semana: number; rutina: { id: number } }[]
+}) {
   const propio = colorDelDia(diaDeLaSemana(dia.fecha))
   const sesion = dia.sesion
 
-  // Lo que se hizo: del color del día que cuenta, o neutro si no cuenta ninguno.
+  // Lo que se hizo: del color del día que cuenta; si no cuenta ninguno, del día de
+  // su rutina en el programa, o neutro si tampoco está en él.
   let hecho: string | null = null
   if (sesion) {
     hecho =
-      sesion.cuenta && sesion.cubre_fecha ? colorDelDia(diaDeLaSemana(sesion.cubre_fecha)) : SIN_DIA
+      sesion.cuenta && sesion.cubre_fecha
+        ? colorDelDia(diaDeLaSemana(sesion.cubre_fecha))
+        : colorDeRutina(diasDelPrograma, sesion.rutina?.id)
   }
 
   // Lo que tocaba, si no es lo mismo que el punto de lo hecho.

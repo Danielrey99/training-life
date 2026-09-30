@@ -191,7 +191,7 @@ export function Hoy() {
         {resumen.semana.map((uno, indice) => (
           <div key={uno.fecha} className={uno.fecha === hoy ? 'tira-dia es-hoy' : 'tira-dia'}>
             <span>{INICIALES[indice]}</span>
-            <MarcaDelDia dia={uno} />
+            <MarcaDelDia dia={uno} diasDelPrograma={programa?.dias} />
           </div>
         ))}
       </div>

@@ -109,11 +109,13 @@ export function fechaLarga(iso: string): string {
  * hoy, ayer o mañana si lo es; el día de la semana y el número si está a menos de
  * dos semanas (con el mes si es de otro y está a más de una semana); y si no, el día y el mes.
  */
-export function fechaEnFrase(iso: string): string {
+export function fechaEnFrase(iso: string, relativa = true): string {
   const dias = diasEntre(hoy(), iso)
-  if (dias === 0) return 'hoy'
-  if (dias === -1) return 'ayer'
-  if (dias === 1) return 'mañana'
+  // Sin `relativa`, nunca "hoy" ni "ayer": donde el día que se mira no es hoy (la
+  // hoja de registrar un día pasado), confundirían.
+  if (relativa && dias === 0) return 'hoy'
+  if (relativa && dias === -1) return 'ayer'
+  if (relativa && dias === 1) return 'mañana'
   const fecha = aFecha(iso)
   const ahora = aFecha(hoy())
   if (Math.abs(dias) < 14) {
@@ -133,4 +135,33 @@ export function fechaEnFrase(iso: string): string {
 export function conArticulo(iso: string): string {
   const texto = fechaEnFrase(iso)
   return ['hoy', 'ayer', 'mañana'].includes(texto) ? texto : `el ${texto}`
+}
+
+/** El primer día del mes de esa fecha. */
+export function inicioDeMes(iso: string): string {
+  return `${iso.slice(0, 7)}-01`
+}
+
+/** El último día del mes de esa fecha. */
+export function finDeMes(iso: string): string {
+  const fecha = aFecha(inicioDeMes(iso))
+  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0, 12))
+}
+
+/** El primer día del mes `meses` meses después (o antes, si es negativo). */
+export function sumarMeses(iso: string, meses: number): string {
+  const fecha = aFecha(inicioDeMes(iso))
+  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + meses, 1, 12))
+}
+
+/** "Septiembre 2026". */
+export function tituloDeMes(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${mayuscula(MESES[fecha.getMonth()])} ${fecha.getFullYear()}`
+}
+
+/** "15 de septiembre", sin día de la semana. */
+export function diaYMes(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
 }
