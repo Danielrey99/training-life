@@ -22,7 +22,7 @@ El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos l
 reales:
 
 - un ejercicio usado en una rutina, o con series registradas
-- una rutina con huecos definidos o con entrenamientos
+- una rutina con huecos definidos, con entrenamientos, o que ya tocó días pasados del plan
 - un hueco con series registradas
 
 Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un
@@ -67,12 +67,37 @@ Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Gl
 Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un
 solo grupo, y con grupos muy finos cualquier elección sería engañosa.
 
-**Próximo paso:** el seguimiento del plan que pide el [diseño de la app](../README.md#diseño-de-la-app).
-Cada sesión guardará qué día del plan cuenta (el que tocaba, o el que se recupera o se adelanta), y
-sobre eso la API dirá qué días se hicieron, se movieron o se faltaron, qué se puede recuperar (hasta
-el día antes del mismo día de la semana siguiente) y qué se puede adelantar. Ya están hechas las dos
-bases de esa parte: una sesión por día, y que editar un programa no cambie los días pasados. La web
-se rehace en paralelo, pantalla a pantalla.
+### Seguimiento del plan
+
+Encima del plan (qué tocaba cada día) está el **seguimiento**: qué se hizo con cada día. Cada sesión
+guarda **qué día del plan cuenta** (`cubre_fecha`), según el botón con el que se empezó:
+
+- *Empezar* cuenta el día de hoy.
+- *Recuperar* cuenta un día pasado que se quedó sin hacer. Se puede hasta el día antes del mismo día
+  de la semana siguiente: lo del lunes, hasta el domingo.
+- *Adelantar* cuenta un día de esta semana que aún no ha llegado.
+
+No se deduce a posteriori a propósito: con dos días de Push en la semana, la misma sesión puede ser
+una cosa u otra, y adivinarlo fallaba en casos reales. Guardarlo hace que cada día tenga un estado
+claro: **hecho** (lo cuenta una sesión de ese mismo día), **movido** (lo cuenta una de otro día), o
+**sin hacer**, **pendiente** o **próximo** si no lo cuenta nadie, según sea pasado, hoy o futuro.
+
+Un día lo cuenta una sesión como mucho, y para contarlo tiene que tocar esa rutina, estar en plazo y
+caer en el mismo programa que la sesión: lo que se faltó con un programa que ya no está activo no se
+recupera. Una sesión cancelada (sin series y ya fuera de curso) no cuenta ni retiene su día.
+
+Lo hecho por adelantado se respeta al cambiar el plan:
+
+- **En Planificar**, la sesión sigue a su rutina: si el Leg del viernes se hizo el martes y el Leg
+  pasa al sábado, la sesión pasa a contar el sábado. Si el cambio la dejara sin ningún día de esta
+  semana con su rutina, no se permite (409) y no se guarda nada.
+- **Al editar el programa**, ese día se queda como estaba y el cambio empieza la semana siguiente.
+- **Borrar una rutina que ya tocó días pasados** pide elegir entre ocultarla y borrarla, porque
+  borrarla dejaría esos días como descanso en el calendario.
+
+La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo
+que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar,
+el próximo entrenamiento y la última sesión. La web se rehace en paralelo, pantalla a pantalla.
 
 ## Estructura
 
@@ -89,18 +114,20 @@ backend/
 │   ├── fechas.py           # qué día es "hoy" en la zona horaria del usuario, no la del servidor
 │   ├── ocultos.py          # qué se puede hacer con algo oculto (leer y borrar sí, editar no)
 │   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
+│   ├── seguimiento.py      # qué se hizo con cada día del plan, y lo que necesita la pantalla de hoy
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
 │       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
 │       ├── entrenamientos.py      # CRUD de entrenamientos y series, anidado
 │       ├── programas.py           # programas y qué rutina toca cada día de la semana
-│       └── plan.py                # el plan de un rango de fechas
+│       └── plan.py                # el plan, su seguimiento, la pantalla de hoy y Planificar
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
 ├── tests/                   # tests automáticos (pytest)
-│   ├── conftest.py          # base de datos de tests, cliente HTTP y limpieza entre tests
+│   ├── conftest.py          # base de datos de tests, cliente HTTP, reloj congelado y limpieza
+│   ├── semana.py            # la semana de ejemplo que comparten los tests del seguimiento
 │   ├── test_borrados.py     # borrado con historial y cascadas
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
@@ -109,6 +136,10 @@ backend/
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
 │   ├── test_relaciones.py   # borrar un padre con sus hijos ya cargados en memoria
 │   ├── test_plan.py         # qué toca cada día, también en el pasado
+│   ├── test_cubre_fecha.py  # qué día del plan cuenta cada sesión, y el plazo para moverla
+│   ├── test_seguimiento.py  # el estado de cada día (hecho, movido, sin hacer…)
+│   ├── test_hoy.py          # lo que necesita la pantalla de hoy
+│   ├── test_replanificar.py # qué pasa con lo hecho por adelantado al cambiar el plan
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -243,6 +274,10 @@ No hay ningún paso previo que recordar:
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
+| `test_cubre_fecha.py` | Qué día cuenta cada sesión: empezar, recuperar y adelantar, el plazo en sus dos extremos, días que no tocan esa rutina, el programa anterior, un día contado por dos sesiones, las sesiones canceladas, y mover una sesión solo dentro de su plazo |
+| `test_seguimiento.py` | El estado de cada día, las marcas combinadas (se hizo otra rutina y la suya otro día, o sigue sin hacer), que un día salga igual se pida solo o en un rango, y que las consultas no crezcan con el rango |
+| `test_hoy.py` | La pantalla de hoy en cada situación (día de entrenamiento, descanso, sesión en curso, ya entrenado, día hecho por adelantado, primera vez y sin programa), lo que se puede recuperar y hasta cuándo, lo que se ofrece, y la hoja de registrar un día pasado |
+| `test_replanificar.py` | Lo hecho por adelantado al cambiar el plan: que siga a su rutina en Planificar (o que el cambio no se guarde si la deja sin día), y que editar el programa lo respete |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
 
 ## Convenciones de código
@@ -309,7 +344,7 @@ función; los endpoints no necesitan tocarse.
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
 | `PUT` | `/rutinas/{id}` | Edita el nombre de una rutina propia (409 si está oculta). |
-| `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial; si tiene, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos y comodines, en transacción). |
+| `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial y nunca tocó un día pasado del plan; si no, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos, comodines y sesiones, en transacción, y deja en descanso los días del plan que tenía). |
 | `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). El principal solo se valida si cambia: si se ocultó después, el hueco se puede seguir corrigiendo. No puede pasar a principal un ejercicio que ya es comodín del hueco (409). |
@@ -332,7 +367,7 @@ descanso.
 | `GET` | `/programas/{id}` | Un programa con sus días, también si está oculto. Cada día trae su rutina con su `oculto_desde`: una rutina oculta sigue en el día (se enseña en gris y cuenta como descanso), para que mostrarla de nuevo lo deje como estaba. |
 | `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}], activar}`): o se guarda todo o nada. Con `activar: true` queda en uso desde hoy. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
 | `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
-| `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye desde hoy: un día, una rutina. **Los días pasados no cambian**: cada día de programa guarda desde cuándo y hasta cuándo vale, así que cambiarlo cierra la fila de antes y abre otra, y el calendario sigue comparando el pasado con lo que tocaba entonces. Si el programa nunca estuvo activo, no hay pasado que conservar y la fila se sustituye sin más. |
+| `PUT` | `/programas/{id}/dias/{dia}` | Pone una rutina en un día. Si ya tenía una, la sustituye desde hoy (o desde el día siguiente, si la próxima vez que toca ese día ya se hizo por adelantado): un día, una rutina. **Los días pasados no cambian**: cada día de programa guarda desde cuándo y hasta cuándo vale, así que cambiarlo cierra la fila de antes y abre otra, y el calendario sigue comparando el pasado con lo que tocaba entonces. Si el programa nunca estuvo activo, no hay pasado que conservar y la fila se sustituye sin más. |
 | `DELETE` | `/programas/{id}/dias/{dia}` | Deja el día en descanso desde hoy, sin cambiar los días pasados (404 si ya lo era). |
 | `POST` | `/programas/{id}/activar` | Lo pone en uso desde hoy; el que estuviera activo deja de estarlo en la misma transacción. Con `{quitar_excepciones: true}` borra además los días cambiados a mano de hoy en adelante, que se planificaron pensando en el programa anterior. Activar el que ya lo está no cambia nada, y uno oculto no se puede activar (409). |
 | `POST` | `/programas/{id}/desactivar` | Lo saca de uso y deja al usuario sin programa activo. |
@@ -346,8 +381,9 @@ Activar y desactivar un programa el mismo día no deja rastro, y volver a activa
 desactivó retoma el mismo periodo. Además de comprobarlo el backend, un índice único parcial en la
 base de datos impide que un usuario tenga dos periodos abiertos a la vez.
 
-Borrar una rutina no se bloquea por estar en un programa: los días que la tenían pasan a descanso.
-Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta también esos días.
+Borrar una rutina que está en un programa deja sus días en descanso. Si alguno de esos días ya pasó
+con el programa activo, borrarla pide elegir entre ocultarla y borrarla, como si tuviera historial:
+el calendario lo pintaría como descanso. El aviso dice también cuántos días de programa perdería.
 
 ### Plan: qué toca cada día
 
@@ -359,9 +395,15 @@ Si otra cosa ya obliga a elegir entre ocultarla o borrarla, el aviso cuenta tamb
 | `DELETE` | `/plan/excepciones/{fecha}` | *Restablecer este día*: vuelve a lo que diga el programa (404 si no estaba cambiado). |
 | `DELETE` | `/plan/excepciones?desde=&hasta=` | *Restablecer la semana*: devuelve al programa los días del rango, sin tocar los que ya pasaron. |
 | `POST` | `/plan/intercambiar` | Intercambia lo que toca a dos días (`{fecha_a, fecha_b}`) en una sola transacción. Una rutina oculta ese día se mueve como descanso. |
+| `GET` | `/plan/seguimiento?desde=&hasta=` | Lo mismo que `/plan` y, además, qué pasó con cada día: `estado` (`descanso`, `hecho`, `movido`, `sin_hacer`, `pendiente` o `proximo`), `cubierto_por` (la sesión que lo cuenta y en qué fecha se hizo) y `sesion` (lo que se hizo ese día, cuente o no, y si cuenta de verdad). Con `estado` y `sesion` juntos se pintan todas las marcas del calendario. Siempre hace las mismas consultas, pida el rango que pida. |
+| `GET` | `/plan/hoy` | Todo lo que necesita la pantalla de hoy: `situacion` (`en_curso`, `hecho`, `primera_vez`, `sin_programa`, `movido`, `descanso` o `entrenamiento`), `semana`, `por_recuperar` (cada día con su plazo, y si se puede recuperar ya), `ofrecidas` (intercambiar, adelantar o entrenar sin que cuente), `proximo` y `ultima_sesion`. Con `?fecha=` de un día pasado sirve para la hoja de registrar ese día desde el calendario; una fecha futura da 422. |
 
 Lo que toca un día es, por orden: lo que se cambió a mano para ese día, o lo que diga el programa
 que estaba activo ese día, o nada. Si una rutina se borra, sus días planificados vuelven al programa.
+
+Cambiar, restablecer o intercambiar días reubica lo hecho por adelantado: la sesión pasa al primer
+día de hoy al domingo que toque su rutina y que no cuente otra. Si no queda ninguno, 409 con la
+sesión afectada y no se guarda el cambio.
 
 ### Entrenamientos y series
 
@@ -369,9 +411,9 @@ que estaba activo ese día, o nada. Si una rutina se borra, sus días planificad
 |---|---|---|
 | `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes, y `?en_curso=true` para quedarse solo con la sesión en curso, si la hay. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
-| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. |
+| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía); `rutina_id` es opcional — `null` para uno libre. `cubre_fecha` (opcional) es el día del plan que cuenta: hoy, uno pasado que se recupera o uno de esta semana que se adelanta. Ese día tiene que tocar esa rutina, estar en plazo y caer en el mismo programa (422 si no), y no puede contarlo ya otra sesión (409 con su `entrenamiento_id`); si lo retenía una que no lo contaba, se lo quita. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. |
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
-| `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Moverlo a un día que ya tiene sesión da el mismo 409 que al crearlo. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
+| `PUT` | `/entrenamientos/{id}` | Edita fecha/notas/rutina de un entrenamiento propio. Moverlo a un día que ya tiene sesión da el mismo 409 que al crearlo. El día que cuenta no cambia, así que la fecha solo se mueve dentro de su plazo (422 si no), y a una sesión que cuenta un día no se le cambia la rutina (409): se borra el día y se apunta la buena. Cambiarlo de rutina devuelve 409 si ya tiene series registradas en huecos de la rutina actual: quedarían apuntando a huecos que no le corresponden, y el historial de esos huecos mostraría una sesión con el nombre de otra rutina. |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
 | `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional, `slot_id` opcional si el entrenamiento sigue una rutina). El hueco tiene que ser de la rutina de ese entrenamiento y estar visible (404 si no), el ejercicio tiene que ser su principal o uno de sus comodines (422 si no), y un entrenamiento libre no admite `slot_id` (422). La variante en blanco se guarda como nula. Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
 | `PUT` | `/entrenamientos/{id}/series/{serie_id}` | Edita una serie, con las mismas reglas. Corregir lo ya apuntado sin cambiar de ejercicio ni de hueco vale aunque el hueco se ocultara o el ejercicio dejara de ser comodín. |

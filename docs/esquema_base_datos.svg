@@ -44,13 +44,14 @@
 <text x="715" y="158" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- entrenamientos -->
-<rect x="1020" y="60" width="250" height="127" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
+<rect x="1020" y="60" width="250" height="144" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
 <text x="1035" y="83" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#26215C">entrenamientos</text>
 <text x="1035" y="104" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">id (PK)</text>
 <text x="1035" y="121" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">usuario_id → usuarios</text>
 <text x="1035" y="138" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">rutina_id → rutinas (opcional)</text>
 <text x="1035" y="155" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">fecha (una sesión por día)</text>
-<text x="1035" y="172" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">terminada_en (nula = en curso)</text>
+<text x="1035" y="172" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">cubre_fecha (el día del plan que cuenta)</text>
+<text x="1035" y="189" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">terminada_en (nula = en curso)</text>
 
 <!-- programa_periodos -->
 <rect x="40" y="230" width="240" height="110" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
@@ -137,8 +138,8 @@
 <path d="M600,280 L650,280 L650,150 L700,150" fill="none" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
 <text x="625" y="296" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
 
-<line x1="1145" y1="230" x2="1145" y2="187" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
-<text x="1153" y="205" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
+<line x1="1145" y1="230" x2="1145" y2="204" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
+<text x="1153" y="221" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
 
 <line x1="820" y1="450" x2="820" y2="380" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
 <text x="828" y="420" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
@@ -202,6 +203,6 @@
 <text x="60" y="1158" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">Rutina.slots, cuyo hijo es RESTRICT, lleva passive_deletes="all": el ORM no toca los huecos y decide siempre la restricción de la base de datos.</text>
 <text x="60" y="1186" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">programa_periodos tiene además un índice único parcial sobre usuario_id (WHERE hasta IS NULL): un usuario no puede tener dos programas activos a la vez.</text>
 <text x="60" y="1204" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">programa_dias, lo mismo sobre (programa_id, dia_semana): una sola fila vigente por día. Las cerradas son lo que tocaba antes: editar un programa no reescribe el pasado.</text>
-<text x="60" y="1222" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">entrenamientos es único por (usuario_id, fecha): se entrena una rutina al día.</text>
+<text x="60" y="1222" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">entrenamientos es único por (usuario_id, fecha): se entrena una rutina al día. Y por (usuario_id, cubre_fecha): un día del plan lo cuenta una sesión como mucho.</text>
 
 </svg>

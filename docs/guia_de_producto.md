@@ -218,8 +218,10 @@ que se recupera.
 **Qué ofrece la lista de abajo**, y qué pregunta al elegir:
 
 - **En un día de entrenamiento** se llama *Otra rutina del programa* y solo ofrece rutinas de días
-  posteriores de esta semana, hasta el domingo, como adelantar. Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí* cambia el plan de los
-  dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *No* lo deja todo como estaba.
+  posteriores de esta semana, hasta el domingo, como adelantar, y nunca la misma que toca hoy
+  (intercambiarla no cambiaría nada). Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí*
+  cambia el plan de los dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *No* lo deja
+  todo como estaba.
   No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
 - **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, se llama *Entrenar hoy
   de todas formas* y ofrece adelantar lo que queda de esta semana, preguntando antes (*¿Adelantar el
@@ -303,10 +305,10 @@ días* (H4) y *Ver resumen* (H5).
 - Si ese día hubo sesión, lleva a H2.
 - Si no, se comporta como un descanso, aunque su rutina se hiciera otro día. Si es un día pasado,
   abre una hoja para apuntar lo que se hizo: ofrece lo mismo que habría ofrecido Hoy aquel día
-  (*Recuperar el Pull del miércoles 9*, si seguía en plazo) y las demás rutinas, que se apuntan sin
-  contar para ningún día del programa. Elegir pregunta antes y abre E2 con esa fecha. Sirve para
-  pasar la libreta de meses anteriores o para el día que se entrenó y se olvidó apuntar. No cambia
-  lo planificado: registra lo que pasó.
+  (*Recuperar el Pull del miércoles 9*, si seguía en plazo), salvo intercambiar, porque el pasado
+  no se planifica; y las demás rutinas, que se apuntan sin contar para ningún día del programa.
+  Elegir pregunta antes y abre E2 con esa fecha. Sirve para pasar la libreta de meses anteriores o
+  para el día que se entrenó y se olvidó apuntar. No cambia lo planificado: registra lo que pasó.
 
 **Cómo se decide si un día está hecho, movido o sin hacer**, sin que el usuario marque nada: cada
 sesión cuenta para un día (ver [Vocabulario](#vocabulario)). Un día planificado está **hecho** si lo
@@ -401,6 +403,9 @@ La plantilla que se repite: qué rutina toca cada día, o descanso. Tocar un dí
   misma que en P5) y la nueva sustituye a la que hubiera; la ✕ deja el día en descanso. Al pie,
   *Ocultar programa* y *Borrar programa*.
 - **Un día, una rutina.** Si un día ya tiene rutina y se le pone otra, la nueva la sustituye.
+- **Lo hecho por adelantado se queda como estaba.** Si el Leg del viernes ya se hizo el martes y
+  los viernes pasan a Push, ese viernes sigue contando como Leg hecho, y el Push empieza el viernes
+  siguiente. Los días que ya pasaron tampoco cambian.
 
 ### P3 · Rutina
 
@@ -490,7 +495,8 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 biblioteca de predefinidos, así que se puede montar una rutina sin crear ninguno antes.
 
 - **E1** da la bienvenida y explica los dos pasos (primero rutinas, luego un programa que las
-  reparta), con *Ir a Programas*. Debajo, que también se puede entrenar sin programa.
+  reparta), con *Ir a Programas*. Debajo, que también se puede entrenar sin programa. En cuanto
+  hay una rutina, la bienvenida deja paso a *Sin programa*, con la lista de rutinas.
 - **P1** dice que cada sección está vacía, y *Nueva rutina* pasa a ser la acción principal, porque
   es el primer paso.
 - **X1** solo puede estar vacío en *Míos*: lo dice, recuerda dónde están los predefinidos, y *Nuevo
@@ -537,18 +543,15 @@ del historial, con la flecha del hueco.
 
 ## Lo que necesita del backend
 
-Lo que pedía la primera versión de este diseño ya existe: programas, qué programa estuvo activo en
-cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos y
-el historial de un hueco filtrado por ejercicio. De lo que piden las reglas de recuperar y adelantar,
-ya están **una sesión por día** y **los días de programa con fecha de vigencia** (editar un programa
-no reescribe el pasado). Falta:
+Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada
+periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el
+historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de
+vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que
+Planificar y editar un programa respeten lo hecho por adelantado, y que borrar una rutina que ya
+estuvo en el plan pida elegir. El estado de cada día y lo que se ofrece en Hoy se calculan en el
+backend, para que la web y el móvil digan siempre lo mismo.
 
-| Qué | Para qué pantalla |
-|---|---|
-| **Qué día del plan cuenta cada sesión**, fijado al empezarla, y el plazo para mover su fecha | E1, E2, H1, H2, H4, H5 |
-| **El estado de cada día** (hecho, movido, sin hacer, próximo) y lo que se puede recuperar o adelantar, calculado en el backend para que web y móvil digan lo mismo | E1, H1, H4, H5 |
-| **Que Planificar respete lo ya hecho por adelantado**, al cambiar un día o el programa | H4, P2 |
-| **Que borrar una rutina que ya estuvo en el plan pida elegir** entre ocultarla o borrarla | P3 |
+Lo que queda es construir las pantallas.
 
 ## Por decidir
 
