@@ -20,6 +20,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
+from tests.semana import HOY, LUNES_14, LUNES_21, MARTES_15
 
 FECHA = "2026-09-04"
 
@@ -994,3 +995,89 @@ def test_en_una_sesion_de_una_rutina_ya_oculta_se_pueden_seguir_apuntando_series
     )
 
     assert respuesta.status_code == 201
+
+
+# --- Una rutina que ya estuvo en el plan -----------------------------------
+#
+# Borrarla se lleva en cascada sus días de programa y sus días planificados,
+# también los pasados, y el calendario los pintaría como descanso. Por eso pide
+# `modo` aunque no tenga huecos ni sesiones. Parten de la semana de
+# `tests/semana.py` (hoy, miércoles 16; Push/Pull/Leg activo desde el 31 de agosto).
+
+
+def plan_del_dia(cliente, fecha) -> dict:
+    return cliente.get(
+        "/plan", params={"desde": fecha.isoformat(), "hasta": fecha.isoformat()}
+    ).json()[0]
+
+
+def test_borrar_una_rutina_que_ya_toco_dias_pasados_pide_modo(cliente, ppl):
+    respuesta = cliente.delete(f"/rutinas/{ppl['Push']}")
+
+    assert respuesta.status_code == 409
+    assert "días que han pasado" in respuesta.json()["detail"]
+
+
+def test_borrarla_en_definitivo_deja_esos_dias_en_descanso(cliente, ppl):
+    assert cliente.delete(f"/rutinas/{ppl['Push']}?modo=definitivo").status_code == 204
+
+    assert plan_del_dia(cliente, LUNES_14)["descanso"] is True
+
+
+def test_ocultarla_conserva_los_dias_pasados(cliente, ppl):
+    assert cliente.delete(f"/rutinas/{ppl['Push']}?modo=ocultar").status_code == 204
+
+    lunes = plan_del_dia(cliente, LUNES_14)
+    assert (lunes["rutina"]["nombre"], lunes["descanso"]) == ("Push", False)
+    assert plan_del_dia(cliente, LUNES_21)["descanso"] is True
+
+
+def test_una_rutina_quitada_del_programa_tambien_cuenta(cliente, ppl):
+    """Su fila del programa está cerrada, pero valió para los viernes pasados."""
+    programa = cliente.get("/programas").json()[0]["id"]
+    assert cliente.delete(f"/programas/{programa}/dias/5").status_code == 204
+
+    assert cliente.delete(f"/rutinas/{ppl['Leg']}").status_code == 409
+
+
+def test_una_rutina_planificada_a_mano_para_un_dia_pasado_tambien_cuenta(cliente, ppl, hoy_es):
+    brazos = cliente.post("/rutinas", json={"nombre": "Brazos"}).json()["id"]
+    hoy_es(MARTES_15)
+    assert (
+        cliente.put(f"/plan/excepciones/{MARTES_15.isoformat()}", json={"rutina_id": brazos})
+    ).status_code == 200
+    hoy_es(HOY)
+
+    assert cliente.delete(f"/rutinas/{brazos}").status_code == 409
+
+
+def test_si_su_dia_aun_no_ha_llegado_con_el_programa_activo_se_borra_directa(cliente, hoy_es):
+    """El programa se activó ayer, martes: el Push de los lunes nunca tocó un día
+    pasado con él activo, y el Pull de los martes sí.
+    """
+
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    hoy_es(MARTES_15)
+    cliente.post(
+        "/programas",
+        json={
+            "nombre": "Dos días",
+            "activar": True,
+            "dias": [{"dia_semana": 1, "rutina_id": push}, {"dia_semana": 2, "rutina_id": pull}],
+        },
+    )
+    hoy_es(HOY)
+
+    assert cliente.delete(f"/rutinas/{push}").status_code == 204
+    assert cliente.delete(f"/rutinas/{pull}").status_code == 409
+
+
+def test_en_un_programa_que_nunca_estuvo_activo_se_borra_directa(cliente, hoy_es):
+    hoy_es(HOY)
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    cliente.post(
+        "/programas", json={"nombre": "Sin usar", "dias": [{"dia_semana": 1, "rutina_id": push}]}
+    )
+
+    assert cliente.delete(f"/rutinas/{push}").status_code == 204

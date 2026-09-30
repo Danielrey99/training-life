@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +13,7 @@ from app.models import (
     Entrenamiento,
     ExcepcionDelPlan,
     ProgramaDia,
+    ProgramaPeriodo,
     Rutina,
     RutinaSlot,
     Serie,
@@ -111,6 +112,42 @@ def _tiene_dependientes(db: Session, rutina_id: int) -> bool:
     return tiene_slots or tiene_entrenamientos
 
 
+def _estuvo_en_el_plan(db: Session, rutina_id: int) -> bool:
+    """¿Tocó esta rutina algún día que ya pasó? Por un día del programa mientras
+    este estaba activo, o por un día planificado a mano.
+
+    Borrarla se lleva en cascada sus días de programa y sus días planificados,
+    también los pasados: el calendario pintaría esos días como descanso, como si
+    nunca hubiera tocado nada. Por eso, si ya estuvo en el plan, borrarla pide
+    `modo`, igual que si tuviera historial.
+    """
+    hoy_ = hoy()
+    planificada = db.scalar(
+        select(ExcepcionDelPlan.id)
+        .where(ExcepcionDelPlan.rutina_id == rutina_id, ExcepcionDelPlan.fecha < hoy_)
+        .limit(1)
+    )
+    if planificada is not None:
+        return True
+    filas = db.execute(
+        select(ProgramaDia, ProgramaPeriodo)
+        .join(ProgramaPeriodo, ProgramaPeriodo.programa_id == ProgramaDia.programa_id)
+        .where(ProgramaDia.rutina_id == rutina_id)
+    ).all()
+    for fila, periodo in filas:
+        # Lo que la fila y el periodo tienen en común antes de hoy (los dos son
+        # de `desde` a `hasta` sin incluirlo; nulo es sin límite).
+        inicio = max(periodo.desde, fila.desde or date.min)
+        fin = min(periodo.hasta or date.max, fila.hasta or date.max, hoy_)
+        if inicio >= fin:
+            continue
+        # Y dentro de eso, algún día de la semana de la fila.
+        primero = inicio + timedelta(days=(fila.dia_semana - inicio.isoweekday()) % 7)
+        if primero < fin:
+            return True
+    return False
+
+
 @router.get("", response_model=list[RutinaOut])
 def listar_rutinas(
     ocultas: bool = False,
@@ -189,10 +226,11 @@ def borrar_rutina(
 ):
     """Borra una rutina propia.
 
-    - Sin huecos ni entrenamientos asociados: se borra de verdad, sin
-      preguntar nada.
-    - Con huecos o entrenamientos: hace falta `modo=ocultar` (conserva todo)
-      o `modo=definitivo` (lo borra todo, sin vuelta atrás).
+    - Sin huecos ni entrenamientos asociados, y sin haber tocado ningún día
+      pasado: se borra de verdad, sin preguntar nada.
+    - Con huecos, entrenamientos o días pasados en el plan: hace falta
+      `modo=ocultar` (conserva todo) o `modo=definitivo` (lo borra todo, sin
+      vuelta atrás, y esos días pasan a descanso en el calendario).
     """
     rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
 
@@ -203,7 +241,12 @@ def borrar_rutina(
         db.commit()
         return
 
-    if _tiene_dependientes(db, rutina_id) and modo != "definitivo":
+    razones = []
+    if _tiene_dependientes(db, rutina_id):
+        razones.append("tiene huecos definidos (o historial de entrenamientos)")
+    if _estuvo_en_el_plan(db, rutina_id):
+        razones.append("ya tocó días que han pasado, que en el calendario pasarían a descanso")
+    if razones and modo != "definitivo":
         # Los días de programa y los días planificados con ella no bloquean el
         # borrado (se van solos, en cascada), pero si otra cosa ya lo bloquea, el
         # aviso cuenta también lo que se pierde ahí.
@@ -225,7 +268,7 @@ def borrar_rutina(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Esta rutina tiene huecos definidos (o historial de entrenamientos). "
+                f"Esta rutina {' y '.join(razones)}. "
                 "Repite la petición con ?modo=ocultar (conserva todo, deja de estar "
                 "disponible para entrenamientos nuevos) o ?modo=definitivo (lo borra "
                 "todo, sin poder deshacerlo)." + en_programas
