@@ -150,6 +150,33 @@ def hoy_es(monkeypatch):
 
 
 @pytest.fixture
+def ppl(cliente, hoy_es) -> dict:
+    """La semana de `tests/semana.py`: las tres rutinas (por nombre), con su
+    programa activado el 31 de agosto y el reloj ya en el miércoles 16.
+    """
+    rutinas = {
+        nombre: cliente.post("/rutinas", json={"nombre": nombre}).json()["id"]
+        for nombre in ("Push", "Pull", "Leg")
+    }
+    hoy_es(date(2026, 8, 31))
+    respuesta = cliente.post(
+        "/programas",
+        json={
+            "nombre": "Push Pull Leg",
+            "activar": True,
+            "dias": [
+                {"dia_semana": 1, "rutina_id": rutinas["Push"]},
+                {"dia_semana": 3, "rutina_id": rutinas["Pull"]},
+                {"dia_semana": 5, "rutina_id": rutinas["Leg"]},
+            ],
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    hoy_es(date(2026, 9, 16))
+    return rutinas
+
+
+@pytest.fixture
 def grupo_muscular_id(cliente: TestClient) -> int:
     """Un grupo muscular cualquiera de los sembrados por migración."""
     return cliente.get("/grupos-musculares").json()[0]["id"]

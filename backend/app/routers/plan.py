@@ -10,7 +10,14 @@ from app.fechas import hoy
 from app.models import ExcepcionDelPlan
 from app.plan import dias_del_plan, validar_rango
 from app.routers.rutinas import obtener_rutina_visible
-from app.schemas import DiaPlanOut, ExcepcionOut, ExcepcionUpdate, IntercambioCreate
+from app.schemas import (
+    DiaPlanOut,
+    DiaSeguimientoOut,
+    ExcepcionOut,
+    ExcepcionUpdate,
+    IntercambioCreate,
+)
+from app.seguimiento import seguimiento
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -55,6 +62,26 @@ def obtener_plan(
     próximos días). Como mucho, 400 días de una vez.
     """
     return dias_del_plan(db, usuario_id, desde, hasta)
+
+
+@router.get("/seguimiento", response_model=list[DiaSeguimientoOut])
+def obtener_seguimiento(
+    desde: date,
+    hasta: date,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Qué tocaba cada día de `desde` a `hasta` (incluidos) y qué pasó: si está
+    hecho, movido a otro día, sin hacer, pendiente (hoy) o próximo, qué sesión lo
+    cuenta y qué se hizo ese día. Lo usan el calendario, la semana de la pantalla
+    de hoy y el resumen. Como mucho, 400 días de una vez.
+
+    Para la constancia del resumen: los días **entrenados** son los `hecho` y los
+    `movido`, en el mes del día que tocaban; los **planificados**, los que no son
+    `descanso` y ya han pasado o ya están cubiertos (un adelanto cuenta aunque su
+    día no haya llegado).
+    """
+    return seguimiento(db, usuario_id, desde, hasta)
 
 
 # --- Excepciones: lo que se cambia a mano para un día ---------------------

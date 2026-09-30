@@ -6,10 +6,8 @@ día toque esa rutina, que esté en plazo y que no lo cuente ya otra sesión. Al
 corregir su fecha, el día que cuenta no cambia, así que solo se mueve dentro de
 su plazo.
 
-Todos parten de la misma semana, con el reloj congelado para que el día de la
-semana no dependa de cuándo se ejecuten: hoy es el **miércoles 16 de septiembre de
-2026**, y el programa Push (lunes), Pull (miércoles) y Leg (viernes) está activo
-desde el lunes 31 de agosto.
+Todos parten de la semana de `tests/semana.py`, con el reloj congelado para que el
+día de la semana no dependa de cuándo se ejecuten.
 """
 
 from datetime import date
@@ -19,64 +17,18 @@ from sqlalchemy import select
 
 from app.models import Entrenamiento, Rutina
 
-LUNES_7 = date(2026, 9, 7)
-DOMINGO_13 = date(2026, 9, 13)
-LUNES_14 = date(2026, 9, 14)
-MARTES_15 = date(2026, 9, 15)
-HOY = date(2026, 9, 16)  # miércoles
-JUEVES_17 = date(2026, 9, 17)
-VIERNES_18 = date(2026, 9, 18)
-LUNES_21 = date(2026, 9, 21)
-
-
-# --- Ayudantes -----------------------------------------------------------
-
-
-@pytest.fixture
-def ppl(cliente, hoy_es) -> dict:
-    """Las tres rutinas, con su programa activado el 31 de agosto y el reloj ya en hoy."""
-    rutinas = {
-        nombre: cliente.post("/rutinas", json={"nombre": nombre}).json()["id"]
-        for nombre in ("Push", "Pull", "Leg")
-    }
-    hoy_es(date(2026, 8, 31))
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": "Push Pull Leg",
-            "activar": True,
-            "dias": [
-                {"dia_semana": 1, "rutina_id": rutinas["Push"]},
-                {"dia_semana": 3, "rutina_id": rutinas["Pull"]},
-                {"dia_semana": 5, "rutina_id": rutinas["Leg"]},
-            ],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    hoy_es(HOY)
-    return rutinas
-
-
-def sesion(cliente, fecha, rutina_id, cubre_fecha=None):
-    """POST /entrenamientos; devuelve la respuesta entera, para mirar el código."""
-    cuerpo = {"fecha": fecha.isoformat(), "rutina_id": rutina_id}
-    if cubre_fecha is not None:
-        cuerpo["cubre_fecha"] = cubre_fecha.isoformat()
-    return cliente.post("/entrenamientos", json=cuerpo)
-
-
-def con_una_serie(cliente, grupo_muscular_id, entrenamiento_id) -> None:
-    """Una sesión sin series que ya no está en curso cuenta como cancelada: para
-    que cuente, tiene que tener algo apuntado.
-    """
-    ejercicio = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={"ejercicio_id": ejercicio, "numero_serie": 1, "peso": 60, "repeticiones": 10},
-    )
-    assert respuesta.status_code == 201, respuesta.text
+from tests.semana import (
+    DOMINGO_13,
+    HOY,
+    JUEVES_17,
+    LUNES_14,
+    LUNES_21,
+    LUNES_7,
+    MARTES_15,
+    VIERNES_18,
+    con_una_serie,
+    sesion,
+)
 
 
 # --- Empezar, recuperar y adelantar --------------------------------------

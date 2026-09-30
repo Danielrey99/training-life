@@ -287,6 +287,10 @@ class Entrenamiento(Base):
     series: Mapped[list["Serie"]] = relationship(
         order_by="Serie.numero_serie", cascade="all, delete-orphan", passive_deletes=True
     )
+    # Solo para leer (el seguimiento la carga de una vez para todas las sesiones):
+    # que SQLAlchemy no gestione nada por ella al borrar la rutina, que ya
+    # decide borrar_rutina.
+    rutina: Mapped["Rutina | None"] = relationship(viewonly=True)
 
 
 class Serie(Base):

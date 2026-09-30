@@ -428,6 +428,42 @@ class DiaPlanOut(BaseModel):
     descanso: bool
 
 
+class CoberturaOut(BaseModel):
+    """La sesión que cuenta un día, y en qué fecha se hizo."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entrenamiento_id: int
+    fecha: date
+
+
+class SesionDelDiaOut(BaseModel):
+    """Lo que se hizo un día, cuente o no para alguno. `cuenta` dice si cuenta de
+    verdad para `cubre_fecha`: el plan de ese día sigue siendo su rutina y la
+    sesión no está cancelada.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entrenamiento_id: int
+    rutina: RutinaMinima | None
+    en_curso: bool
+    vacia: bool
+    cubre_fecha: date | None
+    cuenta: bool
+
+
+class DiaSeguimientoOut(DiaPlanOut):
+    """Un día del plan con lo que pasó. `estado` es de lo que tocaba ese día;
+    `sesion`, de lo que se hizo, que puede ser otra cosa: con los dos se pintan las
+    marcas combinadas del calendario.
+    """
+
+    estado: Literal["descanso", "hecho", "movido", "sin_hacer", "pendiente", "proximo"]
+    cubierto_por: CoberturaOut | None
+    sesion: SesionDelDiaOut | None
+
+
 class ExcepcionUpdate(BaseModel):
     """Qué toca un día concreto en vez de lo que diga el programa. `rutina_id`
     nulo es descanso. La fecha va en la ruta.

@@ -52,8 +52,8 @@ def validar_rango(desde: date, hasta: date) -> None:
         )
 
 
-def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaPlan]:
-    """Qué toca cada día de `desde` a `hasta`, los dos incluidos."""
+def validar_rango_del_plan(desde: date, hasta: date) -> None:
+    """Rango no invertido y de como mucho `DIAS_MAXIMOS` días."""
     validar_rango(desde, hasta)
     if (hasta - desde).days + 1 > DIAS_MAXIMOS:
         raise HTTPException(
@@ -61,6 +61,17 @@ def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> lis
             detail=f"El rango no puede pasar de {DIAS_MAXIMOS} días.",
         )
 
+
+def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaPlan]:
+    """Qué toca cada día de `desde` a `hasta`, los dos incluidos."""
+    validar_rango_del_plan(desde, hasta)
+    return resolver_dias(db, usuario_id, desde, hasta)
+
+
+def resolver_dias(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaPlan]:
+    """Como `dias_del_plan`, pero sin validar el rango: para quien necesita unos
+    días de margen alrededor del que le han pedido (el seguimiento).
+    """
     # Los periodos que tocan el rango, con su programa y los días de este ya
     # cargados, y las excepciones del rango: dos consultas en total, en vez de
     # una por día.
