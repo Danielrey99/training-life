@@ -15,7 +15,8 @@ mientras se entrena.
 La primera versión se escribió para validar que el circuito funciona —React pide, la API responde,
 la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
 Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la
-web se está rehaciendo pantalla a pantalla siguiendo ese diseño. La primera, la sesión en curso.
+web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso y la
+pantalla de entrada, *Hoy*.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -25,7 +26,7 @@ web se está rehaciendo pantalla a pantalla siguiendo ese diseño. La primera, l
   en una barra abajo en el móvil y en una columna a la izquierda en el PC, y el cliente de la API
   completo, con los tipos al día
 - [x] La sesión en curso, siguiendo los bocetos
-- [ ] *Hoy*, que sustituirá a la entrada provisional de ahora (elegir rutina y empezar)
+- [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
 - [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): el
   calendario y la progresión, los programas y rutinas, y la biblioteca de ejercicios
 
@@ -67,12 +68,15 @@ web/
     ├── componentes/      # piezas que usan varias pantallas
     │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar
     │   ├── Icono.tsx     # los iconos de trazo de los bocetos
+    │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
-    ├── utiles/           # fechas y números en formato español
+    ├── utiles/           # fechas y números en formato español, y el color de cada día
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
         ├── Ejercicios.tsx
         ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
-        ├── RegistrarEntrenamiento.tsx   # entrada provisional a la sesión
+        ├── RegistrarEntrenamiento.tsx   # apuntar un día pasado, hasta que exista el calendario
+        ├── hoy/          # la pantalla de entrada
+        │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
         └── sesion/       # la sesión en curso
             ├── Sesion.tsx               # la pantalla: carga, huecos, terminar y cancelar
             ├── BloqueDeHueco.tsx        # un hueco, plegado o desplegado
@@ -113,9 +117,33 @@ Decisiones que se notan al usarla:
 - **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al mantenerlas
   pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
 
-Mientras no exista la pantalla de *Hoy*, a la sesión se entra desde una pantalla provisional que
-permite elegir la fecha y la rutina, o continuar una sesión ya empezada. Como se entrena una rutina
-al día, si ese día ya tiene una sesión lleva a ella en vez de dar un error.
+Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperando el Push del lunes 28*.
+
+## Hoy
+
+La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendrá el calendario;
+debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo de cada día, la
+**última sesión hecha** y una lista con qué más se puede entrenar hoy.
+
+- **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar
+  o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre
+  lo mismo, y la pantalla solo pinta.
+- **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy,
+  *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan
+  de los dos días y después empieza la de hoy.
+- **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*,
+  *Recuperar*, *Adelantar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará
+  pendiente, y hasta cuándo se podrá recuperar.
+- **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se
+  hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que
+  se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para
+  que un día movido diga de dónde viene.
+- **La tarjeta cambia con el día**: empezar lo que toca, continuar la sesión a medias, ya entrenado,
+  descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para
+  entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
+
+Mientras no exista el calendario, un día pasado se apunta en `/registrar`, enlazado desde la pestaña
+de Historial: se elige la fecha y la rutina, y si ese día ya tiene una sesión lleva a ella.
 
 ## Hablar con la API
 

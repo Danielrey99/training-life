@@ -5,13 +5,13 @@ import { api, ErrorDeApi } from '../../api/cliente'
 import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
-import { fechaTitulo } from '../../utiles/fechas'
+import { fechaEnFrase, fechaTitulo } from '../../utiles/fechas'
 import { pesoLegible } from '../../utiles/numeros'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
 import './sesion.css'
 
-// Adónde se vuelve al salir de la sesión. Cuando exista la pantalla de Hoy será
-// ella; *Terminar* llevará después al día en el historial.
+// Adónde se vuelve al salir de la sesión: la pantalla de Hoy. Cuando exista el
+// día en el historial, *Terminar* llevará a él.
 const SALIDA = '/'
 
 // El bloque de las series que no van a ningún hueco, en el mismo mapa que los huecos.
@@ -199,6 +199,13 @@ export function Sesion() {
         <div className="sesion-titulo">
           <h1>{rutina?.nombre ?? 'Entrenamiento libre'}</h1>
           <p>{subtitulo}</p>
+          {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy. */}
+          {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
+            <span className="sesion-cuenta">
+              {activa.cubre_fecha < activa.fecha ? 'Recuperando' : 'Adelantando'} el{' '}
+              {rutina?.nombre} del {fechaEnFrase(activa.cubre_fecha)}
+            </span>
+          )}
         </div>
         {/* Del ancho de la flecha de volver, para que el título quede centrado. */}
         <span className="sesion-hueco-derecho" />

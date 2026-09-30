@@ -80,3 +80,57 @@ export function fechaCorta(iso: string): string {
   if (fecha.getFullYear() !== aFecha(hoy()).getFullYear()) texto += ` de ${fecha.getFullYear()}`
   return texto
 }
+
+/** La fecha `dias` días después (o antes, si es negativo). */
+export function sumarDias(iso: string, dias: number): string {
+  const fecha = aFecha(iso)
+  fecha.setDate(fecha.getDate() + dias)
+  return aIso(fecha)
+}
+
+/** 1 = lunes … 7 = domingo, como `dia_semana` en la API. */
+export function diaDeLaSemana(iso: string): number {
+  return ((aFecha(iso).getDay() + 6) % 7) + 1
+}
+
+/** "lunes", "miércoles"… */
+export function nombreDelDia(iso: string): string {
+  return DIAS[aFecha(iso).getDay()]
+}
+
+/** Para la cabecera de Hoy: "Lunes 14 de septiembre", siempre con el mes. */
+export function fechaLarga(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+}
+
+/**
+ * Dentro de una frase ("del miércoles 9", "hasta el domingo 20", "Leg · hoy"):
+ * hoy, ayer o mañana si lo es; el día de la semana y el número si está a menos de
+ * dos semanas (con el mes si es de otro y está a más de una semana); y si no, el día y el mes.
+ */
+export function fechaEnFrase(iso: string): string {
+  const dias = diasEntre(hoy(), iso)
+  if (dias === 0) return 'hoy'
+  if (dias === -1) return 'ayer'
+  if (dias === 1) return 'mañana'
+  const fecha = aFecha(iso)
+  const ahora = aFecha(hoy())
+  if (Math.abs(dias) < 14) {
+    let texto = `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
+    // A menos de una semana, el día de la semana ya dice cuál es: el mes sobra.
+    if (Math.abs(dias) >= 7 && fecha.getMonth() !== ahora.getMonth()) {
+      texto += ` de ${MESES[fecha.getMonth()]}`
+    }
+    return texto
+  }
+  let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+  if (fecha.getFullYear() !== ahora.getFullYear()) texto += ` de ${fecha.getFullYear()}`
+  return texto
+}
+
+/** "el miércoles 2", "el 26 de junio"; sin artículo para hoy, ayer y mañana. */
+export function conArticulo(iso: string): string {
+  const texto = fechaEnFrase(iso)
+  return ['hoy', 'ayer', 'mañana'].includes(texto) ? texto : `el ${texto}`
+}

@@ -1,0 +1,28 @@
+/* Las marcas de un día, iguales en la tira de Hoy y en el calendario. */
+
+.marca {
+  height: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.marca-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+/* Un día que aún no ha llegado. */
+.marca-punto.apagado {
+  opacity: 0.35;
+}
+
+.marca-flecha {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

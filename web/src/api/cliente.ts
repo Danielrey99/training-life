@@ -9,11 +9,13 @@
 
 import type {
   DiaPlan,
+  DiaSeguimiento,
   DiaSemana,
   Ejercicio,
   Entrenamiento,
   Excepcion,
   GrupoMuscular,
+  Hoy,
   HuecoDeRutina,
   ModoBorrado,
   Nota,
@@ -225,6 +227,11 @@ export const api = {
 
   // --- Plan: qué toca cada día ---
   plan: (desde: string, hasta: string) => peticion<DiaPlan[]>(`/plan${consulta({ desde, hasta })}`),
+  /** Qué tocaba cada día y qué pasó: hecho, movido, sin hacer… */
+  seguimiento: (desde: string, hasta: string) =>
+    peticion<DiaSeguimiento[]>(`/plan/seguimiento${consulta({ desde, hasta })}`),
+  /** La pantalla de hoy; con una fecha pasada, la hoja de registrar ese día. */
+  hoy: (fecha?: string) => peticion<Hoy>(`/plan/hoy${consulta({ fecha })}`),
   excepciones: (filtro: Rango = {}) =>
     peticion<Excepcion[]>(`/plan/excepciones${consulta(filtro)}`),
   /** Sin rutina, el día queda en descanso. */

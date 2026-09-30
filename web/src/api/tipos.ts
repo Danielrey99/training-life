@@ -105,6 +105,9 @@ export type Entrenamiento = {
   usuario_id: number
   rutina_id: number | null
   fecha: string
+  // El día del plan que cuenta: el de hoy, uno que se recupera o uno que se
+  // adelanta. Nulo si no cuenta para ninguno.
+  cubre_fecha: string | null
   notas: string | null
   // Nula mientras la sesión sigue abierta.
   terminada_en: string | null
@@ -181,6 +184,82 @@ export type DiaPlan = {
   descanso: boolean
 }
 
+/** Lo que se hizo un día, cuente o no para alguno. */
+export type SesionDelDia = {
+  entrenamiento_id: number
+  rutina: RutinaMinima | null
+  en_curso: boolean
+  vacia: boolean
+  cubre_fecha: string | null
+  // Si cuenta de verdad para `cubre_fecha`.
+  cuenta: boolean
+}
+
+export type EstadoDelDia = 'descanso' | 'hecho' | 'movido' | 'sin_hacer' | 'pendiente' | 'proximo'
+
+/**
+ * Un día del plan con lo que pasó: `estado` es de lo que tocaba; `sesion`, de lo
+ * que se hizo ese día, que puede ser otra cosa (las marcas combinadas).
+ */
+export type DiaSeguimiento = DiaPlan & {
+  estado: EstadoDelDia
+  // La sesión que cuenta este día, y en qué fecha se hizo.
+  cubierto_por: { entrenamiento_id: number; fecha: string } | null
+  sesion: SesionDelDia | null
+}
+
+export type SituacionDeHoy =
+  'en_curso' | 'hecho' | 'primera_vez' | 'sin_programa' | 'movido' | 'descanso' | 'entrenamiento'
+
+export type Recuperable = {
+  fecha: string
+  rutina: RutinaMinima
+  // El último día en que se puede recuperar.
+  plazo: string
+  // Falso si hoy ya hay sesión: se enseña, pero sin botón.
+  se_puede_hoy: boolean
+}
+
+/** Una rutina de la lista de abajo. Sin fecha, se entrena sin contar para ningún día. */
+export type Ofrecida = {
+  accion: 'intercambiar' | 'adelantar' | 'sin_contar'
+  rutina: RutinaMinima
+  fecha: string | null
+}
+
+/** La última sesión con algo apuntado, sin contar la que está a medias. */
+export type UltimaSesion = {
+  entrenamiento_id: number
+  fecha: string
+  rutina: RutinaMinima | null
+  // Si recuperaba o adelantaba otro día.
+  cubre_fecha: string | null
+  series: number
+  ejercicios: number
+}
+
+/** Lo que la pantalla de hoy dice de cada rutina: "5 ejercicios · última vez el miércoles 2". */
+export type RutinaDeHoy = {
+  id: number
+  nombre: string
+  ejercicios: number
+  ultima_vez: string | null
+}
+
+/** Todo lo que necesita la pantalla de hoy, en una sola respuesta. */
+export type Hoy = {
+  fecha: string
+  situacion: SituacionDeHoy
+  // De lunes a domingo.
+  semana: DiaSeguimiento[]
+  sesion: SesionDelDia | null
+  proximo: DiaSeguimiento | null
+  por_recuperar: Recuperable[]
+  ofrecidas: Ofrecida[]
+  ultima_sesion: UltimaSesion | null
+  rutinas: RutinaDeHoy[]
+}
+
 /** Un día al que se le cambió a mano lo que toca. Sin rutina, es descanso. */
 export type Excepcion = {
   fecha: string
@@ -212,6 +291,8 @@ export type NuevoEntrenamiento = {
   rutina_id: number | null
   fecha: string
   notas: string | null
+  // Solo al crear: lo decide el botón pulsado (Empezar, Recuperar, Adelantar).
+  cubre_fecha?: string | null
 }
 
 export type NuevaSerie = {

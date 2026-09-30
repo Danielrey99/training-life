@@ -12,8 +12,14 @@ type Pestana = {
 }
 
 const PESTANAS: Pestana[] = [
-  { nombre: 'Entrenar', icono: 'entrenar', destino: '/', rutas: ['/registrar', '/sesion'] },
-  { nombre: 'Historial', icono: 'historial', destino: '/historial', rutas: ['/historial'] },
+  { nombre: 'Entrenar', icono: 'entrenar', destino: '/', rutas: ['/sesion'] },
+  // Registrar un día pasado será parte del calendario; mientras no exista, vive aparte.
+  {
+    nombre: 'Historial',
+    icono: 'historial',
+    destino: '/historial',
+    rutas: ['/historial', '/registrar'],
+  },
   { nombre: 'Programas', icono: 'programas', destino: '/programas', rutas: ['/programas'] },
   { nombre: 'Ejercicios', icono: 'ejercicios', destino: '/ejercicios', rutas: ['/ejercicios'] },
 ]

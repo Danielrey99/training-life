@@ -1,0 +1,239 @@
+/* E1 · Hoy. Las medidas salen del boceto a 390 px. */
+
+.hoy {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.hoy-cabecera {
+  text-align: center;
+  margin-bottom: -4px;
+}
+
+.hoy-cabecera p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.hoy-cabecera h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+/* --- La tira de la semana ------------------------------------------------ */
+
+.tira {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.tira-dia {
+  height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.tira-dia.es-hoy {
+  border-color: var(--acento);
+  color: var(--acento);
+  font-weight: 700;
+}
+
+/* --- La tarjeta de hoy --------------------------------------------------- */
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 20px;
+}
+
+.tarjeta p {
+  margin: 0;
+}
+
+.tarjeta-programa {
+  font-size: 12.5px;
+  color: var(--acento);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.tarjeta-antes {
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+.tarjeta-antes.con-chip {
+  margin-top: 10px;
+}
+
+.tarjeta-grande {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.tarjeta-despues {
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+.tarjeta-hecho {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--acento);
+}
+
+/* Con la tarjeta delante: los estilos generales de botón se cargan después y, con la
+   misma especificidad, ganarían. */
+.tarjeta .tarjeta-boton {
+  align-self: stretch;
+  margin-top: 18px;
+  min-height: 56px;
+  font-size: 17px;
+}
+
+.tarjeta .tarjeta-boton-normal {
+  align-self: stretch;
+  margin-top: 12px;
+  background: var(--fondo);
+}
+
+/* --- Secciones y filas --------------------------------------------------- */
+
+.hoy-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hoy-rotulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--texto-tenue);
+}
+
+.hoy-fila {
+  font: inherit;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-tenue);
+  text-align: left;
+}
+
+button.hoy-fila {
+  width: 100%;
+  cursor: pointer;
+}
+
+button.hoy-fila:hover {
+  border-color: var(--texto-tenue);
+}
+
+.hoy-fila-texto {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hoy-fila-texto strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.hoy-fila-texto > span {
+  font-size: 13px;
+}
+
+.hoy-fila-dia {
+  font-size: 13px;
+}
+
+.ultima-titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--acento);
+}
+
+.ultima-titulo .icono {
+  width: 16px;
+  height: 16px;
+}
+
+/* Por recuperar: una sola tarjeta con una fila por día. */
+.recuperables {
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 0 12px 0 16px;
+}
+
+.recuperable {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--texto-tenue);
+}
+
+.recuperable + .recuperable {
+  border-top: 1px solid var(--borde);
+}
+
+.recuperable .caduca {
+  color: #ecb432;
+}
+
+.recuperable .boton-recuperar {
+  min-height: 40px;
+  font-size: 14px;
+  padding: 0 14px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.hoy-pie {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
+/* Una frase que ocupa varias líneas: un párrafo estrecho, alineado a la izquierda. */
+.hoy-pie.parrafo {
+  max-width: 320px;
+  margin: 0 auto;
+  font-size: 12.5px;
+  text-align: left;
+}
