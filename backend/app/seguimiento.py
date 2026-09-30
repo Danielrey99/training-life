@@ -263,7 +263,10 @@ def _situacion(dia: DiaSeguimiento, hay_rutinas: bool) -> Situacion:
     """La primera que encaje, en este orden."""
     if dia.sesion is not None:
         return "en_curso" if dia.sesion.en_curso else "hecho"
-    if dia.origen == "sin_programa":
+    # Sin programa activo, un descanso que venga de una excepción (se planificó con
+    # el programa anterior y se desactivó sin quitarla) sigue siendo "sin programa":
+    # no hay semana que seguir. Una excepción con rutina sí es un día que entrenar.
+    if dia.origen == "sin_programa" or (dia.programa_id is None and dia.descanso):
         return "sin_programa" if hay_rutinas else "primera_vez"
     if dia.estado == "movido":
         # Lo de hoy ya se hizo otro día: se comporta como un descanso.

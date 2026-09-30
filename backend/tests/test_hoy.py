@@ -173,6 +173,31 @@ def test_sin_programa_se_ofrecen_todas_las_rutinas_sin_contar(cliente, hoy_es):
     assert ofrecidas(resumen) == [("sin_contar", "Leg", None), ("sin_contar", "Push", None)]
 
 
+def test_sin_programa_un_descanso_planificado_a_mano_no_cuenta_como_descanso(cliente, ppl):
+    """Se planificó hoy como descanso y después se desactivó el programa sin quitar lo
+    planificado: sin programa no hay semana que seguir, así que se ofrece todo.
+    """
+    cliente.put(f"/plan/excepciones/{HOY.isoformat()}", json={"rutina_id": None})
+    programa = cliente.get("/programas").json()[0]["id"]
+    cliente.post(f"/programas/{programa}/desactivar")
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "sin_programa"
+    assert [o[0] for o in ofrecidas(resumen)] == ["sin_contar"] * 3
+
+
+def test_sin_programa_una_rutina_planificada_a_mano_si_se_entrena(cliente, ppl):
+    cliente.put(f"/plan/excepciones/{HOY.isoformat()}", json={"rutina_id": ppl["Leg"]})
+    programa = cliente.get("/programas").json()[0]["id"]
+    cliente.post(f"/programas/{programa}/desactivar")
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "entrenamiento"
+    assert sesion(cliente, HOY, ppl["Leg"], cubre_fecha=HOY).status_code == 201
+
+
 # --- Por recuperar -------------------------------------------------------
 
 
