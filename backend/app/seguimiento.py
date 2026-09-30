@@ -14,11 +14,11 @@ from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, distinct, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.fechas import hoy
-from app.models import Entrenamiento, Rutina, Serie
+from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
 from app.plan import DiaPlan, resolver_dias, validar_rango_del_plan
 
 # Lo más lejos que puede quedar una sesión del día que cuenta (ver `plazo`).
@@ -226,6 +226,24 @@ class UltimaSesion:
     entrenamiento_id: int
     fecha: date
     rutina: Rutina | None
+    # Si recuperaba o adelantaba otro día ("Recuperado del lunes").
+    cubre_fecha: date | None
+    series: int
+    ejercicios: int
+
+
+@dataclass
+class RutinaDeHoy:
+    """Lo que la pantalla de hoy dice de cada rutina en su tarjeta y en sus
+    listas: "5 ejercicios · última vez el miércoles 2".
+    """
+
+    id: int
+    nombre: str
+    # Los huecos visibles.
+    ejercicios: int
+    # La última sesión con algo apuntado antes del día que se mira; nula si no hay.
+    ultima_vez: date | None
 
 
 @dataclass
@@ -238,6 +256,7 @@ class ResumenDeHoy:
     por_recuperar: list[Recuperable]
     ofrecidas: list[Ofrecida]
     ultima_sesion: UltimaSesion | None
+    rutinas: list[RutinaDeHoy]
 
 
 def _situacion(dia: DiaSeguimiento, hay_rutinas: bool) -> Situacion:
@@ -336,11 +355,49 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
             ]
 
     tiene_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
+    # La de ese mismo día cuenta si ya está terminada (la pantalla de "ya entrenado"
+    # enseña la de hoy); la que está a medias no, y entonces sale la anterior.
     ultima = db.scalar(
         select(Entrenamiento)
-        .where(Entrenamiento.usuario_id == usuario_id, Entrenamiento.fecha < fecha, tiene_series)
+        .where(
+            Entrenamiento.usuario_id == usuario_id,
+            Entrenamiento.fecha <= fecha,
+            or_(Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_not(None)),
+            tiene_series,
+        )
         .order_by(Entrenamiento.fecha.desc())
         .limit(1)
+    )
+    ultima_sesion = None
+    if ultima is not None:
+        series, ejercicios = db.execute(
+            select(func.count(), func.count(distinct(Serie.ejercicio_id))).where(
+                Serie.entrenamiento_id == ultima.id
+            )
+        ).one()
+        ultima_sesion = UltimaSesion(
+            ultima.id, ultima.fecha, ultima.rutina, ultima.cubre_fecha, series, ejercicios
+        )
+
+    # Dos consultas agrupadas para todas las rutinas, en vez de dos por rutina.
+    huecos = dict(
+        db.execute(
+            select(RutinaSlot.rutina_id, func.count())
+            .where(RutinaSlot.rutina_id.in_(visibles), RutinaSlot.oculto_desde.is_(None))
+            .group_by(RutinaSlot.rutina_id)
+        ).all()
+    )
+    ultimas_veces = dict(
+        db.execute(
+            select(Entrenamiento.rutina_id, func.max(Entrenamiento.fecha))
+            .where(
+                Entrenamiento.usuario_id == usuario_id,
+                Entrenamiento.rutina_id.in_(visibles),
+                Entrenamiento.fecha < fecha,
+                tiene_series,
+            )
+            .group_by(Entrenamiento.rutina_id)
+        ).all()
     )
 
     return ResumenDeHoy(
@@ -351,9 +408,13 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
         proximo=proximo,
         por_recuperar=por_recuperar,
         ofrecidas=ofrecidas,
-        ultima_sesion=(
-            UltimaSesion(ultima.id, ultima.fecha, ultima.rutina) if ultima is not None else None
-        ),
+        ultima_sesion=ultima_sesion,
+        rutinas=[
+            RutinaDeHoy(
+                rutina.id, rutina.nombre, huecos.get(rutina.id, 0), ultimas_veces.get(rutina.id)
+            )
+            for rutina in rutinas
+        ],
     )
 
 

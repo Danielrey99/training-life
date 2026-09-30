@@ -491,11 +491,31 @@ class OfrecidaOut(BaseModel):
 
 
 class UltimaSesionOut(BaseModel):
+    """La última sesión con algo apuntado, sin contar la que está a medias.
+    `cubre_fecha` dice si recuperaba o adelantaba otro día.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     entrenamiento_id: int
     fecha: date
     rutina: RutinaMinima | None
+    cubre_fecha: date | None
+    series: int
+    ejercicios: int
+
+
+class RutinaDeHoyOut(BaseModel):
+    """Cada rutina visible con lo que la pantalla de hoy dice de ella: cuántos
+    ejercicios (huecos visibles) tiene y cuándo se hizo por última vez.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    ejercicios: int
+    ultima_vez: date | None
 
 
 class HoyOut(BaseModel):
@@ -515,6 +535,7 @@ class HoyOut(BaseModel):
     por_recuperar: list[RecuperableOut]
     ofrecidas: list[OfrecidaOut]
     ultima_sesion: UltimaSesionOut | None
+    rutinas: list[RutinaDeHoyOut]
 
 
 class ExcepcionUpdate(BaseModel):
