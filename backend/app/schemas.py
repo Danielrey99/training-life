@@ -464,6 +464,59 @@ class DiaSeguimientoOut(DiaPlanOut):
     sesion: SesionDelDiaOut | None
 
 
+class RecuperableOut(BaseModel):
+    """Un día que se quedó sin hacer y aún está en plazo. `se_puede_hoy` es falso
+    si ese día ya hay sesión: la lista se enseña, pero sin botón.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    fecha: date
+    rutina: RutinaMinima
+    plazo: date
+    se_puede_hoy: bool
+
+
+class OfrecidaOut(BaseModel):
+    """Una rutina de la lista de abajo de la pantalla de hoy: intercambiarla con el
+    día `fecha`, adelantar lo de ese día, o entrenarla sin que cuente para ninguno
+    (`fecha` nula).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    accion: Literal["intercambiar", "adelantar", "sin_contar"]
+    rutina: RutinaMinima
+    fecha: date | None
+
+
+class UltimaSesionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    entrenamiento_id: int
+    fecha: date
+    rutina: RutinaMinima | None
+
+
+class HoyOut(BaseModel):
+    """Todo lo que necesita la pantalla de hoy (o la hoja de registrar un día
+    pasado) en una sola respuesta.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    fecha: date
+    situacion: Literal[
+        "en_curso", "hecho", "primera_vez", "sin_programa", "movido", "descanso", "entrenamiento"
+    ]
+    semana: list[DiaSeguimientoOut]
+    sesion: SesionDelDiaOut | None
+    proximo: DiaSeguimientoOut | None
+    por_recuperar: list[RecuperableOut]
+    ofrecidas: list[OfrecidaOut]
+    ultima_sesion: UltimaSesionOut | None
+
+
 class ExcepcionUpdate(BaseModel):
     """Qué toca un día concreto en vez de lo que diga el programa. `rutina_id`
     nulo es descanso. La fecha va en la ruta.

@@ -15,9 +15,10 @@ from app.schemas import (
     DiaSeguimientoOut,
     ExcepcionOut,
     ExcepcionUpdate,
+    HoyOut,
     IntercambioCreate,
 )
-from app.seguimiento import seguimiento
+from app.seguimiento import resumen_de_hoy, seguimiento
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -82,6 +83,29 @@ def obtener_seguimiento(
     día no haya llegado).
     """
     return seguimiento(db, usuario_id, desde, hasta)
+
+
+@router.get("/hoy", response_model=HoyOut)
+def obtener_hoy(
+    fecha: date | None = None,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo que necesita la pantalla de hoy: en qué situación está el día, la semana,
+    lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento
+    y la última sesión.
+
+    Con `fecha` (un día pasado) sirve para la hoja de registrar ese día desde el
+    calendario, que ofrece lo que habría ofrecido la pantalla de hoy aquel día. Una
+    fecha futura da 422: el futuro se planifica, no se registra.
+    """
+    fecha = fecha or hoy()
+    if fecha > hoy():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El {fecha} todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+        )
+    return resumen_de_hoy(db, usuario_id, fecha)
 
 
 # --- Excepciones: lo que se cambia a mano para un día ---------------------
