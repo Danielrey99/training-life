@@ -8,6 +8,7 @@ from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
+from app.plan import DiaPlan, dias_del_plan
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     EntrenamientoCreate,
@@ -17,6 +18,7 @@ from app.schemas import (
     SerieOut,
     SerieUpdate,
 )
+from app.seguimiento import cuenta, esta_cancelada, plazo
 
 router = APIRouter(prefix="/entrenamientos", tags=["entrenamientos"])
 
@@ -107,7 +109,7 @@ def _validar_dia_libre(
     otra = db.scalar(stmt)
     if otra is None:
         return
-    if not otra.en_curso and not otra.series:
+    if esta_cancelada(otra):
         db.delete(otra)
         # Antes que el INSERT o el UPDATE de la otra, o chocarían en la unicidad.
         db.flush()
@@ -122,6 +124,84 @@ def _validar_dia_libre(
         status_code=status.HTTP_409_CONFLICT,
         detail={"mensaje": mensaje, "entrenamiento_id": otra.id, "en_curso": otra.en_curso},
     )
+
+
+def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreate) -> DiaPlan:
+    """Comprueba que la sesión puede contar para el día que dice, y devuelve ese
+    día del plan.
+
+    Todo da 422, porque es un error de quien llama: una sesión libre no cuenta para
+    ningún día, un día fuera de plazo no se puede ni recuperar ni adelantar, y un
+    día que no toca esa rutina no se cubre con ella. Lo faltado con un programa
+    que ya no está activo tampoco se recupera: la fecha de la sesión y el día que
+    cuenta tienen que caer en el mismo programa.
+    """
+    fecha, cubre = datos.fecha, datos.cubre_fecha
+    if datos.rutina_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Un entrenamiento libre no cuenta para ningún día del plan.",
+        )
+    desde, hasta = plazo(cubre)
+    if not desde <= fecha <= hasta:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}: se adelanta"
+                " dentro de su semana y se recupera hasta el día antes del mismo día de la"
+                " semana siguiente."
+            ),
+        )
+    plan = {
+        dia.fecha: dia
+        for dia in dias_del_plan(db, usuario_id, min(fecha, cubre), max(fecha, cubre))
+    }
+    dia = plan[cubre]
+    if dia.descanso or dia.rutina.id != datos.rutina_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"El {cubre} no toca esa rutina.",
+        )
+    if dia.programa_id != plan[fecha].programa_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El {cubre} lo planificaba otro programa: lo que tocaba con un programa que ya"
+                " no está activo no se recupera."
+            ),
+        )
+    return dia
+
+
+def _dejar_sitio_en(db: Session, usuario_id: int, dia: DiaPlan) -> None:
+    """Un día del plan lo cuenta una sesión como mucho.
+
+    Si ya lo cuenta otra, 409 con su id. Si lo retiene una que no lo cuenta, lo
+    suelta: la cancelada se borra, como en `_validar_dia_libre`, y la de una rutina
+    que ese día ya no toca se queda en el historial sin contar para ningún día.
+    """
+    cubre = dia.fecha
+    otra = db.scalar(
+        select(Entrenamiento).where(
+            Entrenamiento.usuario_id == usuario_id, Entrenamiento.cubre_fecha == cubre
+        )
+    )
+    if otra is None:
+        return
+    if cuenta(otra, dia):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": f"Lo del {cubre} ya está hecho: lo cuenta la sesión del {otra.fecha}.",
+                "entrenamiento_id": otra.id,
+            },
+        )
+    if esta_cancelada(otra):
+        db.delete(otra)
+    else:
+        otra.cubre_fecha = None
+    # Antes del INSERT de la nueva, o chocaría con la otra en la unicidad.
+    db.flush()
 
 
 @router.get("", response_model=list[EntrenamientoOut])
@@ -180,11 +260,20 @@ def crear_entrenamiento(
 ):
     """Crea la sesión "vacía" (sin series todavía) — se añaden aparte, con
     POST /entrenamientos/{id}/series. rutina_id es opcional (entrenamiento libre).
+
+    `cubre_fecha` es el día del plan que cuenta: el de hoy al empezar lo que toca,
+    uno pasado al recuperar o uno de esta semana al adelantar. Sin él, la sesión
+    queda en el historial pero no cuenta para ningún día.
     """
     _validar_fecha_no_futura(datos.fecha)
     if datos.rutina_id is not None:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
+    # Primero todo lo que es un error de la petición (422), haya lo que haya en la
+    # base; después lo que choca con otras sesiones, que puede borrar las canceladas.
+    dia = _validar_cubre_fecha(db, usuario_id, datos) if datos.cubre_fecha else None
     _validar_dia_libre(db, usuario_id, datos.fecha)
+    if dia is not None:
+        _dejar_sitio_en(db, usuario_id, dia)
     entrenamiento = Entrenamiento(**datos.model_dump(), usuario_id=usuario_id)
     db.add(entrenamiento)
     db.commit()

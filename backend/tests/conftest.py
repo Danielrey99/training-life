@@ -8,6 +8,7 @@ borrados en cascada y restricciones `ON DELETE`, que SQLite no reproduce.
 
 import os
 import sys
+from datetime import date, datetime, time
 from pathlib import Path
 
 import pytest
@@ -121,6 +122,31 @@ def limpiar_tablas():
 def cliente() -> TestClient:
     """Cliente HTTP contra la API, sin levantar ningún servidor."""
     return TestClient(app)
+
+
+@pytest.fixture
+def hoy_es(monkeypatch):
+    """Congela "hoy" en la fecha que se le pase: `hoy_es(date(2026, 9, 16))`.
+
+    Para los tests que dependen del día de la semana (qué toca hoy, el plazo para
+    recuperar), que con la fecha real saldrían distintos cada día. Se puede llamar
+    varias veces en el mismo test para que pasen los días. Todo lo que pasa por
+    `app.fechas.hoy()` lo ve.
+    """
+    from app import fechas
+
+    def congelar(dia: date) -> None:
+        # A mediodía, lejos de la medianoche, donde Madrid y UTC no coinciden.
+        instante = datetime.combine(dia, time(12), tzinfo=fechas.ZONA_HORARIA)
+
+        class RelojCongelado(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return instante.astimezone(tz)
+
+        monkeypatch.setattr(fechas, "datetime", RelojCongelado)
+
+    return congelar
 
 
 @pytest.fixture

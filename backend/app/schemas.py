@@ -297,7 +297,10 @@ class EntrenamientoBase(BaseModel):
 
 
 class EntrenamientoCreate(EntrenamientoBase):
-    pass
+    # Qué día del plan cuenta la sesión: lo decide el botón pulsado (Empezar,
+    # Recuperar, Adelantar), así que solo se manda al crear. No va en la base
+    # común: el PUT copia todos los campos, y lo pondría a nulo en cada edición.
+    cubre_fecha: date | None = None
 
 
 class EntrenamientoUpdate(EntrenamientoBase):
@@ -311,6 +314,7 @@ class EntrenamientoOut(EntrenamientoBase):
 
     id: int
     usuario_id: int
+    cubre_fecha: date | None
     # Las dos las decide el servidor: terminada_en se pone con POST .../terminar,
     # y en_curso se calcula al leer (ver Entrenamiento.en_curso).
     terminada_en: datetime | None

@@ -239,8 +239,13 @@ class Entrenamiento(Base):
     __tablename__ = "entrenamientos"
     # Una sesión por día como mucho, del tipo que sea: se entrena una rutina al
     # día. La API lo comprueba antes (_validar_dia_libre) para dar un 409 legible.
+    # Y un día del plan lo cuenta una sesión como mucho; las que no cuentan para
+    # ninguno llevan cubre_fecha nula, y los nulos no chocan entre sí.
     __table_args__ = (
         UniqueConstraint("usuario_id", "fecha", name="entrenamientos_usuario_id_fecha_key"),
+        UniqueConstraint(
+            "usuario_id", "cubre_fecha", name="entrenamientos_usuario_id_cubre_fecha_key"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -251,6 +256,11 @@ class Entrenamiento(Base):
         ForeignKey("rutinas.id", ondelete="RESTRICT"), default=None
     )
     fecha: Mapped[date] = mapped_column(Date)
+    # El día del plan que cuenta esta sesión: el mismo que `fecha` al empezar lo
+    # que toca hoy, uno pasado al recuperar y uno de esta semana al adelantar. Lo
+    # decide el botón que se pulsa, no se deduce: con dos Push en la semana, la
+    # misma sesión puede ser una cosa u otra. Nula si no cuenta para ninguno.
+    cubre_fecha: Mapped[date | None] = mapped_column(Date, default=None)
     notas: Mapped[str | None] = mapped_column(String(1000), default=None)
     # Nula mientras la sesión está abierta. Es lo que distingue una sesión a
     # medias de una acabada, que por lo demás son idénticas.
