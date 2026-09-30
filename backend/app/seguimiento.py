@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Literal
 
+from fastapi import HTTPException, status
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -354,3 +355,106 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
             UltimaSesion(ultima.id, ultima.fecha, ultima.rutina) if ultima is not None else None
         ),
     )
+
+
+# --- Replanificar con días ya contados -----------------------------------
+
+
+def _hoy_al_domingo() -> tuple[date, date]:
+    hoy_ = hoy()
+    return hoy_, hoy_ + timedelta(days=6 - hoy_.weekday())
+
+
+def coberturas_en_juego(db: Session, usuario_id: int) -> list[int]:
+    """Las sesiones que cuentan algún día de hoy al domingo.
+
+    Son las únicas que un cambio del plan puede dejar sin su día: el pasado no se
+    planifica, y un día futuro solo lo puede contar un adelanto de esta semana.
+    Hay que pedirlas **antes** de cambiar nada, para pasárselas después a
+    `reubicar_coberturas`.
+    """
+    return [
+        dia.cubierto_por.entrenamiento_id
+        for dia in seguimiento(db, usuario_id, *_hoy_al_domingo())
+        if dia.cubierto_por
+    ]
+
+
+def reubicar_coberturas(db: Session, usuario_id: int, contaban: list[int]) -> None:
+    """Tras cambiar el plan, lleva lo hecho por adelantado a donde haya ido su día.
+
+    Si el Pull del miércoles se hizo el martes y en Planificar se pasa el Pull al
+    sábado, la sesión del martes pasa a contar el sábado. Solo se mueven las que
+    contaban un día y con el cambio han dejado de contarlo; cada una va al primer
+    día de hoy al domingo que toque su rutina y que nadie cuente. Si no queda
+    ninguno, 409 y no se guarda nada (el cambio del plan tampoco): es quien
+    replanifica el que decide qué hacer con esa sesión.
+
+    `contaban` es lo que devolvió `coberturas_en_juego` antes del cambio.
+    """
+    # autoflush está desactivado: sin el flush, el plan de después no vería el
+    # cambio. Y una excepción que siguiera cargada conservaría la rutina de antes
+    # aunque su rutina_id haya cambiado: hoy no pasa porque nadie las retiene y
+    # SQLAlchemy las suelta (guarda los objetos con referencias débiles), pero
+    # bastaría con retener una para reubicar con el plan viejo sin que nada falle.
+    db.flush()
+    db.expire_all()
+    dias = {dia.fecha: dia for dia in seguimiento(db, usuario_id, *_hoy_al_domingo())}
+    siguen = {dia.cubierto_por.entrenamiento_id for dia in dias.values() if dia.cubierto_por}
+    perdidas = sorted(
+        (db.get(Entrenamiento, id_) for id_ in contaban if id_ not in siguen),
+        key=lambda sesion: (sesion.fecha, sesion.id),
+    )
+    if not perdidas:
+        return
+
+    ocupados = {fecha for fecha, dia in dias.items() if dia.cubierto_por is not None}
+    destinos: dict[int, date] = {}
+    for sesion in perdidas:
+        destino = next(
+            (
+                fecha
+                for fecha, dia in sorted(dias.items())
+                if fecha not in ocupados and not dia.descanso and dia.rutina.id == sesion.rutina_id
+            ),
+            None,
+        )
+        if destino is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "mensaje": (
+                        f"La sesión del {sesion.fecha} cuenta como lo del {sesion.cubre_fecha}, y con"
+                        f" este cambio ya no queda ningún día de esta semana con"
+                        f" {sesion.rutina.nombre} para ella. Deja algún día con esa rutina, o borra"
+                        " antes esa sesión."
+                    ),
+                    "entrenamiento_id": sesion.id,
+                    "fecha": sesion.fecha.isoformat(),
+                },
+            )
+        destinos[sesion.id] = destino
+        ocupados.add(destino)
+
+    # Un día de destino puede estar retenido por una sesión que no lo cuenta: se
+    # suelta como al crear una sesión (la cancelada se borra).
+    ids = [sesion.id for sesion in perdidas]
+    for retenida in db.scalars(
+        select(Entrenamiento).where(
+            Entrenamiento.usuario_id == usuario_id,
+            Entrenamiento.cubre_fecha.in_(destinos.values()),
+            Entrenamiento.id.not_in(ids),
+        )
+    ):
+        if esta_cancelada(retenida):
+            db.delete(retenida)
+        else:
+            retenida.cubre_fecha = None
+    # En dos fases: si dos sesiones intercambian sus días, asignarlos de una vez
+    # chocaría con la unicidad de cubre_fecha a mitad de camino.
+    for sesion in perdidas:
+        sesion.cubre_fecha = None
+    db.flush()
+    for sesion in perdidas:
+        sesion.cubre_fecha = destinos[sesion.id]
+    db.flush()

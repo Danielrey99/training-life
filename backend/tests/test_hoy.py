@@ -19,7 +19,7 @@ from tests.semana import (
     LUNES_21,
     MARTES_15,
     VIERNES_18,
-    con_una_serie,
+    hecha,
     sesion,
 )
 
@@ -34,14 +34,6 @@ def hoy(cliente, fecha=None) -> dict:
     respuesta = cliente.get("/plan/hoy", params=params)
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()
-
-
-def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int:
-    respuesta = sesion(cliente, fecha, rutina_id, cubre_fecha)
-    assert respuesta.status_code == 201, respuesta.text
-    entrenamiento_id = respuesta.json()["id"]
-    con_una_serie(cliente, grupo_muscular_id, entrenamiento_id)
-    return entrenamiento_id
 
 
 def recuperables(resumen) -> list[tuple]:

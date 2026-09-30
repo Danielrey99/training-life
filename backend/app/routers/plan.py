@@ -18,7 +18,12 @@ from app.schemas import (
     HoyOut,
     IntercambioCreate,
 )
-from app.seguimiento import resumen_de_hoy, seguimiento
+from app.seguimiento import (
+    coberturas_en_juego,
+    reubicar_coberturas,
+    resumen_de_hoy,
+    seguimiento,
+)
 
 router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -144,11 +149,16 @@ def planificar_dia(
     Se guarda aunque coincida con lo que dice el programa: elegir a mano la rutina
     de siempre deja el día marcado como cambiado, y para devolverlo al programa
     está *Restablecer este día*.
+
+    Si el día ya estaba hecho por adelantado, la sesión sigue a su rutina a otro
+    día de esta semana; si no le queda ninguno, 409 (ver `reubicar_coberturas`).
     """
     _exigir_hoy_o_despues(fecha)
     if datos.rutina_id is not None:
         obtener_rutina_visible(db, datos.rutina_id, usuario_id)
+    contaban = coberturas_en_juego(db, usuario_id)
     _poner_excepcion(db, usuario_id, fecha, datos.rutina_id)
+    reubicar_coberturas(db, usuario_id, contaban)
     db.commit()
     return _buscar_excepcion(db, usuario_id, fecha)
 
@@ -159,7 +169,9 @@ def restablecer_dia(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """*Restablecer este día*: vuelve a lo que diga el programa."""
+    """*Restablecer este día*: vuelve a lo que diga el programa. Lo hecho por
+    adelantado se reubica como al planificar.
+    """
     _exigir_hoy_o_despues(fecha)
     excepcion = _buscar_excepcion(db, usuario_id, fecha)
     if excepcion is None:
@@ -167,7 +179,9 @@ def restablecer_dia(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ese día no estaba cambiado: ya es lo que dice el programa",
         )
+    contaban = coberturas_en_juego(db, usuario_id)
     db.delete(excepcion)
+    reubicar_coberturas(db, usuario_id, contaban)
     db.commit()
 
 
@@ -179,9 +193,11 @@ def restablecer_rango(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """*Restablecer la semana*: devuelve al programa los días del rango, de hoy en
-    adelante. Los días ya pasados no se tocan: el pasado no se planifica.
+    adelante. Los días ya pasados no se tocan: el pasado no se planifica. Lo hecho
+    por adelantado se reubica como al planificar.
     """
     validar_rango(desde, hasta)
+    contaban = coberturas_en_juego(db, usuario_id)
     db.execute(
         delete(ExcepcionDelPlan).where(
             ExcepcionDelPlan.usuario_id == usuario_id,
@@ -189,6 +205,7 @@ def restablecer_rango(
             ExcepcionDelPlan.fecha <= hasta,
         )
     )
+    reubicar_coberturas(db, usuario_id, contaban)
     db.commit()
 
 
@@ -203,7 +220,8 @@ def intercambiar_dias(
     no. Es lo que hace el intercambio de dos días en la pantalla de hoy.
 
     Una rutina que ese día contaba como descanso (porque está oculta) se
-    intercambia como descanso: lo oculto no se vuelve a planificar.
+    intercambia como descanso: lo oculto no se vuelve a planificar. Lo hecho por
+    adelantado se reubica como al planificar.
     """
     if datos.fecha_a == datos.fecha_b:
         raise HTTPException(
@@ -217,8 +235,10 @@ def intercambiar_dias(
     [dia_b] = dias_del_plan(db, usuario_id, datos.fecha_b, datos.fecha_b)
     rutina_a = None if dia_a.descanso else dia_a.rutina.id
     rutina_b = None if dia_b.descanso else dia_b.rutina.id
+    contaban = coberturas_en_juego(db, usuario_id)
     _poner_excepcion(db, usuario_id, datos.fecha_a, rutina_b)
     _poner_excepcion(db, usuario_id, datos.fecha_b, rutina_a)
+    reubicar_coberturas(db, usuario_id, contaban)
     db.commit()
     return [
         *dias_del_plan(db, usuario_id, datos.fecha_a, datos.fecha_a),

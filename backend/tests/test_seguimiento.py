@@ -15,23 +15,12 @@ from sqlalchemy import event
 
 from app.database import engine
 from app.models import Entrenamiento, Rutina
-from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, con_una_serie, sesion
+from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
 MARTES_8 = date(2026, 9, 8)
 MIERCOLES_9 = date(2026, 9, 9)
 JUEVES_10 = date(2026, 9, 10)
 VIERNES_11 = date(2026, 9, 11)
-
-
-def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int:
-    """Una sesión con una serie apuntada: sin series, ya fuera de curso, sería una
-    sesión cancelada.
-    """
-    respuesta = sesion(cliente, fecha, rutina_id, cubre_fecha)
-    assert respuesta.status_code == 201, respuesta.text
-    entrenamiento_id = respuesta.json()["id"]
-    con_una_serie(cliente, grupo_muscular_id, entrenamiento_id)
-    return entrenamiento_id
 
 
 def seguimiento(cliente, desde, hasta=None) -> dict:

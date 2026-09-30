@@ -37,3 +37,14 @@ def con_una_serie(cliente, grupo_muscular_id, entrenamiento_id) -> None:
         json={"ejercicio_id": ejercicio, "numero_serie": 1, "peso": 60, "repeticiones": 10},
     )
     assert respuesta.status_code == 201, respuesta.text
+
+
+def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int:
+    """Una sesión con una serie apuntada: sin series, ya fuera de curso, sería una
+    sesión cancelada. Devuelve su id.
+    """
+    respuesta = sesion(cliente, fecha, rutina_id, cubre_fecha)
+    assert respuesta.status_code == 201, respuesta.text
+    entrenamiento_id = respuesta.json()["id"]
+    con_una_serie(cliente, grupo_muscular_id, entrenamiento_id)
+    return entrenamiento_id
