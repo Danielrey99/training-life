@@ -126,6 +126,22 @@ def _validar_dia_libre(
     )
 
 
+def _validar_en_plazo(fecha: date, cubre: date) -> None:
+    """Lo de un día se entrena dentro de su plazo (ver `plazo`), tanto al crear la
+    sesión como al corregir su fecha después.
+    """
+    desde, hasta = plazo(cubre)
+    if not desde <= fecha <= hasta:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}: se adelanta"
+                " dentro de su semana y se recupera hasta el día antes del mismo día de la"
+                " semana siguiente."
+            ),
+        )
+
+
 def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreate) -> DiaPlan:
     """Comprueba que la sesión puede contar para el día que dice, y devuelve ese
     día del plan.
@@ -142,16 +158,7 @@ def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreat
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Un entrenamiento libre no cuenta para ningún día del plan.",
         )
-    desde, hasta = plazo(cubre)
-    if not desde <= fecha <= hasta:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}: se adelanta"
-                " dentro de su semana y se recupera hasta el día antes del mismo día de la"
-                " semana siguiente."
-            ),
-        )
+    _validar_en_plazo(fecha, cubre)
     plan = {
         dia.fecha: dia
         for dia in dias_del_plan(db, usuario_id, min(fecha, cubre), max(fecha, cubre))
@@ -290,11 +297,25 @@ def actualizar_entrenamiento(
 ):
     entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
     _validar_fecha_no_futura(datos.fecha)
+    # El día que cuenta no cambia al corregir la fecha: la sesión sigue siendo "la
+    # del lunes", así que solo se mueve dentro del plazo de ese día.
+    if datos.fecha != entrenamiento.fecha and entrenamiento.cubre_fecha is not None:
+        _validar_en_plazo(datos.fecha, entrenamiento.cubre_fecha)
     # La rutina solo se valida si cambia: una sesión de una rutina que se ocultó
     # después tiene que poder corregirse (notas, fecha) sin mostrarla antes.
     if datos.rutina_id is not None and datos.rutina_id != entrenamiento.rutina_id:
         _validar_rutina_propia(db, datos.rutina_id, usuario_id)
     if datos.rutina_id != entrenamiento.rutina_id:
+        if entrenamiento.cubre_fecha is not None:
+            # Con otra rutina ya no contaría su día, y recalcular cuál contaría abre
+            # más casos de los que resuelve. Se borra el día y se apunta la buena.
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Esta sesión cuenta como lo del {entrenamiento.cubre_fecha}: no se le cambia"
+                    " la rutina. Para apuntar otra, borra el día y regístralo de nuevo."
+                ),
+            )
         _validar_cambio_de_rutina(db, entrenamiento_id)
     if datos.fecha != entrenamiento.fecha:
         _validar_dia_libre(db, usuario_id, datos.fecha, excepto_id=entrenamiento_id)
