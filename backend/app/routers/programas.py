@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
@@ -18,6 +19,7 @@ from app.schemas import (
     ProgramaOut,
     ProgramaUpdate,
 )
+from app.seguimiento import seguimiento
 
 router = APIRouter(prefix="/programas", tags=["programas"])
 
@@ -277,20 +279,39 @@ def borrar_programa(
 # --- Días del programa ---------------------------------------------------
 
 
+def _desde_cuando_cambia(db: Session, programa: Programa, dia_semana: int) -> date:
+    """Desde qué fecha vale un cambio en un día de la semana del programa: hoy, o
+    el día siguiente a la próxima vez que toca, si esa ya se hizo por adelantado.
+
+    Lo hecho por adelantado se queda como estaba: el Leg del viernes hecho el
+    martes sigue contando aunque el viernes pase a ser Push, y el Push empieza el
+    viernes siguiente. Solo si ese día lo planifica este programa: con una
+    excepción de Planificar, el programa no decide lo que toca.
+    """
+    hoy_ = hoy()
+    proximo = hoy_ + timedelta(days=(dia_semana - hoy_.isoweekday()) % 7)
+    [dia] = seguimiento(db, programa.usuario_id, proximo, proximo)
+    contado = dia.cubierto_por is not None and dia.origen == "programa"
+    if contado and dia.programa_id == programa.id:
+        return proximo + timedelta(days=1)
+    return hoy_
+
+
 def _cambiar_dia(db: Session, programa: Programa, dia_semana: int, rutina_id: int | None) -> None:
     """Pone `rutina_id` en un día del programa (o lo deja en descanso, con None)
-    sin reescribir el pasado: la fila que valía hasta hoy se cierra y se abre
-    otra desde hoy, así los días que ya pasaron siguen resolviéndose con la vieja.
+    sin reescribir el pasado: la fila que valía hasta ahora se cierra y se abre
+    otra desde hoy (o desde después del día ya hecho por adelantado, ver
+    `_desde_cuando_cambia`), así los días anteriores siguen resolviéndose con la vieja.
 
-    Si el programa nunca ha estado activo antes de hoy, no hay pasado que
+    Si el programa nunca ha estado activo antes de esa fecha, no hay pasado que
     conservar: se sustituye la fila sin más, y así editar un programa nuevo
     no va dejando filas cerradas que no dicen nada.
     """
-    desde = hoy()
     filas = [fila for fila in programa.filas_dias if fila.dia_semana == dia_semana]
     vigente = next((fila for fila in filas if fila.hasta is None), None)
     if vigente is not None and vigente.rutina_id == rutina_id:
         return
+    desde = _desde_cuando_cambia(db, programa, dia_semana)
     gobierna_el_pasado = any(periodo.desde < desde for periodo in programa.periodos)
     for fila in filas:
         if not gobierna_el_pasado or (fila.desde is not None and fila.desde >= desde):
