@@ -237,3 +237,22 @@ button.hoy-fila:hover {
   font-size: 12.5px;
   text-align: left;
 }
+
+/* La primera vez: frases que ocupan dos líneas, así que van en un bloque
+   estrecho y alineadas a la izquierda, que es como se lee un párrafo. */
+.tarjeta-pasos {
+  max-width: 320px;
+  margin: 6px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--texto-tenue);
+  text-align: left;
+}
+
+/* Los pasos, con la segunda línea alineada con el texto y no con el número. */
+.tarjeta-pasos p + p {
+  padding-left: 1.3em;
+  text-indent: -1.3em;
+}

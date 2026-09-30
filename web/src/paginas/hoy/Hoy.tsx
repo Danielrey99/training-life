@@ -308,10 +308,13 @@ function Tarjeta({
         <div className="tarjeta">
           <p className="tarjeta-antes">Primera vez</p>
           <p className="tarjeta-grande">Te damos la bienvenida</p>
-          <p className="tarjeta-despues">
-            1 · Tus rutinas: los ejercicios de cada día
-            <br />2 · Un programa: qué rutina toca cada día
-          </p>
+          {/* Dice qué es una rutina y qué es un programa: quien abre la app por primera
+              vez no conoce ninguna de las dos palabras. */}
+          <div className="tarjeta-pasos">
+            <p>Para que la app te diga qué entrenar cada día:</p>
+            <p>1 · Crea tus rutinas: los ejercicios de cada día de entreno</p>
+            <p>2 · Crea un programa: tus rutinas repartidas en la semana</p>
+          </div>
           <Link to="/programas" className="boton boton-principal tarjeta-boton">
             Ir a Programas
           </Link>

@@ -494,8 +494,9 @@ el modo editar de P2 y P3.
 Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercicios sí: viene con una
 biblioteca de predefinidos, así que se puede montar una rutina sin crear ninguno antes.
 
-- **E1** da la bienvenida y explica los dos pasos (primero rutinas, luego un programa que las
-  reparta), con *Ir a Programas*. Debajo, que también se puede entrenar sin programa. En cuanto
+- **E1** da la bienvenida y explica los dos pasos diciendo qué es cada cosa: una rutina son los
+  ejercicios de cada día de entreno, y un programa, tus rutinas repartidas en la semana. Debajo,
+  *Ir a Programas*. Debajo, que también se puede entrenar sin programa. En cuanto
   hay una rutina, la bienvenida deja paso a *Sin programa*, con la lista de rutinas.
 - **P1** dice que cada sección está vacía, y *Nueva rutina* pasa a ser la acción principal, porque
   es el primer paso.
