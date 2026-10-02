@@ -306,3 +306,139 @@
     display: none;
   }
 }
+
+/* --- H2 · Un día ----------------------------------------------------------
+   Reutiliza de la sesión la cabecera, las series, las fichas de la última vez
+   y el formulario de serie. */
+
+.dia {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dia-cuenta {
+  color: var(--acento) !important;
+}
+
+/* Editar / Listo a la derecha y, editando, Cancelar en lugar de la flecha de volver. */
+.dia-cabecera-boton {
+  font: inherit;
+  min-width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--acento);
+  cursor: pointer;
+}
+
+.dia-cabecera-boton.cancelar {
+  color: var(--texto-tenue);
+}
+
+.dia-cabecera-boton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.dia-fecha input {
+  color-scheme: dark;
+}
+
+.dia-hueco {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.dia-hueco h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dia-hueco ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dia-insignias {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.dia-objetivo,
+.dia-mejora {
+  font-size: 12.5px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.dia-objetivo,
+.dia-mejora.mejor {
+  color: var(--acento);
+}
+
+.dia-mejora.igual,
+.dia-mejora.peor {
+  color: var(--texto-tenue);
+}
+
+.dia-vez {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borde);
+}
+
+.dia-primera {
+  font-style: italic;
+}
+
+.dia-pie {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--borde);
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.dia-hueco-cabecera {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dia-hueco-cabecera h2 {
+  flex-grow: 1;
+}
+
+/* Un hueco que ese día se quedó sin series: solo sale al editar, y discreto. */
+.dia-hueco.vacio {
+  border-style: dashed;
+}
+
+.dia-hueco .dia-anadir-serie {
+  align-self: flex-start;
+  padding: 0;
+  color: var(--acento);
+}

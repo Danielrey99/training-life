@@ -121,6 +121,25 @@ code {
   color: var(--error);
 }
 
+/* Cancelar en un formulario pequeño (una nota, editar una serie): en rojo y al lado de
+   Guardar, en verde, para que se distingan de un vistazo (decisión del autor). */
+.boton-cancelar {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* Guardar y Cancelar en la misma línea, a partes iguales. */
+.botones-en-linea {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.botones-en-linea .boton {
+  min-height: 48px;
+  font-size: 15px;
+}
+
 /* Un icono que se pulsa (el lápiz, la ✕): 44 px de zona táctil aunque se vea pequeño. */
 .boton-icono {
   width: 44px;
@@ -137,8 +156,14 @@ code {
   cursor: pointer;
 }
 
-.boton-icono:hover {
+.boton-icono:hover:not(:disabled) {
   color: var(--texto);
+}
+
+/* En gris mientras hay otra edición abierta: las ediciones van de una en una. */
+.boton-icono:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 :focus-visible {

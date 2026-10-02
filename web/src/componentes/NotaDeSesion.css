@@ -1,0 +1,39 @@
+/* La nota de una sesión, en la sesión en curso y en el día del historial. Los
+   campos y los botones son los de la sesión (`campo`, `boton-icono`…). */
+
+.nota-sesion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.nota-sesion-cabecera {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin: -10px -12px -6px 0;
+}
+
+.nota-sesion-cabecera .rotulo {
+  flex-grow: 1;
+}
+
+.nota-sesion p {
+  margin: 0;
+  font-size: 15px;
+  white-space: pre-wrap;
+}
+
+.nota-sesion textarea {
+  resize: vertical;
+  font: inherit;
+}
+
+.nota-sesion-anadir {
+  align-self: center;
+  gap: 6px;
+}

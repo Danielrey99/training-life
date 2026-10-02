@@ -16,7 +16,7 @@ La primera versión se escribió para validar que el circuito funciona —React 
 la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
 Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la
 web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la
-pantalla de entrada (*Hoy*) y el calendario del historial.
+pantalla de entrada (*Hoy*) y el historial: el calendario y cada día.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -28,8 +28,9 @@ pantalla de entrada (*Hoy*) y el calendario del historial.
 - [x] La sesión en curso, siguiendo los bocetos
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
 - [x] El calendario del historial, y apuntar desde él un día pasado
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): ver y
-  editar un día, la progresión, los programas y rutinas, y la biblioteca de ejercicios
+- [x] Ver un día y corregirlo: sus series, la fecha, las notas o borrarlo entero
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la
+  progresión, planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -70,6 +71,7 @@ web/
     │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar
     │   ├── Icono.tsx     # los iconos de trazo de los bocetos
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
+    │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
     ├── utiles/           # fechas y números en formato español, y el color de cada día
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
@@ -77,7 +79,9 @@ web/
         ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
         ├── historial/    # la pestaña de Historial
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
-        │   └── HojaRegistrar.tsx        # apuntar un día pasado
+        │   ├── HojaRegistrar.tsx        # apuntar un día pasado
+        │   ├── Dia.tsx                  # ver un día y corregirlo
+        │   └── BloqueDelDia.tsx         # un hueco del día, con sus series y + Añadir serie
         ├── hoy/          # la pantalla de entrada
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
         └── sesion/       # la sesión en curso
@@ -105,6 +109,8 @@ Decisiones que se notan al usarla:
   entrenamiento.
 - **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas,
   recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*.
+  Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el
+  diálogo lo avisa.
   Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado.
 - **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante),
   porque las series de un hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. En
@@ -115,8 +121,14 @@ Decisiones que se notan al usarla:
   para que no pase desapercibida. El desplegable enseña el principal y los comodines, cada uno con
   su última vez. Al elegir uno, la última vez, el peso de partida y las series nuevas pasan a ser de
   ese ejercicio. Si el principal está oculto, el hueco empieza ya con el comodín.
-- **Editar una serie usa el mismo formulario**: el lápiz carga sus datos y el botón pasa a *Guardar
-  cambios*. No hay un modo de edición aparte.
+- **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar
+  cambios* en la misma línea. No hay un modo de edición aparte.
+- **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕,
+  los demás huecos, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar.
+  Por eso qué está abierto lo lleva la pantalla y no cada bloque.
+- **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale
+  *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en
+  el día del historial (`componentes/NotaDeSesion.tsx`).
 - **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al mantenerlas
   pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
 
@@ -161,6 +173,36 @@ meses anteriores, o para el día que se entrenó y se olvidó apuntar.
 
 Lo que se hizo sin contar para ningún día lleva el color del día de su rutina en el programa activo,
 para que se reconozca; solo sale en gris si la rutina no está en el programa.
+
+### Un día
+
+La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde
+la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que
+pedía la rutina, el volumen (peso por repeticiones) y cuántos huecos mejoraron. Debajo, un bloque por
+hueco con el ejercicio que se hizo, sus series y **la última vez que se hizo ese ejercicio en ese
+hueco**, en fichas, mirando siempre hacia atrás desde ese día.
+
+- **La insignia de cada hueco compara con esa última vez**: primero el peso más alto (*+2,5 kg*) y,
+  con el mismo peso, el total de repeticiones (*+3 reps*). Si es la primera vez, *nuevo*. Así, subir de
+  peso cuenta más que hacer más repeticiones con menos.
+- **Si se hizo con un comodín, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o
+  adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
+- **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario
+  de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este
+  día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador**
+  (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo
+  descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha
+  y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue
+  abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una
+  cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y
+  *Guardar*.
+- **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir
+  serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se
+  quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la
+  misma flecha que en la sesión para elegir con qué ejercicio.
+- **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya
+  tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
+- **Al terminar una sesión** se llega a su día.
 
 ## Hablar con la API
 

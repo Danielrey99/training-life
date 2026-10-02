@@ -23,6 +23,13 @@ type Props = {
     variante: string | null
   } | null
   editando: boolean
+  // Guardar y Cancelar en la misma línea, en vez del botón grande: al editar una serie
+  // siempre, y al añadir una en el día del historial. La serie nueva de la sesión sigue
+  // con su botón grande, que es el que se pulsa sin parar mientras se entrena.
+  enLinea?: boolean
+  // El texto del botón de guardar, si no es el de siempre: en el modo editar del día
+  // nada se guarda hasta pulsar Guardar arriba, así que ahí dice Añadir o Aplicar.
+  textoGuardar?: string
   alGuardar: (datos: DatosDeSerie) => Promise<void>
   alCancelar: () => void
 }
@@ -36,7 +43,15 @@ type Props = {
  * repeticiones. Por lo mismo, no se vacía al guardar. Editar una serie usa este
  * mismo formulario con sus datos: no hay un modo de edición aparte.
  */
-export function FormularioDeSerie({ numero, semilla, editando, alGuardar, alCancelar }: Props) {
+export function FormularioDeSerie({
+  numero,
+  semilla,
+  editando,
+  enLinea = false,
+  textoGuardar,
+  alGuardar,
+  alCancelar,
+}: Props) {
   const [peso, setPeso] = useState(semilla ? pesoLegible(semilla.peso) : '')
   const [repeticiones, setRepeticiones] = useState(semilla ? String(semilla.repeticiones) : '')
   const [variante, setVariante] = useState(semilla?.variante ?? '')
@@ -97,12 +112,23 @@ export function FormularioDeSerie({ numero, semilla, editando, alGuardar, alCanc
           onChange={(evento) => setVariante(evento.target.value)}
         />
       </label>
-      <button type="submit" className="boton boton-principal" disabled={guardando}>
-        {editando ? `Guardar cambios · serie ${numero}` : `Guardar serie ${numero}`}
-      </button>
-      {editando && (
-        <button type="button" className="boton boton-texto" onClick={alCancelar}>
-          Cancelar
+      {editando || enLinea ? (
+        <div className="botones-en-linea">
+          <button
+            type="button"
+            className="boton boton-cancelar"
+            onClick={alCancelar}
+            disabled={guardando}
+          >
+            Cancelar
+          </button>
+          <button type="submit" className="boton boton-principal" disabled={guardando}>
+            {textoGuardar ?? (editando ? 'Guardar cambios' : `Guardar serie ${numero}`)}
+          </button>
+        </div>
+      ) : (
+        <button type="submit" className="boton boton-principal" disabled={guardando}>
+          Guardar serie {numero}
         </button>
       )}
       {fallo && <p className="fallo">{fallo}</p>}
