@@ -1,7 +1,6 @@
 # Web 💻
 
-Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre **Vite**. Consume la
-API REST del [backend](../backend/README.md); nunca habla con la base de datos directamente.
+Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre **Vite**. Consume la API REST del [backend](../backend/README.md); nunca habla con la base de datos directamente.
 
 **Índice:** [Estado actual](#estado-actual) · [Cómo ejecutarlo](#cómo-ejecutarlo) ·
 [Estructura](#estructura) · [La sesión en curso](#la-sesión-en-curso) ·
@@ -9,28 +8,20 @@ API REST del [backend](../backend/README.md); nunca habla con la base de datos d
 
 ## Estado actual
 
-🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento
-mientras se entrena.
+🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento mientras se entrena.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde,
-la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad.
-Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la
-web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la
-pantalla de entrada (*Hoy*) y el historial: el calendario y cada día.
+La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*) y el historial: el calendario y cada día.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
 - [x] Pantalla de ejercicios
 - [x] Primera versión de registrar un entrenamiento (ya sustituida)
-- [x] El armazón del diseño: las cuatro secciones (Entrenar, Historial, Programas, Ejercicios)
-  en una barra abajo en el móvil y en una columna a la izquierda en el PC, y el cliente de la API
-  completo, con los tipos al día
+- [x] El armazón del diseño: las cuatro secciones (Entrenar, Historial, Programas, Ejercicios) en una barra abajo en el móvil y en una columna a la izquierda en el PC, y el cliente de la API completo, con los tipos al día
 - [x] La sesión en curso, siguiendo los bocetos
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
 - [x] El calendario del historial, y apuntar desde él un día pasado
 - [x] Ver un día y corregirlo: sus series, la fecha, las notas o borrarlo entero
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la
-  progresión, planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la progresión, planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -42,15 +33,11 @@ npm install      # solo la primera vez
 npm run dev
 ```
 
-La web queda en **http://localhost:5173**. Ese puerto está fijado en `vite.config.ts` a propósito:
-el backend solo acepta peticiones desde ese origen, así que si Vite eligiera otro al encontrarlo
-ocupado, el navegador bloquearía todas las llamadas.
+La web queda en **http://localhost:5173**. Ese puerto está fijado en `vite.config.ts` a propósito: el backend solo acepta peticiones desde ese origen, así que si Vite eligiera otro al encontrarlo ocupado, el navegador bloquearía todas las llamadas.
 
 Otros comandos: `npm run build` (compila TypeScript y genera `dist/`) y `npm run lint`.
 
-En desarrollo la web se sirve con Vite, no con Docker: el recargado en caliente es la mitad del
-valor de trabajar así, y montar `node_modules` en un contenedor de Windows lo vuelve lento. Cuando
-la web esté hecha se añadirá al `docker-compose.yml` un servicio que sirva el build ya compilado.
+En desarrollo la web se sirve con Vite, no con Docker: el recargado en caliente es la mitad del valor de trabajar así, y montar `node_modules` en un contenedor de Windows lo vuelve lento. Cuando la web esté hecha se añadirá al `docker-compose.yml` un servicio que sirva el build ya compilado.
 
 ## Estructura
 
@@ -95,133 +82,60 @@ web/
 
 ## La sesión en curso
 
-Es la pantalla que se usa en el gimnasio (`/sesion/{id}`). Cada hueco de la rutina es un bloque, y
-solo uno va desplegado: el que se está haciendo. Plegados, los demás dicen cuántas series llevan de
-las que pide el hueco. Dentro del desplegado está la **última vez** que se hizo ese ejercicio en ese
-hueco, en fichas (una por serie, con su peso); las series de hoy, cada una con su lápiz para
-corregirla y su ✕ para borrarla; y el formulario de la siguiente, con peso y repeticiones en − / +
-para poder usarlo con una mano.
+Es la pantalla que se usa en el gimnasio (`/sesion/{id}`). Cada hueco de la rutina es un bloque, y solo uno va desplegado: el que se está haciendo. Plegados, los demás dicen cuántas series llevan de las que pide el hueco. Dentro del desplegado está la **última vez** que se hizo ese ejercicio en ese hueco, en fichas (una por serie, con su peso); las series de hoy, cada una con su lápiz para corregirla y su ✕ para borrarla; y el formulario de la siguiente, con peso y repeticiones en − / + para poder usarlo con una mano.
 
 Decisiones que se notan al usarla:
 
-- **Cada serie se guarda en cuanto se pulsa *Guardar***, en vez de acumularlas para enviarlas al
-  final. Una sesión dura más de una hora, y cerrar la pestaña sin querer no puede llevarse el
-  entrenamiento.
-- **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas,
-  recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*.
-  Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el
-  diálogo lo avisa.
-  Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado.
-- **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante),
-  porque las series de un hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. En
-  la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
-- **El número de la siguiente serie es el más alto + 1**, no cuántas hay: borrando una del medio,
-  contarlas repetiría un número.
-- **El comodín se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio
-  para que no pase desapercibida. El desplegable enseña el principal y los comodines, cada uno con
-  su última vez. Al elegir uno, la última vez, el peso de partida y las series nuevas pasan a ser de
-  ese ejercicio. Si el principal está oculto, el hueco empieza ya con el comodín.
-- **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar
-  cambios* en la misma línea. No hay un modo de edición aparte.
-- **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕,
-  los demás huecos, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar.
-  Por eso qué está abierto lo lleva la pantalla y no cada bloque.
-- **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale
-  *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en
-  el día del historial (`componentes/NotaDeSesion.tsx`).
-- **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al mantenerlas
-  pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
+- **Cada serie se guarda en cuanto se pulsa *Guardar***, en vez de acumularlas para enviarlas al final. Una sesión dura más de una hora, y cerrar la pestaña sin querer no puede llevarse el entrenamiento.
+- **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado.
+- **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante), porque las series de un hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
+- **El número de la siguiente serie es el más alto + 1**, no cuántas hay: borrando una del medio, contarlas repetiría un número.
+- **El comodín se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y los comodines, cada uno con su última vez. Al elegir uno, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el hueco empieza ya con el comodín.
+- **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar cambios* en la misma línea. No hay un modo de edición aparte.
+- **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás huecos, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
+- **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
+- **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al mantenerlas pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
 
 Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperando el Push del lunes 28*.
 
 ## Hoy
 
-La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendrá el calendario;
-debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo de cada día, la
-**última sesión hecha** y una lista con qué más se puede entrenar hoy.
+La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendrá el calendario; debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo de cada día, la **última sesión hecha** y una lista con qué más se puede entrenar hoy.
 
-- **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar
-  o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre
-  lo mismo, y la pantalla solo pinta.
-- **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy,
-  *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan
-  de los dos días y después empieza la de hoy.
-- **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*,
-  *Recuperar*, *Adelantar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará
-  pendiente, y hasta cuándo se podrá recuperar.
-- **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se
-  hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que
-  se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para
-  que un día movido diga de dónde viene.
-- **La tarjeta cambia con el día**: empezar lo que toca, continuar la sesión a medias, ya entrenado,
-  descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para
-  entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
+- **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre lo mismo, y la pantalla solo pinta.
+- **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy, *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan de los dos días y después empieza la de hoy.
+- **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*, *Recuperar*, *Adelantar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará pendiente, y hasta cuándo se podrá recuperar.
+- **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para que un día movido diga de dónde viene.
+- **La tarjeta cambia con el día**: empezar lo que toca, continuar la sesión a medias, ya entrenado, descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
 
 ## Historial
 
-El calendario (`/historial`) enseña el mes con las mismas marcas que la semana de *Hoy*, y debajo
-tres cifras: cuántos días planificados se entrenaron (también los movidos), cuántos se movieron y
-cuántos se quedaron sin hacer. La leyenda va plegada, porque se consulta poco. El mes va en la URL
-(`?mes=2026-09`), para que volver de un día no devuelva al mes actual.
+El calendario (`/historial`) enseña el mes con las mismas marcas que la semana de *Hoy*, y debajo tres cifras: cuántos días planificados se entrenaron (también los movidos), cuántos se movieron y cuántos se quedaron sin hacer. La leyenda va plegada, porque se consulta poco. El mes va en la URL (`?mes=2026-09`), para que volver de un día no devuelva al mes actual.
 
-**Tocar un día enseña siempre lo que se hizo ese día**, nunca lo del día en que se hizo su rutina:
-si hubo sesión, abre el día; si es hoy, lleva a *Hoy*; y si es un día pasado sin sesión, abre una
-hoja para apuntar lo que se hizo. Esa hoja ofrece lo mismo que habría ofrecido *Hoy* aquel día (lo
-que tocaba, lo que seguía por recuperar y lo que se podía adelantar), y además cualquier otra rutina,
-que se apunta sin contar para ningún día del programa. Sirve para pasar a la app la libreta de
-meses anteriores, o para el día que se entrenó y se olvidó apuntar.
+**Tocar un día enseña siempre lo que se hizo ese día**, nunca lo del día en que se hizo su rutina: si hubo sesión, abre el día; si es hoy, lleva a *Hoy*; y si es un día pasado sin sesión, abre una hoja para apuntar lo que se hizo. Esa hoja ofrece lo mismo que habría ofrecido *Hoy* aquel día (lo que tocaba, lo que seguía por recuperar y lo que se podía adelantar), y además cualquier otra rutina, que se apunta sin contar para ningún día del programa. Sirve para pasar a la app la libreta de meses anteriores, o para el día que se entrenó y se olvidó apuntar.
 
-Lo que se hizo sin contar para ningún día lleva el color del día de su rutina en el programa activo,
-para que se reconozca; solo sale en gris si la rutina no está en el programa.
+Lo que se hizo sin contar para ningún día lleva el color del día de su rutina en el programa activo, para que se reconozca; solo sale en gris si la rutina no está en el programa.
 
 ### Un día
 
-La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde
-la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que
-pedía la rutina, el volumen (peso por repeticiones) y cuántos huecos mejoraron. Debajo, un bloque por
-hueco con el ejercicio que se hizo, sus series y **la última vez que se hizo ese ejercicio en ese
-hueco**, en fichas, mirando siempre hacia atrás desde ese día.
+La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones) y cuántos huecos mejoraron. Debajo, un bloque por hueco con el ejercicio que se hizo, sus series y **la última vez que se hizo ese ejercicio en ese hueco**, en fichas, mirando siempre hacia atrás desde ese día.
 
-- **La insignia de cada hueco compara con esa última vez**: primero el peso más alto (*+2,5 kg*) y,
-  con el mismo peso, el total de repeticiones (*+3 reps*). Si es la primera vez, *nuevo*. Así, subir de
-  peso cuenta más que hacer más repeticiones con menos.
-- **Si se hizo con un comodín, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o
-  adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
-- **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario
-  de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este
-  día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador**
-  (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo
-  descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha
-  y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue
-  abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una
-  cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y
-  *Guardar*.
-- **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir
-  serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se
-  quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la
-  misma flecha que en la sesión para elegir con qué ejercicio.
-- **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya
-  tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
+- **La insignia de cada hueco compara con esa última vez**: primero el peso más alto (*+2,5 kg*) y, con el mismo peso, el total de repeticiones (*+3 reps*). Si es la primera vez, *nuevo*. Así, subir de peso cuenta más que hacer más repeticiones con menos.
+- **Si se hizo con un comodín, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
+- **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador** (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y *Guardar*.
+- **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la misma flecha que en la sesión para elegir con qué ejercicio.
+- **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
 - **Al terminar una sesión** se llega a su día.
 
 ## Hablar con la API
 
-Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan
-errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre ya
-todos los endpoints del backend, agrupados por recurso, aunque todavía no los usen todas las pantallas.
+Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre ya todos los endpoints del backend, agrupados por recurso, aunque todavía no los usen todas las pantallas.
 
-Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el
-motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual
-llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que
-reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede
-ofrecer continuarla.
+Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede ofrecer continuarla.
 
-Esa separación es la que permitirá cambiar cosas en un solo archivo más adelante — añadir el token
-cuando exista JWT, reintentar peticiones fallidas o meter una caché — sin recorrer todas las
-pantallas.
+Esa separación es la que permitirá cambiar cosas en un solo archivo más adelante — añadir el token cuando exista JWT, reintentar peticiones fallidas o meter una caché — sin recorrer todas las pantallas.
 
-Los tipos de `src/api/tipos.ts` reflejan los esquemas de `backend/app/schemas.py`. **No se generan
-solos**: si cambia un endpoint, hay que actualizarlos a mano o el editor mentirá.
+Los tipos de `src/api/tipos.ts` reflejan los esquemas de `backend/app/schemas.py`. **No se generan solos**: si cambia un endpoint, hay que actualizarlos a mano o el editor mentirá.
 
 ## Variables de entorno
 
@@ -229,6 +143,4 @@ solos**: si cambia un endpoint, hay que actualizarlos a mano o el editor mentir�
 |---|---|---|
 | `VITE_API_URL` | Dónde está la API | `http://localhost:8000` |
 
-Solo hace falta tocarla para abrir la web desde otro dispositivo de la red de casa, donde
-`localhost` ya no es el PC que sirve la API. Se define en un archivo `.env` dentro de `web/`
-(copia de `.env.example`), que no se sube a git.
+Solo hace falta tocarla para abrir la web desde otro dispositivo de la red de casa, donde `localhost` ya no es el PC que sirve la API. Se define en un archivo `.env` dentro de `web/` (copia de `.env.example`), que no se sube a git.

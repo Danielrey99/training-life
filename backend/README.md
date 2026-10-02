@@ -1,7 +1,6 @@
 # Backend ⚙️
 
-API REST del proyecto, construida con **FastAPI** (Python) sobre **PostgreSQL**, usando
-**SQLAlchemy** como ORM y **Alembic** para gestionar los cambios del esquema de base de datos.
+API REST del proyecto, construida con **FastAPI** (Python) sobre **PostgreSQL**, usando **SQLAlchemy** como ORM y **Alembic** para gestionar los cambios del esquema de base de datos.
 
 Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre pasan por esta API.
 
@@ -13,91 +12,49 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus
-huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE—
-y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué
-rutina toca cada día de la semana.
+🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana.
 
-El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados
-reales:
+El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados reales:
 
 - un ejercicio usado en una rutina, o con series registradas
 - una rutina con huecos definidos, con entrenamientos, o que ya tocó días pasados del plan
 - un hueco con series registradas
 
-Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un
-simple sí/no: la app enseña esa fecha, y el sí/no se deduce de ella. Lo contrario de ocultar es
-*mostrar* (`POST .../mostrar`). Lo oculto se puede abrir, borrar y volver a mostrar, pero no editar:
-eso da 409 hasta que se muestre. Y no se puede **elegir** en otro sitio (un ejercicio oculto para una
-serie nueva, una rutina oculta para un día del programa): eso da 404, porque lo oculto deja de
-ofrecerse y para elegirlo es como si no existiera. Lo que ya se apuntó con algo oculto sí se puede
-corregir: el peso o las repeticiones de una serie de un ejercicio oculto, o las notas y la fecha de
-una sesión de una rutina oculta. Las notas son la excepción: se pueden añadir, editar y borrar
-también en un ejercicio oculto, porque son tuyas y no lo usan (y son un buen sitio para apuntar por
-qué se ocultó).
+Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si está visible), no un simple sí/no: la app enseña esa fecha, y el sí/no se deduce de ella. Lo contrario de ocultar es *mostrar* (`POST .../mostrar`). Lo oculto se puede abrir, borrar y volver a mostrar, pero no editar: eso da 409 hasta que se muestre. Y no se puede **elegir** en otro sitio (un ejercicio oculto para una serie nueva, una rutina oculta para un día del programa): eso da 404, porque lo oculto deja de ofrecerse y para elegirlo es como si no existiera. Lo que ya se apuntó con algo oculto sí se puede corregir: el peso o las repeticiones de una serie de un ejercicio oculto, o las notas y la fecha de una sesión de una rutina oculta. Las notas son la excepción: se pueden añadir, editar y borrar también en un ejercicio oculto, porque son tuyas y no lo usan (y son un buen sitio para apuntar por qué se ocultó).
 
-`Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no
-algo que otras tablas tengan que proteger, así que se borran directo.
+`Entrenamiento` y `Serie` se quedan fuera de ese mecanismo a propósito: son el propio historial, no algo que otras tablas tengan que proteger, así que se borran directo.
 
-Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Una que se quedó
-abierta de un día para otro cuenta como terminada sin que nadie tenga que cerrarla. "Hoy" se calcula
-en la zona horaria del usuario, no en la del servidor.
+Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Una que se quedó abierta de un día para otro cuenta como terminada sin que nadie tenga que cerrarla. "Hoy" se calcula en la zona horaria del usuario, no en la del servidor.
 
-**Se entrena una rutina al día**: como mucho una sesión por día, del tipo que sea, y la base de datos
-lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta
-como cancelada: no ocupa su día, y se borra en cuanto otra lo necesita.
+**Se entrena una rutina al día**: como mucho una sesión por día, del tipo que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no ocupa su día, y se borra en cuanto otra lo necesita.
 
-Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un
-ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina
-(`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo
-con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén
-ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
+Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina (`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
 
-Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por
-migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
+Mientras no exista autenticación real (JWT), la API trabaja con un único usuario sembrado por migración —datos placeholder, no reales— y un `usuario_id` hardcodeado en el código.
 
-La biblioteca viene con **59 ejercicios predefinidos**, sembrados por migración y repartidos por
-los 17 grupos musculares, para que la app no arranque vacía: se puede montar una rutina sin crear
-ningún ejercicio antes. Son de todos y de nadie, así que no se pueden editar, ocultar ni borrar;
-las notas sobre ellos, en cambio, son de cada usuario.
+La biblioteca viene con **59 ejercicios predefinidos**, sembrados por migración y repartidos por los 17 grupos musculares, para que la app no arranque vacía: se puede montar una rutina sin crear ningún ejercicio antes. Son de todos y de nadie, así que no se pueden editar, ocultar ni borrar; las notas sobre ellos, en cambio, son de cada usuario.
 
-Los **grupos musculares** tampoco se crean desde la API: son 17 fijos, sembrados por migración, los
-que se usan para clasificar ejercicios de gimnasio: Pecho, Espalda, Trapecio, Lumbar, Hombro,
-Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Glúteo, Aductores,
-Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un
-solo grupo, y con grupos muy finos cualquier elección sería engañosa.
+Los **grupos musculares** tampoco se crean desde la API: son 17 fijos, sembrados por migración, los que se usan para clasificar ejercicios de gimnasio: Pecho, Espalda, Trapecio, Lumbar, Hombro, Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Glúteo, Aductores, Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un solo grupo, y con grupos muy finos cualquier elección sería engañosa.
 
 ### Seguimiento del plan
 
-Encima del plan (qué tocaba cada día) está el **seguimiento**: qué se hizo con cada día. Cada sesión
-guarda **qué día del plan cuenta** (`cubre_fecha`), según el botón con el que se empezó:
+Encima del plan (qué tocaba cada día) está el **seguimiento**: qué se hizo con cada día. Cada sesión guarda **qué día del plan cuenta** (`cubre_fecha`), según el botón con el que se empezó:
 
 - *Empezar* cuenta el día de hoy.
-- *Recuperar* cuenta un día pasado que se quedó sin hacer. Se puede hasta el día antes del mismo día
-  de la semana siguiente: lo del lunes, hasta el domingo.
+- *Recuperar* cuenta un día pasado que se quedó sin hacer. Se puede hasta el día antes del mismo día de la semana siguiente: lo del lunes, hasta el domingo.
 - *Adelantar* cuenta un día de esta semana que aún no ha llegado.
 
-No se deduce a posteriori a propósito: con dos días de Push en la semana, la misma sesión puede ser
-una cosa u otra, y adivinarlo fallaba en casos reales. Guardarlo hace que cada día tenga un estado
-claro: **hecho** (lo cuenta una sesión de ese mismo día), **movido** (lo cuenta una de otro día), o
-**sin hacer**, **pendiente** o **próximo** si no lo cuenta nadie, según sea pasado, hoy o futuro.
+No se deduce a posteriori a propósito: con dos días de Push en la semana, la misma sesión puede ser una cosa u otra, y adivinarlo fallaba en casos reales. Guardarlo hace que cada día tenga un estado claro: **hecho** (lo cuenta una sesión de ese mismo día), **movido** (lo cuenta una de otro día), o **sin hacer**, **pendiente** o **próximo** si no lo cuenta nadie, según sea pasado, hoy o futuro.
 
-Un día lo cuenta una sesión como mucho, y para contarlo tiene que tocar esa rutina, estar en plazo y
-caer en el mismo programa que la sesión: lo que se faltó con un programa que ya no está activo no se
-recupera. Una sesión cancelada (sin series y ya fuera de curso) no cuenta ni retiene su día.
+Un día lo cuenta una sesión como mucho, y para contarlo tiene que tocar esa rutina, estar en plazo y caer en el mismo programa que la sesión: lo que se faltó con un programa que ya no está activo no se recupera. Una sesión cancelada (sin series y ya fuera de curso) no cuenta ni retiene su día.
 
 Lo hecho por adelantado se respeta al cambiar el plan:
 
-- **En Planificar**, la sesión sigue a su rutina: si el Leg del viernes se hizo el martes y el Leg
-  pasa al sábado, la sesión pasa a contar el sábado. Si el cambio la dejara sin ningún día de esta
-  semana con su rutina, no se permite (409) y no se guarda nada.
+- **En Planificar**, la sesión sigue a su rutina: si el Leg del viernes se hizo el martes y el Leg pasa al sábado, la sesión pasa a contar el sábado. Si el cambio la dejara sin ningún día de esta semana con su rutina, no se permite (409) y no se guarda nada.
 - **Al editar el programa**, ese día se queda como estaba y el cambio empieza la semana siguiente.
-- **Borrar una rutina que ya tocó días pasados** pide elegir entre ocultarla y borrarla, porque
-  borrarla dejaría esos días como descanso en el calendario.
+- **Borrar una rutina que ya tocó días pasados** pide elegir entre ocultarla y borrarla, porque borrarla dejaría esos días como descanso en el calendario.
 
-La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo
-que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar,
-el próximo entrenamiento y la última sesión. La web se rehace en paralelo, pantalla a pantalla.
+La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. La web se rehace en paralelo, pantalla a pantalla.
 
 ## Estructura
 
@@ -164,19 +121,13 @@ models.py       las tablas
 database.py     la sesión y la conexión — no depende de nada más del proyecto
 ```
 
-Los `routers/` no son del todo independientes entre sí: `rutinas.py` y `entrenamientos.py`
-reutilizan una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el
-usuario actual) en vez de repetir esa lógica. Tiene sentido: tanto un hueco de rutina como una serie
-siempre referencian un ejercicio ya existente.
+Los `routers/` no son del todo independientes entre sí: `rutinas.py` y `entrenamientos.py` reutilizan una función de `ejercicios.py` (comprobar que un ejercicio existe y es visible para el usuario actual) en vez de repetir esa lógica. Tiene sentido: tanto un hueco de rutina como una serie siempre referencian un ejercicio ya existente.
 
-`alembic/` va aparte. Solo lee `models.py` (qué tablas debería haber) y `database.py` (a qué
-Postgres conectarse), y la API no lo usa en tiempo de ejecución: se ejecuta puntualmente, para crear
-o actualizar tablas.
+`alembic/` va aparte. Solo lee `models.py` (qué tablas debería haber) y `database.py` (a qué Postgres conectarse), y la API no lo usa en tiempo de ejecución: se ejecuta puntualmente, para crear o actualizar tablas.
 
 ## Cómo ejecutarlo
 
-Lo normal es levantarlo junto con la base de datos desde la raíz del repo con `docker compose up`
-(ver el [README raíz](../README.md)). Ese comando, de una vez:
+Lo normal es levantarlo junto con la base de datos desde la raíz del repo con `docker compose up` (ver el [README raíz](../README.md)). Ese comando, de una vez:
 
 1. construye la imagen,
 2. instala `requirements.txt`,
@@ -192,9 +143,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Copia `backend/.env.example` a `backend/.env`: apunta a `localhost:5433`, el puerto que Postgres
-expone al host. Necesitas el contenedor de la base de datos levantado (`docker compose up -d
-postgres`), aunque no uses el del backend.
+Copia `backend/.env.example` a `backend/.env`: apunta a `localhost:5433`, el puerto que Postgres expone al host. Necesitas el contenedor de la base de datos levantado (`docker compose up -d postgres`), aunque no uses el del backend.
 
 ```bash
 uvicorn app.main:app --reload
@@ -204,13 +153,9 @@ uvicorn app.main:app --reload
 
 ![Esquema de la base de datos de Training Life](../docs/esquema_base_datos.svg)
 
-Las 13 tablas y sus claves ajenas, con la regla de borrado de cada una —`CASCADE` arrastra al
-hijo, `RESTRICT` impide borrar al padre mientras exista— y qué tablas se pueden ocultar (columna
-`oculto_desde`), cuáles son historial y cuáles son accesorios que se borran con su padre. El diagrama
-se mantiene a mano: al añadir o cambiar una tabla hay que actualizarlo.
+Las 13 tablas y sus claves ajenas, con la regla de borrado de cada una —`CASCADE` arrastra al hijo, `RESTRICT` impide borrar al padre mientras exista— y qué tablas se pueden ocultar (columna `oculto_desde`), cuáles son historial y cuáles son accesorios que se borran con su padre. El diagrama se mantiene a mano: al añadir o cambiar una tabla hay que actualizarlo.
 
-Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de
-verdad a PostgreSQL hace falta generar y aplicar una migración:
+Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de verdad a PostgreSQL hace falta generar y aplicar una migración:
 
 ```bash
 # 1. Genera un archivo de migración comparando los modelos actuales contra la base de datos real
@@ -222,12 +167,9 @@ verdad a PostgreSQL hace falta generar y aplicar una migración:
 .venv\Scripts\python -m alembic upgrade head
 ```
 
-Con Docker el paso 3 no hace falta: el contenedor ejecuta `alembic upgrade head` cada vez que
-arranca.
+Con Docker el paso 3 no hace falta: el contenedor ejecuta `alembic upgrade head` cada vez que arranca.
 
-El paso 1 sí es manual, y puedes hacerlo sin Docker contra el Postgres de `localhost:5433`. La
-migración que generes llega al contenedor al instante, sin reconstruir la imagen, porque el bind
-mount cubre toda la carpeta `backend/`.
+El paso 1 sí es manual, y puedes hacerlo sin Docker contra el Postgres de `localhost:5433`. La migración que generes llega al contenedor al instante, sin reconstruir la imagen, porque el bind mount cubre toda la carpeta `backend/`.
 
 ## Tests
 
@@ -243,26 +185,17 @@ Para ver qué líneas del código no ejecuta ningún test:
 .venv\Scripts\python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
 ```
 
-La cobertura está en torno al 99 %. Lo que queda fuera son algunos 404 de ids que no existen y
-variantes menores de casos ya probados; no se persigue el 100 % por el número, sino que cada regla
-del backend tenga un test que falle si se rompe.
+La cobertura está en torno al 99 %. Lo que queda fuera son algunos 404 de ids que no existen y variantes menores de casos ya probados; no se persigue el 100 % por el número, sino que cada regla del backend tenga un test que falle si se rompe.
 
-Corren contra **PostgreSQL de verdad**, en una base de datos aparte (`training_life_test`) dentro
-del mismo contenedor que la de desarrollo, así que hace falta tener Postgres levantado
-(`docker compose up -d postgres`).
+Corren contra **PostgreSQL de verdad**, en una base de datos aparte (`training_life_test`) dentro del mismo contenedor que la de desarrollo, así que hace falta tener Postgres levantado (`docker compose up -d postgres`).
 
-No se usa SQLite a propósito: buena parte de la lógica del backend son cascadas de borrado y
-restricciones `ON DELETE`, que SQLite no reproduce. Unos tests sobre SQLite pasarían en verde con
-esos fallos vivos.
+No se usa SQLite a propósito: buena parte de la lógica del backend son cascadas de borrado y restricciones `ON DELETE`, que SQLite no reproduce. Unos tests sobre SQLite pasarían en verde con esos fallos vivos.
 
 No hay ningún paso previo que recordar:
 
-- Si la base de tests no existe todavía —la primera vez, o tras un `docker compose down -v`— la
-  propia tanda la crea.
-- Su esquema se construye aplicando las migraciones, así que cada ejecución comprueba de paso que la
-  cadena funciona desde cero.
-- La base de desarrollo no se toca nunca: si la conexión no apunta a `training_life_test`, los tests
-  abortan antes de ejecutar nada.
+- Si la base de tests no existe todavía —la primera vez, o tras un `docker compose down -v`— la propia tanda la crea.
+- Su esquema se construye aplicando las migraciones, así que cada ejecución comprueba de paso que la cadena funciona desde cero.
+- La base de desarrollo no se toca nunca: si la conexión no apunta a `training_life_test`, los tests abortan antes de ejecutar nada.
 
 | Archivo | Qué cubre |
 |---|---|
@@ -284,11 +217,8 @@ No hay ningún paso previo que recordar:
 
 Cómo se comenta y se formatea el código está en **[CONVENCIONES.md](CONVENCIONES.md)**. En resumen:
 
-- **Docstring y `#` no se eligen por longitud, sino por posición**: el docstring documenta un módulo,
-  una clase o una función (y FastAPI publica el de cada endpoint en `/docs`); el `#` explica por qué
-  una línea concreta está así.
-- Docstrings según [PEP 257](https://peps.python.org/pep-0257/), en español, y **solo cuando el
-  nombre no basta**: repetir el nombre en prosa es ruido.
+- **Docstring y `#` no se eligen por longitud, sino por posición**: el docstring documenta un módulo, una clase o una función (y FastAPI publica el de cada endpoint en `/docs`); el `#` explica por qué una línea concreta está así.
+- Docstrings según [PEP 257](https://peps.python.org/pep-0257/), en español, y **solo cuando el nombre no basta**: repetir el nombre en prosa es ruido.
 - Comentarios lo más cortos que se entiendan, explicando el **porqué** y nunca el qué.
 - El formato lo aplica `ruff` a 100 columnas (`ruff.toml`).
 
@@ -301,9 +231,7 @@ Cómo se comenta y se formatea el código está en **[CONVENCIONES.md](CONVENCIO
 
 ## Autenticación (pendiente)
 
-Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`app/auth.py`, función
-`get_usuario_actual_id`) — la fila sembrada por migración. Cuando se implemente JWT solo cambia esa
-función; los endpoints no necesitan tocarse.
+Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`app/auth.py`, función `get_usuario_actual_id`) — la fila sembrada por migración. Cuando se implemente JWT solo cambia esa función; los endpoints no necesitan tocarse.
 
 ## Endpoints disponibles
 
@@ -356,10 +284,7 @@ función; los endpoints no necesitan tocarse.
 
 ### Programas
 
-Un programa reparte rutinas en la semana: qué rutina toca cada día (1 = lunes … 7 = domingo). Las
-rutinas no pertenecen a ningún programa: la misma puede estar en varios programas y en varios días
-de uno, y cada rutina dice en cuántos programas aparece (`num_programas`). Un día sin rutina es
-descanso.
+Un programa reparte rutinas en la semana: qué rutina toca cada día (1 = lunes … 7 = domingo). Las rutinas no pertenecen a ningún programa: la misma puede estar en varios programas y en varios días de uno, y cada rutina dice en cuántos programas aparece (`num_programas`). Un día sin rutina es descanso.
 
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -374,16 +299,9 @@ descanso.
 | `DELETE` | `/programas/{id}` | Si nunca estuvo activo, se borra directo. Si lo estuvo, exige `?modo=ocultar` (conserva todo; si era el activo, deja de serlo) o `?modo=definitivo` (se van también sus días y sus periodos); sin ninguno, 409 con los periodos en que estuvo activo. Las sesiones nunca se tocan. |
 | `POST` | `/programas/{id}/mostrar` | Deshace un `?modo=ocultar`. No lo vuelve a activar aunque lo estuviera. |
 
-**Solo puede haber un programa activo**, o ninguno. Se guarda en qué periodos estuvo activo cada uno
-(de `desde` a `hasta`, sin incluir `hasta`), para que el calendario compare cada mes con el programa
-que tocaba entonces y no con el de hoy; por eso, para borrar uno que estuvo activo hay que elegir.
-Activar y desactivar un programa el mismo día no deja rastro, y volver a activarlo el día en que se
-desactivó retoma el mismo periodo. Además de comprobarlo el backend, un índice único parcial en la
-base de datos impide que un usuario tenga dos periodos abiertos a la vez.
+**Solo puede haber un programa activo**, o ninguno. Se guarda en qué periodos estuvo activo cada uno (de `desde` a `hasta`, sin incluir `hasta`), para que el calendario compare cada mes con el programa que tocaba entonces y no con el de hoy; por eso, para borrar uno que estuvo activo hay que elegir. Activar y desactivar un programa el mismo día no deja rastro, y volver a activarlo el día en que se desactivó retoma el mismo periodo. Además de comprobarlo el backend, un índice único parcial en la base de datos impide que un usuario tenga dos periodos abiertos a la vez.
 
-Borrar una rutina que está en un programa deja sus días en descanso. Si alguno de esos días ya pasó
-con el programa activo, borrarla pide elegir entre ocultarla y borrarla, como si tuviera historial:
-el calendario lo pintaría como descanso. El aviso dice también cuántos días de programa perdería.
+Borrar una rutina que está en un programa deja sus días en descanso. Si alguno de esos días ya pasó con el programa activo, borrarla pide elegir entre ocultarla y borrarla, como si tuviera historial: el calendario lo pintaría como descanso. El aviso dice también cuántos días de programa perdería.
 
 ### Plan: qué toca cada día
 
@@ -398,12 +316,9 @@ el calendario lo pintaría como descanso. El aviso dice también cuántos días 
 | `GET` | `/plan/seguimiento?desde=&hasta=` | Lo mismo que `/plan` y, además, qué pasó con cada día: `estado` (`descanso`, `hecho`, `movido`, `sin_hacer`, `pendiente` o `proximo`), `cubierto_por` (la sesión que lo cuenta y en qué fecha se hizo) y `sesion` (lo que se hizo ese día, cuente o no, y si cuenta de verdad). Con `estado` y `sesion` juntos se pintan todas las marcas del calendario. Siempre hace las mismas consultas, pida el rango que pida. |
 | `GET` | `/plan/hoy` | Todo lo que necesita la pantalla de hoy: `situacion` (`en_curso`, `hecho`, `primera_vez`, `sin_programa`, `movido`, `descanso` o `entrenamiento`; sin programa activo, un descanso planificado a mano sigue siendo `sin_programa`), `semana`, `por_recuperar` (cada día con su plazo, y si se puede recuperar ya), `ofrecidas` (intercambiar, adelantar o entrenar sin que cuente), `proximo`, `ultima_sesion` (la última con algo apuntado, sin contar la que está a medias, con sus series, sus ejercicios y el día que recuperaba o adelantaba) y `rutinas` (cada rutina visible con cuántos ejercicios tiene y cuándo se hizo por última vez). Con `?fecha=` de un día pasado sirve para la hoja de registrar ese día desde el calendario; una fecha futura da 422. |
 
-Lo que toca un día es, por orden: lo que se cambió a mano para ese día, o lo que diga el programa
-que estaba activo ese día, o nada. Si una rutina se borra, sus días planificados vuelven al programa.
+Lo que toca un día es, por orden: lo que se cambió a mano para ese día, o lo que diga el programa que estaba activo ese día, o nada. Si una rutina se borra, sus días planificados vuelven al programa.
 
-Cambiar, restablecer o intercambiar días reubica lo hecho por adelantado: la sesión pasa al primer
-día de hoy al domingo que toque su rutina y que no cuente otra. Si no queda ninguno, 409 con la
-sesión afectada y no se guarda el cambio.
+Cambiar, restablecer o intercambiar días reubica lo hecho por adelantado: la sesión pasa al primer día de hoy al domingo que toque su rutina y que no cuente otra. Si no queda ninguno, 409 con la sesión afectada y no se guarda el cambio.
 
 ### Entrenamientos y series
 
