@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
@@ -29,6 +27,11 @@ type Props = {
   biblioteca: Ejercicio[]
   abierto: boolean
   abrir: () => void
+  // La serie que se está editando. La lleva la pantalla, porque las ediciones van de
+  // una en una: con una serie o la nota abiertas, todo lo demás se queda en gris.
+  editandoId: number | null
+  alEditar: (serieId: number | null) => void
+  bloqueado: boolean
   sesion: { id: number; fecha: string }
   guardar: (datos: SerieAGuardar, serieId?: number) => Promise<void>
   pedirBorrar: (serie: Serie) => void
@@ -39,7 +42,7 @@ type Props = {
  * (solo uno a la vez) tiene la última vez, las series de hoy y el formulario.
  */
 export function BloqueDeHueco(props: Props) {
-  const { hueco, titulo, series, elegido, abierto, abrir } = props
+  const { hueco, titulo, series, elegido, abierto, abrir, bloqueado } = props
   const hechas = series.length
   const objetivo = hueco?.series_objetivo
   const completo = objetivo !== undefined && hechas >= objetivo
@@ -47,7 +50,7 @@ export function BloqueDeHueco(props: Props) {
 
   if (!abierto) {
     return (
-      <button type="button" className="hueco-plegado" onClick={abrir}>
+      <button type="button" className="hueco-plegado" onClick={abrir} disabled={bloqueado}>
         <span className="hueco-plegado-nombre">
           <span>{titulo}</span>
           {comodin && <span className="etiqueta-chica">comodín</span>}
@@ -77,8 +80,10 @@ function HuecoAbierto({
   sesion,
   guardar,
   pedirBorrar,
+  editandoId,
+  alEditar,
+  bloqueado,
 }: Props) {
-  const [editandoId, setEditandoId] = useState<number | null>(null)
   // Si la serie que se editaba se borra, el formulario vuelve a ser el de una nueva.
   const editando = series.find((serie) => serie.id === editandoId) ?? null
 
@@ -95,7 +100,8 @@ function HuecoAbierto({
   // repetiría un número.
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas.
-  const admiteNuevas = elegido !== null && !hueco?.oculto_desde
+  // Con otra edición abierta (la nota), el formulario de una nueva no se enseña.
+  const admiteNuevas = elegido !== null && !hueco?.oculto_desde && !bloqueado
   const comodines = hueco?.alternativas ?? []
 
   async function guardarDesdeFormulario(datos: DatosDeSerie) {
@@ -109,7 +115,7 @@ function HuecoAbierto({
         },
         editando.id,
       )
-      setEditandoId(null)
+      alEditar(null)
     } else if (elegido) {
       await guardar({
         ...datos,
@@ -124,7 +130,7 @@ function HuecoAbierto({
       <div className="hueco-cabecera">
         <div className="hueco-nombre">
           <span>{titulo}</span>
-          {hueco && elegido && comodines.length > 0 && rutinaId !== null && (
+          {hueco && elegido && comodines.length > 0 && rutinaId !== null && !bloqueado && (
             <SelectorDeEjercicio
               rutinaId={rutinaId}
               huecoId={hueco.id}
@@ -192,7 +198,8 @@ function HuecoAbierto({
                   type="button"
                   className="boton-icono"
                   aria-label={`Editar la serie ${serie.numero_serie}`}
-                  onClick={() => setEditandoId(serie.id === editandoId ? null : serie.id)}
+                  onClick={() => alEditar(serie.id)}
+                  disabled={bloqueado}
                 >
                   <Icono nombre="editar" pequeno />
                 </button>
@@ -201,6 +208,7 @@ function HuecoAbierto({
                   className="boton-icono quitar"
                   aria-label={`Borrar la serie ${serie.numero_serie}`}
                   onClick={() => pedirBorrar(serie)}
+                  disabled={bloqueado}
                 >
                   <Icono nombre="quitar" pequeno />
                 </button>
@@ -217,7 +225,7 @@ function HuecoAbierto({
           semilla={semilla}
           editando={editando !== null}
           alGuardar={guardarDesdeFormulario}
-          alCancelar={() => setEditandoId(null)}
+          alCancelar={() => alEditar(null)}
         />
       )}
 

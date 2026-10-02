@@ -86,6 +86,11 @@
   cursor: pointer;
 }
 
+.hueco-plegado:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .hueco-plegado-nombre {
   flex-grow: 1;
   min-width: 0;

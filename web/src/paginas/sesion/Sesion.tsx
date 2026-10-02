@@ -5,13 +5,14 @@ import { api, ErrorDeApi } from '../../api/cliente'
 import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
+import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { fechaEnFrase, fechaTitulo } from '../../utiles/fechas'
 import { pesoLegible } from '../../utiles/numeros'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
 import './sesion.css'
 
-// Adónde se vuelve al salir de la sesión: la pantalla de Hoy. Cuando exista el
-// día en el historial, *Terminar* llevará a él.
+// Adónde se vuelve al salir de la sesión o al cancelarla: la pantalla de Hoy.
+// *Terminar* lleva en cambio al día en el historial.
 const SALIDA = '/'
 
 // El bloque de las series que no van a ningún hueco, en el mismo mapa que los huecos.
@@ -55,6 +56,11 @@ export function Sesion() {
   const [elegidos, setElegidos] = useState<Record<number, Ejercicio | null>>({})
   const [aBorrar, setABorrar] = useState<Serie | null>(null)
   const [confirmando, setConfirmando] = useState<'terminar' | 'cancelar' | null>(null)
+  // Las ediciones van de una en una: una serie o la nota, y mientras tanto el resto se
+  // queda en gris (otros lápices, las ✕, los demás huecos, Terminar y Cancelar).
+  const [editandoSerie, setEditandoSerie] = useState<number | null>(null)
+  const [notaAbierta, setNotaAbierta] = useState(false)
+  const hayAbierta = editandoSerie !== null || notaAbierta
 
   useEffect(() => {
     let vigente = true
@@ -183,6 +189,9 @@ export function Sesion() {
         biblioteca={biblioteca.filter((ejercicio) => ejercicio.oculto_desde === null)}
         abierto={abierto === clave}
         abrir={() => setAbierto(clave)}
+        editandoId={editandoSerie}
+        alEditar={setEditandoSerie}
+        bloqueado={hayAbierta}
         sesion={activa}
         guardar={(datos, serieId) => guardar(hueco?.id ?? null, datos, serieId)}
         pedirBorrar={setABorrar}
@@ -203,7 +212,7 @@ export function Sesion() {
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
               {activa.cubre_fecha < activa.fecha ? 'Recuperando' : 'Adelantando'} el{' '}
-              {rutina?.nombre} del {fechaEnFrase(activa.cubre_fecha)}
+              {rutina?.nombre} del {fechaEnFrase(activa.cubre_fecha, false)}
             </span>
           )}
         </div>
@@ -216,16 +225,41 @@ export function Sesion() {
         {conSueltas && bloque(null, 0)}
       </div>
 
+      {/* La nota se puede escribir en cualquier momento, no solo al terminar: si hay que
+          esperar al final, se olvida lo que se quería apuntar. */}
+      <NotaDeSesion
+        nota={activa.notas}
+        editable
+        abierta={notaAbierta}
+        alAbrir={() => setNotaAbierta(true)}
+        alCerrar={() => setNotaAbierta(false)}
+        bloqueada={hayAbierta}
+        alGuardar={async (nota) => {
+          const guardada = await api.actualizarEntrenamiento(activa.id, {
+            rutina_id: activa.rutina_id,
+            fecha: activa.fecha,
+            notas: nota,
+          })
+          setSesion(guardada)
+        }}
+      />
+
       {/* Una sesión terminada se corrige desde el historial: aquí ya no se termina ni se cancela. */}
       {activa.terminada_en === null && (
         <div className="sesion-pie">
-          <button type="button" className="boton" onClick={() => setConfirmando('terminar')}>
+          <button
+            type="button"
+            className="boton"
+            onClick={() => setConfirmando('terminar')}
+            disabled={hayAbierta}
+          >
             Terminar sesión
           </button>
           <button
             type="button"
             className="boton boton-texto peligro"
             onClick={() => setConfirmando('cancelar')}
+            disabled={hayAbierta}
           >
             Cancelar sesión
           </button>
@@ -245,7 +279,23 @@ export function Sesion() {
         />
       )}
 
-      {confirmando === 'terminar' && (
+      {confirmando === 'terminar' && activa.series.length === 0 && (
+        // Una sesión sin series no se hizo: se cancela en vez de quedar como un día
+        // vacío en el historial, y el diálogo lo avisa (decisión del autor).
+        <Dialogo
+          titulo="¿Terminar la sesión?"
+          cuerpo="No has apuntado ninguna serie, así que la sesión se cancelará, como si no la hubieras empezado."
+          confirmar="Terminar"
+          cancelar="Seguir entrenando"
+          alConfirmar={async () => {
+            await api.borrarEntrenamiento(activa.id)
+            navegar(SALIDA)
+          }}
+          alCancelar={() => setConfirmando(null)}
+        />
+      )}
+
+      {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
           cuerpo={`Llevas ${contarSeries(activa.series.length)}${
@@ -255,7 +305,7 @@ export function Sesion() {
           cancelar="Seguir entrenando"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
-            navegar(SALIDA)
+            navegar(`/historial/${activa.fecha}`)
           }}
           alCancelar={() => setConfirmando(null)}
         />
