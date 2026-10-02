@@ -52,7 +52,11 @@ type Props = {
 
 export function Icono({ nombre, pequeno = false }: Props) {
   return (
-    <svg className={pequeno ? 'icono icono-pequeno' : 'icono'} viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className={pequeno ? 'icono icono-pequeno' : 'icono'}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       {TRAZOS[nombre]}
     </svg>
   )
