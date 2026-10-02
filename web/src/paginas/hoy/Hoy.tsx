@@ -140,7 +140,7 @@ export function Hoy() {
           }
         : {
             titulo: `¿Recuperar el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
-            cuerpo: `Lo haces hoy y contará como el ${rutina.nombre} del ${fechaEnFrase(fecha)}. El plan no cambia.`,
+            cuerpo: `Lo haces hoy y contará como el ${rutina.nombre} del ${fechaEnFrase(fecha, false)}. El plan no cambia.`,
             confirmar: 'Recuperar',
             alConfirmar: () => empezar(rutina.id, fecha),
           },
@@ -181,8 +181,8 @@ export function Hoy() {
     resumen.por_recuperar.length === 0
 
   return (
-    <div className="hoy">
-      <header className="hoy-cabecera">
+    <div className="entrada">
+      <header className="entrada-cabecera">
         <p>{fechaLarga(hoy)}</p>
         <h1>Hoy</h1>
       </header>
@@ -207,8 +207,8 @@ export function Hoy() {
       />
 
       {resumen.por_recuperar.length > 0 && (
-        <section className="hoy-seccion">
-          <h2 className="hoy-rotulo">Por recuperar</h2>
+        <section className="entrada-seccion">
+          <h2 className="entrada-rotulo">Por recuperar</h2>
           <div className="recuperables">
             {resumen.por_recuperar.map((recuperable) => (
               <FilaRecuperable
@@ -224,28 +224,28 @@ export function Hoy() {
       )}
 
       {resumen.ultima_sesion && (
-        <section className="hoy-seccion">
-          <h2 className="hoy-rotulo">Última sesión hecha</h2>
+        <section className="entrada-seccion">
+          <h2 className="entrada-rotulo">Última sesión hecha</h2>
           <UltimaSesion ultima={resumen.ultima_sesion} />
         </section>
       )}
 
       {listaDeAbajo.length > 0 && (
-        <section className="hoy-seccion">
-          <h2 className="hoy-rotulo">{TITULO_DE_LA_LISTA[listaDeAbajo[0].accion]}</h2>
+        <section className="entrada-seccion">
+          <h2 className="entrada-rotulo">{TITULO_DE_LA_LISTA[listaDeAbajo[0].accion]}</h2>
           {listaDeAbajo.map((ofrecida) => (
             <button
               key={`${ofrecida.rutina.id}-${ofrecida.fecha}`}
               type="button"
-              className="hoy-fila"
+              className="entrada-fila"
               onClick={() => pedirOfrecida(ofrecida)}
             >
-              <span className="hoy-fila-texto">
+              <span className="entrada-fila-texto">
                 <strong>{ofrecida.rutina.nombre}</strong>
                 <span>{detalle(ofrecida.rutina)}</span>
               </span>
               {ofrecida.fecha && (
-                <span className="hoy-fila-dia">{mayuscula(nombreDelDia(ofrecida.fecha))}</span>
+                <span className="entrada-fila-dia">{mayuscula(nombreDelDia(ofrecida.fecha))}</span>
               )}
               <Icono nombre="abrir" pequeno />
             </button>
@@ -305,7 +305,7 @@ function Tarjeta({
   switch (resumen.situacion) {
     case 'primera_vez':
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           <p className="tarjeta-antes">Primera vez</p>
           <p className="tarjeta-grande">Te damos la bienvenida</p>
           {/* Dice qué es una rutina y qué es un programa: quien abre la app por primera
@@ -323,7 +323,7 @@ function Tarjeta({
 
     case 'sin_programa':
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           <p className="tarjeta-antes">Hoy</p>
           <p className="tarjeta-grande">Sin programa</p>
           <p className="tarjeta-despues">
@@ -340,7 +340,7 @@ function Tarjeta({
       const series = enCurso ? ` · ${contar(enCurso.series.length, 'serie', 'series')}` : ''
       const loDeHoy = sesion?.cuenta && sesion.cubre_fecha === resumen.fecha
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           {chip}
           <p className="tarjeta-antes con-chip">{loDeHoy ? 'Hoy toca' : 'Hoy'}</p>
           <p className="tarjeta-grande">{nombre}</p>
@@ -374,7 +374,7 @@ function Tarjeta({
         hecho = sesion.rutina ? `Entrenaste ${sesion.rutina.nombre}` : 'Entrenamiento libre hecho'
       }
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           {chip}
           <p className="tarjeta-antes con-chip">Hoy</p>
           <p className="tarjeta-grande">{rutina?.nombre ?? 'Descanso'}</p>
@@ -390,7 +390,7 @@ function Tarjeta({
       const cuando = dia.cubierto_por!.fecha
       const como = cuando < resumen.fecha ? 'Hecho por adelantado' : 'Recuperado'
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           {chip}
           <p className="tarjeta-antes con-chip">Hoy tocaba</p>
           <p className="tarjeta-grande">{dia.rutina?.nombre}</p>
@@ -405,7 +405,7 @@ function Tarjeta({
     case 'descanso': {
       const proximo = resumen.proximo
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           {chip}
           <p className="tarjeta-antes con-chip">Hoy</p>
           <p className="tarjeta-grande">Descanso</p>
@@ -421,7 +421,7 @@ function Tarjeta({
 
     case 'entrenamiento':
       return (
-        <div className="tarjeta">
+        <div className="tarjeta-hoy">
           {chip}
           <p className="tarjeta-antes con-chip">Hoy toca</p>
           <p className="tarjeta-grande">{rutina!.nombre}</p>
@@ -453,9 +453,9 @@ function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRec
 
   return (
     <div className="recuperable">
-      <div className="hoy-fila-texto">
+      <div className="entrada-fila-texto">
         <strong>
-          {rutina.nombre} del {fechaEnFrase(fecha)}
+          {rutina.nombre} del {fechaEnFrase(fecha, false)}
         </strong>
         <span className={caducaHoy && se_puede_hoy ? 'caduca' : undefined}>{texto}</span>
       </div>
@@ -473,10 +473,7 @@ function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRec
   )
 }
 
-/**
- * La última sesión hecha. De momento no lleva a ningún sitio: su destino es el día
- * en el historial (H2), que todavía no existe.
- */
+/** La última sesión hecha, que lleva a su día en el historial. */
 function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_sesion']> }) {
   const nombre = ultima.rutina?.nombre ?? 'Entrenamiento libre'
   let cifras = `${contar(ultima.series, 'serie', 'series')} · ${contar(ultima.ejercicios, 'ejercicio', 'ejercicios')}`
@@ -485,8 +482,8 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
     cifras = `${como} del ${nombreDelDia(ultima.cubre_fecha)} · ${contar(ultima.series, 'serie', 'series')}`
   }
   return (
-    <div className="hoy-fila">
-      <span className="hoy-fila-texto">
+    <Link to={`/historial/${ultima.fecha}`} className="entrada-fila">
+      <span className="entrada-fila-texto">
         <span className="ultima-titulo">
           <strong>
             {nombre} · {fechaEnFrase(ultima.fecha)}
@@ -495,7 +492,8 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
         </span>
         <span className="num">{cifras}</span>
       </span>
-    </div>
+      <Icono nombre="abrir" pequeno />
+    </Link>
   )
 }
 
@@ -503,7 +501,7 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
 function Pie({ resumen, semanaHecha }: { resumen: ResumenDeHoy; semanaHecha: boolean }) {
   if (resumen.situacion === 'primera_vez') {
     return (
-      <p className="hoy-pie parrafo">
+      <p className="entrada-pie parrafo">
         También puedes entrenar sin programa: en cuanto tengas una rutina, podrás empezarla desde
         aquí, las veces que quieras.
       </p>
@@ -520,7 +518,7 @@ function Pie({ resumen, semanaHecha }: { resumen: ResumenDeHoy; semanaHecha: boo
           : `Mañana descansas; ${cuandoToca(proximo.fecha, resumen.fecha)} toca ${proximo.rutina.nombre}.`
     }
     return (
-      <p className="hoy-pie">
+      <p className="entrada-pie">
         Por hoy ya está.
         {siguiente && (
           <>
@@ -533,7 +531,7 @@ function Pie({ resumen, semanaHecha }: { resumen: ResumenDeHoy; semanaHecha: boo
   }
   if (semanaHecha) {
     return (
-      <p className="hoy-pie">
+      <p className="entrada-pie">
         Esta semana ya está hecha.
         <br />
         No queda nada por adelantar ni por recuperar.
