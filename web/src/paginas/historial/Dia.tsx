@@ -462,7 +462,7 @@ export function Dia() {
       {aBorrar && (
         <Dialogo
           titulo={`¿Borrar la serie ${aBorrar.numero_serie}?`}
-          cuerpo={`${carga(aBorrar)}. Se borrará al pulsar Guardar.`}
+          cuerpo={carga(aBorrar)}
           confirmar="Borrar"
           peligro
           alConfirmar={async () => {
@@ -477,11 +477,14 @@ export function Dia() {
         <Dialogo
           titulo="¿Borrar este día?"
           cuerpo={
-            `Se borrarán la sesión del ${fechaEnFrase(dia.fecha, false)} y ` +
+            // El día ya está en la cabecera: solo se nombra el que cuenta si es otro.
+            `Se borrarán la sesión y ` +
             `${dia.series.length === 1 ? 'su serie' : `sus ${contar(dia.series.length, 'serie', 'series')}`}` +
-            (dia.cubre_fecha
-              ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
-              : '') +
+            (dia.cubre_fecha === dia.fecha
+              ? ', y este día quedará sin hacer'
+              : dia.cubre_fecha
+                ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
+                : '') +
             '. No se puede deshacer.'
           }
           confirmar="Borrar"

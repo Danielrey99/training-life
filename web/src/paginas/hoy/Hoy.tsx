@@ -140,7 +140,7 @@ export function Hoy() {
           }
         : {
             titulo: `¿Recuperar el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
-            cuerpo: `Lo haces hoy y contará como el ${rutina.nombre} del ${fechaEnFrase(fecha, false)}. El plan no cambia.`,
+            cuerpo: `Lo entrenas hoy y contará como el del ${fechaEnFrase(fecha, false)}.`,
             confirmar: 'Recuperar',
             alConfirmar: () => empezar(rutina.id, fecha),
           },
@@ -154,18 +154,17 @@ export function Hoy() {
     } else if (ofrecida.accion === 'adelantar') {
       setConfirmando({
         titulo: `¿Adelantar el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
-        cuerpo: `Lo haces hoy y el ${nombreDelDia(fecha)} queda libre.`,
+        cuerpo: `Lo entrenas hoy y el ${nombreDelDia(fecha)} queda libre.`,
         confirmar: 'Adelantar',
         alConfirmar: () => empezar(rutina.id, fecha),
       })
     } else {
-      // La única pregunta con Sí / No, porque así lo eligió el autor. Sí cambia el
-      // plan de los dos días y empieza la sesión de hoy, que ya toca esta rutina.
+      // Intercambiar cambia el plan de los dos días y empieza la sesión de hoy, que ya
+      // toca esta rutina.
       setConfirmando({
         titulo: `¿Intercambiar con el ${nombreDelDia(fecha)}?`,
         cuerpo: `Hoy harías ${rutina.nombre} y el ${nombreDelDia(fecha)} pasaría a ser ${rutinaDeHoy?.nombre}.`,
-        confirmar: 'Sí',
-        cancelar: 'No',
+        confirmar: 'Intercambiar',
         alConfirmar: async () => {
           await api.intercambiarDias(hoy, fecha)
           await empezar(rutina.id, hoy)

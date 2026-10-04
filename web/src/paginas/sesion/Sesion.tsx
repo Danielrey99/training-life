@@ -271,7 +271,7 @@ export function Sesion() {
           titulo={`¿Borrar la serie ${aBorrar.numero_serie}?`}
           cuerpo={`${pesoLegible(aBorrar.peso)} kg × ${aBorrar.repeticiones} reps${
             aBorrar.variante ? ` · ${aBorrar.variante}` : ''
-          }. No se puede deshacer.`}
+          }`}
           confirmar="Borrar"
           peligro
           alConfirmar={() => borrar(aBorrar)}
