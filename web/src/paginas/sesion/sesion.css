@@ -272,7 +272,7 @@
   border: 1px solid var(--borde);
   border-radius: var(--radio-pequeno);
   font-size: 14px;
-  /* Mantener pulsado no debe seleccionar el texto ni abrir el menú del sistema. */
+  /* Tocar varias veces seguidas no debe seleccionar el texto ni abrir el menú del sistema. */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
