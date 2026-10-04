@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { api, ErrorDeApi } from '../../api/cliente'
 import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
-import { fechaEnFrase, fechaTitulo } from '../../utiles/fechas'
+import { fechaEnFrase, fechaTitulo, hoy } from '../../utiles/fechas'
 import { pesoLegible } from '../../utiles/numeros'
+import { useVolver } from '../../utiles/volver'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
 import './sesion.css'
 
-// Adónde se vuelve al salir de la sesión o al cancelarla: la pantalla de Hoy.
-// *Terminar* lleva en cambio al día en el historial.
+// Adónde se va al cancelar una sesión de hoy, y la flecha si no hay pantalla anterior:
+// la pantalla de Hoy. *Terminar* lleva en cambio al día en el historial.
 const SALIDA = '/'
 
 // El bloque de las series que no van a ningún hueco, en el mismo mapa que los huecos.
@@ -46,6 +47,8 @@ function ejercicioInicial(hueco: HuecoDeRutina, series: Serie[]): Ejercicio | nu
 export function Sesion() {
   const { entrenamientoId } = useParams()
   const navegar = useNavigate()
+  const volverAtras = useVolver()
+  const desdeSuDia = (useLocation().state as { desdeSuDia?: boolean } | null)?.desdeSuDia ?? false
 
   const [sesion, setSesion] = useState<Entrenamiento | null>(null)
   const [rutina, setRutina] = useState<Rutina | null>(null)
@@ -136,8 +139,16 @@ export function Sesion() {
     (hueco) => deHueco(hueco).length >= hueco.series_objetivo,
   ).length
 
-  let subtitulo = `${fechaTitulo(activa.fecha)} · ${contarSeries(activa.series.length)}`
-  if (rutina) subtitulo += ` · ${completos} de ${visibles.length} ejercicios`
+  // La pantalla de la que cuelga, para cancelar y para la flecha si no hay pantalla
+  // anterior. Una sesión de un día pasado se apunta desde el calendario: va a su día (o
+  // al mes, si aún no tiene series y no hay día que ver).
+  const deOtroDia = activa.fecha < hoy()
+  const mes = `/historial?mes=${activa.fecha.slice(0, 7)}`
+  const padre = !deOtroDia ? SALIDA : activa.series.length > 0 ? `/historial/${activa.fecha}` : mes
+  const alCancelar = deOtroDia ? mes : SALIDA
+
+  let cifras = contarSeries(activa.series.length)
+  if (rutina) cifras += ` · ${completos} de ${visibles.length} ejercicios`
 
   async function guardar(huecoId: number | null, datos: SerieAGuardar, serieId?: number) {
     const cuerpo = { ...datos, slot_id: huecoId, rpe: null }
@@ -202,12 +213,28 @@ export function Sesion() {
   return (
     <div className="sesion">
       <header className="sesion-cabecera">
-        <Link to={SALIDA} className="boton-icono" aria-label="Volver">
+        <button
+          type="button"
+          className="boton-icono"
+          aria-label="Volver"
+          onClick={() => volverAtras(padre)}
+        >
           <Icono nombre="volver" />
-        </Link>
+        </button>
         <div className="sesion-titulo">
           <h1>{rutina?.nombre ?? 'Entrenamiento libre'}</h1>
-          <p>{subtitulo}</p>
+          {/* La fecha de un día pasado es larga ("Miércoles 30 de septiembre") y no cabe con
+              las cifras: va en su propia línea, en vez de partirse por cualquier sitio. */}
+          {deOtroDia ? (
+            <>
+              <p>{fechaTitulo(activa.fecha)}</p>
+              <p>{cifras}</p>
+            </>
+          ) : (
+            <p>
+              {fechaTitulo(activa.fecha)} · {cifras}
+            </p>
+          )}
           {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy. */}
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
@@ -289,7 +316,7 @@ export function Sesion() {
           cancelar="Seguir entrenando"
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)
-            navegar(SALIDA)
+            navegar(alCancelar, { replace: true })
           }}
           alCancelar={() => setConfirmando(null)}
         />
@@ -305,7 +332,10 @@ export function Sesion() {
           cancelar="Seguir entrenando"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
-            navegar(`/historial/${activa.fecha}`)
+            // Si se abrió desde su día (Seguir apuntando), se vuelve a él; si no, el día
+            // sustituye a la sesión, para que volver desde él no lleve a ella ya terminada.
+            if (desdeSuDia) navegar(-1)
+            else navegar(`/historial/${activa.fecha}`, { replace: true })
           }}
           alCancelar={() => setConfirmando(null)}
         />
@@ -326,7 +356,7 @@ export function Sesion() {
           peligro
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)
-            navegar(SALIDA)
+            navegar(alCancelar, { replace: true })
           }}
           alCancelar={() => setConfirmando(null)}
         />

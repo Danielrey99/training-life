@@ -8,6 +8,7 @@ import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
 import { diaDeLaSemana, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
 import { pesoLegible } from '../../utiles/numeros'
+import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Bloque, type Mejora } from './BloqueDelDia'
 import '../sesion/sesion.css'
@@ -135,7 +136,9 @@ export function Dia() {
   const [falloFecha, setFalloFecha] = useState<string | null>(null)
   const [falloGuardar, setFalloGuardar] = useState<string | null>(null)
 
+  // El calendario de su mes: adónde va la flecha si no hay pantalla anterior.
   const volver = `/historial?mes=${fecha.slice(0, 7)}`
+  const volverAtras = useVolver()
 
   // Cada cambio guardado sube la versión, y eso vuelve a leer el día.
   const [version, setVersion] = useState(0)
@@ -347,9 +350,14 @@ export function Dia() {
             Cancelar
           </button>
         ) : (
-          <Link to={volver} className="boton-icono" aria-label="Volver al calendario">
+          <button
+            type="button"
+            className="boton-icono"
+            aria-label="Volver"
+            onClick={() => volverAtras(volver)}
+          >
             <Icono nombre="volver" />
-          </Link>
+          </button>
         )}
         <div className="sesion-titulo">
           <h1>{nombre}</h1>
@@ -491,7 +499,8 @@ export function Dia() {
           peligro
           alConfirmar={async () => {
             await api.borrarEntrenamiento(dia.id)
-            navegar(volver)
+            // En lugar del día borrado, para que volver no lleve a él.
+            navegar(volver, { replace: true })
           }}
           alCancelar={() => setBorrandoDia(false)}
         />
