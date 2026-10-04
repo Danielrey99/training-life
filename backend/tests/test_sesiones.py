@@ -236,6 +236,86 @@ def test_el_listado_con_en_curso_sin_ninguna_abierta_esta_vacio(cliente):
     assert cliente.get("/entrenamientos", params={"en_curso": True}).json() == []
 
 
+def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_y_con_series(
+    cliente, ejercicio_predefinido_id
+):
+    """Las que se dejaron a medias: de un día pasado, sin terminar y con algo
+    apuntado. Ni la de hoy (sigue en curso), ni las terminadas, ni las vacías (ya
+    cuentan como canceladas).
+    """
+
+    def con_serie(sesion):
+        cliente.post(
+            f"/entrenamientos/{sesion['id']}/series",
+            json={
+                "ejercicio_id": ejercicio_predefinido_id,
+                "numero_serie": 1,
+                "peso": 40,
+                "repeticiones": 10,
+            },
+        )
+        return sesion
+
+    a_medias = con_serie(empezar(cliente, AYER))
+    terminar(cliente, con_serie(empezar(cliente, HOY - timedelta(days=2)))["id"])
+    empezar(cliente, HOY - timedelta(days=3))
+    con_serie(empezar(cliente))
+
+    respuesta = cliente.get("/entrenamientos", params={"sin_terminar": True})
+
+    assert [sesion["id"] for sesion in respuesta.json()] == [a_medias["id"]]
+
+
+def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
+    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
+):
+    from app.models import Entrenamiento, Serie
+
+    ajena = Entrenamiento(usuario_id=otro_usuario_id, fecha=AYER)
+    sesion_bd.add(ajena)
+    sesion_bd.flush()
+    sesion_bd.add(
+        Serie(
+            entrenamiento_id=ajena.id,
+            ejercicio_id=ejercicio_predefinido_id,
+            numero_serie=1,
+            peso=40,
+            repeticiones=10,
+        )
+    )
+    sesion_bd.commit()
+
+    assert cliente.get("/entrenamientos", params={"sin_terminar": True}).json() == []
+
+
+def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):
+    """Lo que usa el día del historial para comparar su volumen con la sesión
+    anterior de la misma rutina, sin pedir todo el historial.
+    """
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+
+    def sesion(rutina_id, dias_atras):
+        fecha = (HOY - timedelta(days=dias_atras)).isoformat()
+        respuesta = cliente.post("/entrenamientos", json={"fecha": fecha, "rutina_id": rutina_id})
+        assert respuesta.status_code == 201, respuesta.text
+        return respuesta.json()["id"]
+
+    antigua = sesion(push, 9)
+    sesion(pull, 5)
+    reciente = sesion(push, 2)
+
+    todas = cliente.get("/entrenamientos", params={"rutina_id": push}).json()
+    una = cliente.get("/entrenamientos", params={"rutina_id": push, "limite": 1}).json()
+
+    assert [s["id"] for s in todas] == [reciente, antigua]
+    assert [s["id"] for s in una] == [reciente]
+
+
+def test_el_listado_rechaza_un_limite_que_no_es_positivo(cliente):
+    assert cliente.get("/entrenamientos", params={"limite": 0}).status_code == 422
+
+
 def test_el_listado_filtra_por_rango_de_fechas_incluidos_los_extremos(cliente):
     for dias in (0, 1, 2, 3):
         empezar(cliente, HOY - timedelta(days=dias + 10))

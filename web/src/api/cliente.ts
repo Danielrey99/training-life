@@ -176,9 +176,18 @@ export const api = {
     peticion<void>(`/rutinas/${rutinaId}/slots/${huecoId}/alternativas/${ejercicioId}`, BORRAR),
 
   // --- Entrenamientos y series ---
-  /** Con `en_curso`, una lista con la sesión abierta de hoy o vacía. */
-  entrenamientos: (filtro: Rango & { en_curso?: boolean } = {}) =>
-    peticion<Entrenamiento[]>(`/entrenamientos${consulta(filtro)}`),
+  /**
+   * Con `en_curso`, una lista con la sesión abierta de hoy o vacía. Con `sin_terminar`,
+   * las de días pasados que se dejaron a medias (sin terminar y con alguna serie). Con
+   * `rutina_id` y `limite`, las últimas sesiones de una rutina.
+   */
+  entrenamientos: (
+    filtro: RangoConLimite & {
+      en_curso?: boolean
+      sin_terminar?: boolean
+      rutina_id?: number
+    } = {},
+  ) => peticion<Entrenamiento[]>(`/entrenamientos${consulta(filtro)}`),
   entrenamiento: (id: number) => peticion<Entrenamiento>(`/entrenamientos/${id}`),
   crearEntrenamiento: (datos: NuevoEntrenamiento) =>
     peticion<Entrenamiento>('/entrenamientos', conCuerpo('POST', datos)),

@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -216,15 +216,25 @@ def listar_entrenamientos(
     desde: date | None = None,
     hasta: date | None = None,
     en_curso: bool = False,
+    sin_terminar: bool = False,
+    rutina_id: int | None = None,
+    limite: int | None = Query(default=None, gt=0, le=500),
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Los entrenamientos del usuario, del más reciente al más antiguo.
 
-    `desde` y `hasta` (incluidos) sirven para pedir una semana o un mes. Con
+    `desde` y `hasta` (incluidos) sirven para pedir una semana o un mes, y
+    `rutina_id` con `limite`, las últimas sesiones de una rutina (el día del
+    historial compara su volumen con el de la anterior). Con
     `en_curso=true` devuelve solo la sesión en curso, si la hay: una lista con uno
     o ningún elemento, que es lo que necesita la pantalla de hoy para ofrecer
     *Continuar* en vez de *Empezar*.
+
+    Con `sin_terminar=true`, las de días pasados que se quedaron sin terminar y con
+    alguna serie: cuentan como hechas, pero quizá se dejaron a medias sin querer, y
+    la pantalla de hoy avisa de ellas. Las vacías no salen: ya cuentan como
+    canceladas (`esta_cancelada`).
     """
     if desde is not None and hasta is not None and desde > hasta:
         raise HTTPException(
@@ -238,7 +248,14 @@ def listar_entrenamientos(
         stmt = stmt.where(Entrenamiento.fecha <= hasta)
     if en_curso:
         stmt = stmt.where(Entrenamiento.fecha == hoy(), Entrenamiento.terminada_en.is_(None))
-    stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc())
+    if sin_terminar:
+        con_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
+        stmt = stmt.where(
+            Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_(None), con_series
+        )
+    if rutina_id is not None:
+        stmt = stmt.where(Entrenamiento.rutina_id == rutina_id)
+    stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc()).limit(limite)
     return db.scalars(stmt).all()
 
 
