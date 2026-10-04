@@ -163,7 +163,7 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         <p className="hoja-subtitulo">
           No hay ninguna sesión registrada este día.
           <br />
-          Elige qué hiciste para apuntarlo ahora.
+          Elige qué rutina hiciste para apuntarlo ahora.
         </p>
 
         {error && <p className="aviso error">{error}</p>}
@@ -181,11 +181,7 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         ))}
         {otras.length > 0 && (
           <>
-            <p className="hoja-rotulo">
-              {cuentan.length > 0 || resumen?.situacion !== 'sin_programa'
-                ? 'Otra rutina · no contará para ningún día del programa'
-                : 'Sin programa activo · no contará para ningún día'}
-            </p>
+            <p className="hoja-rotulo">Estas no contarán para ningún día del programa</p>
             {otras.map((opcion) => (
               <Fila key={opcion.clave} opcion={opcion} />
             ))}
