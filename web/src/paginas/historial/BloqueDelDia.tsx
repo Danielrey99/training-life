@@ -21,7 +21,11 @@ export type Bloque = {
   ultima: SesionHistorial | null
 }
 
-export type Mejora = { texto: string; clase: 'mejor' | 'igual' | 'peor' }
+export type Insignia = { texto: string; clase: 'mejor' | 'igual' | 'peor' }
+
+// `clase`: si el ejercicio mejoró (lo decide el 1RM); `insignias`: qué cambió, una por
+// cosa ("+1 kg", "−3 reps"), y al final la del 1RM con su flecha.
+export type Mejora = { clase: Insignia['clase']; insignias: Insignia[] }
 
 type Props = {
   bloque: Bloque
@@ -115,16 +119,25 @@ export function BloqueDelDia({
               elegir={setElegido}
             />
           )}
-      </div>
-      <div className="dia-insignias">
-        {hueco && (
+        {/* El objetivo arriba, con el nombre, y no junto a las mejoras: es lo que pide la
+            rutina, no cómo fue el día. */}
+        {hueco ? (
           <span className="dia-objetivo num">
             {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
           </span>
+        ) : (
+          <span className="etiqueta-chica">sin hueco</span>
         )}
-        {!hueco && <span className="etiqueta-chica">sin hueco</span>}
-        {mejora && <span className={`dia-mejora ${mejora.clase}`}>{mejora.texto}</span>}
       </div>
+      {mejora && (
+        <div className="dia-insignias">
+          {mejora.insignias.map((insignia) => (
+            <span key={insignia.texto} className={`dia-mejora num ${insignia.clase}`}>
+              {insignia.texto}
+            </span>
+          ))}
+        </div>
+      )}
 
       {vacio && <p className="rotulo dia-primera">Ese día no se apuntó ninguna serie</p>}
       <ul>

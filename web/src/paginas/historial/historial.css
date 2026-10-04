@@ -113,6 +113,16 @@
   color: var(--texto-tenue);
 }
 
+/* Cuánto cambió frente a la sesión anterior de la rutina: verde si sube, gris si baja. */
+.cifra-cambio {
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.cifra-cambio.mejor {
+  color: var(--acento);
+}
+
 .cifras-pie {
   margin: -6px 0 0;
   font-size: 12.5px;
@@ -399,6 +409,14 @@
   color: var(--texto-tenue);
 }
 
+/* Cómo se decide si un ejercicio mejoró: al final, porque se consulta, no se lee antes. */
+.dia-leyenda {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
 .dia-vez {
   display: flex;
   flex-direction: column;
@@ -431,6 +449,11 @@
 
 .dia-hueco-cabecera h2 {
   flex-grow: 1;
+}
+
+/* Con un nombre largo, el que se parte es el nombre, no el objetivo. */
+.dia-hueco-cabecera .dia-objetivo {
+  flex-shrink: 0;
 }
 
 /* Un hueco que ese día se quedó sin series: solo sale al editar, y discreto. */
