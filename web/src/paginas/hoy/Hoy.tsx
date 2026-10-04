@@ -59,6 +59,7 @@ export function Hoy() {
   const [resumen, setResumen] = useState<ResumenDeHoy | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
   const [enCurso, setEnCurso] = useState<Entrenamiento | null>(null)
+  const [sinTerminar, setSinTerminar] = useState<Entrenamiento[]>([])
   const [error, setError] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
 
@@ -66,7 +67,11 @@ export function Hoy() {
     let vigente = true
     async function cargar() {
       try {
-        const [leido, programas] = await Promise.all([api.hoy(), api.programas()])
+        const [leido, programas, aMedias] = await Promise.all([
+          api.hoy(),
+          api.programas(),
+          api.entrenamientos({ sin_terminar: true }),
+        ])
         // De la sesión a medias hacen falta la hora y las series, que el resumen no trae.
         const abierta = leido.sesion?.en_curso
           ? await api.entrenamiento(leido.sesion.entrenamiento_id)
@@ -75,6 +80,7 @@ export function Hoy() {
         setResumen(leido)
         setPrograma(programas.find((uno) => uno.activo) ?? null)
         setEnCurso(abierta)
+        setSinTerminar(aMedias)
       } catch (fallo) {
         if (vigente) setError((fallo as Error).message)
       }
@@ -98,6 +104,12 @@ export function Hoy() {
     if (!datos) return ''
     const cuando = datos.ultima_vez ? `última vez ${conArticulo(datos.ultima_vez)}` : 'nunca hecha'
     return `${contar(datos.ejercicios, 'ejercicio', 'ejercicios')} · ${cuando}`
+  }
+
+  /** El nombre para una sesión sin terminar; una rutina oculta no está en el resumen. */
+  function nombreDeRutina(rutinaId: number | null) {
+    if (rutinaId === null) return 'Entrenamiento libre'
+    return resumen!.rutinas.find((una) => una.id === rutinaId)?.nombre ?? 'Sesión'
   }
 
   function ejercicios(rutina: RutinaMinima) {
@@ -204,6 +216,27 @@ export function Hoy() {
         alEmpezar={() => rutinaDeHoy && pedirEmpezar(rutinaDeHoy, hoy)}
         alContinuar={() => navegar(`/sesion/${resumen.sesion!.entrenamiento_id}`)}
       />
+
+      {/* Una sesión de un día pasado que se dejó a medias cuenta como hecha, pero quizá se
+          olvidó: se avisa aquí hasta que se termine o se cancele. */}
+      {sinTerminar.length > 0 && (
+        <section className="entrada-seccion">
+          <h2 className="entrada-rotulo">Sin terminar</h2>
+          {sinTerminar.map((sesion) => (
+            <Link key={sesion.id} to={`/sesion/${sesion.id}`} className="entrada-fila">
+              <span className="entrada-fila-texto">
+                <strong>
+                  {nombreDeRutina(sesion.rutina_id)} del {fechaEnFrase(sesion.fecha, false)}
+                </strong>
+                <span>
+                  {contar(sesion.series.length, 'serie', 'series')} · termínala o cancélala
+                </span>
+              </span>
+              <Icono nombre="abrir" pequeno />
+            </Link>
+          ))}
+        </section>
+      )}
 
       {resumen.por_recuperar.length > 0 && (
         <section className="entrada-seccion">

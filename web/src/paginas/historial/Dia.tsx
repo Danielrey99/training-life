@@ -456,6 +456,14 @@ export function Dia() {
         alGuardar={async (nota) => setNotasNuevas(nota)}
       />
 
+      {/* Una sesión de un día pasado sin terminar es una que se estaba apuntando desde el
+          calendario: aquí está su "Continuar", como el de Hoy para la de hoy. */}
+      {!editando && dia.terminada_en === null && (
+        <Link to={`/sesion/${dia.id}`} state={{ desdeSuDia: true }} className="boton">
+          Seguir apuntando
+        </Link>
+      )}
+
       {editando && (
         <button
           type="button"
