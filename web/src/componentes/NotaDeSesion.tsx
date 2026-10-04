@@ -56,6 +56,11 @@ export function NotaDeSesion({
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
+    // Vaciar el campo y guardar es borrarla: pregunta igual que la ✕.
+    if (texto.trim() === '' && nota) {
+      setBorrando(true)
+      return
+    }
     setGuardando(true)
     setFallo(null)
     try {
@@ -68,36 +73,54 @@ export function NotaDeSesion({
     }
   }
 
+  // Fuera de la caja de la nota: dentro heredaría su letra (`.nota-sesion p`).
+  const dialogo = borrando && (
+    <Dialogo
+      titulo="¿Borrar la nota?"
+      confirmar="Borrar"
+      peligro
+      alConfirmar={async () => {
+        await alGuardar(null)
+        setBorrando(false)
+        alCerrar()
+      }}
+      alCancelar={() => setBorrando(false)}
+    />
+  )
+
   if (abierta && editable) {
     return (
-      <form className="nota-sesion" onSubmit={enviar}>
-        <label className="campo">
-          <span className="campo-etiqueta">Nota</span>
-          <textarea
-            className="campo-texto"
-            rows={3}
-            maxLength={1000}
-            value={texto}
-            placeholder="Cómo va, qué cambiar la próxima vez…"
-            onChange={(evento) => setTexto(evento.target.value)}
-            autoFocus
-          />
-        </label>
-        <div className="botones-en-linea">
-          <button
-            type="button"
-            className="boton boton-cancelar"
-            onClick={alCerrar}
-            disabled={guardando}
-          >
-            Cancelar
-          </button>
-          <button type="submit" className="boton boton-principal" disabled={guardando}>
-            {enBorrador ? (nota ? 'Aplicar' : 'Añadir') : 'Guardar'}
-          </button>
-        </div>
-        {fallo && <p className="fallo">{fallo}</p>}
-      </form>
+      <>
+        <form className="nota-sesion" onSubmit={enviar}>
+          <label className="campo">
+            <span className="campo-etiqueta">Nota</span>
+            <textarea
+              className="campo-texto"
+              rows={3}
+              maxLength={1000}
+              value={texto}
+              placeholder="Cómo va, qué cambiar la próxima vez…"
+              onChange={(evento) => setTexto(evento.target.value)}
+              autoFocus
+            />
+          </label>
+          <div className="botones-en-linea">
+            <button
+              type="button"
+              className="boton boton-cancelar"
+              onClick={alCerrar}
+              disabled={guardando}
+            >
+              Cancelar
+            </button>
+            <button type="submit" className="boton boton-principal" disabled={guardando}>
+              {enBorrador ? (nota ? 'Aplicar' : 'Añadir') : 'Guardar'}
+            </button>
+          </div>
+          {fallo && <p className="fallo">{fallo}</p>}
+        </form>
+        {dialogo}
+      </>
     )
   }
 
@@ -116,46 +139,36 @@ export function NotaDeSesion({
   }
 
   return (
-    <section className="nota-sesion">
-      <div className="nota-sesion-cabecera">
-        <span className="rotulo">Nota</span>
-        {editable && (
-          <>
-            <button
-              type="button"
-              className="boton-icono"
-              aria-label="Cambiar la nota"
-              onClick={abrir}
-              disabled={bloqueada}
-            >
-              <Icono nombre="editar" pequeno />
-            </button>
-            <button
-              type="button"
-              className="boton-icono quitar"
-              aria-label="Borrar la nota"
-              onClick={() => setBorrando(true)}
-              disabled={bloqueada}
-            >
-              <Icono nombre="quitar" pequeno />
-            </button>
-          </>
-        )}
-      </div>
-      <p>{nota}</p>
-      {borrando && (
-        <Dialogo
-          titulo="¿Borrar la nota?"
-          cuerpo={enBorrador ? 'Se borrará al pulsar Guardar.' : 'No se puede deshacer.'}
-          confirmar="Borrar"
-          peligro
-          alConfirmar={async () => {
-            await alGuardar(null)
-            setBorrando(false)
-          }}
-          alCancelar={() => setBorrando(false)}
-        />
-      )}
-    </section>
+    <>
+      <section className="nota-sesion">
+        <div className="nota-sesion-cabecera">
+          <span className="rotulo">Nota</span>
+          {editable && (
+            <>
+              <button
+                type="button"
+                className="boton-icono"
+                aria-label="Cambiar la nota"
+                onClick={abrir}
+                disabled={bloqueada}
+              >
+                <Icono nombre="editar" pequeno />
+              </button>
+              <button
+                type="button"
+                className="boton-icono quitar"
+                aria-label="Borrar la nota"
+                onClick={() => setBorrando(true)}
+                disabled={bloqueada}
+              >
+                <Icono nombre="quitar" pequeno />
+              </button>
+            </>
+          )}
+        </div>
+        <p>{nota}</p>
+      </section>
+      {dialogo}
+    </>
   )
 }
