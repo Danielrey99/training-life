@@ -28,12 +28,17 @@
   margin: 0;
   font-size: 17px;
   line-height: 1.25;
+  text-align: center;
 }
 
 .dialogo p {
   margin: 0;
   font-size: 14px;
   color: var(--texto-tenue);
+}
+
+.dialogo .dialogo-cuerpo.corto {
+  text-align: center;
 }
 
 .dialogo .dialogo-fallo {

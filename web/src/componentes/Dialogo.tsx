@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import './Dialogo.css'
 
 type Props = {
   titulo: string
-  cuerpo: string
+  // Qué pasará, si no se ve ya en la pregunta. Sin él, solo la pregunta y los botones.
+  cuerpo?: string
   // El botón dice lo que hace ("Borrar", "Terminar"), nunca "Sí".
   confirmar: string
   cancelar?: string
@@ -32,6 +33,18 @@ export function Dialogo({
 }: Props) {
   const [enCurso, setEnCurso] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
+  // El texto va centrado bajo el título si cabe en una línea; si ocupa más, se lee
+  // mejor a la izquierda, como un párrafo. Se mide antes de pintarlo, porque cuántas
+  // líneas ocupa depende del ancho de la pantalla.
+  const parrafo = useRef<HTMLParagraphElement>(null)
+  const [unaLinea, setUnaLinea] = useState(false)
+
+  useLayoutEffect(() => {
+    const elemento = parrafo.current
+    if (!elemento) return
+    const alto = parseFloat(getComputedStyle(elemento).lineHeight)
+    setUnaLinea(elemento.getBoundingClientRect().height < alto * 1.5)
+  }, [cuerpo])
 
   useEffect(() => {
     function alPulsarTecla(evento: KeyboardEvent) {
@@ -62,7 +75,11 @@ export function Dialogo({
         onClick={(evento) => evento.stopPropagation()}
       >
         <h2 id="dialogo-titulo">{titulo}</h2>
-        <p>{cuerpo}</p>
+        {cuerpo && (
+          <p ref={parrafo} className={unaLinea ? 'dialogo-cuerpo corto' : 'dialogo-cuerpo'}>
+            {cuerpo}
+          </p>
+        )}
         {fallo && <p className="dialogo-fallo">{fallo}</p>}
         <div className="dialogo-botones">
           <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
