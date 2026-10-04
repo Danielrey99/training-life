@@ -80,12 +80,13 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 **Interacción**
 
-5. **Cada acción tiene su botón visible**, con un nombre que dice lo que hace. El único gesto oculto es mantener pulsada una ficha de "última vez" para ver su variante.
+5. **Cada acción tiene su botón visible**, con un nombre que dice lo que hace, y no hay gestos ocultos. Para ver la variante de una ficha de "última vez" basta tocarla; el punto verde avisa de que tiene.
 6. **Todo se guarda al confirmarlo, nunca al salir de una pantalla.** Cada serie se guarda al pulsar su botón; no hay "guardar sesión" ni botones de guardar globales. Salir de una pantalla no pierde nada ni guarda nada que no se haya confirmado.
 7. **Todo lo que empieza, adelanta, recupera, intercambia, activa, desactiva, oculta o borra algo pide confirmación antes**: siempre se puede pulsar sin querer. También la ✕ de una serie. No la piden las acciones que se corrigen con otro toque: guardar una serie o sus cambios, cambiar la rutina de un día, restablecer un día, o *Continuar* una sesión, que no empieza nada.
-8. **Los diálogos llevan *Cancelar* frente al verbo** (*Empezar*, *Ocultar*, *Borrar*…), nunca *Sí / No*: el botón dice lo que hace sin releer la pregunta. En verde si se puede deshacer, en rojo si no. El texto cuenta qué se pierde y qué no. Única excepción: *¿Intercambiar con el miércoles?*, que es una pregunta de sí o no.
+8. **Los diálogos llevan *Cancelar* frente al verbo** (*Empezar*, *Ocultar*, *Borrar*…), nunca *Sí / No*: el botón dice lo que hace sin releer la pregunta. En verde si se puede deshacer, en rojo si no. El texto cuenta qué se pierde y qué no, y solo si no lo dice ya la pregunta: *¿Borrar la nota?* no lleva texto, y *¿Borrar la serie 2?* solo enseña la serie. El título va centrado, y el texto también si cabe en una línea; si ocupa más, a la izquierda.
 9. **Editar no abre otra pantalla, la cambia** (patrón *Editar / Guardar*): los campos pasan a ser editables, la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Nada se guarda hasta pulsar *Guardar***, que lo guarda todo de golpe; *Cancelar* lo deshace todo. Por eso los formularios de dentro (una serie, la nota) no dicen *Guardar* sino *Añadir* o *Aplicar*: solo cambian lo que se guardará. Si algo no vale (la fecha), *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué. **Se edita una cosa cada vez**: con un formulario abierto, todo lo demás se queda en gris (incluidos *Cancelar* y *Guardar*) hasta aplicarlo o cancelarlo. Esos formularios llevan *Cancelar* (en rojo) y *Añadir* o *Aplicar* (en verde) en la misma línea. Fuera del modo editar (la sesión, las notas de un ejercicio), cada formulario se guarda con su propio *Guardar*.
 10. **Los valores anteriores ya puestos.** El teclado solo sale para nombres, notas y variantes; para lo demás, lo normal es confirmar lo que ya está o ajustarlo con − / +.
+11. **La flecha de volver lleva a la pantalla de la que se viene**, no a una fija: si se abre un día desde *Hoy*, volver deja en *Hoy*. Tras terminar, cancelar o borrar algo no lleva a lo que acaba de desaparecer.
 
 **Aspecto**
 
@@ -127,7 +128,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 ### E1 · Hoy
 
-La pantalla de entrada. Arriba, la **tira de la semana**, con las mismas marcas que el calendario (ver [H1](#h1--calendario)). Debajo, una **tarjeta** con lo de hoy según el programa activo. Más abajo, **Por recuperar** si queda algo sin hacer, la **última sesión hecha** (lleva a H2) y una **lista de otras rutinas**.
+La pantalla de entrada. Arriba, la **tira de la semana**, con las mismas marcas que el calendario (ver [H1](#h1--calendario)). Debajo, una **tarjeta** con lo de hoy según el programa activo. Más abajo, **Sin terminar** si hay una sesión de un día pasado a medias, **Por recuperar** si queda algo sin hacer, la **última sesión hecha** (lleva a H2) y una **lista de otras rutinas**.
 
 Qué enseña la tarjeta según el día:
 
@@ -142,6 +143,8 @@ Qué enseña la tarjeta según el día:
 | Sin programa activo | *Sin programa*, con *Elegir un programa* (lleva a P1) |
 | Primera vez | Una bienvenida (ver [La primera vez](#la-primera-vez)) |
 
+**Sin terminar.** Una sesión de un día pasado (apuntada desde el calendario) con series y sin terminar cuenta como hecha, pero quizá se dejó a medias sin querer. E1 la avisa bajo la tarjeta (*Push del domingo 27 de septiembre · 1 serie · termínala o cancélala*) y la fila lleva a su sesión, donde se termina o se cancela; entonces el aviso desaparece. Una sin ninguna serie no se avisa: ya cuenta como no hecha.
+
 **Por recuperar.** Lo que se quedó sin hacer se puede recuperar **hasta el día antes del mismo día de la semana siguiente** (el Push del lunes, hasta el domingo). Mientras tanto, E1 lo enseña todo en una lista, cada entrenamiento con su plazo; el que caduca hoy lo dice en ámbar (*hoy es el último día*). Cada uno lleva su *Recuperar*, que pregunta antes y abre E2; esa sesión cuenta como la del día que se recupera.
 
 - **En un día de descanso**, recuperar no cuesta nada: el plan no cambia.
@@ -151,7 +154,7 @@ Qué enseña la tarjeta según el día:
 
 **Qué ofrece la lista de abajo**, y qué pregunta al elegir:
 
-- **En un día de entrenamiento** se llama *Otra rutina del programa* y solo ofrece rutinas de días posteriores de esta semana, hasta el domingo, como adelantar, y nunca la misma que toca hoy (intercambiarla no cambiaría nada). Elegir una pregunta *¿Intercambiar con el miércoles?*: *Sí* cambia el plan de los dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *No* lo deja todo como estaba. No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
+- **En un día de entrenamiento** se llama *Otra rutina del programa* y solo ofrece rutinas de días posteriores de esta semana, hasta el domingo, como adelantar, y nunca la misma que toca hoy (intercambiarla no cambiaría nada). Elegir una pregunta *¿Intercambiar con el miércoles?*: *Intercambiar* cambia el plan de los dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *Cancelar* lo deja todo como estaba. No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
 - **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, se llama *Entrenar hoy de todas formas* y ofrece adelantar lo que queda de esta semana, preguntando antes (*¿Adelantar el Pull del miércoles?*). Adelantar no cambia el plan. Lo que ya está hecho no sale, y lo que se recupera va en *Por recuperar*.
 - **Una rutina se puede hacer tantas veces como aparezca en la semana del programa, ni una más.** Para entrenar más, se cambia el programa.
 - **Sin programa activo** salen todas las rutinas, sin límite de veces: sin plan no hay nada que contar, intercambiar ni adelantar. Empezar una sigue pidiendo confirmación.
@@ -171,13 +174,14 @@ Comportamiento:
 - **El formulario arranca con la serie anterior** (ejercicio, peso y variante). Lo normal es cambiar solo las reps.
 - **El número de la siguiente serie es el mayor + 1**, no la cuenta: si se borra una del medio, no se repite un número.
 - **Cambiar al comodín**: si el hueco tiene comodines, junto al nombre del ejercicio hay una flecha en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre no abre nada) se despliegan el principal y sus comodines, cada uno con su última vez, y el de hoy marcado. Al elegir un comodín, la última vez, el peso con el que arranca el formulario y las series que se apunten pasan a ser de ese ejercicio, y el hueco plegado lo dice con la etiqueta *comodín*. Se queda elegido para el resto del hueco. Si el principal está oculto, el hueco empieza ya con el comodín; un hueco sin comodines no lleva flecha, porque no hay nada que elegir.
-- **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al mantenerlas pulsadas (o con el ratón encima) sale un globo por encima del dedo.
+- **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, con *Cancelar* y *Guardar cambios* en la misma línea; mientras tanto, el resto de la sesión se queda en gris. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la base de datos lo admite, pero la interfaz no lo pide ni lo enseña.
 - **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha: *Recuperando el Push del lunes 14*.
 - **Cada serie se guarda al pulsar su botón**, así que se puede salir de E2 a otras pantallas y volver: la sesión queda abierta.
 - **La nota de la sesión se escribe en cualquier momento**, no solo al terminar: si hay que esperar al final, se olvida lo que se quería apuntar. Encima de *Terminar sesión* sale *Añadir nota*, que abre el campo con *Cancelar* y *Guardar*; una vez escrita, se ve con su lápiz y su ✕, como las series.
 - **Al pie**, *Terminar sesión* y, en rojo, *Cancelar sesión*. Terminar pregunta (y dice cuánto se lleva, para darse cuenta de si se termina antes de tiempo) y lleva a H2. Si no se ha apuntado ninguna serie, terminar no deja un día vacío en el historial: la sesión se cancela, y el diálogo lo avisa. Cancelar deja el día como si no se hubiera empezado: borra la sesión y sus series, y pregunta con *Seguir entrenando* como salida.
+- **Una sesión de un día pasado** (apuntada desde el calendario) lleva la fecha en su propia línea en la cabecera. Su flecha de volver y *Cancelar sesión* no van a Hoy, que no la enseña, sino a su día en H2 (o al mes del calendario, si aún no tiene series). Si se sale sin terminarla, queda guardada y E1 la avisa en *Sin terminar*.
 - **Siempre se entrena una rutina**: con programa, la que toca o una que se recupera o se adelanta; sin programa, cualquiera de las tuyas. No hay entrenamientos sin rutina: si un día se hace algo distinto, se crea una rutina para ello.
 - **Una sesión abierta de un día para otro cuenta como terminada**: al día siguiente E1 vuelve a ofrecer *Empezar*, no *Continuar*.
 
@@ -212,7 +216,13 @@ Cada mes se compara con **el programa que estaba activo entonces**, no con el de
 
 ### H2 · Un día
 
-La única pantalla de ver un día. Arriba, las cifras (series, volumen y huecos mejorados). Por hueco: qué ejercicio se hizo (y si fue el comodín), sus series, una insignia de mejora (`+2 kg`, `+3 reps`, `igual`, `nuevo`) y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en ese hueco, y por eso lleva su fecha. La flecha de cada hueco lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
+La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por hueco: qué ejercicio se hizo (y si fue el comodín) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en ese hueco, y por eso lleva su fecha. La flecha de cada hueco lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
+
+**Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. Mejora con `↑` en verde y empeora con `↓` en gris; en la primera vez sale `nuevo`.
+
+El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó un comodín más ligero. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
+
+Si la sesión es de un día pasado y no está terminada, el día ofrece **Seguir apuntando**, que vuelve a la sesión.
 
 **Editar**: la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*, que guarda de golpe todo lo cambiado (fecha, series y nota); *Cancelar* lo deshace todo. Lápiz y ✕ en cada serie: el lápiz despliega el formulario bajo la serie, con *Aplicar*, y la ✕ pregunta antes. Con un formulario abierto (una serie, una serie nueva o la nota), el resto se queda en gris. Además:
 
@@ -330,7 +340,7 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 4. Repite. Al acabar el hueco, despliega el siguiente.
 5. En el hueco 3 la máquina está ocupada: toca la flecha junto al nombre del ejercicio y elige el comodín. La última vez y el peso pasan a ser los del comodín.
 6. Se equivoca al apuntar una serie: el lápiz la carga en el formulario y la corrige.
-7. Entre series se acuerda de algo y lo apunta en *Añadir nota*. Al acabar, *Terminar sesión* y confirma. H2 le enseña en qué huecos mejoró.
+7. Entre series se acuerda de algo y lo apunta en *Añadir nota*. Al acabar, *Terminar sesión* y confirma. H2 le enseña en qué ejercicios mejoró.
 
 **"No pude ir el lunes y voy el martes"**: el martes, E1 dice *Descanso* y, en *Por recuperar*, *Push del lunes 14 · hasta el domingo 20*, con *Recuperar*. Confirma y entrena. El calendario pinta después el lunes con la flecha y el martes con el punto del Push. Si no lo recupera antes del domingo, el lunes queda como no hecho.
 

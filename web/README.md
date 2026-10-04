@@ -60,7 +60,7 @@ web/
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
-    ├── utiles/           # fechas y números en formato español, y el color de cada día
+    ├── utiles/           # fechas y números en formato español, el color de cada día y la flecha de volver
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
         ├── Ejercicios.tsx
         ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
@@ -87,14 +87,14 @@ Es la pantalla que se usa en el gimnasio (`/sesion/{id}`). Cada hueco de la ruti
 Decisiones que se notan al usarla:
 
 - **Cada serie se guarda en cuanto se pulsa *Guardar***, en vez de acumularlas para enviarlas al final. Una sesión dura más de una hora, y cerrar la pestaña sin querer no puede llevarse el entrenamiento.
-- **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado.
+- **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado. La flecha de volver lleva a la pantalla de la que se venía, y en una sesión de un día pasado, a su día en el historial.
 - **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante), porque las series de un hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
 - **El número de la siguiente serie es el más alto + 1**, no cuántas hay: borrando una del medio, contarlas repetiría un número.
 - **El comodín se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y los comodines, cada uno con su última vez. Al elegir uno, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el hueco empieza ya con el comodín.
 - **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar cambios* en la misma línea. No hay un modo de edición aparte.
 - **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás huecos, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
 - **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
-- **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al mantenerlas pulsadas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa.
+- **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
 
 Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperando el Push del lunes 28*.
 
@@ -104,7 +104,8 @@ La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendr�
 
 - **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre lo mismo, y la pantalla solo pinta.
 - **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy, *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan de los dos días y después empieza la de hoy.
-- **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*, *Recuperar*, *Adelantar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará pendiente, y hasta cuándo se podrá recuperar.
+- **Las sesiones de un día pasado que se dejaron sin terminar se avisan** en una sección *Sin terminar* bajo la tarjeta, con sus series y un enlace para terminarlas o cancelarlas. Cuentan como hechas desde la primera serie, así que sin el aviso se podrían olvidar a medias.
+- **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*, *Recuperar*, *Adelantar*, *Intercambiar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará pendiente, y hasta cuándo se podrá recuperar.
 - **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para que un día movido diga de dónde viene.
 - **La tarjeta cambia con el día**: empezar lo que toca, continuar la sesión a medias, ya entrenado, descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
 
@@ -118,14 +119,16 @@ Lo que se hizo sin contar para ningún día lleva el color del día de su rutina
 
 ### Un día
 
-La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones) y cuántos huecos mejoraron. Debajo, un bloque por hueco con el ejercicio que se hizo, sus series y **la última vez que se hizo ese ejercicio en ese hueco**, en fichas, mirando siempre hacia atrás desde ese día.
+La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por hueco con el ejercicio que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio en ese hueco**, en fichas, mirando siempre hacia atrás desde ese día.
 
-- **La insignia de cada hueco compara con esa última vez**: primero el peso más alto (*+2,5 kg*) y, con el mismo peso, el total de repeticiones (*+3 reps*). Si es la primera vez, *nuevo*. Así, subir de peso cuenta más que hacer más repeticiones con menos.
+- **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar. Si es la primera vez, *nuevo*.
+- **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó un comodín más ligero. La leyenda del final dice con qué se compara cada cosa.
+- **Mientras una sesión de un día pasado no está terminada**, el día ofrece *Seguir apuntando*, que vuelve a la sesión.
 - **Si se hizo con un comodín, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
 - **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador** (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y *Guardar*.
 - **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la misma flecha que en la sesión para elegir con qué ejercicio.
 - **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
-- **Al terminar una sesión** se llega a su día.
+- **Al terminar una sesión** se llega a su día. La flecha de volver, aquí y en el resto de pantallas, lleva a la pantalla de la que se vino (de *Hoy* a un día, vuelve a *Hoy*), y tras terminar, cancelar o borrar no lleva a algo que ya no existe.
 
 ## Hablar con la API
 
