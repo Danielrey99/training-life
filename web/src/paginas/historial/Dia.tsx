@@ -7,7 +7,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
 import { diaDeLaSemana, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
-import { pesoLegible } from '../../utiles/numeros'
+import { pesoLegible, unoRM } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Bloque, type Insignia, type Mejora } from './BloqueDelDia'
@@ -15,16 +15,6 @@ import '../sesion/sesion.css'
 import './historial.css'
 
 type ConCarga = { peso: string | number; repeticiones: number }
-
-/**
- * El 1RM estimado medio de las series, cada una con la fórmula de Epley (la misma de
- * la gráfica de progresión): peso × (1 + reps / 30). La media y no la suma, para que
- * hacer una serie menos no cuente como empeorar.
- */
-function unoRM(series: ConCarga[]) {
-  const estimados = series.map((serie) => Number(serie.peso) * (1 + serie.repeticiones / 30))
-  return estimados.reduce((total, valor) => total + valor, 0) / estimados.length
-}
 
 /** "56,7": el 1RM con un decimal como mucho. */
 function kilos(valor: number) {
