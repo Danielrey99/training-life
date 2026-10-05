@@ -237,9 +237,11 @@ La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 
 
 - **Peso**: el mejor peso de cada sesión.
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.
-- **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley). Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan.
+- **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley), **como media de las series** de la sesión, igual que en H2. Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan. Se promedia y no se toma la mejor serie porque las rutinas son de doble progresión (se suben repeticiones hasta llegar al máximo del rango en todas las series y entonces se sube el peso): en esas semanas el progreso está en las series de después, y con la mejor serie la línea se quedaría plana aunque se mejorase cada semana. Por eso el globo dice *16,3 kg de media*.
 
-Tocar un punto enseña la sesión en un globo que se recoloca para no tapar la línea. Debajo, la lista de sesiones, que lleva a cada día en H2. Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
+Arriba, el último valor y cuánto cambió desde la primera sesión del rango. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada hueco en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
+
+**Sin datos**: si el ejercicio no se ha hecho nunca, dice *Aún no has hecho este ejercicio.*; si se hizo pero no en el rango elegido, *No lo has hecho en este tiempo. Prueba con un rango más largo.* En ambos casos las píldoras del rango siguen ahí (en el segundo son la salida).
 
 ### H4 · Planificar
 

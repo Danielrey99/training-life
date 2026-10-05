@@ -10,7 +10,7 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 
 🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento mientras se entrena.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*) y el historial: el calendario y cada día.
+La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día) y la progresión de un ejercicio.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -21,7 +21,8 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
 - [x] El calendario del historial, y apuntar desde él un día pasado
 - [x] Ver un día y corregirlo: sus series, la fecha, las notas o borrarlo entero
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la progresión, planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
+- [x] La progresión de un ejercicio: una gráfica de peso, volumen o 1RM estimado por sesión
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -71,6 +72,10 @@ web/
         │   └── BloqueDelDia.tsx         # un hueco del día, con sus series y + Añadir serie
         ├── hoy/          # la pantalla de entrada
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
+        ├── progresion/   # la gráfica de un ejercicio
+        │   ├── Progresion.tsx           # el rango, la medida, la cifra y la lista de sesiones
+        │   ├── Grafica.tsx              # el SVG: ejes, línea, puntos y globo
+        │   └── progresion.css
         └── sesion/       # la sesión en curso
             ├── Sesion.tsx               # la pantalla: carga, huecos, terminar y cancelar
             ├── BloqueDeHueco.tsx        # un hueco, plegado o desplegado
@@ -129,6 +134,15 @@ La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega d
 - **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la misma flecha que en la sesión para elegir con qué ejercicio.
 - **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
 - **Al terminar una sesión** se llega a su día. La flecha de volver, aquí y en el resto de pantallas, lleva a la pantalla de la que se vino (de *Hoy* a un día, vuelve a *Hoy*), y tras terminar, cancelar o borrar no lleva a algo que ya no existe.
+
+## Progresión
+
+La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada hueco en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cinco rangos (1 mes, 3, 6, 1 año y todo). El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
+
+- **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`).
+- **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve.
+- **La gráfica es SVG hecho a mano**, sin librería: la cuadrícula busca valores redondos (pasos de 1, 2, 2,5 o 5), y se dibuja al ancho real de la tarjeta, medido con `ResizeObserver`, para que las letras no cambien de tamaño entre el móvil y el escritorio. Cada punto lleva una zona táctil mayor que él y se maneja también con el teclado; tocar uno cambia el globo con su día, su rutina y su valor.
+- Si el ejercicio no se ha hecho nunca, o no en el rango elegido, la pantalla lo dice en vez de enseñar una gráfica vacía.
 
 ## Hablar con la API
 
