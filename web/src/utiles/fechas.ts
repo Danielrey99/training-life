@@ -42,7 +42,8 @@ function aFecha(iso: string): Date {
   return new Date(anio, mes - 1, dia, 12)
 }
 
-function diasEntre(desde: string, hasta: string): number {
+/** Los días que van de `desde` a `hasta` (negativo si `hasta` es anterior). */
+export function diasEntre(desde: string, hasta: string): number {
   return Math.round((aFecha(hasta).getTime() - aFecha(desde).getTime()) / 86_400_000)
 }
 
@@ -164,4 +165,19 @@ export function tituloDeMes(iso: string): string {
 export function diaYMes(iso: string): string {
   const fecha = aFecha(iso)
   return `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+}
+
+/** "sep": el mes en tres letras, para el eje de una gráfica. */
+export function mesCorto(iso: string): string {
+  return MESES[aFecha(iso).getMonth()].slice(0, 3)
+}
+
+/** "14 sep": el día y el mes abreviado. */
+export function diaYMesCorto(iso: string): string {
+  return `${aFecha(iso).getDate()} ${mesCorto(iso)}`
+}
+
+/** "lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. */
+export function fechaAbreviada(iso: string): string {
+  return `${DIAS[aFecha(iso).getDay()].slice(0, 3)} ${diaYMesCorto(iso)}`
 }

@@ -466,3 +466,9 @@
   padding: 0;
   color: var(--acento);
 }
+
+/* La flecha del hueco que lleva a la progresión de su ejercicio: 44 px para el dedo,
+   sin que la cabecera del hueco crezca por ella. */
+.dia-hueco-cabecera .dia-progresion {
+  margin: -10px -12px -10px -6px;
+}

@@ -6,6 +6,7 @@ import { Calendario } from './paginas/historial/Calendario'
 import { Dia } from './paginas/historial/Dia'
 import { Hoy } from './paginas/hoy/Hoy'
 import { PorHacer } from './paginas/PorHacer'
+import { Progresion } from './paginas/progresion/Progresion'
 import { Sesion } from './paginas/sesion/Sesion'
 import './App.css'
 
@@ -26,6 +27,7 @@ export default function App() {
               día pasado vive ahora en el calendario, y la sesión, en /sesion. */}
           <Route path="/registrar" element={<Navigate to="/historial" replace />} />
           <Route path="/registrar/:entrenamientoId" element={<RedirigirASesion />} />
+          <Route path="/progresion/:ejercicioId" element={<Progresion />} />
           <Route path="/programas" element={<PorHacer seccion="Programas y rutinas" />} />
           <Route path="/ejercicios" element={<Ejercicios />} />
           <Route path="*" element={<p className="aviso">Esa página no existe.</p>} />

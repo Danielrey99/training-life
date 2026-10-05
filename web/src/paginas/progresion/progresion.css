@@ -1,0 +1,186 @@
+/* H3 · Progresión de un ejercicio */
+
+.progresion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* El hueco de 44 px de la derecha: sin botón, el título no se descentra. */
+.progresion-hueco {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.progresion-rangos {
+  display: flex;
+  gap: 6px;
+}
+
+.progresion-pildora {
+  flex: 1 1 0;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.progresion-pildora.activa {
+  color: var(--acento);
+  background: var(--superficie);
+}
+
+.progresion-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 14px 16px 12px;
+}
+
+.progresion-medida {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.progresion-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  padding: 2px;
+}
+
+.progresion-selector button {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}
+
+.progresion-selector button.activa {
+  background: var(--superficie);
+  border-color: var(--borde);
+  color: var(--acento);
+}
+
+.progresion-cifra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+.progresion-valor {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.progresion-cambio {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.progresion-grafica {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.progresion-toque {
+  cursor: pointer;
+  outline: none;
+}
+
+.progresion-toque:focus-visible {
+  stroke: var(--acento);
+}
+
+.progresion-sesiones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progresion-sesiones h2 {
+  margin: 0;
+  font-weight: 400;
+}
+
+.progresion-sesiones ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.progresion-sesion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--borde);
+}
+
+.progresion-sesion:first-child {
+  border-top: 0;
+}
+
+.progresion-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--texto);
+  text-decoration: none;
+}
+
+.progresion-fecha {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.progresion-relleno {
+  flex-grow: 1;
+}
+
+.progresion-fila svg {
+  color: var(--texto-tenue);
+}
+
+.progresion-mas {
+  min-height: 44px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}

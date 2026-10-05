@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import type { Ejercicio, HuecoDeRutina, Serie, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
@@ -127,6 +128,16 @@ export function BloqueDelDia({
           </span>
         ) : (
           <span className="etiqueta-chica">sin hueco</span>
+        )}
+        {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
+        {!vacio && !editando && (
+          <Link
+            to={`/progresion/${ejercicio.id}`}
+            className="boton-icono dia-progresion"
+            aria-label={`Ver la progresión de ${ejercicio.nombre}`}
+          >
+            <Icono nombre="abrir" pequeno />
+          </Link>
         )}
       </div>
       {mejora && (
