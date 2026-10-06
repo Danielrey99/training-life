@@ -2,22 +2,38 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import './Dialogo.css'
 
-type Props = {
+type Comunes = {
   titulo: string
   // Qué pasará, si no se ve ya en la pregunta. Sin él, solo la pregunta y los botones.
   cuerpo?: string
-  // El botón dice lo que hace ("Borrar", "Terminar"), nunca "Sí".
-  confirmar: string
-  cancelar?: string
-  // En rojo lo que no se puede deshacer; en verde lo demás.
-  peligro?: boolean
-  alConfirmar: () => Promise<void>
   alCancelar: () => void
 }
 
+type Props = Comunes &
+  (
+    | {
+        // El botón dice lo que hace ("Borrar", "Terminar"), nunca "Sí".
+        confirmar: string
+        cancelar?: string
+        // En rojo lo que no se puede deshacer; en verde lo demás.
+        peligro?: boolean
+        alConfirmar: () => Promise<void>
+        soloAviso?: undefined
+      }
+    | {
+        // Un aviso sin nada que decidir: un solo botón (*Entendido*) que lo cierra.
+        soloAviso: string
+        confirmar?: undefined
+        cancelar?: undefined
+        peligro?: undefined
+        alConfirmar?: undefined
+      }
+  )
+
 /**
  * La confirmación que piden los bocetos antes de todo lo que empieza, termina o
- * borra algo: título, qué se pierde y qué no, y los dos botones.
+ * borra algo: título, qué se pierde y qué no, y los dos botones. También el aviso
+ * de lo que no se puede hacer, con un solo botón.
  *
  * Espera a que termine la acción antes de cerrarse, y si falla enseña el motivo
  * dentro del propio diálogo: cerrarlo sin más haría creer que se hizo.
@@ -30,6 +46,7 @@ export function Dialogo({
   peligro = false,
   alConfirmar,
   alCancelar,
+  soloAviso,
 }: Props) {
   const [enCurso, setEnCurso] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -58,7 +75,7 @@ export function Dialogo({
     setEnCurso(true)
     setFallo(null)
     try {
-      await alConfirmar()
+      await alConfirmar?.()
     } catch (error) {
       setFallo((error as Error).message)
       setEnCurso(false)
@@ -81,20 +98,28 @@ export function Dialogo({
           </p>
         )}
         {fallo && <p className="dialogo-fallo">{fallo}</p>}
-        <div className="dialogo-botones">
-          <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
-            {cancelar}
-          </button>
-          <button
-            type="button"
-            className={peligro ? 'boton boton-peligro' : 'boton boton-principal'}
-            onClick={() => void aceptar()}
-            disabled={enCurso}
-            autoFocus
-          >
-            {confirmar}
-          </button>
-        </div>
+        {soloAviso ? (
+          <div className="dialogo-botones solo">
+            <button type="button" className="boton boton-principal" onClick={alCancelar} autoFocus>
+              {soloAviso}
+            </button>
+          </div>
+        ) : (
+          <div className="dialogo-botones">
+            <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
+              {cancelar}
+            </button>
+            <button
+              type="button"
+              className={peligro ? 'boton boton-peligro' : 'boton boton-principal'}
+              onClick={() => void aceptar()}
+              disabled={enCurso}
+              autoFocus
+            >
+              {confirmar}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

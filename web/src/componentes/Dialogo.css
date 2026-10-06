@@ -59,3 +59,8 @@
   padding: 0 8px;
   font-size: 15px;
 }
+
+/* El aviso de un solo botón. */
+.dialogo-botones.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
