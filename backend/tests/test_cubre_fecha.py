@@ -111,13 +111,6 @@ def test_un_dia_que_no_toca_esa_rutina_no_se_cuenta(cliente, ppl, rutina, dia):
     assert "no toca esa rutina" in respuesta.json()["detail"]
 
 
-def test_un_entrenamiento_libre_no_cuenta_para_ningun_dia(cliente, ppl):
-    respuesta = sesion(cliente, HOY, None, cubre_fecha=HOY)
-
-    assert respuesta.status_code == 422
-    assert "libre" in respuesta.json()["detail"]
-
-
 def test_lo_que_tocaba_con_el_programa_anterior_no_se_recupera(cliente, ppl):
     """Se activa hoy otro programa con el mismo Push los lunes: el del lunes 14
     lo planificaba el anterior, y lo faltado con él ya no se ofrece.
@@ -255,13 +248,13 @@ DOMINGO_20 = date(2026, 9, 20)
 MIERCOLES_23 = date(2026, 9, 23)
 
 
-def corregir(cliente, entrenamiento_id, fecha, rutina_id, notas=None):
-    """PUT /entrenamientos/{id}. El PUT sustituye todos los campos, así que la
-    rutina se manda siempre: sin ella, la sesión pasaría a ser libre.
+def corregir(cliente, entrenamiento_id, fecha, notas=None):
+    """PUT /entrenamientos/{id}. Solo corrige la fecha y las notas: la rutina y el
+    día que cuenta se fijan al crear la sesión.
     """
     return cliente.put(
         f"/entrenamientos/{entrenamiento_id}",
-        json={"fecha": fecha.isoformat(), "rutina_id": rutina_id, "notas": notas},
+        json={"fecha": fecha.isoformat(), "notas": notas},
     )
 
 
@@ -269,7 +262,7 @@ def test_una_sesion_recuperada_se_mueve_hasta_el_ultimo_dia_de_su_plazo(cliente,
     recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
     hoy_es(MIERCOLES_23)
 
-    respuesta = corregir(cliente, recuperada, DOMINGO_20, ppl["Push"])
+    respuesta = corregir(cliente, recuperada, DOMINGO_20)
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["fecha"] == DOMINGO_20.isoformat()
@@ -280,7 +273,7 @@ def test_no_se_mueve_mas_alla_del_plazo_de_su_dia(cliente, ppl, hoy_es):
     recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
     hoy_es(MIERCOLES_23)
 
-    respuesta = corregir(cliente, recuperada, LUNES_21, ppl["Push"])
+    respuesta = corregir(cliente, recuperada, LUNES_21)
 
     assert respuesta.status_code == 422
     # El texto dice hasta dónde se puede mover.
@@ -291,15 +284,15 @@ def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl
     adelantada = sesion(cliente, HOY, ppl["Leg"], cubre_fecha=VIERNES_18).json()["id"]
     hoy_es(MIERCOLES_23)
 
-    assert corregir(cliente, adelantada, LUNES_14, ppl["Leg"]).status_code == 200
-    assert corregir(cliente, adelantada, DOMINGO_13, ppl["Leg"]).status_code == 422
+    assert corregir(cliente, adelantada, LUNES_14).status_code == 200
+    assert corregir(cliente, adelantada, DOMINGO_13).status_code == 422
 
 
 def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):
     """El 17 está dentro del plazo del lunes 14, pero todavía no ha llegado."""
     recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
 
-    respuesta = corregir(cliente, recuperada, JUEVES_17, ppl["Push"])
+    respuesta = corregir(cliente, recuperada, JUEVES_17)
 
     assert respuesta.status_code == 422
     assert "todavía no ha llegado" in respuesta.json()["detail"]
@@ -309,7 +302,7 @@ def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha_libre(cl
     suelta = sesion(cliente, MARTES_15, ppl["Push"]).json()["id"]
     hoy_es(MIERCOLES_23)
 
-    assert corregir(cliente, suelta, date(2026, 8, 3), ppl["Push"]).status_code == 200
+    assert corregir(cliente, suelta, date(2026, 8, 3)).status_code == 200
 
 
 def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
@@ -319,28 +312,7 @@ def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
     recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
     hoy_es(date(2026, 10, 15))
 
-    respuesta = corregir(cliente, recuperada, MARTES_15, ppl["Push"], notas="Hombro cargado")
+    respuesta = corregir(cliente, recuperada, MARTES_15, notas="Hombro cargado")
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["notas"] == "Hombro cargado"
-
-
-def test_a_una_sesion_que_cuenta_un_dia_no_se_le_cambia_la_rutina(cliente, ppl):
-    """Para apuntar otra rutina se borra el día y se registra de nuevo."""
-    empezada = sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY).json()["id"]
-
-    respuesta = corregir(cliente, empezada, HOY, ppl["Push"])
-
-    assert respuesta.status_code == 409
-    assert "borra el día" in respuesta.json()["detail"]
-    # Tampoco se puede pasar a libre: sería otra forma de cambiarle la rutina.
-    assert corregir(cliente, empezada, HOY, None).status_code == 409
-
-
-def test_a_una_sesion_que_no_cuenta_ningun_dia_si_se_le_cambia_la_rutina(cliente, ppl):
-    suelta = sesion(cliente, HOY, ppl["Pull"]).json()["id"]
-
-    respuesta = corregir(cliente, suelta, HOY, ppl["Push"])
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["rutina_id"] == ppl["Push"]

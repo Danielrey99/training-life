@@ -42,7 +42,7 @@ def sesiones_con_series(
     sesiones = (
         select(Entrenamiento.id, Entrenamiento.fecha, Rutina.nombre)
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .outerjoin(Rutina, Rutina.id == Entrenamiento.rutina_id)
+        .join(Rutina, Rutina.id == Entrenamiento.rutina_id)
         .where(Entrenamiento.usuario_id == usuario_id, filtro)
     )
     if desde is not None:

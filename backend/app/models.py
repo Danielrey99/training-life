@@ -237,7 +237,7 @@ class Entrenamiento(Base):
     """
 
     __tablename__ = "entrenamientos"
-    # Una sesión por día como mucho, del tipo que sea: se entrena una rutina al
+    # Una sesión por día como mucho, sea de la rutina que sea: se entrena una rutina al
     # día. La API lo comprueba antes (_validar_dia_libre) para dar un 409 legible.
     # Y un día del plan lo cuenta una sesión como mucho; las que no cuentan para
     # ninguno llevan cubre_fecha nula, y los nulos no chocan entre sí.
@@ -252,9 +252,10 @@ class Entrenamiento(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     # RESTRICT: borrar una rutina con entrenamientos ya registrados no debe
     # arrastrarlos por accidente (ver Rutina/borrar_rutina, modo=definitivo).
-    rutina_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rutinas.id", ondelete="RESTRICT"), default=None
-    )
+    # Se fija al crear la sesión y no cambia: sus series van en huecos de esta
+    # rutina, y solo eso lo garantiza (junto con `_validar_slot`). Si algún día otro
+    # camino la cambiara (la sincronización del móvil), habría que volver a comprobarlo.
+    rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="RESTRICT"))
     fecha: Mapped[date] = mapped_column(Date)
     # El día del plan que cuenta esta sesión: el mismo que `fecha` al empezar lo
     # que toca hoy, uno pasado al recuperar y uno de esta semana al adelantar. Lo
@@ -290,7 +291,7 @@ class Entrenamiento(Base):
     # Solo para leer (el seguimiento la carga de una vez para todas las sesiones):
     # que SQLAlchemy no gestione nada por ella al borrar la rutina, que ya
     # decide borrar_rutina.
-    rutina: Mapped["Rutina | None"] = relationship(viewonly=True)
+    rutina: Mapped["Rutina"] = relationship(viewonly=True)
 
 
 class Serie(Base):
@@ -308,9 +309,7 @@ class Serie(Base):
     entrenamiento_id: Mapped[int] = mapped_column(
         ForeignKey("entrenamientos.id", ondelete="CASCADE")
     )
-    slot_id: Mapped[int | None] = mapped_column(
-        ForeignKey("rutina_slots.id", ondelete="RESTRICT"), default=None
-    )
+    slot_id: Mapped[int] = mapped_column(ForeignKey("rutina_slots.id", ondelete="RESTRICT"))
     ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="RESTRICT"))
     numero_serie: Mapped[int] = mapped_column()
     peso: Mapped[Decimal] = mapped_column(Numeric(6, 2))

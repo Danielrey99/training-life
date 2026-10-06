@@ -501,6 +501,33 @@ def test_borrar_en_definitivo_un_ejercicio_lo_quita_de_comodin_sin_tocar_el_huec
     assert hueco["alternativas"] == []
 
 
+def test_un_comodin_con_series_dice_en_que_sesiones_y_el_definitivo_se_las_lleva(
+    cliente, grupo_muscular_id
+):
+    """Las series hechas con un comodín son historial: el aviso las enumera por
+    sesión, y `?modo=definitivo` se las lleva dejando la sesión y el hueco.
+    """
+    principal = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, principal)
+    cliente.post(
+        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin}
+    )
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, comodin)
+
+    sin_modo = cliente.delete(f"/ejercicios/{comodin}")
+    definitivo = cliente.delete(f"/ejercicios/{comodin}?modo=definitivo")
+
+    assert sin_modo.status_code == 409
+    assert sin_modo.json()["detail"]["usos"] == [
+        {"rol": "comodín", "slot_id": slot_id, "rutina_id": rutina_id, "rutina_nombre": "Push"},
+        {"rol": "serie registrada", "entrenamiento_id": entrenamiento_id, "fecha": FECHA},
+    ]
+    assert definitivo.status_code == 204
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
+    assert len(cliente.get(f"/rutinas/{rutina_id}").json()["slots"]) == 1
+
+
 # --- Lo oculto y lo que ya se registró con ello ---------------------------
 #
 # Ocultar deja de ofrecer algo para lo nuevo, pero el historial se queda. Por eso
@@ -579,10 +606,10 @@ def test_se_puede_corregir_una_serie_ya_registrada_de_un_ejercicio_oculto(
 def test_se_pueden_editar_las_notas_de_un_dia_cuya_rutina_se_oculto_despues(
     cliente, grupo_muscular_id
 ):
-    """Corregir una sesión ya registrada no es elegir su rutina otra vez: la
-    rutina solo se valida si cambia. Antes daba 404, y no había salida por otro
-    lado: mandar `rutina_id` nulo para esquivarlo choca con el 409 de las series
-    atadas a huecos.
+    """Corregir una sesión ya registrada no es elegir su rutina otra vez: el PUT
+    ni siquiera la recibe (se fija al crear la sesión), así que una rutina oculta
+    después no estorba. Hubo un tiempo en que el PUT revalidaba la rutina y esto
+    daba 404.
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
@@ -591,7 +618,7 @@ def test_se_pueden_editar_las_notas_de_un_dia_cuya_rutina_se_oculto_despues(
 
     respuesta = cliente.put(
         f"/entrenamientos/{entrenamiento_id}",
-        json={"rutina_id": rutina_id, "fecha": FECHA, "notas": "Me dolía el hombro"},
+        json={"fecha": FECHA, "notas": "Me dolía el hombro"},
     )
 
     assert respuesta.status_code == 200
@@ -653,7 +680,11 @@ def test_una_serie_no_se_puede_cambiar_a_otro_ejercicio_oculto(cliente, grupo_mu
     assert respuesta.status_code == 404
 
 
-def test_un_entrenamiento_no_se_puede_pasar_a_otra_rutina_oculta(cliente):
+def test_el_put_de_una_sesion_ignora_una_rutina_oculta(cliente):
+    """La rutina de una sesión no se elige en el PUT (se fija al crearla), así
+    que una rutina oculta que llegue ahí no es "elegir algo oculto": se ignora,
+    sin 404, y se aplica lo demás.
+    """
     push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
     pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
     entrenamiento_id = cliente.post(
@@ -662,10 +693,13 @@ def test_un_entrenamiento_no_se_puede_pasar_a_otra_rutina_oculta(cliente):
     ocultar(cliente, f"/rutinas/{pull}")
 
     respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}", json={"rutina_id": pull, "fecha": FECHA}
+        f"/entrenamientos/{entrenamiento_id}",
+        json={"rutina_id": pull, "fecha": FECHA, "notas": "Corregida"},
     )
 
-    assert respuesta.status_code == 404
+    assert respuesta.status_code == 200, respuesta.text
+    guardado = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
+    assert (guardado["rutina_id"], guardado["notas"]) == (push, "Corregida")
 
 
 # --- Lo que no bloquea el borrado, y lo que sí ----------------------------
@@ -683,28 +717,6 @@ def test_un_ejercicio_que_solo_tiene_notas_se_borra_directo_y_se_las_lleva(
 
     assert cliente.delete(f"/ejercicios/{ejercicio_id}").status_code == 204
     assert contar_notas(sesion_bd, ejercicio_id) == 0
-
-
-def test_un_ejercicio_con_series_de_un_entrenamiento_libre_pide_modo_y_dice_donde(
-    cliente, grupo_muscular_id
-):
-    """Las series de un entrenamiento libre no están en ningún hueco, pero son
-    historial igual: bloquean el borrado directo, el aviso las enumera por
-    sesión, y `?modo=definitivo` se las lleva dejando el entrenamiento.
-    """
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
-    cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=serie_de(ejercicio_id, None))
-
-    sin_modo = cliente.delete(f"/ejercicios/{ejercicio_id}")
-    definitivo = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo")
-
-    assert sin_modo.status_code == 409
-    assert sin_modo.json()["detail"]["usos"] == [
-        {"rol": "serie registrada", "entrenamiento_id": entrenamiento_id, "fecha": FECHA}
-    ]
-    assert definitivo.status_code == 204
-    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
 
 
 def test_un_hueco_sin_series_se_borra_directo_y_sus_comodines_con_el(

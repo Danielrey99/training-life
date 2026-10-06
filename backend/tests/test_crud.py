@@ -8,6 +8,9 @@ from decimal import Decimal
 
 import pytest
 
+from tests.ayudas import cuerpo_de_serie as _serie
+from tests.ayudas import entrenar, serie_en
+
 FECHA = "2026-09-04"
 
 
@@ -71,20 +74,11 @@ def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
         "/ejercicios",
         json={"nombre": "Sentadilla", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
-    entrenamiento_id = cliente.post(
-        "/entrenamientos", json={"rutina_id": None, "fecha": FECHA, "notas": "Buen día"}
-    ).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA, notas="Buen día").json()["id"]
 
     for numero in (1, 2):
-        respuesta = cliente.post(
-            f"/entrenamientos/{entrenamiento_id}/series",
-            json={
-                "ejercicio_id": ejercicio_id,
-                "numero_serie": numero,
-                "peso": 60.5,
-                "repeticiones": 8,
-                "rpe": 7.5,
-            },
+        respuesta = serie_en(
+            cliente, entrenamiento_id, ejercicio_id, numero=numero, peso=60.5, rpe=7.5
         )
         assert respuesta.status_code == 201
 
@@ -99,42 +93,110 @@ def test_el_peso_y_el_rpe_conservan_los_decimales_exactos(cliente, grupo_muscula
         "/ejercicios",
         json={"nombre": "Peso muerto", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
-    serie = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={
-            "ejercicio_id": ejercicio_id,
-            "numero_serie": 1,
-            "peso": 100.25,
-            "repeticiones": 5,
-            "rpe": 8.5,
-        },
+    serie = serie_en(
+        cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5, rpe=8.5
     ).json()
 
     assert Decimal(str(serie["peso"])) == Decimal("100.25")
     assert Decimal(str(serie["rpe"])) == Decimal("8.5")
 
 
-def test_un_entrenamiento_libre_no_admite_slot_id(cliente, grupo_muscular_id):
-    """Sin rutina no hay huecos a los que apuntar."""
-    ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Curl", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+def _falta_o_es_nulo(respuesta, campo) -> bool:
+    """El 422 es justo por ese campo (ausente o nulo), no por otro del cuerpo."""
+    return respuesta.status_code == 422 and [e["loc"] for e in respuesta.json()["detail"]] == [
+        ["body", campo]
+    ]
+
+
+@pytest.mark.parametrize("sin_rutina", [{}, {"rutina_id": None}], ids=["ausente", "nula"])
+def test_un_entrenamiento_no_se_admite_sin_rutina(cliente, sin_rutina):
+    """Toda sesión es de una rutina: sin ella, el cuerpo ni siquiera es válido."""
+    respuesta = cliente.post("/entrenamientos", json={"fecha": FECHA, **sin_rutina})
+
+    assert _falta_o_es_nulo(respuesta, "rutina_id"), respuesta.text
+    assert cliente.get("/entrenamientos").json() == []
+
+
+@pytest.mark.parametrize("sin_rutina", [{}, {"rutina_id": None}], ids=["ausente", "nula"])
+def test_el_put_no_necesita_ni_toca_la_rutina(cliente, sin_rutina):
+    """El PUT solo corrige la fecha y las notas: sin `rutina_id`, o con él nulo,
+    se acepta y la sesión sigue en su rutina. Nulo no la deja sin rutina (lo que
+    hace tiempo la convertía en un entrenamiento libre).
+    """
+    entrenamiento = entrenar(cliente, FECHA).json()
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento['id']}",
+        json={"fecha": FECHA, "notas": "Corregida", **sin_rutina},
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    guardado = cliente.get(f"/entrenamientos/{entrenamiento['id']}").json()
+    assert (guardado["rutina_id"], guardado["notas"]) == (entrenamiento["rutina_id"], "Corregida")
+
+
+def test_el_put_no_cambia_la_rutina_ni_de_una_sesion_vacia(cliente):
+    """La rutina se fija al crear la sesión, como `cubre_fecha`: si el PUT trae
+    otra, se ignora y se aplica lo demás. Antes, con la sesión vacía y sin
+    `cubre_fecha`, el PUT sí la cambiaba.
+    """
+    entrenamiento = entrenar(cliente, FECHA).json()
+    otra_rutina = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento['id']}",
+        json={"rutina_id": otra_rutina, "fecha": "2026-09-03", "notas": "Corregida"},
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["rutina_id"] == entrenamiento["rutina_id"]
+    guardado = cliente.get(f"/entrenamientos/{entrenamiento['id']}").json()
+    assert (guardado["rutina_id"], guardado["fecha"], guardado["notas"]) == (
+        entrenamiento["rutina_id"],
+        "2026-09-03",
+        "Corregida",
+    )
+
+
+@pytest.mark.parametrize("sin_hueco", [{}, {"slot_id": None}], ids=["ausente", "nulo"])
+def test_una_serie_no_se_admite_sin_hueco(cliente, grupo_muscular_id, sin_hueco):
+    """Toda serie va en un hueco de la rutina de su sesión."""
+    ejercicio_id = _ejercicio(cliente, grupo_muscular_id, "Curl")
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     respuesta = cliente.post(
         f"/entrenamientos/{entrenamiento_id}/series",
         json={
             "ejercicio_id": ejercicio_id,
-            "slot_id": 1,
             "numero_serie": 1,
             "peso": 20,
             "repeticiones": 10,
+            **sin_hueco,
         },
     )
-    # 422 y no 409: son datos incoherentes, no un choque con el estado de algo.
-    assert respuesta.status_code == 422
+
+    assert _falta_o_es_nulo(respuesta, "slot_id"), respuesta.text
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
+
+
+@pytest.mark.parametrize("sin_hueco", [{}, {"slot_id": None}], ids=["ausente", "nulo"])
+def test_a_una_serie_no_se_le_puede_quitar_el_hueco(cliente, grupo_muscular_id, sin_hueco):
+    """Corregir una serie sin mandar su hueco se rechaza y la deja como estaba."""
+    curl = _ejercicio(cliente, grupo_muscular_id, "Curl")
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
+    serie = serie_en(cliente, entrenamiento_id, curl).json()
+    cuerpo = _serie(cliente, entrenamiento_id, curl, peso=80)
+    del cuerpo["slot_id"]
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}", json={**cuerpo, **sin_hueco}
+    )
+
+    assert _falta_o_es_nulo(respuesta, "slot_id"), respuesta.text
+    [guardada] = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
+    assert (guardada["slot_id"], guardada["peso"]) == (serie["slot_id"], serie["peso"])
 
 
 def test_un_hueco_no_admite_reps_max_menor_que_reps_min(cliente, grupo_muscular_id):
@@ -330,25 +392,18 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo(cliente, grupo_m
 # --- Editar y borrar: entrenamientos y series ----------------------------
 
 
-def _serie(ejercicio_id, numero=1, peso=60, repeticiones=8, slot_id=None) -> dict:
-    return {
-        "ejercicio_id": ejercicio_id,
-        "slot_id": slot_id,
-        "numero_serie": numero,
-        "peso": peso,
-        "repeticiones": repeticiones,
-    }
-
-
 def test_corregir_una_serie(cliente, grupo_muscular_id):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
     ruta = f"/entrenamientos/{entrenamiento_id}/series"
-    serie_id = cliente.post(ruta, json=_serie(banca)).json()["id"]
+    serie_id = cliente.post(ruta, json=_serie(cliente, entrenamiento_id, banca)).json()["id"]
 
     respuesta = cliente.put(
         f"{ruta}/{serie_id}",
-        json={**_serie(banca, peso=62.5, repeticiones=7), "variante": "agarre cerrado"},
+        json={
+            **_serie(cliente, entrenamiento_id, banca, peso=62.5, repeticiones=7),
+            "variante": "agarre cerrado",
+        },
     )
 
     assert respuesta.status_code == 200
@@ -359,10 +414,12 @@ def test_corregir_una_serie(cliente, grupo_muscular_id):
 
 def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
     ruta = f"/entrenamientos/{entrenamiento_id}/series"
-    primera = cliente.post(ruta, json=_serie(banca, numero=1)).json()["id"]
-    cliente.post(ruta, json=_serie(banca, numero=2))
+    primera = cliente.post(ruta, json=_serie(cliente, entrenamiento_id, banca, numero=1)).json()[
+        "id"
+    ]
+    cliente.post(ruta, json=_serie(cliente, entrenamiento_id, banca, numero=2))
 
     assert cliente.delete(f"{ruta}/{primera}").status_code == 204
 
@@ -373,9 +430,11 @@ def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
 
 def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grupo_muscular_id):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    uno = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
-    otro = cliente.post("/entrenamientos", json={"fecha": "2026-09-05"}).json()["id"]
-    serie_id = cliente.post(f"/entrenamientos/{uno}/series", json=_serie(banca)).json()["id"]
+    uno = entrenar(cliente, FECHA).json()["id"]
+    otro = entrenar(cliente, "2026-09-05").json()["id"]
+    serie_id = cliente.post(
+        f"/entrenamientos/{uno}/series", json=_serie(cliente, uno, banca)
+    ).json()["id"]
 
     assert cliente.delete(f"/entrenamientos/{otro}/series/{serie_id}").status_code == 404
 
@@ -383,8 +442,10 @@ def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grup
 def test_cancelar_una_sesion_la_borra_con_sus_series(cliente, grupo_muscular_id):
     """Es el Cancelar sesión del diseño: como si no se hubiera empezado."""
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
-    cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca))
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
+    cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(cliente, entrenamiento_id, banca)
+    )
 
     assert cliente.delete(f"/entrenamientos/{entrenamiento_id}").status_code == 204
 
@@ -405,7 +466,8 @@ def test_una_serie_no_puede_apuntar_a_un_hueco_de_otra_rutina(cliente, grupo_mus
     ).json()["id"]
 
     respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca, slot_id=hueco_de_pull)
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json=_serie(cliente, entrenamiento_id, banca, slot_id=hueco_de_pull),
     )
 
     assert respuesta.status_code == 404
@@ -422,10 +484,11 @@ def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
 
 def test_un_ejercicio_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_muscular_id):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
+    cuerpo = _serie(cliente, entrenamiento_id, banca)
     cliente.delete(f"/ejercicios/{banca}?modo=ocultar")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
 
-    respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca))
+    respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=cuerpo)
 
     assert respuesta.status_code == 404
 
@@ -445,10 +508,11 @@ DEMASIADO = 2**31
 
 def test_el_peso_maximo_que_cabe_se_guarda(cliente, grupo_muscular_id):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(banca, peso="9999.99")
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json=_serie(cliente, entrenamiento_id, banca, peso="9999.99"),
     )
 
     assert respuesta.status_code == 201
@@ -460,10 +524,11 @@ def test_el_peso_maximo_que_cabe_se_guarda(cliente, grupo_muscular_id):
 )
 def test_una_serie_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, campo, valor):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series", json={**_serie(banca), campo: valor}
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json={**_serie(cliente, entrenamiento_id, banca), campo: valor},
     )
 
     assert respuesta.status_code == 422
@@ -487,12 +552,14 @@ def test_un_hueco_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, c
 )
 def test_una_serie_admite_su_tope_justo_y_no_uno_mas(cliente, grupo_muscular_id, campo, tope):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
     ruta = f"/entrenamientos/{entrenamiento_id}/series"
     paso = Decimal("0.01") if campo == "peso" else 1
 
-    justo = cliente.post(ruta, json={**_serie(banca), campo: str(tope)})
-    pasado = cliente.post(ruta, json={**_serie(banca), campo: str(tope + paso)})
+    justo = cliente.post(ruta, json={**_serie(cliente, entrenamiento_id, banca), campo: str(tope)})
+    pasado = cliente.post(
+        ruta, json={**_serie(cliente, entrenamiento_id, banca), campo: str(tope + paso)}
+    )
 
     assert (justo.status_code, pasado.status_code) == (201, 422)
 
@@ -525,10 +592,11 @@ def test_el_peso_puede_ser_cero_para_los_ejercicios_con_el_propio_cuerpo(
 ):
     """Dominadas o fondos sin lastre: 0 kg es un dato válido, no un error."""
     dominadas = _ejercicio(cliente, grupo_muscular_id, "Dominadas")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series", json=_serie(dominadas, peso=0)
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json=_serie(cliente, entrenamiento_id, dominadas, peso=0),
     )
 
     assert respuesta.status_code == 201
@@ -540,10 +608,11 @@ def test_el_peso_puede_ser_cero_para_los_ejercicios_con_el_propio_cuerpo(
 )
 def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, campo, valor):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series", json={**_serie(banca), campo: valor}
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json={**_serie(cliente, entrenamiento_id, banca), campo: valor},
     )
 
     assert respuesta.status_code == 422
@@ -570,7 +639,7 @@ def test_ningun_texto_mas_largo_que_su_columna_llega_a_la_base(cliente, grupo_mu
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
     rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
     programa_id = cliente.post("/programas", json={"nombre": "PPL"}).json()["id"]
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": FECHA}).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
     grupo = grupo_muscular_id
 
     peticiones = [
@@ -586,18 +655,30 @@ def test_ningun_texto_mas_largo_que_su_columna_llega_a_la_base(cliente, grupo_mu
         ("put", f"/rutinas/{rutina_id}", {"nombre": "x" * 101}),
         ("post", "/programas", {"nombre": "x" * 101}),
         ("put", f"/programas/{programa_id}", {"nombre": "x" * 101}),
-        ("post", "/entrenamientos", {"fecha": "2026-09-01", "notas": "x" * 1001}),
-        ("put", f"/entrenamientos/{entrenamiento_id}", {"fecha": FECHA, "notas": "x" * 1001}),
+        (
+            "post",
+            "/entrenamientos",
+            {"rutina_id": rutina_id, "fecha": "2026-09-01", "notas": "x" * 1001},
+        ),
+        (
+            "put",
+            f"/entrenamientos/{entrenamiento_id}",
+            {"fecha": FECHA, "notas": "x" * 1001},
+        ),
         (
             "post",
             f"/entrenamientos/{entrenamiento_id}/series",
-            {**_serie(banca), "variante": "x" * 101},
+            {**_serie(cliente, entrenamiento_id, banca), "variante": "x" * 101},
         ),
     ]
 
     for metodo, ruta, cuerpo in peticiones:
         respuesta = getattr(cliente, metodo)(ruta, json=cuerpo)
         assert respuesta.status_code == 422, f"{metodo.upper()} {ruta}: {respuesta.status_code}"
+        # El 422 tiene que ser por el texto largo, no por un campo obligatorio que
+        # le falte al cuerpo: así pasaba antes con los entrenamientos sin rutina_id.
+        tipos = {error["type"] for error in respuesta.json()["detail"]}
+        assert tipos == {"string_too_long"}, f"{metodo.upper()} {ruta}: {tipos}"
 
 
 def test_un_nombre_se_guarda_sin_los_espacios_de_los_lados(cliente, grupo_muscular_id):
@@ -627,17 +708,8 @@ def test_los_textos_opcionales_en_blanco_se_guardan_como_nulos(cliente, grupo_mu
             "descripcion": "  Con barra  ",
         },
     ).json()
-    entrenamiento = cliente.post("/entrenamientos", json={"fecha": FECHA, "notas": ""}).json()
-    serie = cliente.post(
-        f"/entrenamientos/{entrenamiento['id']}/series",
-        json={
-            "ejercicio_id": en_blanco["id"],
-            "numero_serie": 1,
-            "peso": 20,
-            "repeticiones": 10,
-            "variante": "  ",
-        },
-    ).json()
+    entrenamiento = entrenar(cliente, FECHA, notas="").json()
+    serie = serie_en(cliente, entrenamiento["id"], en_blanco["id"], peso=20, variante="  ").json()
 
     assert en_blanco["descripcion"] is None
     assert con_texto["descripcion"] == "Con barra"

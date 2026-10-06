@@ -140,14 +140,16 @@ def test_otra_rutina_el_dia_que_tocaba_una_hecha_otro_dia(cliente, ppl, grupo_mu
     assert dia["sesion"]["cuenta"] is True
 
 
-def test_un_entrenamiento_libre_sale_como_sesion_sin_contar(cliente, ppl, grupo_muscular_id):
-    libre = hecha(cliente, grupo_muscular_id, MARTES_15, None)
+def test_una_sesion_sin_cubrir_ningun_dia_sale_como_sesion_sin_contar(
+    cliente, ppl, grupo_muscular_id
+):
+    suelta = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"])
 
     dia = seguimiento(cliente, MARTES_15)[MARTES_15]
 
     assert dia["estado"] == "descanso"
-    assert dia["sesion"]["entrenamiento_id"] == libre
-    assert dia["sesion"]["rutina"] is None
+    assert dia["sesion"]["entrenamiento_id"] == suelta
+    assert dia["sesion"]["rutina"]["id"] == ppl["Leg"]
     assert dia["sesion"]["cuenta"] is False
 
 

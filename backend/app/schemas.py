@@ -195,7 +195,7 @@ class SerieBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar una serie."""
 
     ejercicio_id: int
-    slot_id: int | None = None
+    slot_id: int
     numero_serie: int = Field(gt=0, le=100)
     # 9999,99 es lo que cabe en la columna (NUMERIC(6,2)): sin este tope, un peso
     # mayor llegaba a la base de datos y la respuesta era un 500.
@@ -244,14 +244,13 @@ class SerieHistorial(BaseModel):
     No repite la fecha ni el ejercicio: los trae la sesión que la agrupa.
     `slot_id` sí viene, porque el mismo ejercicio puede ocupar dos huecos de la
     rutina (principal en uno, comodín en otro) y entonces un mismo día trae dos
-    tandas de series que solo se distinguen por ahí. Es `null` si el
-    entrenamiento fue libre.
+    tandas de series que solo se distinguen por ahí.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    slot_id: int | None
+    slot_id: int
     numero_serie: int
     peso: Decimal
     repeticiones: int
@@ -270,13 +269,12 @@ class SerieHistorialHueco(SerieHistorial):
 class SesionHistorial(BaseModel):
     """Un día de entrenamiento con las series que tocaron ese ejercicio o ese hueco.
 
-    `rutina` es el nombre de la rutina que se siguió, o `null` si fue un
-    entrenamiento libre.
+    `rutina` es el nombre de la rutina que se siguió.
     """
 
     entrenamiento_id: int
     fecha: date
-    rutina: str | None
+    rutina: str
     series: list[SerieHistorial]
 
 
@@ -285,21 +283,22 @@ class SesionHistorialHueco(SesionHistorial):
 
 
 class EntrenamientoBase(BaseModel):
-    """Campos que el cliente puede enviar al crear o editar un entrenamiento.
+    """Campos que el cliente puede enviar al crear o corregir un entrenamiento.
 
     No incluye las series: se gestionan aparte, con sus propios endpoints
     anidados bajo /entrenamientos/{id}/series.
     """
 
-    rutina_id: int | None = None
     fecha: date
     notas: TextoOpcional = Field(default=None, max_length=1000)
 
 
 class EntrenamientoCreate(EntrenamientoBase):
-    # Qué día del plan cuenta la sesión: lo decide el botón pulsado (Empezar,
-    # Recuperar, Adelantar), así que solo se manda al crear. No va en la base
-    # común: el PUT copia todos los campos, y lo pondría a nulo en cada edición.
+    # La rutina y el día del plan que cuenta la sesión se deciden al empezarla (el
+    # botón pulsado: Empezar, Recuperar, Adelantar) y no cambian después. No van en
+    # la base común: el PUT copia todos sus campos y los sobrescribiría. Para apuntar
+    # otra rutina se borra el día y se registra de nuevo.
+    rutina_id: int
     cubre_fecha: date | None = None
 
 
@@ -314,6 +313,7 @@ class EntrenamientoOut(EntrenamientoBase):
 
     id: int
     usuario_id: int
+    rutina_id: int
     cubre_fecha: date | None
     # Las dos las decide el servidor: terminada_en se pone con POST .../terminar,
     # y en_curso se calcula al leer (ver Entrenamiento.en_curso).
@@ -446,7 +446,7 @@ class SesionDelDiaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     entrenamiento_id: int
-    rutina: RutinaMinima | None
+    rutina: RutinaMinima
     en_curso: bool
     vacia: bool
     cubre_fecha: date | None
@@ -499,7 +499,7 @@ class UltimaSesionOut(BaseModel):
 
     entrenamiento_id: int
     fecha: date
-    rutina: RutinaMinima | None
+    rutina: RutinaMinima
     cubre_fecha: date | None
     series: int
     ejercicios: int

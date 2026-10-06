@@ -77,7 +77,7 @@ class SesionDelDia:
     """Lo que se hizo un día, cuente o no para alguno."""
 
     entrenamiento_id: int
-    rutina: Rutina | None
+    rutina: Rutina
     en_curso: bool
     vacia: bool
     cubre_fecha: date | None
@@ -225,7 +225,7 @@ class Ofrecida:
 class UltimaSesion:
     entrenamiento_id: int
     fecha: date
-    rutina: Rutina | None
+    rutina: Rutina
     # Si recuperaba o adelantaba otro día ("Recuperado del lunes").
     cubre_fecha: date | None
     series: int

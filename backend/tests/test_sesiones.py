@@ -12,13 +12,14 @@ import pytest
 
 from app import fechas
 from app.fechas import hoy
+from tests.ayudas import entrenar, hueco_en_bd, rutina_en_bd, serie_en
 
 HOY = hoy()
 AYER = HOY - timedelta(days=1)
 
 
 def empezar(cliente, fecha=HOY) -> dict:
-    respuesta = cliente.post("/entrenamientos", json={"fecha": fecha.isoformat()})
+    respuesta = entrenar(cliente, fecha)
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()
 
@@ -72,10 +73,7 @@ def test_una_sesion_terminada_admite_mas_series(cliente, grupo_muscular_id):
     ).json()["id"]
     sesion_id = terminar(cliente, empezar(cliente)["id"])["id"]
 
-    respuesta = cliente.post(
-        f"/entrenamientos/{sesion_id}/series",
-        json={"ejercicio_id": ejercicio_id, "numero_serie": 1, "peso": 60, "repeticiones": 8},
-    )
+    respuesta = serie_en(cliente, sesion_id, ejercicio_id)
 
     assert respuesta.status_code == 201
 
@@ -92,17 +90,14 @@ def con_una_serie(cliente, grupo_muscular_id, sesion_id) -> None:
     ejercicio_id = cliente.post(
         "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
     ).json()["id"]
-    respuesta = cliente.post(
-        f"/entrenamientos/{sesion_id}/series",
-        json={"ejercicio_id": ejercicio_id, "numero_serie": 1, "peso": 60, "repeticiones": 8},
-    )
+    respuesta = serie_en(cliente, sesion_id, ejercicio_id)
     assert respuesta.status_code == 201
 
 
 def test_con_una_sesion_en_curso_no_se_puede_empezar_otra_hoy(cliente):
     abierta = empezar(cliente)
 
-    respuesta = cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()})
+    respuesta = entrenar(cliente, HOY)
 
     assert respuesta.status_code == 409
     # Dice cuál es y que está en curso, para que la pantalla ofrezca continuarla.
@@ -116,7 +111,7 @@ def test_terminada_la_sesion_de_hoy_no_se_puede_empezar_otra(cliente, grupo_musc
     con_una_serie(cliente, grupo_muscular_id, sesion["id"])
     terminar(cliente, sesion["id"])
 
-    respuesta = cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()})
+    respuesta = entrenar(cliente, HOY)
 
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"]["entrenamiento_id"] == sesion["id"]
@@ -129,7 +124,7 @@ def test_una_sesion_de_hoy_terminada_sin_series_no_ocupa_el_dia(cliente):
     """
     vacia = terminar(cliente, empezar(cliente)["id"])
 
-    assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
+    assert entrenar(cliente, HOY).status_code == 201
     assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
 
 
@@ -137,7 +132,7 @@ def test_un_dia_pasado_con_sesion_no_admite_otra(cliente, grupo_muscular_id):
     sesion = empezar(cliente, AYER)
     con_una_serie(cliente, grupo_muscular_id, sesion["id"])
 
-    respuesta = cliente.post("/entrenamientos", json={"fecha": AYER.isoformat()})
+    respuesta = entrenar(cliente, AYER)
 
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"]["en_curso"] is False
@@ -146,7 +141,7 @@ def test_un_dia_pasado_con_sesion_no_admite_otra(cliente, grupo_muscular_id):
 def test_una_sesion_pasada_sin_series_no_ocupa_su_dia(cliente):
     vacia = empezar(cliente, AYER)
 
-    assert cliente.post("/entrenamientos", json={"fecha": AYER.isoformat()}).status_code == 201
+    assert entrenar(cliente, AYER).status_code == 201
     assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
 
 
@@ -154,13 +149,13 @@ def test_una_sesion_en_curso_no_impide_apuntar_un_dia_pasado(cliente):
     """Registrar lo que se hizo otro día no es empezar a entrenar."""
     empezar(cliente)
 
-    assert cliente.post("/entrenamientos", json={"fecha": AYER.isoformat()}).status_code == 201
+    assert entrenar(cliente, AYER).status_code == 201
 
 
 def test_una_sesion_de_ayer_sin_terminar_no_impide_empezar_hoy(cliente):
     empezar(cliente, AYER)
 
-    assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
+    assert entrenar(cliente, HOY).status_code == 201
 
 
 def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_muscular_id):
@@ -168,7 +163,10 @@ def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_
     de_ayer = empezar(cliente, AYER)
     con_una_serie(cliente, grupo_muscular_id, de_ayer["id"])
 
-    respuesta = cliente.put(f"/entrenamientos/{de_ayer['id']}", json={"fecha": HOY.isoformat()})
+    respuesta = cliente.put(
+        f"/entrenamientos/{de_ayer['id']}",
+        json={"fecha": HOY.isoformat()},
+    )
 
     assert respuesta.status_code == 409
     assert cliente.get(f"/entrenamientos/{de_ayer['id']}").json()["fecha"] == AYER.isoformat()
@@ -178,7 +176,10 @@ def test_una_sesion_se_puede_mover_a_un_dia_libre(cliente):
     de_ayer = empezar(cliente, AYER)
     otro_dia = (AYER - timedelta(days=1)).isoformat()
 
-    respuesta = cliente.put(f"/entrenamientos/{de_ayer['id']}", json={"fecha": otro_dia})
+    respuesta = cliente.put(
+        f"/entrenamientos/{de_ayer['id']}",
+        json={"fecha": otro_dia},
+    )
 
     assert respuesta.status_code == 200
     assert respuesta.json()["fecha"] == otro_dia
@@ -188,7 +189,8 @@ def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
     sesion = empezar(cliente)
 
     respuesta = cliente.put(
-        f"/entrenamientos/{sesion['id']}", json={"fecha": HOY.isoformat(), "notas": "Buen día"}
+        f"/entrenamientos/{sesion['id']}",
+        json={"fecha": HOY.isoformat(), "notas": "Buen día"},
     )
 
     assert respuesta.status_code == 200
@@ -202,7 +204,10 @@ def test_la_base_no_admite_dos_sesiones_del_mismo_usuario_el_mismo_dia(sesion_bd
     from app.models import Entrenamiento
 
     usuario_id = get_usuario_actual_id()
-    sesion_bd.add_all([Entrenamiento(usuario_id=usuario_id, fecha=AYER) for _ in range(2)])
+    rutina_id = rutina_en_bd(sesion_bd, usuario_id)
+    sesion_bd.add_all(
+        [Entrenamiento(usuario_id=usuario_id, rutina_id=rutina_id, fecha=AYER) for _ in range(2)]
+    )
     with pytest.raises(IntegrityError):
         sesion_bd.commit()
     sesion_bd.rollback()
@@ -211,10 +216,11 @@ def test_la_base_no_admite_dos_sesiones_del_mismo_usuario_el_mismo_dia(sesion_bd
 def test_la_sesion_de_otro_usuario_no_ocupa_mi_dia(cliente, sesion_bd, otro_usuario_id):
     from app.models import Entrenamiento
 
-    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, fecha=HOY))
+    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
+    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=HOY))
     sesion_bd.commit()
 
-    assert cliente.post("/entrenamientos", json={"fecha": HOY.isoformat()}).status_code == 201
+    assert entrenar(cliente, HOY).status_code == 201
 
 
 # --- Filtros del listado -------------------------------------------------
@@ -245,15 +251,7 @@ def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_y_con_series(
     """
 
     def con_serie(sesion):
-        cliente.post(
-            f"/entrenamientos/{sesion['id']}/series",
-            json={
-                "ejercicio_id": ejercicio_predefinido_id,
-                "numero_serie": 1,
-                "peso": 40,
-                "repeticiones": 10,
-            },
-        )
+        serie_en(cliente, sesion["id"], ejercicio_predefinido_id, peso=40, repeticiones=10)
         return sesion
 
     a_medias = con_serie(empezar(cliente, AYER))
@@ -271,12 +269,15 @@ def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
 ):
     from app.models import Entrenamiento, Serie
 
-    ajena = Entrenamiento(usuario_id=otro_usuario_id, fecha=AYER)
+    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
+    hueco_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_predefinido_id)
+    ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=AYER)
     sesion_bd.add(ajena)
     sesion_bd.flush()
     sesion_bd.add(
         Serie(
             entrenamiento_id=ajena.id,
+            slot_id=hueco_id,
             ejercicio_id=ejercicio_predefinido_id,
             numero_serie=1,
             peso=40,
@@ -352,7 +353,7 @@ def test_no_se_puede_apuntar_un_entrenamiento_en_el_futuro(cliente):
     """
     manana = HOY + timedelta(days=1)
 
-    respuesta = cliente.post("/entrenamientos", json={"fecha": manana.isoformat()})
+    respuesta = entrenar(cliente, manana)
 
     assert respuesta.status_code == 422
     assert cliente.get("/entrenamientos").json() == []
@@ -362,10 +363,12 @@ def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
     sesion = empezar(cliente, AYER)
 
     respuesta = cliente.put(
-        f"/entrenamientos/{sesion['id']}", json={"fecha": (HOY + timedelta(days=1)).isoformat()}
+        f"/entrenamientos/{sesion['id']}",
+        json={"fecha": (HOY + timedelta(days=1)).isoformat()},
     )
 
     assert respuesta.status_code == 422
+    assert "todavía no ha llegado" in respuesta.json()["detail"]
     assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
 
 
@@ -400,8 +403,8 @@ def test_hoy_es_la_fecha_de_madrid_aunque_en_utc_siga_siendo_ayer(madrugada_en_m
 
 def test_a_las_00_30_en_espana_se_empieza_la_sesion_del_dia_nuevo(cliente, madrugada_en_madrid):
     """Ni "futura" (422) ni en el día anterior: es la sesión en curso de hoy."""
-    respuesta = cliente.post("/entrenamientos", json={"fecha": "2025-07-01"})
+    respuesta = entrenar(cliente, "2025-07-01")
 
     assert respuesta.status_code == 201
     assert respuesta.json()["en_curso"] is True
-    assert cliente.post("/entrenamientos", json={"fecha": "2025-07-02"}).status_code == 422
+    assert entrenar(cliente, "2025-07-02").status_code == 422

@@ -7,6 +7,8 @@ Hoy es el **miércoles 16 de septiembre de 2026**, y el programa Push (lunes), P
 
 from datetime import date
 
+from tests.ayudas import ejercicio_de_prueba, serie_en
+
 LUNES_7 = date(2026, 9, 7)
 DOMINGO_13 = date(2026, 9, 13)
 LUNES_14 = date(2026, 9, 14)
@@ -29,13 +31,21 @@ def con_una_serie(cliente, grupo_muscular_id, entrenamiento_id) -> None:
     """Una sesión sin series que ya no está en curso cuenta como cancelada: para
     que cuente, tiene que tener algo apuntado.
     """
-    ejercicio = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={"ejercicio_id": ejercicio, "numero_serie": 1, "peso": 60, "repeticiones": 10},
-    )
+    # En un hueco que la rutina ya tenga, para no cambiarle los ejercicios; si no tiene
+    # ninguno, se le añade uno.
+    rutina_id = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["rutina_id"]
+    visibles = [
+        hueco
+        for hueco in cliente.get(f"/rutinas/{rutina_id}").json()["slots"]
+        if hueco["oculto_desde"] is None
+    ]
+    if visibles:
+        ejercicio = visibles[0]["ejercicio_principal"]["id"]
+    else:
+        # Reutilizado si ya existe: con dos rutinas sin huecos en el mismo test, crearlo
+        # otra vez chocaría con el nombre repetido.
+        ejercicio = ejercicio_de_prueba(cliente, grupo_muscular_id, "Press banca")
+    respuesta = serie_en(cliente, entrenamiento_id, ejercicio, repeticiones=10)
     assert respuesta.status_code == 201, respuesta.text
 
 

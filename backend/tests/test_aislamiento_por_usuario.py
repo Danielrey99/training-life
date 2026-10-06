@@ -26,6 +26,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
+from tests.ayudas import entrenar, hueco_en_bd, rutina_en_bd
 
 
 @pytest.fixture
@@ -238,7 +239,7 @@ def test_no_se_puede_usar_un_ejercicio_ajeno_en_huecos_comodines_ni_series(
 
     slot_id = cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco(propio, 1)).json()["id"]
     slot = f"/rutinas/{rutina_id}/slots/{slot_id}"
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": "2026-09-03"}).json()["id"]
+    entrenamiento_id = entrenar(cliente, "2026-09-03", rutina_id).json()["id"]
 
     assert (
         cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco(ejercicio_ajeno_id, 2)).status_code
@@ -249,7 +250,13 @@ def test_no_se_puede_usar_un_ejercicio_ajeno_en_huecos_comodines_ni_series(
         cliente.post(f"{slot}/alternativas", json={"ejercicio_id": ejercicio_ajeno_id}).status_code
         == 404
     )
-    serie = {"ejercicio_id": ejercicio_ajeno_id, "numero_serie": 1, "peso": 60, "repeticiones": 8}
+    serie = {
+        "ejercicio_id": ejercicio_ajeno_id,
+        "slot_id": slot_id,
+        "numero_serie": 1,
+        "peso": 60,
+        "repeticiones": 8,
+    }
     assert cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=serie).status_code == 404
 
 
@@ -422,11 +429,16 @@ def test_editar_una_nota_no_permite_cambiarle_el_dueno_ni_el_ejercicio(
 @pytest.fixture
 def entrenamiento_ajeno(sesion_bd, otro_usuario_id, ejercicio_predefinido_id) -> dict:
     """Un entrenamiento de otro usuario, con una serie de un ejercicio compartido."""
-    entrenamiento = Entrenamiento(usuario_id=otro_usuario_id, fecha=date(2026, 9, 1))
+    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
+    hueco_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_predefinido_id)
+    entrenamiento = Entrenamiento(
+        usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=date(2026, 9, 1)
+    )
     sesion_bd.add(entrenamiento)
     sesion_bd.flush()
     serie = Serie(
         entrenamiento_id=entrenamiento.id,
+        slot_id=hueco_id,
         ejercicio_id=ejercicio_predefinido_id,
         numero_serie=1,
         peso=100,
@@ -434,7 +446,13 @@ def entrenamiento_ajeno(sesion_bd, otro_usuario_id, ejercicio_predefinido_id) ->
     )
     sesion_bd.add(serie)
     sesion_bd.commit()
-    return {"id": entrenamiento.id, "serie_id": serie.id, "ejercicio_id": ejercicio_predefinido_id}
+    return {
+        "id": entrenamiento.id,
+        "serie_id": serie.id,
+        "ejercicio_id": ejercicio_predefinido_id,
+        "rutina_id": rutina_id,
+        "slot_id": hueco_id,
+    }
 
 
 def test_el_listado_no_incluye_entrenamientos_de_otro_usuario(cliente, entrenamiento_ajeno):
@@ -455,6 +473,7 @@ def test_no_se_pueden_tocar_las_series_de_un_entrenamiento_ajeno(cliente, entren
     ruta = f"/entrenamientos/{entrenamiento_ajeno['id']}/series"
     serie = {
         "ejercicio_id": entrenamiento_ajeno["ejercicio_id"],
+        "slot_id": entrenamiento_ajeno["slot_id"],
         "numero_serie": 2,
         "peso": 20,
         "repeticiones": 10,
@@ -471,7 +490,7 @@ def test_una_serie_ajena_no_se_alcanza_por_un_entrenamiento_propio(
     """El dueño se comprueba en el entrenamiento de la ruta; la serie, además,
     tiene que ser de ese entrenamiento. Si no, un id de serie ajeno se colaría.
     """
-    propio = cliente.post("/entrenamientos", json={"fecha": "2026-09-03"}).json()["id"]
+    propio = entrenar(cliente, "2026-09-03").json()["id"]
 
     respuesta = cliente.delete(f"/entrenamientos/{propio}/series/{entrenamiento_ajeno['serie_id']}")
 
@@ -487,15 +506,22 @@ def test_no_se_puede_empezar_un_entrenamiento_con_una_rutina_ajena(cliente, ruti
     assert respuesta.status_code == 404
 
 
-def test_no_se_puede_pasar_un_entrenamiento_propio_a_una_rutina_ajena(cliente, rutina_ajena_id):
-    propio = cliente.post("/entrenamientos", json={"fecha": "2026-09-03"}).json()["id"]
+def test_una_rutina_ajena_en_el_put_de_un_entrenamiento_propio_se_ignora(cliente, rutina_ajena_id):
+    """La rutina se fija al crear la sesión: la que llegue en el PUT, aunque sea
+    de otro usuario, no se mira ni se guarda. Antes daba 404; lo que importa es
+    que la sesión no acabe colgando de una rutina ajena.
+    """
+    propio = entrenar(cliente, "2026-09-03").json()
+    rutina_propia_id = propio["rutina_id"]
 
     respuesta = cliente.put(
-        f"/entrenamientos/{propio}", json={"rutina_id": rutina_ajena_id, "fecha": "2026-09-03"}
+        f"/entrenamientos/{propio['id']}",
+        json={"rutina_id": rutina_ajena_id, "fecha": "2026-09-03", "notas": "Corregida"},
     )
 
-    assert respuesta.status_code == 404
-    assert cliente.get(f"/entrenamientos/{propio}").json()["rutina_id"] is None
+    assert respuesta.status_code == 200, respuesta.text
+    guardado = cliente.get(f"/entrenamientos/{propio['id']}").json()
+    assert (guardado["rutina_id"], guardado["notas"]) == (rutina_propia_id, "Corregida")
 
 
 def test_la_sesion_en_curso_de_otro_usuario_ni_se_lista_ni_impide_empezar_la_mia(
@@ -505,11 +531,12 @@ def test_la_sesion_en_curso_de_otro_usuario_ni_se_lista_ni_impide_empezar_la_mia
     "la" sesión abierta de hoy, sin id concreto, y sin el filtro por dueño la del
     otro me bloquearía.
     """
-    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, fecha=hoy()))
+    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
+    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=hoy()))
     sesion_bd.commit()
 
     assert cliente.get("/entrenamientos", params={"en_curso": True}).json() == []
-    assert cliente.post("/entrenamientos", json={"fecha": hoy().isoformat()}).status_code == 201
+    assert entrenar(cliente, hoy()).status_code == 201
 
 
 # --- Programas y plan ----------------------------------------------------

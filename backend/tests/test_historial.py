@@ -11,6 +11,8 @@ usuario se cuela por el camino.
 import pytest
 
 from app.models import Ejercicio, Entrenamiento, Rutina, RutinaSlot, Serie
+from tests.ayudas import entrenar as entrenar_en
+from tests.ayudas import hueco_en_bd, rutina_en_bd, serie_en
 
 # --- Ayudantes para montar escenarios ------------------------------------
 
@@ -43,7 +45,8 @@ def crear_hueco(cliente, rutina_id, ejercicio_id, orden=1) -> int:
 
 
 def crear_entrenamiento(cliente, fecha, rutina_id=None) -> int:
-    respuesta = cliente.post("/entrenamientos", json={"rutina_id": rutina_id, "fecha": fecha})
+    """De la rutina que se diga o, si no, de una rutina de prueba."""
+    respuesta = entrenar_en(cliente, fecha, rutina_id)
     assert respuesta.status_code == 201
     return respuesta.json()["id"]
 
@@ -51,15 +54,10 @@ def crear_entrenamiento(cliente, fecha, rutina_id=None) -> int:
 def registrar_serie(
     cliente, entrenamiento_id, ejercicio_id, numero_serie=1, peso=60, slot_id=None
 ) -> int:
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={
-            "ejercicio_id": ejercicio_id,
-            "slot_id": slot_id,
-            "numero_serie": numero_serie,
-            "peso": peso,
-            "repeticiones": 8,
-        },
+    # Sin hueco que se diga, en uno de la rutina de la sesión con ese ejercicio.
+    campos = {} if slot_id is None else {"slot_id": slot_id}
+    respuesta = serie_en(
+        cliente, entrenamiento_id, ejercicio_id, numero=numero_serie, peso=peso, **campos
     )
     assert respuesta.status_code == 201
     return respuesta.json()["id"]
@@ -127,18 +125,6 @@ def test_cada_dia_es_una_entrada_y_van_de_la_mas_reciente_a_la_mas_antigua(clien
     assert [sesion["rutina"] for sesion in historial] == ["Push", "Push"]
 
 
-def test_un_entrenamiento_libre_aparece_en_el_historial_con_rutina_nula(cliente, escenario):
-    """Sin plantilla detrás no hay nombre de rutina que mostrar, pero la sesión
-    cuenta igual para la progresión del ejercicio.
-    """
-    entrenar(cliente, "2026-09-05", escenario["ejercicio_id"], rutina_id=None, series=1)
-
-    historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
-
-    assert len(historial) == 1
-    assert historial[0]["rutina"] is None
-
-
 def test_las_series_de_cada_dia_salen_ordenadas_por_numero_de_serie(cliente, escenario):
     """Se registran desordenadas a propósito: el orden lo pone la consulta, no
     el orden de inserción.
@@ -175,27 +161,6 @@ def test_una_sesion_solo_trae_las_series_de_ese_ejercicio_no_el_entrenamiento_en
 
     assert len(historial) == 1
     assert [serie["numero_serie"] for serie in historial[0]["series"]] == [1]
-
-
-def test_una_serie_sin_hueco_cuenta_para_el_ejercicio_pero_no_para_el_hueco(cliente, escenario):
-    """Un día de entrenamiento libre es progresión del ejercicio, pero no de un
-    hueco de rutina: la serie no apunta a ninguno (`slot_id` nulo).
-    """
-    entrenar(
-        cliente,
-        "2026-09-01",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=1,
-    )
-    entrenar(cliente, "2026-09-05", escenario["ejercicio_id"], rutina_id=None, series=1)
-
-    del_ejercicio = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
-    del_hueco = historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"])
-
-    assert [sesion["fecha"] for sesion in del_ejercicio] == ["2026-09-05", "2026-09-01"]
-    assert [sesion["fecha"] for sesion in del_hueco] == ["2026-09-01"]
 
 
 def test_el_mismo_ejercicio_en_dos_huecos_cuenta_entero_para_el_ejercicio_y_por_separado_por_hueco(
@@ -465,7 +430,10 @@ def test_un_rango_invertido_se_rechaza(cliente, escenario):
 
 def registrar_serie_ajena(sesion_bd, usuario_id, ejercicio_id, fecha, slot_id=None) -> None:
     """Un entrenamiento de otro usuario con una serie dentro, insertado a mano."""
-    entrenamiento = Entrenamiento(usuario_id=usuario_id, fecha=fecha)
+    rutina_id = rutina_en_bd(sesion_bd, usuario_id)
+    if slot_id is None:
+        slot_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_id)
+    entrenamiento = Entrenamiento(usuario_id=usuario_id, rutina_id=rutina_id, fecha=fecha)
     sesion_bd.add(entrenamiento)
     sesion_bd.flush()
     sesion_bd.add(
@@ -661,57 +629,30 @@ def test_el_historial_de_los_huecos_de_una_rutina_ocultada_se_sigue_pudiendo_con
 # --- Lo que protege la coherencia del historial ---------------------------
 
 
-def test_no_se_puede_mover_de_rutina_un_entrenamiento_con_series_en_huecos(cliente, escenario):
-    """Cambiar la rutina dejaría las series apuntando a huecos de la anterior, y
-    el historial de esos huecos mostraría una sesión con el nombre de otra
-    rutina. Se avisa con un 409 en vez de romper el historial en silencio.
+def test_el_put_de_una_sesion_con_series_ignora_la_rutina_y_no_toca_el_historial(
+    cliente, escenario
+):
+    """Las series de una sesión van en huecos de su rutina; si el PUT pudiera
+    cambiarla, el historial del hueco mostraría la sesión con el nombre de otra
+    rutina. La rutina se fija al crear la sesión: la que llegue en el PUT se
+    ignora y solo se corrigen la fecha y las notas.
     """
     entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
     registrar_serie(
         cliente, entrenamiento_id, escenario["ejercicio_id"], slot_id=escenario["slot_id"]
     )
     otra_rutina_id = crear_rutina(cliente, nombre="Pull")
+    antes = historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"])
 
     respuesta = cliente.put(
         f"/entrenamientos/{entrenamiento_id}",
-        json={"rutina_id": otra_rutina_id, "fecha": "2026-09-05"},
+        json={"rutina_id": otra_rutina_id, "fecha": "2026-09-05", "notas": "Corregida"},
     )
 
-    assert respuesta.status_code == 409
-    assert "huecos" in respuesta.json()["detail"]
-
-
-def test_un_entrenamiento_libre_si_puede_pasar_a_seguir_una_rutina(cliente, escenario):
-    """Sus series no referencian ningún hueco, así que no hay nada que romper."""
-    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05")
-    registrar_serie(cliente, entrenamiento_id, escenario["ejercicio_id"])
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}",
-        json={"rutina_id": escenario["rutina_id"], "fecha": "2026-09-05"},
-    )
-
-    assert respuesta.status_code == 200
-
-
-def test_no_se_puede_pasar_a_libre_un_entrenamiento_con_series_en_huecos(cliente, escenario):
-    """Quitarle la rutina es otra forma de cambiársela: las series seguirían
-    apuntando a huecos de una rutina que la sesión ya no dice seguir.
-    """
-    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
-    registrar_serie(
-        cliente, entrenamiento_id, escenario["ejercicio_id"], slot_id=escenario["slot_id"]
-    )
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}", json={"rutina_id": None, "fecha": "2026-09-05"}
-    )
-
-    assert respuesta.status_code == 409
-    assert (
-        cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["rutina_id"]
-        == (escenario["rutina_id"])
-    )
+    assert respuesta.status_code == 200, respuesta.text
+    guardado = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
+    assert (guardado["rutina_id"], guardado["notas"]) == (escenario["rutina_id"], "Corregida")
+    assert historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"]) == antes
 
 
 @pytest.mark.parametrize("limite", [0, 501])

@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie, SlotAlternativa
+from tests.ayudas import entrenar, serie_en
 
 
 @pytest.fixture
@@ -40,11 +41,8 @@ def rutina_con_hueco(cliente, grupo_muscular_id):
     cliente.post(
         f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin}
     )
-    entrenamiento_id = cliente.post("/entrenamientos", json={"fecha": "2026-09-01"}).json()["id"]
-    cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={"ejercicio_id": principal, "numero_serie": 1, "peso": 60, "repeticiones": 8},
-    )
+    entrenamiento_id = entrenar(cliente, "2026-09-01", rutina_id).json()["id"]
+    serie_en(cliente, entrenamiento_id, principal)
     return {"rutina_id": rutina_id, "slot_id": slot_id, "entrenamiento_id": entrenamiento_id}
 
 
@@ -63,6 +61,9 @@ def test_borrar_un_entrenamiento_con_sus_series_cargadas_las_borra(sesion_bd, ru
 
 
 def test_borrar_un_hueco_con_sus_comodines_cargados_los_borra(sesion_bd, rutina_con_hueco):
+    # Sin su sesión no quedan series en el hueco: con ellas, su FK (RESTRICT) lo impide.
+    sesion_bd.delete(sesion_bd.get(Entrenamiento, rutina_con_hueco["entrenamiento_id"]))
+    sesion_bd.commit()
     hueco = sesion_bd.get(RutinaSlot, rutina_con_hueco["slot_id"])
     assert len(hueco.slot_alternativas) == 1
 
@@ -80,6 +81,10 @@ def test_borrar_una_rutina_con_sus_huecos_cargados_lo_sigue_impidiendo_la_base(
     quien decide tiene que ser esa restricción, y no un intento de SQLAlchemy de
     dejar los huecos sin rutina.
     """
+    # Sin su sesión, que también la referencia (RESTRICT): así lo que bloquea es el
+    # hueco y no el entrenamiento.
+    sesion_bd.delete(sesion_bd.get(Entrenamiento, rutina_con_hueco["entrenamiento_id"]))
+    sesion_bd.commit()
     rutina = sesion_bd.get(Rutina, rutina_con_hueco["rutina_id"])
     assert len(rutina.slots) == 1
 
@@ -89,3 +94,4 @@ def test_borrar_una_rutina_con_sus_huecos_cargados_lo_sigue_impidiendo_la_base(
     sesion_bd.rollback()
 
     assert isinstance(error.value.orig, psycopg2.errors.ForeignKeyViolation)
+    assert error.value.orig.diag.table_name == "rutina_slots"

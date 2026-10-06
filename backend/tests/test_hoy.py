@@ -10,7 +10,8 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 
 from datetime import date
 
-from app.models import Entrenamiento, Rutina, Serie
+from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
+from tests.ayudas import serie_en
 from tests.semana import (
     DOMINGO_13,
     HOY,
@@ -261,10 +262,7 @@ def test_la_ultima_sesion_trae_sus_cifras_y_el_dia_que_recuperaba(cliente, ppl, 
         "/ejercicios", json={"nombre": "Fondos", "grupo_muscular_id": grupo_muscular_id}
     ).json()["id"]
     for numero in (2, 3):
-        cliente.post(
-            f"/entrenamientos/{recuperada}/series",
-            json={"ejercicio_id": otro, "numero_serie": numero, "peso": 20, "repeticiones": 8},
-        )
+        serie_en(cliente, recuperada, otro, numero=numero, peso=20)
 
     ultima = hoy(cliente)["ultima_sesion"]
 
@@ -390,9 +388,20 @@ def test_lo_de_otro_usuario_ni_se_ofrece_ni_es_la_ultima_sesion(
     ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_ajena.id, fecha=MARTES_15)
     sesion_bd.add(ajena)
     sesion_bd.flush()
+    hueco_ajeno = RutinaSlot(
+        rutina_id=rutina_ajena.id,
+        ejercicio_principal_id=ejercicio_predefinido_id,
+        orden=1,
+        series_objetivo=3,
+        reps_min=5,
+        reps_max=8,
+    )
+    sesion_bd.add(hueco_ajeno)
+    sesion_bd.flush()
     sesion_bd.add(
         Serie(
             entrenamiento_id=ajena.id,
+            slot_id=hueco_ajeno.id,
             ejercicio_id=ejercicio_predefinido_id,
             numero_serie=1,
             peso=50,
