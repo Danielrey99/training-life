@@ -538,6 +538,87 @@ class HoyOut(BaseModel):
     rutinas: list[RutinaDeHoyOut]
 
 
+class VolumenDeRutinaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rutina: RutinaMinima
+    volumen: Decimal
+
+
+class SeriesDeGrupoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    grupo_muscular: GrupoMuscularOut
+    series: int
+
+
+class PeriodoDeVolumenOut(BaseModel):
+    """Una barra de la gráfica de volumen: una semana de lunes a domingo o un mes
+    entero. `volumen` en kg (Σ peso × repeticiones). `cambio` es el tanto por
+    ciento sobre `comparado_con`, el `desde` del último periodo anterior con
+    volumen (puede quedar fuera de la gráfica); los dos son nulos si la barra no
+    tiene volumen o si no hay ningún periodo anterior con él. El desglose (por
+    rutina y por grupo muscular) es de esta barra; vacío si no hubo series.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    desde: date
+    hasta: date
+    volumen: Decimal
+    cambio: float | None
+    comparado_con: date | None
+    volumen_por_rutina: list[VolumenDeRutinaOut]
+    series_por_grupo: list[SeriesDeGrupoOut]
+
+
+class EvolucionDeVolumenOut(BaseModel):
+    """Las ocho barras terminadas, de la más antigua a la última, y la del periodo
+    de hoy (`en_curso`) si cae en la ventana del mes pedido.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    periodos: list[PeriodoDeVolumenOut]
+    en_curso: PeriodoDeVolumenOut | None
+
+
+class MesDeConstanciaOut(BaseModel):
+    """Los días de un mes con rutina en el plan: los entrenados, los planificados
+    hasta hoy (entrenados más faltados) y los que aún no han llegado.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    mes: date
+    entrenados: int
+    planificados: int
+    por_llegar: int
+
+
+class ConstanciaOut(BaseModel):
+    """Los doce meses del año y sus totales hasta hoy."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    meses: list[MesDeConstanciaOut]
+    entrenados: int
+    planificados: int
+
+
+class ResumenOut(BaseModel):
+    """Todo lo que necesita la pantalla de resumen de un mes: las barras de volumen
+    por semana y por mes, cada una con su desglose, y la constancia de su año.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    mes: date
+    por_semana: EvolucionDeVolumenOut
+    por_mes: EvolucionDeVolumenOut
+    constancia: ConstanciaOut
+
+
 class ExcepcionUpdate(BaseModel):
     """Qué toca un día concreto en vez de lo que diga el programa. `rutina_id`
     nulo es descanso. La fecha va en la ruta.

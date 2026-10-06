@@ -80,12 +80,8 @@ def obtener_seguimiento(
     """Qué tocaba cada día de `desde` a `hasta` (incluidos) y qué pasó: si está
     hecho, movido a otro día, sin hacer, pendiente (hoy) o próximo, qué sesión lo
     cuenta y qué se hizo ese día. Lo usan el calendario, la semana de la pantalla
-    de hoy y el resumen. Como mucho, 400 días de una vez.
-
-    Para la constancia del resumen: los días **entrenados** son los `hecho` y los
-    `movido`, en el mes del día que tocaban; los **planificados**, los que no son
-    `descanso` y ya han pasado o ya están cubiertos (un adelanto cuenta aunque su
-    día no haya llegado).
+    de hoy y la constancia del resumen (`app/resumen.py`). Como mucho, 400 días de
+    una vez.
     """
     return seguimiento(db, usuario_id, desde, hasta)
 
