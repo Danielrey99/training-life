@@ -10,7 +10,7 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 
 🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento mientras se entrena.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día) y la progresión de un ejercicio.
+La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio y la planificación de los próximos días.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -22,7 +22,8 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] El calendario del historial, y apuntar desde él un día pasado
 - [x] Ver un día y corregirlo: sus series, la fecha, las notas o borrarlo entero
 - [x] La progresión de un ejercicio: una gráfica de peso, volumen o 1RM estimado por sesión
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): planificar, el resumen, los programas y rutinas, y la biblioteca de ejercicios
+- [x] Planificar los próximos días: qué toca cada día de hoy en adelante, sustituyéndolo al tocar
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): el resumen, los programas y rutinas, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -56,7 +57,7 @@ web/
     │   ├── tipos.ts      # la forma de lo que devuelve la API
     │   └── cliente.ts    # todas las llamadas, en un solo sitio
     ├── componentes/      # piezas que usan varias pantallas
-    │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar
+    │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar, y el aviso de un solo botón
     │   ├── Icono.tsx     # los iconos de trazo de los bocetos
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
@@ -69,6 +70,7 @@ web/
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
         │   ├── HojaRegistrar.tsx        # apuntar un día pasado
         │   ├── Dia.tsx                  # ver un día y corregirlo
+        │   ├── Planificar.tsx           # qué toca cada día de hoy en adelante, por semanas
         │   └── BloqueDelDia.tsx         # un hueco del día, con sus series y + Añadir serie
         ├── hoy/          # la pantalla de entrada
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
@@ -134,6 +136,15 @@ La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega d
 - **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la misma flecha que en la sesión para elegir con qué ejercicio.
 - **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
 - **Al terminar una sesión** se llega a su día. La flecha de volver, aquí y en el resto de pantallas, lleva a la pantalla de la que se vino (de *Hoy* a un día, vuelve a *Hoy*), y tras terminar, cancelar o borrar no lleva a algo que ya no existe.
+
+### Planificar
+
+Los días de hoy en adelante (`/historial/planificar`), por semanas y sin límite: al llegar al final de la lista se piden cuatro semanas más (un `IntersectionObserver`), y el backend admite hasta 400 días por llamada. Tocar un día abre una hoja con las rutinas del programa (en el orden de la semana), *Descanso* y, debajo, *Otras rutinas* (las que no están en el programa, por orden alfabético; sin programa activo salen todas así); elegir una **sustituye** lo que tocaba (no lo intercambia con otro día) y se guarda en el momento. Los días cambiados llevan su marca, y *Restablecer este día* o *la semana* los devuelven al programa; la semana pregunta antes.
+
+- **Lo pendiente de recuperar no sale aquí**: la pantalla solo enseña hoy y lo que viene, y recuperar se hace desde *Hoy*.
+- **Un día ya hecho por adelantado** lleva *hecho el martes*. Si se le quita su rutina y no queda otro día de la semana con ella, el backend lo rechaza con un 409 y la pantalla lo explica con las palabras del boceto (*No puedes quitar este Pull…*) en un aviso de un solo botón. Es el mismo `Dialogo` de las confirmaciones, con una variante cuyo tipo no admite mezclar el botón único con el de confirmar.
+- **Una rutina oculta sigue en su día, en gris**, porque ocultar no la quita del programa, pero ese día cuenta como descanso. Elegir *Descanso* ahí sí cambia algo (lo deja así aunque la rutina se vuelva a mostrar), y elegir otra rutina la sustituye solo en esa fecha.
+- Cada recarga tras un cambio vuelve a leer lo ya cargado, porque mover un día puede mover también lo que se hizo por adelantado.
 
 ## Progresión
 

@@ -59,7 +59,7 @@ Un nombre para cada cosa, el mismo en la interfaz, en el código y en esta guía
 
 **Las rutinas son del usuario, no de un programa.** La misma rutina puede estar en varios programas y en varios días del mismo programa, y editarla la cambia en todos. Para que dos versiones diverjan, se duplica.
 
-**Cada sesión cuenta para un día del plan**: el que tocaba o el que se recupera o adelanta, y un día solo lo cuenta una sesión. Lo decide el botón que se pulsa (*Empezar*, *Recuperar*, *Adelantar*), así que la app nunca tiene que adivinar qué pretendía cada entrenamiento. Las sesiones sin programa, o sin rutina, no cuentan para ninguno.
+**Cada sesión cuenta para un día del plan**: el que tocaba o el que se recupera o adelanta, y un día solo lo cuenta una sesión. Lo decide el botón que se pulsa (*Empezar*, *Recuperar*, *Adelantar*), así que la app nunca tiene que adivinar qué pretendía cada entrenamiento. Las sesiones sin programa no cuentan para ninguno.
 
 **Una sesión por día, como mucho**, sea del tipo que sea: hoy, un día pasado o uno movido. Si hoy ya se entrenó, no se ofrece nada más.
 
@@ -245,12 +245,13 @@ Arriba, el último valor y cuánto cambió desde la primera sesión del rango. L
 
 ### H4 · Planificar
 
-Los días **de hoy en adelante**, agrupados por semanas, sin límite (al bajar aparecen más). Tocar un día abre una hoja con lo que toca según el programa, las rutinas para sustituirlo y *Descanso*. Se guarda al tocar, sin botón de guardar. **Sustituye, no intercambia.** Los días cambiados llevan su marca.
+Los días **de hoy en adelante**, agrupados por semanas, sin límite (al bajar aparecen más). Tocar un día abre una hoja con lo que toca según el programa y las rutinas para sustituirlo: primero las del programa, en el orden de la semana, y *Descanso*; debajo, *Otras rutinas* (las que no están en el programa, por orden alfabético). Sin programa activo salen todas por orden alfabético. Poner una rutina de fuera en un día lo cambia solo ese día, y cuenta como cualquier otro: *Hoy* lo propone y el calendario lo marca hecho o sin hacer. Se guarda al tocar, sin botón de guardar. **Sustituye, no intercambia.** Los días cambiados llevan su marca.
 
 - *Restablecer este día* devuelve un día a lo que dice el programa. No es lo mismo que elegir a mano la rutina del programa, que dejaría el día marcado como cambiado.
 - *Restablecer la semana* devuelve los siete días, y pregunta antes.
 - El pasado no se planifica: lo que pasó se registra (desde H1), no se cambia.
-- **Arriba, lo pendiente de recuperar**, para tenerlo presente al planificar. Solo informa: se recupera desde Hoy, adonde lleva.
+- **Lo pendiente de recuperar no sale aquí**: H4 solo enseña hoy y los días que vienen, y recuperar se hace desde Hoy.
+- **Una rutina oculta** sigue en su día, en gris y con *oculta*, porque ocultar no la quita del programa; ese día cuenta como descanso. Se puede dejar en *Descanso* a propósito, y elegir otra rutina la sustituye solo en esa fecha.
 - **Un día ya hecho por adelantado** lleva *hecho el martes*. Si su rutina se pasa a otro día de la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
 - Al activar otro programa, la app avisa de los días planificados y ofrece quitarlos.
 
