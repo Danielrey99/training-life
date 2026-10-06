@@ -54,7 +54,7 @@ Lo hecho por adelantado se respeta al cambiar el plan:
 - **Al editar el programa**, ese día se queda como estaba y el cambio empieza la semana siguiente.
 - **Borrar una rutina que ya tocó días pasados** pide elegir entre ocultarla y borrarla, porque borrarla dejaría esos días como descanso en el calendario.
 
-La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. La web se rehace en paralelo, pantalla a pantalla.
+La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. El resumen (`/resumen`) hace lo mismo con las estadísticas: el volumen por semana y por mes, su desglose por rutina y por grupo muscular, y la constancia del año, calculados en el servidor para que la web y el móvil enseñen lo mismo. La web se rehace en paralelo, pantalla a pantalla.
 
 ## Estructura
 
@@ -72,13 +72,15 @@ backend/
 │   ├── ocultos.py          # qué se puede hacer con algo oculto (leer y borrar sí, editar no)
 │   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
 │   ├── seguimiento.py      # qué se hizo con cada día del plan, y lo que necesita la pantalla de hoy
+│   ├── resumen.py          # las estadísticas: volumen, series por grupo y constancia
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
 │       ├── rutinas.py             # CRUD de rutinas, huecos (slots) y comodines, todo anidado
 │       ├── entrenamientos.py      # CRUD de entrenamientos y series, anidado
 │       ├── programas.py           # programas y qué rutina toca cada día de la semana
-│       └── plan.py                # el plan, su seguimiento, la pantalla de hoy y Planificar
+│       ├── plan.py                # el plan, su seguimiento, la pantalla de hoy y Planificar
+│       └── resumen.py             # el resumen de volumen y constancia
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -97,6 +99,7 @@ backend/
 │   ├── test_seguimiento.py  # el estado de cada día (hecho, movido, sin hacer…)
 │   ├── test_hoy.py          # lo que necesita la pantalla de hoy
 │   ├── test_replanificar.py # qué pasa con lo hecho por adelantado al cambiar el plan
+│   ├── test_resumen.py      # el volumen por semana y por mes, su desglose y la constancia
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -211,6 +214,7 @@ No hay ningún paso previo que recordar:
 | `test_seguimiento.py` | El estado de cada día, las marcas combinadas (se hizo otra rutina y la suya otro día, o sigue sin hacer), que un día salga igual se pida solo o en un rango, y que las consultas no crezcan con el rango |
 | `test_hoy.py` | La pantalla de hoy en cada situación (día de entrenamiento, descanso, sesión en curso, ya entrenado, día hecho por adelantado, primera vez y sin programa), lo que se puede recuperar y hasta cuándo, lo que se ofrece, y la hoja de registrar un día pasado |
 | `test_replanificar.py` | Lo hecho por adelantado al cambiar el plan: que siga a su rutina en Planificar (o que el cambio no se guarde si la deja sin día), y que editar el programa lo respete |
+| `test_resumen.py` | El resumen: qué semanas y meses salen según el mes pedido y el día de hoy (también la barra en curso y las que cruzan de mes o de año), el volumen y su cambio frente al último periodo con entrenamiento aunque quede fuera de la gráfica, el desglose de cada barra por rutina y por grupo muscular (el del ejercicio que se hizo), la constancia mes a mes, el aislamiento entre usuarios y que las consultas no crezcan con los datos |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
 
 ## Convenciones de código
@@ -319,6 +323,14 @@ Borrar una rutina que está en un programa deja sus días en descanso. Si alguno
 Lo que toca un día es, por orden: lo que se cambió a mano para ese día, o lo que diga el programa que estaba activo ese día, o nada. Si una rutina se borra, sus días planificados vuelven al programa.
 
 Cambiar, restablecer o intercambiar días reubica lo hecho por adelantado: la sesión pasa al primer día de hoy al domingo que toque su rutina y que no cuente otra. Si no queda ninguno, 409 con la sesión afectada y no se guarda el cambio.
+
+### Resumen
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/resumen?mes=2026-09` | Todo lo de la pantalla de resumen de un mes (sin `mes`, el actual; uno que aún no ha llegado da 422). `por_semana` y `por_mes` traen cada uno las 8 barras terminadas de la gráfica de volumen y, si el periodo de hoy cae en ella, la barra `en_curso` con lo que va. Cada barra lleva su volumen (Σ peso × repeticiones), su `cambio` en % frente a `comparado_con` (el último periodo anterior con volumen, aunque quede fuera de la gráfica: una semana sin entrenar no deja a la siguiente sin con qué compararse) y su desglose: `volumen_por_rutina` y `series_por_grupo` (por el grupo del ejercicio que se hizo, no el del principal del hueco). `constancia` da, mes a mes del año, los días entrenados, los planificados hasta hoy y los que aún no han llegado. Todo va en una respuesta: elegir otra barra no pide nada. Siempre hace las mismas consultas. |
+
+El volumen va por la fecha real de cada sesión y cuenta también las abiertas, las que no cuentan para ningún día y las de rutinas o ejercicios ocultos. La constancia, en cambio, va por el día del plan: lo recuperado y lo adelantado cuentan en el mes del día que tocaba.
 
 ### Entrenamientos y series
 

@@ -55,7 +55,7 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Y encima del plan, su seguimiento: qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar, y todo lo que necesita la pantalla de hoy en una sola llamada. La web se está rehaciendo pantalla a pantalla y ya tiene la pantalla de hoy y la sesión de entrenamiento. El móvil, sin empezar.
+🚧 El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Y encima del plan, su seguimiento: qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar, y todo lo que necesita la pantalla de hoy en una sola llamada, además de las estadísticas del resumen (volumen por semana y por mes y constancia del año). La web se está rehaciendo pantalla a pantalla y ya tiene la pantalla de hoy, la sesión de entrenamiento y todo el historial: el calendario, cada día, la progresión de un ejercicio, la planificación y el resumen. El móvil, sin empezar.
 
 Antes de seguir construyendo pantallas sueltas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salió el trabajo de ahora: completar el backend con lo que pide ese diseño y rehacer la web siguiéndolo.
 
@@ -74,7 +74,9 @@ Antes de seguir construyendo pantallas sueltas se definió la app entera —qué
 - [x] Backend: una sesión por día, y que editar un programa no cambie los días pasados
 - [x] Backend: seguimiento del plan — qué día cuenta cada sesión, hecho, movido o sin hacer, y qué se puede recuperar o adelantar
 - [x] Web: armazón del diseño (las cuatro secciones), la pantalla de hoy y la sesión de entrenamiento
-- [ ] Web: el resto de pantallas según el diseño — calendario, progresión, programas y ejercicios
+- [x] Backend: el resumen — volumen por semana y por mes con su desglose, y constancia del año
+- [x] Web: el historial — calendario, cada día, progresión de un ejercicio, planificación y resumen
+- [ ] Web: el resto de pantallas según el diseño — programas y ejercicios
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
 

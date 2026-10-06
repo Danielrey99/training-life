@@ -203,7 +203,7 @@ El mes, con un **color por día de la semana** (no por rutina; más adelante pod
 
 **El punto lleno lleva el color de lo que se hizo; el aro y la flecha, el de lo que tocaba.** Así, si el martes se adelantó el Pull del miércoles, el martes lleva el punto del Pull y el miércoles el aro con la flecha hacia atrás. La leyenda va plegada bajo las cifras (*Ver leyenda*), porque se consulta poco.
 
-Debajo, las cifras del mes (entrenados, movidos, no hechos) y dos botones: *Planificar los próximos días* (H4) y *Ver resumen* (H5).
+Debajo, las cifras del mes (entrenados, movidos, no hechos) y dos botones: *Planificar los próximos días* (H4) y *Ver resumen* (H5), que no sale en un mes que aún no ha empezado.
 
 **Tocar un día enseña siempre lo que se hizo ese día**, nunca lo de otro:
 
@@ -257,7 +257,14 @@ Los días **de hoy en adelante**, agrupados por semanas, sin límite (al bajar a
 
 ### H5 · Resumen
 
-Progresión general, no por ejercicio: el volumen por semana o por mes, de todo o de una rutina; el reparto del mes por rutina; las series por grupo muscular; y la **constancia del año**, con dos alturas por mes (gris = planificado, verde = entrenado; el hueco es lo que se faltó). Lo recuperado y lo adelantado cuentan como entrenado, en el mes del día que tocaba.
+Progresión general, no por ejercicio. Un solo control arriba, *Por semana* o *Por mes*, y nada de filtros por rutina: se probaron y no se entendía qué filtraba cada cosa.
+
+- **Volumen por semana** (o por mes): una barra por cada una de las últimas ocho semanas (o meses) ya terminadas, con el peso por repeticiones de todo lo entrenado. Si la semana (o el mes) de hoy cae en la gráfica, va una barra más, **rayada**, con lo que va de ella; las rayas siguen aunque se elija, para que se vea que no ha terminado.
+- **Tocar una barra la elige**: se pinta en verde vivo y arriba salen su periodo (*Semana del 15 sep*), su volumen y cuánto cambió. Al entrar, y al cambiar de semanas a meses, queda elegida la última terminada.
+- **El cambio se compara con el último periodo en que se entrenó**, aunque quede fuera de la gráfica: tras una semana de vacaciones, la siguiente dice *+5,7 % sobre la semana del 11 ago*. Si es la de justo antes, *sobre la semana anterior*. Una semana sin series dice *Sin series esta semana*.
+- **Volumen por rutina** y **Series por grupo muscular** son de la barra elegida: la gráfica enseña la evolución, y estos dos recuadros, el desglose de lo que se toca. Las series cuentan en el grupo del ejercicio que se hizo (un comodín de otro grupo cuenta en el suyo). Cada rutina lleva el color de su día en el programa, el mismo del calendario; las series por grupo van en gris, porque un color por grupo serían siete u ocho colores que no dicen nada y se confundirían con los de los días.
+- **Constancia** del año, fija, sin seguir a la barra elegida: dos alturas por mes, en gris lo planificado (también los días que aún no han llegado) y en verde lo entrenado, que lo va llenando. En los meses ya pasados el hueco es lo que se faltó. La cifra (*91 / 101 días entrenados, hasta hoy*) cuenta solo hasta hoy. Lo recuperado y lo adelantado cuentan como entrenado, en el mes del día que tocaba.
+- Al pie, la leyenda: *Toca una barra para ver esa semana. La rayada es la semana en curso, aún sin terminar.*
 
 ## Programas y rutinas
 
