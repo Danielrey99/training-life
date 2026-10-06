@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api } from '../../api/cliente'
 import type { DiaSeguimiento, Programa } from '../../api/tipos'
@@ -199,6 +199,10 @@ export function Calendario() {
         <Icono nombre={leyenda ? 'arriba' : 'abajo'} pequeno />
       </button>
       {leyenda && <Leyenda programa={programa} />}
+
+      <Link to="/historial/planificar" className="boton">
+        Planificar los próximos días
+      </Link>
 
       {registrando && (
         <HojaRegistrar
