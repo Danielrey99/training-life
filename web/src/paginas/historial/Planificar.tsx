@@ -284,7 +284,6 @@ function FilaDelDia({ dia, hoy, programa, ejercicios, alTocar }: PropsFila) {
         <>
           <span className="marca-punto" style={{ background: SIN_DIA }} />
           <span className="planificar-oculta">{oculta.nombre}</span>
-          <span className="planificar-detalle">oculta</span>
         </>
       ) : (
         <>
@@ -298,6 +297,7 @@ function FilaDelDia({ dia, hoy, programa, ejercicios, alTocar }: PropsFila) {
           {adelantado ? `hecho el ${nombreDelDia(hecho.fecha)}` : 'hecho'}
         </span>
       )}
+      {oculta && <span className="etiqueta-chica">oculta</span>}
       {dia.origen === 'excepcion' && <span className="etiqueta-chica">cambiado</span>}
       <Icono nombre="abrir" pequeno />
     </button>
