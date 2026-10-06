@@ -10,10 +10,10 @@ import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSeri
 import { SelectorDeEjercicio } from '../sesion/SelectorDeEjercicio'
 import type { Abierta } from './Dia'
 
-/** Un bloque del día: un hueco de la rutina, o las series sueltas de un ejercicio. */
+/** Un bloque del día: un hueco de la rutina. */
 export type Bloque = {
   clave: string
-  hueco: HuecoDeRutina | null
+  hueco: HuecoDeRutina
   // El de sus series; en un hueco que ese día se quedó sin series, el primero que
   // se puede elegir (el principal, o el primer comodín si está oculto).
   ejercicio: Ejercicio
@@ -33,7 +33,7 @@ type Props = {
   // La posición entre los huecos visibles; 0 si no lleva número.
   numero: number
   mejora: Mejora | null
-  rutinaId: number | null
+  rutinaId: number
   sesion: { id: number; fecha: string }
   editando: boolean
   // Lo que hay abierto en el día: una sola cosa a la vez, y con otra abierta todo lo de
@@ -48,8 +48,8 @@ type Props = {
 }
 
 /**
- * Un hueco (o las series sueltas de un ejercicio) en el día del historial: sus
- * series, cómo le fue frente a la última vez y esa última vez en fichas.
+ * Un hueco en el día del historial: sus series, cómo le fue frente a la última vez y
+ * esa última vez en fichas.
  *
  * Con Editar, cada serie gana su lápiz y su ✕, y el bloque un *+ Añadir serie* para
  * la que se olvidó apuntar. Las ediciones van de una en una: con un formulario abierto
@@ -80,12 +80,12 @@ export function BloqueDelDia({
 
   const { hueco, series } = bloque
   const vacio = series.length === 0
-  const principal = hueco?.ejercicio_principal
+  const principal = hueco.ejercicio_principal
   const ejercicio = vacio ? elegido : bloque.ejercicio
-  const esComodin = principal !== undefined && principal.id !== ejercicio.id
+  const esComodin = principal.id !== ejercicio.id
   // Las series nuevas, solo en un hueco visible: el backend no las admite en uno oculto.
-  const admiteNuevas = editando && !hueco?.oculto_desde
-  const comodines = (hueco?.alternativas ?? []).filter((otro) => !otro.oculto_desde)
+  const admiteNuevas = editando && !hueco.oculto_desde
+  const comodines = hueco.alternativas.filter((otro) => !otro.oculto_desde)
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Arranca con la última serie del bloque o, si no tiene, con la última vez (si es
   // del ejercicio que se va a apuntar).
@@ -103,32 +103,22 @@ export function BloqueDelDia({
         </h2>
         {/* Elegir con qué ejercicio se hizo es parte de añadir la serie: la flecha sigue en
             el hueco al que se añade, y solo desaparece si lo abierto es otra cosa. */}
-        {vacio &&
-          admiteNuevas &&
-          (!bloqueado || anadiendo) &&
-          hueco &&
-          rutinaId &&
-          comodines.length > 0 &&
-          principal && (
-            <SelectorDeEjercicio
-              rutinaId={rutinaId}
-              huecoId={hueco.id}
-              principal={principal}
-              comodines={comodines}
-              elegido={elegido}
-              sesion={sesion}
-              elegir={setElegido}
-            />
-          )}
+        {vacio && admiteNuevas && (!bloqueado || anadiendo) && comodines.length > 0 && (
+          <SelectorDeEjercicio
+            rutinaId={rutinaId}
+            huecoId={hueco.id}
+            principal={principal}
+            comodines={comodines}
+            elegido={elegido}
+            sesion={sesion}
+            elegir={setElegido}
+          />
+        )}
         {/* El objetivo arriba, con el nombre, y no junto a las mejoras: es lo que pide la
             rutina, no cómo fue el día. */}
-        {hueco ? (
-          <span className="dia-objetivo num">
-            {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
-          </span>
-        ) : (
-          <span className="etiqueta-chica">sin hueco</span>
-        )}
+        <span className="dia-objetivo num">
+          {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
+        </span>
         {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
         {!vacio && !editando && (
           <Link
@@ -232,11 +222,7 @@ export function BloqueDelDia({
               <FichasUltimaVez series={bloque.ultima.series} />
             </>
           ) : (
-            <span className="rotulo dia-primera">
-              {hueco
-                ? 'Primera vez con este ejercicio en el hueco'
-                : 'Primera vez con este ejercicio'}
-            </span>
+            <span className="rotulo dia-primera">Primera vez con este ejercicio en el hueco</span>
           )}
         </div>
       )}

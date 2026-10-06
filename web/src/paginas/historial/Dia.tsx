@@ -92,15 +92,14 @@ function carga(serie: Serie) {
 }
 
 /**
- * Agrupa las series del día: una por hueco (en el orden de la rutina) y, para las
- * que no van a ningún hueco, una por ejercicio. Los huecos visibles que ese día se
- * quedaron sin series también entran, para poder añadírselas al editar. Pide a la
- * vez la última vez de cada bloque, mirando hacia atrás desde este día y saltándose
- * la propia sesión.
+ * Agrupa las series del día: una por hueco, en el orden de la rutina. Los huecos
+ * visibles que ese día se quedaron sin series también entran, para poder añadírselas
+ * al editar. Pide a la vez la última vez de cada bloque, mirando hacia atrás desde
+ * este día y saltándose la propia sesión.
  */
-async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina | null): Promise<Bloque[]> {
+async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina): Promise<Bloque[]> {
   const bloques: Omit<Bloque, 'ultima'>[] = []
-  const huecos = [...(rutina?.slots ?? [])].sort((uno, otro) => uno.orden - otro.orden)
+  const huecos = [...rutina.slots].sort((uno, otro) => uno.orden - otro.orden)
   for (const hueco of huecos) {
     const series = sesion.series.filter((serie) => serie.slot_id === hueco.id)
     if (series.length > 0) {
@@ -112,26 +111,14 @@ async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina | null): Prom
       if (elegible) bloques.push({ clave: `hueco-${hueco.id}`, hueco, ejercicio: elegible, series })
     }
   }
-  const sueltas = sesion.series.filter((serie) => serie.slot_id === null)
-  for (const ejercicioId of new Set(sueltas.map((serie) => serie.ejercicio_id))) {
-    const series = sueltas.filter((serie) => serie.ejercicio_id === ejercicioId)
-    bloques.push({
-      clave: `suelta-${ejercicioId}`,
-      hueco: null,
-      ejercicio: series[0].ejercicio,
-      series,
-    })
-  }
   const filtro = { hasta: sesion.fecha, limite: 2 }
   const ultimas = await Promise.all(
     bloques.map((bloque) =>
-      (bloque.hueco && rutina
-        ? api.historialDeHueco(rutina.id, bloque.hueco.id, {
-            ...filtro,
-            ejercicio_id: bloque.ejercicio.id,
-          })
-        : api.historialDeEjercicio(bloque.ejercicio.id, filtro)
-      )
+      api
+        .historialDeHueco(rutina.id, bloque.hueco.id, {
+          ...filtro,
+          ejercicio_id: bloque.ejercicio.id,
+        })
         .then((lista) => lista.find((otra) => otra.entrenamiento_id !== sesion.id) ?? null)
         // Sin última vez el día se puede ver igual: no merece un error en pantalla.
         .catch(() => null),
@@ -193,12 +180,12 @@ export function Dia() {
       try {
         const [leida] = await api.entrenamientos({ desde: fecha, hasta: fecha })
         // La rutina se pide aunque esté oculta: el día se tiene que poder ver.
-        const suRutina = leida?.rutina_id ? await api.rutina(leida.rutina_id) : null
+        const suRutina = leida ? await api.rutina(leida.rutina_id) : null
         const [suyos, previas] = await Promise.all([
-          leida ? bloquesDelDia(leida, suRutina) : [],
+          leida && suRutina ? bloquesDelDia(leida, suRutina) : [],
           // Para comparar el volumen: la sesión anterior de la misma rutina con algo
           // apuntado. Unas pocas de margen por si alguna se quedó vacía.
-          leida?.rutina_id
+          leida
             ? api.entrenamientos({
                 rutina_id: leida.rutina_id,
                 hasta: sumarDias(fecha, -1),
@@ -232,9 +219,12 @@ export function Dia() {
     )
   }
 
+  // La rutina llega junto con la sesión.
+  if (!rutina) return <p className="aviso">Cargando…</p>
+
   const dia = sesion
-  const nombre = rutina?.nombre ?? 'Entrenamiento libre'
-  const huecosVisibles = (rutina?.slots ?? []).filter((hueco) => !hueco.oculto_desde)
+  const nombre = rutina.nombre
+  const huecosVisibles = rutina.slots.filter((hueco) => !hueco.oculto_desde)
   const objetivo = huecosVisibles.reduce((total, hueco) => total + hueco.series_objetivo, 0)
   // Editando, todo se pinta desde el borrador: las cifras y los bloques ya con los cambios.
   const series = editando ? seriesNuevas : dia.series
@@ -243,11 +233,7 @@ export function Dia() {
   // (eso lo dice el 1RM de cada ejercicio), así que se salta un ejercicio y baja.
   const cambioVolumen = anterior ? Math.round(volumen - volumenDe(anterior.series)) : null
   const actuales = bloques.map((bloque) => {
-    const suyas = series.filter((serie) =>
-      bloque.hueco
-        ? serie.slot_id === bloque.hueco.id
-        : serie.slot_id === null && serie.ejercicio_id === bloque.ejercicio.id,
-    )
+    const suyas = series.filter((serie) => serie.slot_id === bloque.hueco.id)
     return { ...bloque, series: suyas, ejercicio: suyas[0]?.ejercicio ?? bloque.ejercicio }
   })
   const mejoras = actuales.map((bloque) => mejora(bloque.series, bloque.ultima))
@@ -289,7 +275,6 @@ export function Dia() {
     try {
       if (fechaFinal !== dia.fecha || notasNuevas !== dia.notas) {
         await api.actualizarEntrenamiento(dia.id, {
-          rutina_id: dia.rutina_id,
           fecha: fechaFinal,
           notas: notasNuevas,
         })
@@ -378,7 +363,7 @@ export function Dia() {
         entrenamiento_id: dia.id,
         ejercicio_id: ejercicio.id,
         ejercicio,
-        slot_id: bloque.hueco?.id ?? null,
+        slot_id: bloque.hueco.id,
         numero_serie: numero,
         peso: String(datos.peso),
         repeticiones: datos.repeticiones,
@@ -491,7 +476,7 @@ export function Dia() {
             bloque={bloque}
             numero={numero}
             mejora={mejoras[indice]}
-            rutinaId={rutina?.id ?? null}
+            rutinaId={rutina.id}
             sesion={dia}
             editando={editando}
             abierta={abierta}

@@ -41,7 +41,7 @@ export function MarcaDelDia({
     hecho =
       sesion.cuenta && sesion.cubre_fecha
         ? colorDelDia(diaDeLaSemana(sesion.cubre_fecha))
-        : colorDeRutina(diasDelPrograma, sesion.rutina?.id)
+        : colorDeRutina(diasDelPrograma, sesion.rutina.id)
   }
 
   // Lo que tocaba, si no es lo mismo que el punto de lo hecho.

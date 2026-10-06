@@ -13,6 +13,7 @@ import type {
   DiaSemana,
   Ejercicio,
   Entrenamiento,
+  EntrenamientoCorregido,
   Excepcion,
   GrupoMuscular,
   Hoy,
@@ -191,7 +192,7 @@ export const api = {
   entrenamiento: (id: number) => peticion<Entrenamiento>(`/entrenamientos/${id}`),
   crearEntrenamiento: (datos: NuevoEntrenamiento) =>
     peticion<Entrenamiento>('/entrenamientos', conCuerpo('POST', datos)),
-  actualizarEntrenamiento: (id: number, datos: NuevoEntrenamiento) =>
+  actualizarEntrenamiento: (id: number, datos: EntrenamientoCorregido) =>
     peticion<Entrenamiento>(`/entrenamientos/${id}`, conCuerpo('PUT', datos)),
   terminarEntrenamiento: (id: number) =>
     peticion<Entrenamiento>(`/entrenamientos/${id}/terminar`, conCuerpo('POST')),

@@ -19,8 +19,8 @@ export function colorDelDia(diaSemana: number): string {
   return POR_DIA[diaSemana]
 }
 
-// Lo que se hizo sin contar para ningún día (un entrenamiento libre, una rutina
-// sin programa): no tiene día del que tomar el color.
+// Lo que se hizo sin contar para ningún día (una rutina que no está en el programa):
+// no tiene día del que tomar el color.
 export const SIN_DIA = '#9aa1ac'
 
 /**

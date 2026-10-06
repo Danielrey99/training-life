@@ -13,18 +13,14 @@ export type SerieAGuardar = DatosDeSerie & {
 }
 
 type Props = {
-  // Un hueco de la rutina o, con `null`, las series que no van a ningún hueco
-  // (un entrenamiento libre, o las que se apuntaron fuera de la rutina).
-  hueco: HuecoDeRutina | null
+  hueco: HuecoDeRutina
   titulo: string
-  rutinaId: number | null
+  rutinaId: number
   // Las series de hoy en este bloque.
   series: Serie[]
   // El ejercicio de hoy; nulo si no queda ninguno que se pueda usar.
   elegido: Ejercicio | null
   elegir: (ejercicio: Ejercicio) => void
-  // Para las series sueltas, que no tienen principal ni comodines entre los que elegir.
-  biblioteca: Ejercicio[]
   abierto: boolean
   abrir: () => void
   // La serie que se está editando. La lleva la pantalla, porque las ediciones van de
@@ -44,9 +40,9 @@ type Props = {
 export function BloqueDeHueco(props: Props) {
   const { hueco, titulo, series, elegido, abierto, abrir, bloqueado } = props
   const hechas = series.length
-  const objetivo = hueco?.series_objetivo
-  const completo = objetivo !== undefined && hechas >= objetivo
-  const comodin = hueco !== null && elegido !== null && elegido.id !== hueco.ejercicio_principal.id
+  const objetivo = hueco.series_objetivo
+  const completo = hechas >= objetivo
+  const comodin = elegido !== null && elegido.id !== hueco.ejercicio_principal.id
 
   if (!abierto) {
     return (
@@ -54,10 +50,10 @@ export function BloqueDeHueco(props: Props) {
         <span className="hueco-plegado-nombre">
           <span>{titulo}</span>
           {comodin && <span className="etiqueta-chica">comodín</span>}
-          {hueco?.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+          {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
         </span>
         <span className={completo ? 'hueco-cuenta num completo' : 'hueco-cuenta num'}>
-          {objetivo === undefined ? hechas : `${hechas}/${objetivo}`}
+          {hechas}/{objetivo}
         </span>
         <span className={completo ? 'completo' : ''}>
           <Icono nombre={completo ? 'hecho' : 'abrir'} pequeno />
@@ -76,7 +72,6 @@ function HuecoAbierto({
   series,
   elegido,
   elegir,
-  biblioteca,
   sesion,
   guardar,
   pedirBorrar,
@@ -88,7 +83,7 @@ function HuecoAbierto({
   const editando = series.find((serie) => serie.id === editandoId) ?? null
 
   const idElegido = elegido?.id ?? null
-  const ultima = useUltimaVez(rutinaId, hueco?.id ?? null, idElegido, sesion)
+  const ultima = useUltimaVez(rutinaId, hueco.id, idElegido, sesion)
 
   // La serie anterior de hoy con este ejercicio, si la hay: de ella arranca el formulario.
   const anteriorDeHoy = [...series].reverse().find((serie) => serie.ejercicio_id === idElegido)
@@ -101,8 +96,8 @@ function HuecoAbierto({
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas.
   // Con otra edición abierta (la nota), el formulario de una nueva no se enseña.
-  const admiteNuevas = elegido !== null && !hueco?.oculto_desde && !bloqueado
-  const comodines = hueco?.alternativas ?? []
+  const admiteNuevas = elegido !== null && !hueco.oculto_desde && !bloqueado
+  const comodines = hueco.alternativas
 
   async function guardarDesdeFormulario(datos: DatosDeSerie) {
     if (editando) {
@@ -130,7 +125,7 @@ function HuecoAbierto({
       <div className="hueco-cabecera">
         <div className="hueco-nombre">
           <span>{titulo}</span>
-          {hueco && elegido && comodines.length > 0 && rutinaId !== null && !bloqueado && (
+          {elegido && comodines.length > 0 && !bloqueado && (
             <SelectorDeEjercicio
               rutinaId={rutinaId}
               huecoId={hueco.id}
@@ -142,33 +137,11 @@ function HuecoAbierto({
             />
           )}
         </div>
-        {hueco && (
-          <span className="objetivo num">
-            {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
-          </span>
-        )}
-        {hueco?.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+        <span className="objetivo num">
+          {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
+        </span>
+        {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
       </div>
-
-      {!hueco && (
-        <label className="campo">
-          <span className="campo-etiqueta">Ejercicio</span>
-          <select
-            className="campo-texto"
-            value={idElegido ?? ''}
-            onChange={(evento) => {
-              const ejercicio = biblioteca.find((otro) => otro.id === Number(evento.target.value))
-              if (ejercicio) elegir(ejercicio)
-            }}
-          >
-            {biblioteca.map((ejercicio) => (
-              <option key={ejercicio.id} value={ejercicio.id}>
-                {ejercicio.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
 
       {ultima && ultima.series.length > 0 && (
         <div className="ultima-vez">
@@ -229,7 +202,7 @@ function HuecoAbierto({
         />
       )}
 
-      {hueco && !elegido && (
+      {!elegido && (
         <p className="nota">
           Los ejercicios de este hueco están ocultos: muestra alguno para usarlo.
         </p>

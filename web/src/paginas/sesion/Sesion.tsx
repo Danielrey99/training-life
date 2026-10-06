@@ -16,9 +16,6 @@ import './sesion.css'
 // la pantalla de Hoy. *Terminar* lleva en cambio al día en el historial.
 const SALIDA = '/'
 
-// El bloque de las series que no van a ningún hueco, en el mismo mapa que los huecos.
-const SUELTAS = 0
-
 function contarSeries(cuantas: number) {
   return cuantas === 1 ? '1 serie' : `${cuantas} series`
 }
@@ -52,7 +49,6 @@ export function Sesion() {
 
   const [sesion, setSesion] = useState<Entrenamiento | null>(null)
   const [rutina, setRutina] = useState<Rutina | null>(null)
-  const [biblioteca, setBiblioteca] = useState<Ejercicio[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const [abierto, setAbierto] = useState<number | null>(null)
@@ -71,21 +67,12 @@ export function Sesion() {
       try {
         const leida = await api.entrenamiento(Number(entrenamientoId))
         // La rutina se pide aunque esté oculta: la sesión se tiene que poder terminar.
-        const suRutina = leida.rutina_id === null ? null : await api.rutina(leida.rutina_id)
-        const sueltas = leida.series.some((serie) => serie.slot_id === null)
-        const ejercicios = suRutina === null || sueltas ? await api.ejercicios() : []
+        const suRutina = await api.rutina(leida.rutina_id)
         if (!vigente) return
 
-        const huecos = suRutina?.slots ?? []
+        const huecos = suRutina.slots
         const iniciales: Record<number, Ejercicio | null> = {}
         for (const hueco of huecos) iniciales[hueco.id] = ejercicioInicial(hueco, leida.series)
-        iniciales[SUELTAS] =
-          ejercicios.find(
-            (otro) =>
-              otro.id === leida.series.filter((s) => s.slot_id === null).at(-1)?.ejercicio_id,
-          ) ??
-          ejercicios[0] ??
-          null
 
         // Se abre el primer hueco sin terminar: es por donde se va.
         const pendiente = huecos
@@ -98,9 +85,8 @@ export function Sesion() {
 
         setSesion(leida)
         setRutina(suRutina)
-        setBiblioteca(ejercicios)
         setElegidos(iniciales)
-        setAbierto(suRutina === null ? SUELTAS : (pendiente?.id ?? null))
+        setAbierto(pendiente?.id ?? null)
       } catch (fallo) {
         if (!vigente) return
         // Una sesión que ya no existe (se canceló, o la URL viene mal copiada) no
@@ -116,19 +102,18 @@ export function Sesion() {
   }, [entrenamientoId, navegar])
 
   if (error) return <p className="aviso error">{error}</p>
-  if (!sesion) return <p className="aviso">Cargando…</p>
+  if (!sesion || !rutina) return <p className="aviso">Cargando…</p>
 
   const activa = sesion
+  const rutinaId = rutina.id
 
   // Un hueco oculto no se ofrece, pero si ya tiene series de esta sesión se sigue
   // enseñando: si no, desaparecerían sin explicación.
-  const huecos = (rutina?.slots ?? [])
+  const huecos = rutina.slots
     .filter(
       (hueco) => !hueco.oculto_desde || activa.series.some((serie) => serie.slot_id === hueco.id),
     )
     .sort((uno, otro) => uno.orden - otro.orden)
-  const sueltas = activa.series.filter((serie) => serie.slot_id === null)
-  const conSueltas = rutina === null || sueltas.length > 0
 
   const deHueco = (hueco: HuecoDeRutina) =>
     activa.series
@@ -147,10 +132,9 @@ export function Sesion() {
   const padre = !deOtroDia ? SALIDA : activa.series.length > 0 ? `/historial/${activa.fecha}` : mes
   const alCancelar = deOtroDia ? mes : SALIDA
 
-  let cifras = contarSeries(activa.series.length)
-  if (rutina) cifras += ` · ${completos} de ${visibles.length} ejercicios`
+  const cifras = `${contarSeries(activa.series.length)} · ${completos} de ${visibles.length} ejercicios`
 
-  async function guardar(huecoId: number | null, datos: SerieAGuardar, serieId?: number) {
+  async function guardar(huecoId: number, datos: SerieAGuardar, serieId?: number) {
     const cuerpo = { ...datos, slot_id: huecoId, rpe: null }
     const guardada = serieId
       ? await api.actualizarSerie(activa.id, serieId, cuerpo)
@@ -180,31 +164,26 @@ export function Sesion() {
     setABorrar(null)
   }
 
-  function bloque(hueco: HuecoDeRutina | null, posicion: number) {
-    const clave = hueco?.id ?? SUELTAS
+  function bloque(hueco: HuecoDeRutina, posicion: number) {
+    const clave = hueco.id
     const elegido = elegidos[clave] ?? null
-    const titulo = hueco
-      ? `${posicion} · ${elegido?.nombre ?? hueco.ejercicio_principal.nombre}`
-      : rutina
-        ? 'Series sueltas'
-        : 'Series'
+    const titulo = `${posicion} · ${elegido?.nombre ?? hueco.ejercicio_principal.nombre}`
     return (
       <BloqueDeHueco
         key={clave}
         hueco={hueco}
         titulo={titulo}
-        rutinaId={rutina?.id ?? null}
-        series={hueco ? deHueco(hueco) : sueltas}
+        rutinaId={rutinaId}
+        series={deHueco(hueco)}
         elegido={elegido}
         elegir={(ejercicio) => setElegidos((previos) => ({ ...previos, [clave]: ejercicio }))}
-        biblioteca={biblioteca.filter((ejercicio) => ejercicio.oculto_desde === null)}
         abierto={abierto === clave}
         abrir={() => setAbierto(clave)}
         editandoId={editandoSerie}
         alEditar={setEditandoSerie}
         bloqueado={hayAbierta}
         sesion={activa}
-        guardar={(datos, serieId) => guardar(hueco?.id ?? null, datos, serieId)}
+        guardar={(datos, serieId) => guardar(hueco.id, datos, serieId)}
         pedirBorrar={setABorrar}
       />
     )
@@ -222,7 +201,7 @@ export function Sesion() {
           <Icono nombre="volver" />
         </button>
         <div className="sesion-titulo">
-          <h1>{rutina?.nombre ?? 'Entrenamiento libre'}</h1>
+          <h1>{rutina.nombre}</h1>
           {/* La fecha de un día pasado es larga ("Miércoles 30 de septiembre") y no cabe con
               las cifras: va en su propia línea, en vez de partirse por cualquier sitio. */}
           {deOtroDia ? (
@@ -238,8 +217,8 @@ export function Sesion() {
           {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy. */}
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
-              {activa.cubre_fecha < activa.fecha ? 'Recuperando' : 'Adelantando'} el{' '}
-              {rutina?.nombre} del {fechaEnFrase(activa.cubre_fecha, false)}
+              {activa.cubre_fecha < activa.fecha ? 'Recuperando' : 'Adelantando'} el {rutina.nombre}{' '}
+              del {fechaEnFrase(activa.cubre_fecha, false)}
             </span>
           )}
         </div>
@@ -247,10 +226,7 @@ export function Sesion() {
         <span className="sesion-hueco-derecho" />
       </header>
 
-      <div className="huecos">
-        {huecos.map((hueco, indice) => bloque(hueco, indice + 1))}
-        {conSueltas && bloque(null, 0)}
-      </div>
+      <div className="huecos">{huecos.map((hueco, indice) => bloque(hueco, indice + 1))}</div>
 
       {/* La nota se puede escribir en cualquier momento, no solo al terminar: si hay que
           esperar al final, se olvida lo que se quería apuntar. */}
@@ -263,7 +239,6 @@ export function Sesion() {
         bloqueada={hayAbierta}
         alGuardar={async (nota) => {
           const guardada = await api.actualizarEntrenamiento(activa.id, {
-            rutina_id: activa.rutina_id,
             fecha: activa.fecha,
             notas: nota,
           })
@@ -325,9 +300,7 @@ export function Sesion() {
       {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
-          cuerpo={`Llevas ${contarSeries(activa.series.length)}${
-            rutina ? ` y ${completos} de ${visibles.length} ejercicios completos` : ''
-          }. Podrás revisarla y corregirla después en el historial.`}
+          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completos} de ${visibles.length} ejercicios completos. Podrás revisarla y corregirla después en el historial.`}
           confirmar="Terminar"
           cancelar="Seguir entrenando"
           alConfirmar={async () => {

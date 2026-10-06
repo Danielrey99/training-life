@@ -107,8 +107,7 @@ export function Hoy() {
   }
 
   /** El nombre para una sesión sin terminar; una rutina oculta no está en el resumen. */
-  function nombreDeRutina(rutinaId: number | null) {
-    if (rutinaId === null) return 'Entrenamiento libre'
+  function nombreDeRutina(rutinaId: number) {
     return resumen!.rutinas.find((una) => una.id === rutinaId)?.nombre ?? 'Sesión'
   }
 
@@ -368,7 +367,7 @@ function Tarjeta({
       )
 
     case 'en_curso': {
-      const nombre = sesion?.rutina?.nombre ?? 'Entrenamiento libre'
+      const nombre = sesion?.rutina.nombre ?? 'La sesión'
       const series = enCurso ? ` · ${contar(enCurso.series.length, 'serie', 'series')}` : ''
       const loDeHoy = sesion?.cuenta && sesion.cubre_fecha === resumen.fecha
       return (
@@ -390,7 +389,7 @@ function Tarjeta({
             className="boton boton-principal tarjeta-boton"
             onClick={alContinuar}
           >
-            Continuar {sesion?.rutina?.nombre ?? 'la sesión'}
+            Continuar {sesion?.rutina.nombre ?? 'la sesión'}
           </button>
         </div>
       )
@@ -401,9 +400,9 @@ function Tarjeta({
       let hecho = 'Hecho'
       if (sesion && sesion.cubre_fecha && sesion.cubre_fecha !== resumen.fecha && sesion.cuenta) {
         const verbo = sesion.cubre_fecha < resumen.fecha ? 'Recuperaste' : 'Adelantaste'
-        hecho = `${verbo} el ${sesion.rutina?.nombre} del ${nombreDelDia(sesion.cubre_fecha)}`
+        hecho = `${verbo} el ${sesion.rutina.nombre} del ${nombreDelDia(sesion.cubre_fecha)}`
       } else if (sesion && !sesion.cuenta) {
-        hecho = sesion.rutina ? `Entrenaste ${sesion.rutina.nombre}` : 'Entrenamiento libre hecho'
+        hecho = `Entrenaste ${sesion.rutina.nombre}`
       }
       return (
         <div className="tarjeta-hoy">
@@ -507,7 +506,7 @@ function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRec
 
 /** La última sesión hecha, que lleva a su día en el historial. */
 function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_sesion']> }) {
-  const nombre = ultima.rutina?.nombre ?? 'Entrenamiento libre'
+  const nombre = ultima.rutina.nombre
   let cifras = `${contar(ultima.series, 'serie', 'series')} · ${contar(ultima.ejercicios, 'ejercicio', 'ejercicios')}`
   if (ultima.cubre_fecha && ultima.cubre_fecha !== ultima.fecha) {
     const como = ultima.cubre_fecha < ultima.fecha ? 'Recuperado' : 'Adelantado'

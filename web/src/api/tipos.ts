@@ -89,7 +89,7 @@ export type Serie = {
   id: number
   entrenamiento_id: number
   ejercicio_id: number
-  slot_id: number | null
+  slot_id: number
   numero_serie: number
   peso: string
   repeticiones: number
@@ -103,7 +103,7 @@ export type Serie = {
 export type Entrenamiento = {
   id: number
   usuario_id: number
-  rutina_id: number | null
+  rutina_id: number
   fecha: string
   // El día del plan que cuenta: el de hoy, uno que se recupera o uno que se
   // adelanta. Nulo si no cuenta para ninguno.
@@ -127,7 +127,7 @@ export type Entrenamiento = {
  */
 export type SerieHistorial = {
   id: number
-  slot_id: number | null
+  slot_id: number
   numero_serie: number
   peso: string
   repeticiones: number
@@ -144,8 +144,8 @@ export type SerieHistorialHueco = SerieHistorial & {
 export type SesionHistorial<S extends SerieHistorial = SerieHistorial> = {
   entrenamiento_id: number
   fecha: string
-  // Nombre de la rutina que se siguió; nulo si fue un entrenamiento libre.
-  rutina: string | null
+  // Nombre de la rutina que se siguió.
+  rutina: string
   series: S[]
 }
 
@@ -187,7 +187,7 @@ export type DiaPlan = {
 /** Lo que se hizo un día, cuente o no para alguno. */
 export type SesionDelDia = {
   entrenamiento_id: number
-  rutina: RutinaMinima | null
+  rutina: RutinaMinima
   en_curso: boolean
   vacia: boolean
   cubre_fecha: string | null
@@ -231,7 +231,7 @@ export type Ofrecida = {
 export type UltimaSesion = {
   entrenamiento_id: number
   fecha: string
-  rutina: RutinaMinima | null
+  rutina: RutinaMinima
   // Si recuperaba o adelantaba otro día.
   cubre_fecha: string | null
   series: number
@@ -287,17 +287,24 @@ export type NuevoHueco = {
   reps_max: number
 }
 
+// La rutina y el día que cuenta solo van al crear: los decide el botón pulsado
+// (Empezar, Recuperar, Adelantar) y no cambian después.
 export type NuevoEntrenamiento = {
-  rutina_id: number | null
+  rutina_id: number
   fecha: string
   notas: string | null
-  // Solo al crear: lo decide el botón pulsado (Empezar, Recuperar, Adelantar).
   cubre_fecha?: string | null
+}
+
+/** Lo que se corrige de una sesión ya creada. */
+export type EntrenamientoCorregido = {
+  fecha: string
+  notas: string | null
 }
 
 export type NuevaSerie = {
   ejercicio_id: number
-  slot_id: number | null
+  slot_id: number
   numero_serie: number
   peso: number
   repeticiones: number
