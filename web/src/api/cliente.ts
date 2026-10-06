@@ -26,6 +26,7 @@ import type {
   NuevoHueco,
   NuevoPrograma,
   Programa,
+  Resumen,
   Rutina,
   Serie,
   SerieHistorialHueco,
@@ -257,4 +258,8 @@ export const api = {
       '/plan/intercambiar',
       conCuerpo('POST', { fecha_a: fechaA, fecha_b: fechaB }),
     ),
+
+  // --- Resumen ---
+  /** `mes` como `2026-09`; sin él, el de hoy. */
+  resumen: (mes?: string) => peticion<Resumen>(`/resumen${consulta({ mes })}`),
 }

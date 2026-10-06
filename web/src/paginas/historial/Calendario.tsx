@@ -203,6 +203,12 @@ export function Calendario() {
       <Link to="/historial/planificar" className="boton">
         Planificar los próximos días
       </Link>
+      {/* Un mes que no ha empezado no tiene nada que resumir. */}
+      {mes <= hoy && (
+        <Link to={`/historial/resumen?mes=${mes.slice(0, 7)}`} className="boton">
+          Ver resumen
+        </Link>
+      )}
 
       {registrando && (
         <HojaRegistrar

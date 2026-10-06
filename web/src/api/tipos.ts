@@ -260,6 +260,45 @@ export type Hoy = {
   rutinas: RutinaDeHoy[]
 }
 
+// --- Resumen -------------------------------------------------------------
+
+/** Una barra de volumen: una semana de lunes a domingo o un mes, con su desglose. */
+export type PeriodoDeVolumen = {
+  desde: string
+  hasta: string
+  // kg, Σ peso × repeticiones; llega como texto.
+  volumen: string
+  // % sobre `comparado_con`, el último periodo anterior con volumen (puede quedar
+  // fuera de la gráfica). Los dos nulos si esta barra no tiene volumen o no hay anterior.
+  cambio: number | null
+  comparado_con: string | null
+  volumen_por_rutina: { rutina: RutinaMinima; volumen: string }[]
+  series_por_grupo: { grupo_muscular: GrupoMuscular; series: number }[]
+}
+
+/** Las ocho barras terminadas, de la más antigua a la última, y la en curso si la hay. */
+export type EvolucionDeVolumen = {
+  periodos: PeriodoDeVolumen[]
+  en_curso: PeriodoDeVolumen | null
+}
+
+export type MesDeConstancia = {
+  mes: string
+  entrenados: number
+  // Hasta hoy: entrenados más faltados.
+  planificados: number
+  // Los días con rutina que aún no han llegado.
+  por_llegar: number
+}
+
+/** Todo lo de la pantalla de resumen de un mes, en una sola respuesta. */
+export type Resumen = {
+  mes: string
+  por_semana: EvolucionDeVolumen
+  por_mes: EvolucionDeVolumen
+  constancia: { meses: MesDeConstancia[]; entrenados: number; planificados: number }
+}
+
 /** Un día al que se le cambió a mano lo que toca. Sin rutina, es descanso. */
 export type Excepcion = {
   fecha: string

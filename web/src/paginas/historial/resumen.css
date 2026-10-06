@@ -1,0 +1,273 @@
+/* H5 · Resumen */
+
+.resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Por semana · Por mes: el segmentado grande del boceto, a todo el ancho. */
+.resumen-vista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 3px;
+}
+
+.resumen-vista button {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: var(--radio-pequeno);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}
+
+.resumen-vista button.activa {
+  background: var(--superficie);
+  border-color: var(--borde);
+  color: var(--acento);
+}
+
+.resumen-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 14px 16px 12px;
+}
+
+.resumen-titulo {
+  margin: 0;
+  font-weight: 400;
+  text-align: center;
+}
+
+.resumen-vacio {
+  margin: 0;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+/* El periodo de la barra elegida, centrado bajo el título de la tarjeta. */
+.resumen-periodo {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.resumen-sin-series {
+  margin: 0;
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+.resumen-pie {
+  margin: 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.resumen-cifra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+.resumen-valor {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.resumen-valor small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--texto-tenue);
+}
+
+.resumen-cambio {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.resumen-cambio.sube {
+  color: var(--acento);
+}
+
+/* --- Barras verticales (volumen y constancia) --------------------------- */
+
+.resumen-barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.resumen-barras.estrechas {
+  gap: 4px;
+}
+
+/* En el volumen cada columna es un botón (barra y fecha): se toca entera. */
+.resumen-columna {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+
+button.resumen-columna {
+  cursor: pointer;
+}
+
+.resumen-pista {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.resumen-barra {
+  width: 100%;
+  background: #2f7d54;
+  border-radius: 4px 4px 0 0;
+}
+
+.resumen-barra.elegida {
+  background: var(--acento);
+}
+
+/* Rayas en diagonal y sin borde: la barra en curso está a medias, también elegida.
+   Cada una alterna su verde con uno más oscuro del mismo tono. */
+.resumen-barra.en-curso {
+  background: repeating-linear-gradient(135deg, #2f7d54 0 6px, #1f4d36 6px 10px);
+}
+
+.resumen-barra.en-curso.elegida {
+  background: repeating-linear-gradient(135deg, var(--acento) 0 6px, #27985a 6px 10px);
+}
+
+.resumen-eje {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--texto-tenue);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.resumen-eje.elegida {
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.resumen-planificado {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: #3a4150;
+  border-radius: 3px 3px 0 0;
+}
+
+.resumen-entrenado {
+  width: 100%;
+  background: var(--acento);
+  border-radius: 3px 3px 0 0;
+}
+
+.resumen-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--texto-tenue);
+}
+
+.resumen-leyenda > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resumen-muestra {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #3a4150;
+}
+
+.resumen-muestra.entrenado {
+  background: var(--acento);
+}
+
+/* --- Reparto del mes (barras horizontales) ------------------------------ */
+
+.resumen-reparto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resumen-reparto li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resumen-fila {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.resumen-fila .num {
+  color: var(--texto-tenue);
+}
+
+.resumen-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.resumen-nombre {
+  flex-grow: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.resumen-carril {
+  height: 8px;
+  background: var(--fondo);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.resumen-carril > div {
+  height: 100%;
+  border-radius: 4px;
+}
