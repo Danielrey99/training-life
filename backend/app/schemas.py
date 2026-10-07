@@ -205,6 +205,53 @@ class OrdenDeHuecos(BaseModel):
         return self
 
 
+class AvisoDeBorrarRutinaOut(BaseModel):
+    """Lo que se perdería al borrar una rutina, para el diálogo de confirmar.
+
+    Existe porque la web no puede pedir el 409 del DELETE para saberlo: si la
+    rutina no tiene historial, el DELETE la borraría sin preguntar.
+    """
+
+    # Si el DELETE sin `modo` daría 409.
+    con_historial: bool
+    # Todos, también los ocultos.
+    huecos: int
+    # Las que tienen alguna serie. La de hoy vacía la dice `sesion_en_curso`; las
+    # canceladas no cuentan.
+    sesiones: int
+    # Días vigentes de cualquier programa, que pasarían a descanso.
+    dias_de_programa: int
+    # Días planificados a mano con ella, que volverían a lo que diga el programa.
+    dias_planificados: int
+    # Si tocó días que ya pasaron, que en el calendario pasarían a descanso.
+    toco_dias_pasados: bool
+    # Si hay una sesión de esta rutina abierta hoy, con o sin series: se borraría con
+    # ella. Si es verdadero, `con_historial` también (una en curso no está cancelada).
+    sesion_en_curso: bool
+
+
+class SesionQueSeVaciaOut(BaseModel):
+    """Una sesión cuyas series están todas en el hueco que se va a borrar: se
+    borraría con él.
+    """
+
+    entrenamiento_id: int
+    fecha: date
+    cubre_fecha: date | None
+
+
+class AvisoDeBorrarHuecoOut(BaseModel):
+    """Lo que se perdería al borrar un hueco, para el diálogo de confirmar."""
+
+    series: int
+    # La primera fecha con series en el hueco; nula si no tiene.
+    desde: date | None
+    # Se quedan sin ninguna serie y se borran con el hueco; si contaban un día del
+    # plan, ese día vuelve a quedar sin hacer. No incluye la sesión en curso de hoy,
+    # que sigue abierta.
+    sesiones_que_se_vacian: list[SesionQueSeVaciaOut]
+
+
 class SerieBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar una serie."""
 

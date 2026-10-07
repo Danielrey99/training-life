@@ -10,7 +10,7 @@ import pytest
 
 from app.fechas import hoy
 from app.models import Rutina
-from tests.ayudas import consultas_de, hueco_en_bd, rutina_en_bd
+from tests.ayudas import consultas_de, entrenar, hueco_en_bd, rutina_en_bd
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -177,6 +177,43 @@ def test_la_copia_lleva_los_huecos_visibles_con_sus_comodines(cliente, grupo_mus
     assert {h["id"] for h in copia["slots"]}.isdisjoint({primero, oculto, tercero})
     # El original, intacto: con su hueco oculto.
     assert len(cliente.get(f"/rutinas/{push}").json()["slots"]) == 3
+
+
+def test_la_copia_sale_sin_usar(cliente, grupo_muscular_id):
+    """Ni en los días del programa, ni con las sesiones ni los días planificados
+    del original.
+    """
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press")
+    push = crear_rutina(cliente, "Push")
+    hueco = crear_hueco(cliente, push, press, orden=1)
+    programa = cliente.post(
+        "/programas", json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": push}]}
+    ).json()
+    sesion = entrenar(cliente, hoy(), push).json()["id"]
+    serie = {
+        "ejercicio_id": press,
+        "slot_id": hueco,
+        "numero_serie": 1,
+        "peso": 60,
+        "repeticiones": 8,
+    }
+    assert cliente.post(f"/entrenamientos/{sesion}/series", json=serie).status_code == 201
+
+    copia = duplicar(cliente, push).json()
+
+    assert copia["num_programas"] == 0
+    assert copia["oculto_desde"] is None
+    assert cliente.get("/entrenamientos", params={"rutina_id": copia["id"]}).json() == []
+    assert [
+        d["rutina"]["id"] for d in cliente.get(f"/programas/{programa['id']}").json()["dias"]
+    ] == [push]
+    assert cliente.get(f"/rutinas/{push}").json()["num_programas"] == 1
+    aviso = cliente.get(f"/rutinas/{copia['id']}/aviso-de-borrado").json()
+    assert (aviso["sesiones"], aviso["dias_de_programa"], aviso["toco_dias_pasados"]) == (
+        0,
+        0,
+        False,
+    )
 
 
 def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):

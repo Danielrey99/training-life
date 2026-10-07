@@ -242,13 +242,16 @@ def test_el_listado_con_en_curso_sin_ninguna_abierta_esta_vacio(cliente):
     assert cliente.get("/entrenamientos", params={"en_curso": True}).json() == []
 
 
-def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_y_con_series(
-    cliente, ejercicio_predefinido_id
+def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_con_series_o_vacias(
+    cliente, hoy_es, ejercicio_predefinido_id
 ):
-    """Las que se dejaron a medias: de un día pasado, sin terminar y con algo
-    apuntado. Ni la de hoy (sigue en curso), ni las terminadas, ni las vacías (ya
-    cuentan como canceladas).
+    """Las de un día pasado que se quedaron sin terminar: las que tienen algo
+    apuntado (quizá se dejaron a medias) y también las vacías (quizá se abrieron
+    para apuntar un día pasado y se olvidaron; E1 las marca como *vacía*). Antes
+    las vacías no salían. Ni la de hoy (sigue en curso) ni las terminadas. De la
+    más reciente a la más antigua.
     """
+    hoy_es(HOY)
 
     def con_serie(sesion):
         serie_en(cliente, sesion["id"], ejercicio_predefinido_id, peso=40, repeticiones=10)
@@ -256,23 +259,39 @@ def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_y_con_series(
 
     a_medias = con_serie(empezar(cliente, AYER))
     terminar(cliente, con_serie(empezar(cliente, HOY - timedelta(days=2)))["id"])
-    empezar(cliente, HOY - timedelta(days=3))
+    vacia = empezar(cliente, HOY - timedelta(days=3))
     con_serie(empezar(cliente))
 
     respuesta = cliente.get("/entrenamientos", params={"sin_terminar": True})
 
-    assert [sesion["id"] for sesion in respuesta.json()] == [a_medias["id"]]
+    assert [sesion["id"] for sesion in respuesta.json()] == [a_medias["id"], vacia["id"]]
+    assert respuesta.json()[1]["series"] == []
+
+
+def test_el_listado_sin_terminar_no_da_la_vacia_terminada_ni_la_vacia_de_hoy(cliente, hoy_es):
+    hoy_es(HOY)
+    terminar(cliente, empezar(cliente, AYER)["id"])
+    empezar(cliente)
+
+    assert cliente.get("/entrenamientos", params={"sin_terminar": True}).json() == []
 
 
 def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
-    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
+    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id, hoy_es
 ):
+    """Ni la que tiene series ni la vacía: ahora que las vacías también salen, el
+    filtro por usuario tiene que valer para las dos.
+    """
     from app.models import Entrenamiento, Serie
 
+    hoy_es(HOY)
     rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
     hueco_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_predefinido_id)
     ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=AYER)
-    sesion_bd.add(ajena)
+    vacia = Entrenamiento(
+        usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=HOY - timedelta(days=2)
+    )
+    sesion_bd.add_all([ajena, vacia])
     sesion_bd.flush()
     sesion_bd.add(
         Serie(
@@ -287,6 +306,57 @@ def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
     sesion_bd.commit()
 
     assert cliente.get("/entrenamientos", params={"sin_terminar": True}).json() == []
+
+
+def test_cancelada_y_en_curso_dicen_lo_mismo_en_sql_que_en_python(
+    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id, hoy_es
+):
+    """`cancelada_sql` y `en_curso_sql` (para un WHERE) van en pareja con
+    `esta_cancelada` y `Entrenamiento.en_curso`. Si una regla cambia y la otra no,
+    borrar una rutina, el aviso y el seguimiento dirían cosas distintas de la misma
+    sesión. Se comparan con todos los casos: con y sin series, de hoy y de días
+    pasados, terminadas y sin terminar.
+    """
+    from sqlalchemy import select
+
+    from app.models import Entrenamiento
+    from app.seguimiento import cancelada_sql, en_curso_sql, esta_cancelada
+
+    hoy_es(HOY)
+    for dias_atras, series, terminada in [
+        (0, False, False),
+        (1, False, False),
+        (2, False, True),
+        (3, True, False),
+        (4, True, True),
+    ]:
+        sesion = empezar(cliente, HOY - timedelta(days=dias_atras))
+        if series:
+            serie_en(cliente, sesion["id"], ejercicio_predefinido_id)
+        if terminada:
+            terminar(cliente, sesion["id"])
+    # La de hoy terminada y vacía no cabe en el usuario de la API, que ya tiene la de
+    # hoy abierta (una sesión al día): va a nombre del otro usuario.
+    sesion_bd.add(
+        Entrenamiento(
+            usuario_id=otro_usuario_id,
+            rutina_id=rutina_en_bd(sesion_bd, otro_usuario_id),
+            fecha=HOY,
+            terminada_en=datetime.now(timezone.utc),
+        )
+    )
+    sesion_bd.commit()
+
+    sesiones = sesion_bd.scalars(select(Entrenamiento)).all()
+    canceladas = set(sesion_bd.scalars(select(Entrenamiento.id).where(cancelada_sql())))
+    en_curso = set(sesion_bd.scalars(select(Entrenamiento.id).where(en_curso_sql())))
+
+    assert len(sesiones) == 6
+    assert canceladas == {s.id for s in sesiones if esta_cancelada(s)}
+    assert en_curso == {s.id for s in sesiones if s.en_curso}
+    # Que la comparación no sea trivial: hay de las dos clases en cada regla.
+    assert 0 < len(canceladas) < len(sesiones)
+    assert 0 < len(en_curso) < len(sesiones)
 
 
 def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):

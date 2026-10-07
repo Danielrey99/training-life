@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, distinct, func, or_, select
+from sqlalchemy import and_, distinct, exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.fechas import hoy
@@ -39,15 +39,34 @@ def esta_cancelada(sesion: Entrenamiento, vacia: bool | None = None) -> bool:
     """Una sesión sin ninguna serie que ya no está en curso: no se hizo nada.
 
     No cuenta para ningún día ni ocupa su fecha, y se borra en cuanto otra sesión
-    necesita su fecha o su día. La que está en curso sí cuenta aunque esté vacía:
-    se acaba de empezar.
+    necesita su fecha o su día, o al borrar su rutina, o el hueco que la dejó
+    vacía. La que está en curso sí cuenta aunque esté vacía: se acaba de empezar.
 
     `vacia` es para quien ya sabe si tiene series sin cargarlas (el seguimiento,
     que lo pregunta para todas las sesiones en la misma consulta).
+
+    Va en pareja con `cancelada_sql`: si cambia una regla, cambian las dos.
     """
     if vacia is None:
         vacia = not sesion.series
     return not sesion.en_curso and vacia
+
+
+def en_curso_sql():
+    """`Entrenamiento.en_curso` para un WHERE: sin terminar y de hoy. Va en pareja
+    con la propiedad: si cambia una regla, cambian las dos.
+    """
+    # hoy() y no la fecha de Postgres, que usaría la zona de la conexión y no la
+    # de la app (y los tests, que mueven el reloj con hoy_es, no la verían).
+    return and_(Entrenamiento.terminada_en.is_(None), Entrenamiento.fecha == hoy())
+
+
+def cancelada_sql():
+    """`esta_cancelada` para un WHERE: sin ninguna serie y no en curso. Va en pareja
+    con ella: si cambia una regla, cambian las dos.
+    """
+    con_series = exists().where(Serie.entrenamiento_id == Entrenamiento.id)
+    return and_(~con_series, ~en_curso_sql())
 
 
 def cuenta(sesion: Entrenamiento, dia: DiaPlan, vacia: bool | None = None) -> bool:

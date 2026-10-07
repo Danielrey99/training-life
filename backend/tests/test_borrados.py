@@ -20,7 +20,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
-from tests.semana import HOY, LUNES_14, LUNES_21, MARTES_15
+from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
 
 FECHA = "2026-09-04"
 
@@ -739,19 +739,84 @@ def test_un_hueco_sin_series_se_borra_directo_y_sus_comodines_con_el(
     assert cliente.get(f"/ejercicios/{comodin}").status_code == 200
 
 
-def test_una_rutina_con_sesiones_pero_sin_huecos_pide_modo_para_borrarla(cliente):
-    """Las sesiones son historial aunque la rutina no tenga huecos (se entrenó
-    con ella antes de montarle ninguno, o se le quitaron): bloquean el borrado
-    directo, y `?modo=definitivo` se las lleva.
+def test_una_rutina_con_solo_sesiones_canceladas_se_borra_directa_y_se_las_lleva(cliente, hoy_es):
+    """Una sesión vacía que ya no está en curso está cancelada (`esta_cancelada`):
+    no se hizo nada en ella y no es historial. Ni la de un día pasado que se quedó
+    sin terminar ni la de hoy ya terminada bloquean el borrado.
+
+    Antes, cualquier sesión pedía `modo`. Y hay que llevárselas igualmente: con
+    `entrenamientos.rutina_id` en RESTRICT, si el camino directo no las borrara
+    daría un 500.
     """
-    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
-    entrenamiento_id = cliente.post(
+    hoy_es(HOY)
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Brazos"}).json()["id"]
+    olvidada = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
+    ).json()["id"]
+    de_hoy = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": HOY.isoformat()}
+    ).json()["id"]
+    assert cliente.post(f"/entrenamientos/{de_hoy}/terminar").status_code == 200
+
+    assert aviso_de_rutina(cliente, rutina_id) == {
+        "con_historial": False,
+        "huecos": 0,
+        "sesiones": 0,
+        "dias_de_programa": 0,
+        "dias_planificados": 0,
+        "toco_dias_pasados": False,
+        "sesion_en_curso": False,
+    }
+    assert cliente.delete(f"/rutinas/{rutina_id}").status_code == 204
+    assert cliente.get(f"/rutinas/{rutina_id}").status_code == 404
+    assert cliente.get(f"/entrenamientos/{olvidada}").status_code == 404
+    assert cliente.get(f"/entrenamientos/{de_hoy}").status_code == 404
+
+
+def test_una_rutina_con_huecos_y_una_sesion_cancelada_pide_modo_y_el_definitivo_se_lo_lleva_todo(
+    cliente, grupo_muscular_id, hoy_es
+):
+    """La cancelada no bloquea, pero los huecos sí. El 409 dice «sesiones
+    registradas» (antes, «historial de entrenamientos»).
+    """
+    hoy_es(HOY)
+    rutina_id, slot_id = crear_rutina_con_hueco(
+        cliente, crear_ejercicio(cliente, grupo_muscular_id)
+    )
+    cancelada = cliente.post(
         "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
     ).json()["id"]
 
-    assert cliente.delete(f"/rutinas/{rutina_id}").status_code == 409
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"].startswith("Esta rutina tiene huecos o sesiones registradas.")
+    assert "historial de entrenamientos" not in respuesta.json()["detail"]
     assert cliente.delete(f"/rutinas/{rutina_id}?modo=definitivo").status_code == 204
-    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
+    assert cliente.get(f"/rutinas/{rutina_id}").status_code == 404
+    assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 404
+
+
+def test_una_rutina_sin_huecos_con_una_sesion_vacia_abierta_hoy_pide_modo(cliente, hoy_es):
+    """La sesión de hoy recién empezada no está cancelada aunque no tenga series:
+    se acaba de empezar. Cuenta como historial, el aviso lo dice con
+    `sesion_en_curso` (aunque `sesiones`, que cuenta las que tienen series, dé 0) y
+    `?modo=definitivo` se la lleva.
+    """
+    hoy_es(HOY)
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    abierta = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": HOY.isoformat()}
+    ).json()["id"]
+
+    aviso = aviso_de_rutina(cliente, rutina_id)
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}")
+
+    assert (aviso["con_historial"], aviso["sesion_en_curso"], aviso["sesiones"]) == (True, True, 0)
+    assert respuesta.status_code == 409
+    assert "tiene huecos o sesiones registradas" in respuesta.json()["detail"]
+    assert cliente.delete(f"/rutinas/{rutina_id}?modo=definitivo").status_code == 204
+    assert cliente.get(f"/entrenamientos/{abierta}").status_code == 404
 
 
 def test_borrar_en_definitivo_el_principal_de_un_hueco_con_series_del_comodin(
@@ -1093,3 +1158,535 @@ def test_en_un_programa_que_nunca_estuvo_activo_se_borra_directa(cliente, hoy_es
     )
 
     assert cliente.delete(f"/rutinas/{push}").status_code == 204
+
+
+# --- El aviso de borrar un hueco ---------------------------------------------
+#
+# `GET /rutinas/{id}/slots/{slot_id}/aviso-de-borrado`: lo que el diálogo de
+# confirmar cuenta antes de borrar. Las fechas son de la semana de
+# `tests/semana.py`; hoy es el miércoles 16.
+
+PRIMERO_DE_SEPTIEMBRE = date(2026, 9, 1)
+CUATRO_DE_SEPTIEMBRE = date(2026, 9, 4)
+OCHO_DE_SEPTIEMBRE = date(2026, 9, 8)
+DIEZ_DE_SEPTIEMBRE = date(2026, 9, 10)
+
+
+def aviso_de_hueco(cliente, rutina_id, slot_id):
+    return cliente.get(f"/rutinas/{rutina_id}/slots/{slot_id}/aviso-de-borrado")
+
+
+def segundo_hueco(cliente, rutina_id, ejercicio_id) -> int:
+    respuesta = cliente.post(
+        f"/rutinas/{rutina_id}/slots",
+        json={
+            "ejercicio_principal_id": ejercicio_id,
+            "orden": 2,
+            "series_objetivo": 3,
+            "reps_min": 8,
+            "reps_max": 12,
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    return respuesta.json()["id"]
+
+
+def sesion_con_series(cliente, rutina_id, fecha, *series) -> int:
+    """Una sesión de la rutina con una serie por cada `(slot_id, ejercicio_id)`."""
+    respuesta = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": fecha.isoformat()}
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    entrenamiento_id = respuesta.json()["id"]
+    for numero, (slot_id, ejercicio_id) in enumerate(series, start=1):
+        serie = cliente.post(
+            f"/entrenamientos/{entrenamiento_id}/series",
+            json={
+                "ejercicio_id": ejercicio_id,
+                "slot_id": slot_id,
+                "numero_serie": numero,
+                "peso": 50,
+                "repeticiones": 10,
+            },
+        )
+        assert serie.status_code == 201, serie.text
+    return entrenamiento_id
+
+
+@pytest.fixture
+def push_con_dos_huecos(cliente, grupo_muscular_id, hoy_es) -> dict:
+    """Push con el hueco del press (A) y el de fondos (B), y cuatro sesiones:
+
+    - la del 10, solo con dos series de A (se crea la primera, para que el orden
+      por fecha no salga gratis del orden de los ids);
+    - la del 1, solo con una de A;
+    - la del 4, con una de A y una de B;
+    - la del 8, solo con una de B.
+
+    Ninguna está terminada, y todas son de días pasados (hoy es el 16).
+    """
+    hoy_es(HOY)
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
+    rutina_id, a = crear_rutina_con_hueco(cliente, press)
+    b = segundo_hueco(cliente, rutina_id, fondos)
+    sesiones = {
+        "dia_10": sesion_con_series(cliente, rutina_id, DIEZ_DE_SEPTIEMBRE, (a, press), (a, press)),
+        "dia_1": sesion_con_series(cliente, rutina_id, PRIMERO_DE_SEPTIEMBRE, (a, press)),
+        "dia_4": sesion_con_series(
+            cliente, rutina_id, CUATRO_DE_SEPTIEMBRE, (a, press), (b, fondos)
+        ),
+        "dia_8": sesion_con_series(cliente, rutina_id, OCHO_DE_SEPTIEMBRE, (b, fondos)),
+    }
+    return {"rutina_id": rutina_id, "a": a, "b": b, "press": press, **sesiones}
+
+
+def test_el_aviso_de_un_hueco_cuenta_sus_series_y_desde_cuando(cliente, push_con_dos_huecos):
+    escenario = push_con_dos_huecos
+
+    aviso = aviso_de_hueco(cliente, escenario["rutina_id"], escenario["a"])
+
+    assert aviso.status_code == 200, aviso.text
+    assert (aviso.json()["series"], aviso.json()["desde"]) == (4, "2026-09-01")
+
+
+def test_solo_se_vacian_las_sesiones_sin_series_en_otro_hueco(cliente, push_con_dos_huecos):
+    """La del 4 tiene series en los dos huecos: borrar uno no la deja vacía."""
+    escenario = push_con_dos_huecos
+    rutina_id = escenario["rutina_id"]
+
+    del_a = aviso_de_hueco(cliente, rutina_id, escenario["a"]).json()["sesiones_que_se_vacian"]
+    del_b = aviso_de_hueco(cliente, rutina_id, escenario["b"]).json()["sesiones_que_se_vacian"]
+
+    assert del_a == [
+        {"entrenamiento_id": escenario["dia_1"], "fecha": "2026-09-01", "cubre_fecha": None},
+        {"entrenamiento_id": escenario["dia_10"], "fecha": "2026-09-10", "cubre_fecha": None},
+    ]
+    assert [s["entrenamiento_id"] for s in del_b] == [escenario["dia_8"]]
+
+
+def test_una_sesion_que_se_vacia_dice_que_dia_del_plan_contaba(cliente, ppl, grupo_muscular_id):
+    """Es lo que la web enseña: ese día pasaría a sin hacer."""
+    sesion = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
+    hueco = cliente.get(f"/rutinas/{ppl['Push']}").json()["slots"][0]["id"]
+
+    aviso = aviso_de_hueco(cliente, ppl["Push"], hueco).json()
+
+    assert aviso["sesiones_que_se_vacian"] == [
+        {"entrenamiento_id": sesion, "fecha": "2026-09-14", "cubre_fecha": "2026-09-14"}
+    ]
+
+
+def test_el_aviso_de_un_hueco_sin_series_va_vacio(cliente, grupo_muscular_id):
+    rutina_id, slot_id = crear_rutina_con_hueco(
+        cliente, crear_ejercicio(cliente, grupo_muscular_id)
+    )
+
+    aviso = aviso_de_hueco(cliente, rutina_id, slot_id)
+
+    assert aviso.status_code == 200
+    assert aviso.json() == {"series": 0, "desde": None, "sesiones_que_se_vacian": []}
+
+
+def test_el_aviso_de_un_hueco_oculto_se_puede_leer(cliente, push_con_dos_huecos):
+    """P4 oculto ofrece Borrar: el diálogo tiene que poder contar lo que se pierde,
+    también con la rutina oculta.
+    """
+    escenario = push_con_dos_huecos
+    rutina_id, a = escenario["rutina_id"], escenario["a"]
+    assert cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=ocultar").status_code == 204
+    assert cliente.delete(f"/rutinas/{rutina_id}?modo=ocultar").status_code == 204
+
+    aviso = aviso_de_hueco(cliente, rutina_id, a)
+
+    assert aviso.status_code == 200
+    assert aviso.json()["series"] == 4
+    assert len(aviso.json()["sesiones_que_se_vacian"]) == 2
+
+
+def test_el_aviso_de_un_hueco_inexistente_o_de_otra_rutina_da_404(cliente, push_con_dos_huecos):
+    escenario = push_con_dos_huecos
+    otra = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+
+    assert aviso_de_hueco(cliente, escenario["rutina_id"], 999_999).status_code == 404
+    assert aviso_de_hueco(cliente, otra, escenario["a"]).status_code == 404
+    assert aviso_de_hueco(cliente, 999_999, escenario["a"]).status_code == 404
+
+
+def test_el_409_de_borrar_un_hueco_dice_cuantas_sesiones_se_borraran(cliente, push_con_dos_huecos):
+    """En plural y en singular. Antes decía que se quedarían «sin ninguna serie»: ahora
+    esas sesiones se borran con el hueco.
+    """
+    escenario = push_con_dos_huecos
+    ruta = f"/rutinas/{escenario['rutina_id']}/slots"
+
+    del_a = cliente.delete(f"{ruta}/{escenario['a']}")
+    del_b = cliente.delete(f"{ruta}/{escenario['b']}")
+
+    assert (del_a.status_code, del_b.status_code) == (409, 409)
+    assert del_a.json()["detail"].endswith(
+        "sin poder deshacerlo). Además, se borrarán 2 sesiones que solo tenían series de "
+        "este hueco."
+    )
+    assert del_b.json()["detail"].endswith(
+        "sin poder deshacerlo). Además, se borrará 1 sesión que solo tenía series de este hueco."
+    )
+
+
+def test_el_409_de_borrar_un_hueco_no_habla_de_sesiones_si_ninguna_se_vacia(
+    cliente, grupo_muscular_id
+):
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
+    rutina_id, a = crear_rutina_con_hueco(cliente, press)
+    b = segundo_hueco(cliente, rutina_id, fondos)
+    sesion_con_series(cliente, rutina_id, date.fromisoformat(FECHA), (a, press), (b, fondos))
+
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"].startswith("Este hueco tiene series registradas.")
+    assert "Además" not in respuesta.json()["detail"]
+
+
+def series_de(cliente, entrenamiento_id) -> list[dict] | None:
+    """Las series de la sesión, o `None` si ya no existe."""
+    respuesta = cliente.get(f"/entrenamientos/{entrenamiento_id}")
+    if respuesta.status_code == 404:
+        return None
+    assert respuesta.status_code == 200, respuesta.text
+    return respuesta.json()["series"]
+
+
+def test_borrar_en_definitivo_un_hueco_se_lleva_las_sesiones_que_vacia_y_deja_las_demas(
+    cliente, push_con_dos_huecos
+):
+    """Las sesiones que solo tenían series del hueco se quedarían sin ninguna, que
+    es estar canceladas: se borran con él. Antes se quedaban vacías. La del 4
+    conserva la serie del otro hueco y la del 8, que no lo usaba, ni se toca.
+    """
+    escenario = push_con_dos_huecos
+    ruta = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['a']}"
+
+    assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 204
+
+    assert series_de(cliente, escenario["dia_1"]) is None
+    assert series_de(cliente, escenario["dia_10"]) is None
+    assert [s["slot_id"] for s in series_de(cliente, escenario["dia_4"])] == [escenario["b"]]
+    assert [s["slot_id"] for s in series_de(cliente, escenario["dia_8"])] == [escenario["b"]]
+
+
+def test_la_sesion_que_se_borra_con_el_hueco_deja_su_dia_sin_hacer(cliente, ppl, grupo_muscular_id):
+    """Contaba el lunes 14 del plan; al irse con el hueco, ese día vuelve a quedar
+    sin hacer.
+    """
+    sesion = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
+    hueco = cliente.get(f"/rutinas/{ppl['Push']}").json()["slots"][0]["id"]
+
+    def estado_del_lunes():
+        respuesta = cliente.get(
+            "/plan/seguimiento",
+            params={"desde": LUNES_14.isoformat(), "hasta": LUNES_14.isoformat()},
+        )
+        assert respuesta.status_code == 200, respuesta.text
+        return respuesta.json()[0]["estado"]
+
+    assert estado_del_lunes() == "hecho"
+    respuesta = cliente.delete(f"/rutinas/{ppl['Push']}/slots/{hueco}?modo=definitivo")
+
+    assert respuesta.status_code == 204
+    assert cliente.get(f"/entrenamientos/{sesion}").status_code == 404
+    assert estado_del_lunes() == "sin_hacer"
+
+
+def test_la_sesion_abierta_hoy_no_se_borra_con_el_hueco_aunque_se_quede_vacia(
+    cliente, push_con_dos_huecos
+):
+    """No está cancelada aunque se quede sin series, y puede estar abierta en E2:
+    borrarla daría un 404 a mitad de entrenamiento. Ni el aviso ni la frase del
+    409 la cuentan; sigue abierta, vacía y en curso.
+    """
+    escenario = push_con_dos_huecos
+    rutina_id, a = escenario["rutina_id"], escenario["a"]
+    abierta = sesion_con_series(cliente, rutina_id, HOY, (a, escenario["press"]))
+
+    aviso = aviso_de_hueco(cliente, rutina_id, a).json()
+    conflicto = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}")
+    borrado = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
+
+    assert aviso["series"] == 5
+    assert abierta not in [s["entrenamiento_id"] for s in aviso["sesiones_que_se_vacian"]]
+    assert "se borrarán 2 sesiones" in conflicto.json()["detail"]
+    assert borrado.status_code == 204
+    assert series_de(cliente, abierta) == []
+    en_curso = cliente.get("/entrenamientos", params={"en_curso": True}).json()
+    assert [s["id"] for s in en_curso] == [abierta]
+
+
+def test_la_sesion_de_hoy_ya_terminada_si_se_borra_con_el_hueco(cliente, push_con_dos_huecos):
+    """Ya no está en curso: sin series se quedaría cancelada, como las de días pasados."""
+    escenario = push_con_dos_huecos
+    rutina_id, a = escenario["rutina_id"], escenario["a"]
+    terminada = sesion_con_series(cliente, rutina_id, HOY, (a, escenario["press"]))
+    assert cliente.post(f"/entrenamientos/{terminada}/terminar").status_code == 200
+
+    aviso = aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
+    borrado = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
+
+    assert [s["entrenamiento_id"] for s in aviso] == [
+        escenario["dia_1"],
+        escenario["dia_10"],
+        terminada,
+    ]
+    assert borrado.status_code == 204
+    assert series_de(cliente, terminada) is None
+
+
+def test_una_sesion_que_ya_estaba_vacia_no_sale_en_el_aviso_del_hueco_ni_se_toca(
+    cliente, push_con_dos_huecos
+):
+    """No tiene series de ese hueco: borrarlo no la vacía, ya lo estaba."""
+    escenario = push_con_dos_huecos
+    rutina_id, a = escenario["rutina_id"], escenario["a"]
+    ya_vacia = sesion_con_series(cliente, rutina_id, date(2026, 9, 12))
+
+    aviso = aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
+    borrado = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
+
+    assert ya_vacia not in [s["entrenamiento_id"] for s in aviso]
+    assert borrado.status_code == 204
+    assert series_de(cliente, ya_vacia) == []
+
+
+def test_borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso(
+    cliente, push_con_dos_huecos
+):
+    """Regresión del orden en `borrar_slot`: la lista de las sesiones que se vacían
+    se calcula antes de borrar las series del hueco. Calculada después, el «tiene
+    series en este hueco» ya no se cumple, sale vacía y el borrado deja esas
+    sesiones canceladas sin dar ningún error.
+
+    En una sola petición, con sesiones que se van y otras que se quedan (la del 4,
+    la del 8, una ya vacía y la abierta hoy): se borran exactamente las del aviso.
+    """
+    escenario = push_con_dos_huecos
+    rutina_id, a = escenario["rutina_id"], escenario["a"]
+    ya_vacia = sesion_con_series(cliente, rutina_id, date(2026, 9, 12))
+    abierta = sesion_con_series(cliente, rutina_id, HOY, (a, escenario["press"]))
+    todas = [escenario[dia] for dia in ("dia_1", "dia_4", "dia_8", "dia_10")]
+    todas += [ya_vacia, abierta]
+
+    anunciadas = {
+        s["entrenamiento_id"]
+        for s in aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
+    }
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
+
+    assert respuesta.status_code == 204, respuesta.text
+    borradas = {sesion for sesion in todas if series_de(cliente, sesion) is None}
+    assert borradas == anunciadas == {escenario["dia_1"], escenario["dia_10"]}
+
+
+# --- El aviso de borrar una rutina -------------------------------------------
+#
+# `GET /rutinas/{id}/aviso-de-borrado`. `con_historial` tiene que coincidir con
+# que el DELETE sin `modo` dé 409: si no, la web enseñaría un diálogo y el DELETE
+# haría otra cosa.
+
+
+def aviso_de_rutina(cliente, rutina_id) -> dict:
+    respuesta = cliente.get(f"/rutinas/{rutina_id}/aviso-de-borrado")
+    assert respuesta.status_code == 200, respuesta.text
+    return respuesta.json()
+
+
+def _rutina_vacia(cliente, request, grupo_muscular_id) -> int:
+    return cliente.post("/rutinas", json={"nombre": "Brazos"}).json()["id"]
+
+
+def _rutina_con_un_hueco(cliente, request, grupo_muscular_id) -> int:
+    rutina_id, _ = crear_rutina_con_hueco(cliente, crear_ejercicio(cliente, grupo_muscular_id))
+    return rutina_id
+
+
+def _rutina_con_una_sesion_cancelada(cliente, request, grupo_muscular_id) -> int:
+    """Vacía, de un día pasado y sin terminar: cancelada, no es historial."""
+    request.getfixturevalue("hoy_es")(HOY)
+    rutina_id = _rutina_vacia(cliente, request, grupo_muscular_id)
+    cliente.post("/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA})
+    return rutina_id
+
+
+def _rutina_con_una_sesion_en_curso(cliente, request, grupo_muscular_id) -> int:
+    """Vacía pero abierta hoy: se acaba de empezar, sí es historial."""
+    request.getfixturevalue("hoy_es")(HOY)
+    rutina_id = _rutina_vacia(cliente, request, grupo_muscular_id)
+    cliente.post("/entrenamientos", json={"rutina_id": rutina_id, "fecha": HOY.isoformat()})
+    return rutina_id
+
+
+def _rutina_que_solo_toco_dias_pasados(cliente, request, grupo_muscular_id) -> int:
+    return request.getfixturevalue("ppl")["Push"]
+
+
+def _rutina_en_un_programa_sin_activar(cliente, request, grupo_muscular_id) -> int:
+    rutina_id = _rutina_vacia(cliente, request, grupo_muscular_id)
+    cliente.post(
+        "/programas",
+        json={"nombre": "Sin usar", "dias": [{"dia_semana": 1, "rutina_id": rutina_id}]},
+    )
+    return rutina_id
+
+
+@pytest.mark.parametrize(
+    "montar, con_historial",
+    [
+        pytest.param(_rutina_vacia, False, id="vacia"),
+        pytest.param(_rutina_con_un_hueco, True, id="con-un-hueco"),
+        pytest.param(_rutina_con_una_sesion_cancelada, False, id="con-una-sesion-cancelada"),
+        pytest.param(_rutina_con_una_sesion_en_curso, True, id="con-una-sesion-en-curso"),
+        pytest.param(_rutina_que_solo_toco_dias_pasados, True, id="solo-dias-pasados"),
+        pytest.param(_rutina_en_un_programa_sin_activar, False, id="programa-sin-activar"),
+    ],
+)
+def test_con_historial_coincide_con_que_el_delete_pida_modo(
+    cliente, request, grupo_muscular_id, montar, con_historial
+):
+    rutina_id = montar(cliente, request, grupo_muscular_id)
+
+    aviso = aviso_de_rutina(cliente, rutina_id)
+    borrado = cliente.delete(f"/rutinas/{rutina_id}")
+
+    assert aviso["con_historial"] is con_historial
+    assert borrado.status_code == (409 if con_historial else 204)
+
+
+def test_el_aviso_dice_que_la_rutina_toco_dias_pasados(cliente, ppl):
+    """El caso que el diálogo de P3 no reflejaba: sin huecos ni sesiones, pero con
+    días pasados en el plan.
+    """
+    aviso = aviso_de_rutina(cliente, ppl["Push"])
+
+    assert aviso == {
+        "con_historial": True,
+        "huecos": 0,
+        "sesiones": 0,
+        "dias_de_programa": 1,
+        "dias_planificados": 0,
+        "toco_dias_pasados": True,
+        "sesion_en_curso": False,
+    }
+
+
+def test_el_aviso_de_una_rutina_no_cuenta_las_sesiones_vacias(cliente, grupo_muscular_id):
+    """Una sesión sin series ya fuera de curso está cancelada: no es algo que se
+    pierda.
+    """
+    press = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, press)
+    sesion_con_series(cliente, rutina_id, PRIMERO_DE_SEPTIEMBRE, (slot_id, press))
+    sesion_con_series(cliente, rutina_id, CUATRO_DE_SEPTIEMBRE, (slot_id, press), (slot_id, press))
+    sesion_con_series(cliente, rutina_id, OCHO_DE_SEPTIEMBRE)
+
+    aviso = aviso_de_rutina(cliente, rutina_id)
+
+    assert (aviso["sesiones"], aviso["huecos"]) == (2, 1)
+
+
+# Cada uno monta una sesión en la rutina Push (o en Pull, la otra) a partir del
+# hueco del press. Hoy es el miércoles 16.
+
+
+def _abierta_hoy_con_series(cliente, push, pull, slot_id, press):
+    sesion_con_series(cliente, push, HOY, (slot_id, press))
+
+
+def _de_ayer_sin_terminar(cliente, push, pull, slot_id, press):
+    """La que crea H1b al apuntar un día pasado: vacía y sin terminar."""
+    sesion_con_series(cliente, push, MARTES_15)
+
+
+def _de_hoy_ya_terminada(cliente, push, pull, slot_id, press):
+    sesion = sesion_con_series(cliente, push, HOY, (slot_id, press))
+    assert cliente.post(f"/entrenamientos/{sesion}/terminar").status_code == 200
+
+
+def _abierta_hoy_de_otra_rutina(cliente, push, pull, slot_id, press):
+    sesion_con_series(cliente, pull, HOY)
+
+
+@pytest.mark.parametrize(
+    "montar, en_curso",
+    [
+        pytest.param(_abierta_hoy_con_series, True, id="abierta-hoy-con-series"),
+        pytest.param(_de_ayer_sin_terminar, False, id="de-ayer-sin-terminar"),
+        pytest.param(_de_hoy_ya_terminada, False, id="de-hoy-ya-terminada"),
+        pytest.param(_abierta_hoy_de_otra_rutina, False, id="abierta-hoy-de-otra-rutina"),
+    ],
+)
+def test_el_aviso_de_una_rutina_dice_si_hay_una_sesion_suya_abierta_hoy(
+    cliente, grupo_muscular_id, hoy_es, montar, en_curso
+):
+    """Es lo que hace que P3 diga «También se cancelará la sesión que tienes
+    abierta hoy». Una sesión de un día pasado sin terminar no está en curso. Y si
+    hay una abierta, `con_historial` también es verdadero: la frase solo sale en el
+    diálogo completo.
+    """
+    hoy_es(HOY)
+    press = crear_ejercicio(cliente, grupo_muscular_id)
+    push, slot_id = crear_rutina_con_hueco(cliente, press)
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    montar(cliente, push, pull, slot_id, press)
+
+    aviso = aviso_de_rutina(cliente, push)
+
+    assert aviso["sesion_en_curso"] is en_curso
+    if en_curso:
+        assert aviso["con_historial"] is True
+
+
+def test_el_aviso_de_una_rutina_cuenta_los_huecos_ocultos(cliente, grupo_muscular_id):
+    """Borrarla en definitivo también se los lleva. Se puede leer con la rutina oculta."""
+    rutina_id, oculto = crear_rutina_con_hueco(cliente, crear_ejercicio(cliente, grupo_muscular_id))
+    segundo_hueco(cliente, rutina_id, crear_ejercicio(cliente, grupo_muscular_id, "Fondos"))
+    assert cliente.delete(f"/rutinas/{rutina_id}/slots/{oculto}?modo=ocultar").status_code == 204
+    assert cliente.delete(f"/rutinas/{rutina_id}?modo=ocultar").status_code == 204
+
+    assert aviso_de_rutina(cliente, rutina_id)["huecos"] == 2
+
+
+def test_el_aviso_de_una_rutina_cuenta_sus_dias_vigentes_y_planificados(cliente, ppl):
+    """El lunes del PPL deja de ser Push (su fila se cierra y ya no cuenta), el
+    martes pasa a serlo, y está en otro programa sin activar en dos días: 3 días de
+    programa. Más dos días planificados a mano. Las cuentas son las del 409.
+    """
+    programa = cliente.get("/programas").json()[0]["id"]
+    for dia, rutina in ((1, "Leg"), (2, "Push")):
+        respuesta = cliente.put(
+            f"/programas/{programa}/dias/{dia}", json={"rutina_id": ppl[rutina]}
+        )
+        assert respuesta.status_code == 200, respuesta.text
+    cliente.post(
+        "/programas",
+        json={
+            "nombre": "Otro",
+            "dias": [{"dia_semana": dia, "rutina_id": ppl["Push"]} for dia in (4, 6)],
+        },
+    )
+    for fecha in (JUEVES_17, VIERNES_18):
+        respuesta = cliente.put(
+            f"/plan/excepciones/{fecha.isoformat()}", json={"rutina_id": ppl["Push"]}
+        )
+        assert respuesta.status_code == 200, respuesta.text
+
+    aviso = aviso_de_rutina(cliente, ppl["Push"])
+    detalle = cliente.delete(f"/rutinas/{ppl['Push']}").json()["detail"]
+
+    assert (aviso["dias_de_programa"], aviso["dias_planificados"]) == (3, 2)
+    assert aviso["toco_dias_pasados"] is True
+    assert "3 días de programa" in detalle
+    assert "2 días planificados a mano" in detalle
+
+
+def test_el_aviso_de_una_rutina_inexistente_da_404(cliente):
+    assert cliente.get("/rutinas/999999/aviso-de-borrado").status_code == 404

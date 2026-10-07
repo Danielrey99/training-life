@@ -202,10 +202,11 @@ def listar_entrenamientos(
     o ningún elemento, que es lo que necesita la pantalla de hoy para ofrecer
     *Continuar* en vez de *Empezar*.
 
-    Con `sin_terminar=true`, las de días pasados que se quedaron sin terminar y con
-    alguna serie: cuentan como hechas, pero quizá se dejaron a medias sin querer, y
-    la pantalla de hoy avisa de ellas. Las vacías no salen: ya cuentan como
-    canceladas (`esta_cancelada`).
+    Con `sin_terminar=true`, las de días pasados que se quedaron sin terminar, con
+    series o sin ellas: las que tienen series cuentan como hechas, pero quizá se
+    dejaron a medias sin querer; las vacías (canceladas, `esta_cancelada`) quizá se
+    abrieron para apuntar un día pasado y se olvidaron. La pantalla de hoy avisa de
+    las dos.
     """
     if desde is not None and hasta is not None and desde > hasta:
         raise HTTPException(
@@ -220,10 +221,7 @@ def listar_entrenamientos(
     if en_curso:
         stmt = stmt.where(Entrenamiento.fecha == hoy(), Entrenamiento.terminada_en.is_(None))
     if sin_terminar:
-        con_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
-        stmt = stmt.where(
-            Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_(None), con_series
-        )
+        stmt = stmt.where(Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_(None))
     if rutina_id is not None:
         stmt = stmt.where(Entrenamiento.rutina_id == rutina_id)
     stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc()).limit(limite)

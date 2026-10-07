@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_usuario_actual_id
@@ -20,8 +20,11 @@ from app.models import (
     SlotAlternativa,
 )
 from app.ocultos import exigir_visible
+from app.seguimiento import cancelada_sql, en_curso_sql
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
+    AvisoDeBorrarHuecoOut,
+    AvisoDeBorrarRutinaOut,
     ComodinCreate,
     OrdenDeHuecos,
     RutinaCreate,
@@ -31,6 +34,7 @@ from app.schemas import (
     RutinaSlotUpdate,
     RutinaUpdate,
     SesionHistorialHueco,
+    SesionQueSeVaciaOut,
 )
 
 router = APIRouter(prefix="/rutinas", tags=["rutinas"])
@@ -97,17 +101,23 @@ def _obtener_rutina_propia(
 
 
 def _tiene_dependientes(db: Session, rutina_id: int) -> bool:
-    """¿Tiene esta rutina huecos (su propia estructura) o entrenamientos
-    (historial real)? `rutina_slots.rutina_id` y `entrenamientos.rutina_id`
-    son ON DELETE RESTRICT — con cualquiera de las dos cosas, un borrado
-    directo rompería referencias.
+    """¿Tiene esta rutina huecos (su propia estructura, también los ocultos) o
+    sesiones (historial real)? Es lo que hace que borrarla tenga que preguntar.
+
+    Las sesiones canceladas no cuentan: no se hizo nada en ellas (`esta_cancelada`).
+    Se borran con la rutina igualmente, porque `entrenamientos.rutina_id` es
+    RESTRICT. La vacía en curso hoy sí cuenta: se acaba de empezar.
     """
     tiene_slots = (
         db.scalar(select(RutinaSlot.id).where(RutinaSlot.rutina_id == rutina_id).limit(1))
         is not None
     )
     tiene_entrenamientos = (
-        db.scalar(select(Entrenamiento.id).where(Entrenamiento.rutina_id == rutina_id).limit(1))
+        db.scalar(
+            select(Entrenamiento.id)
+            .where(Entrenamiento.rutina_id == rutina_id, ~cancelada_sql())
+            .limit(1)
+        )
         is not None
     )
     return tiene_slots or tiene_entrenamientos
@@ -147,6 +157,24 @@ def _estuvo_en_el_plan(db: Session, rutina_id: int) -> bool:
         if primero < fin:
             return True
     return False
+
+
+def _dias_de_programa(db: Session, rutina_id: int) -> int:
+    """En cuántos días vigentes de programa está: pasarían a descanso al borrarla."""
+    return db.scalar(
+        select(func.count())
+        .select_from(ProgramaDia)
+        .where(ProgramaDia.rutina_id == rutina_id, ProgramaDia.hasta.is_(None))
+    )
+
+
+def _dias_planificados(db: Session, rutina_id: int) -> int:
+    """En cuántos días planificados a mano está: volverían a lo que diga el programa."""
+    return db.scalar(
+        select(func.count())
+        .select_from(ExcepcionDelPlan)
+        .where(ExcepcionDelPlan.rutina_id == rutina_id)
+    )
 
 
 @router.get("", response_model=list[RutinaOut])
@@ -312,6 +340,41 @@ def ordenar_huecos(
     return rutina
 
 
+@router.get("/{rutina_id}/aviso-de-borrado", response_model=AvisoDeBorrarRutinaOut)
+def aviso_de_borrar_rutina(
+    rutina_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo que se perdería al borrarla, para el diálogo de confirmar. La web no
+    puede saberlo con el 409 del DELETE: sin historial, el DELETE borraría sin
+    preguntar.
+    """
+    _obtener_rutina_legible(db, rutina_id, usuario_id)
+    toco_dias_pasados = _estuvo_en_el_plan(db, rutina_id)
+    con_series = exists().where(Serie.entrenamiento_id == Entrenamiento.id)
+    return AvisoDeBorrarRutinaOut(
+        con_historial=_tiene_dependientes(db, rutina_id) or toco_dias_pasados,
+        huecos=db.scalar(
+            select(func.count()).select_from(RutinaSlot).where(RutinaSlot.rutina_id == rutina_id)
+        ),
+        sesiones=db.scalar(
+            select(func.count())
+            .select_from(Entrenamiento)
+            .where(Entrenamiento.rutina_id == rutina_id, con_series)
+        ),
+        dias_de_programa=_dias_de_programa(db, rutina_id),
+        dias_planificados=_dias_planificados(db, rutina_id),
+        toco_dias_pasados=toco_dias_pasados,
+        sesion_en_curso=db.scalar(
+            select(Entrenamiento.id)
+            .where(Entrenamiento.rutina_id == rutina_id, en_curso_sql())
+            .limit(1)
+        )
+        is not None,
+    )
+
+
 @router.post("/{rutina_id}/mostrar", response_model=RutinaOut)
 def mostrar_rutina(
     rutina_id: int,
@@ -335,9 +398,9 @@ def borrar_rutina(
 ):
     """Borra una rutina propia.
 
-    - Sin huecos ni entrenamientos asociados, y sin haber tocado ningún día
-      pasado: se borra de verdad, sin preguntar nada.
-    - Con huecos, entrenamientos o días pasados en el plan: hace falta
+    - Sin huecos ni sesiones (las canceladas no cuentan y se borran con ella), y
+      sin haber tocado ningún día pasado: se borra de verdad, sin preguntar nada.
+    - Con huecos, sesiones o días pasados en el plan: hace falta
       `modo=ocultar` (conserva todo) o `modo=definitivo` (lo borra todo, sin
       vuelta atrás, y esos días pasan a descanso en el calendario).
     """
@@ -352,7 +415,7 @@ def borrar_rutina(
 
     razones = []
     if _tiene_dependientes(db, rutina_id):
-        razones.append("tiene huecos definidos (o historial de entrenamientos)")
+        razones.append("tiene huecos o sesiones registradas")
     if _estuvo_en_el_plan(db, rutina_id):
         razones.append("ya tocó días que han pasado, que en el calendario pasarían a descanso")
     if razones and modo != "definitivo":
@@ -360,18 +423,9 @@ def borrar_rutina(
         # borrado (se van solos, en cascada), pero si otra cosa ya lo bloquea, el
         # aviso cuenta también lo que se pierde ahí.
         en_programas = _aviso_de_dias(
-            db.scalar(
-                select(func.count())
-                .select_from(ProgramaDia)
-                .where(ProgramaDia.rutina_id == rutina_id, ProgramaDia.hasta.is_(None))
-            ),
-            "de programa, que pasaría{n} a descanso",
+            _dias_de_programa(db, rutina_id), "de programa, que pasaría{n} a descanso"
         ) + _aviso_de_dias(
-            db.scalar(
-                select(func.count())
-                .select_from(ExcepcionDelPlan)
-                .where(ExcepcionDelPlan.rutina_id == rutina_id)
-            ),
+            _dias_planificados(db, rutina_id),
             "planificado{s} a mano, que volvería{n} a lo que diga el programa",
         )
         raise HTTPException(
@@ -505,6 +559,63 @@ def _tiene_historial_slot(db: Session, slot_id: int) -> bool:
     return db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
 
 
+def _sesiones_que_se_vacian(db: Session, slot_id: int) -> list[Entrenamiento]:
+    """Las sesiones cuyas series están todas en este hueco. Al borrarlo en
+    definitivo se quedarían sin ninguna, que es estar cancelada, así que se borran
+    con él (y su día del plan, si lo contaban, vuelve a quedar sin hacer).
+
+    Menos la de hoy en curso: no está cancelada aunque se quede vacía, y puede estar
+    abierta en E2; borrarla daría un error a mitad de entrenamiento. Si se termina
+    sin series, E2 ya la cancela.
+    """
+    en_el_hueco = exists().where(
+        Serie.entrenamiento_id == Entrenamiento.id, Serie.slot_id == slot_id
+    )
+    en_otro = exists().where(Serie.entrenamiento_id == Entrenamiento.id, Serie.slot_id != slot_id)
+    return db.scalars(
+        select(Entrenamiento)
+        .where(en_el_hueco, ~en_otro, ~en_curso_sql())
+        .order_by(Entrenamiento.fecha)
+    ).all()
+
+
+@router.get("/{rutina_id}/slots/{slot_id}/aviso-de-borrado", response_model=AvisoDeBorrarHuecoOut)
+def aviso_de_borrar_slot(
+    rutina_id: int,
+    slot_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo que se perdería al borrarlo, para el diálogo de confirmar (como el de la
+    rutina): cuántas series, desde cuándo y qué sesiones se quedarían vacías.
+    """
+    _obtener_slot_legible(db, rutina_id, slot_id, usuario_id)
+    series, desde = db.execute(
+        select(func.count(Serie.id), func.min(Entrenamiento.fecha))
+        .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
+        .where(Serie.slot_id == slot_id)
+    ).one()
+    return AvisoDeBorrarHuecoOut(
+        series=series,
+        desde=desde,
+        sesiones_que_se_vacian=[
+            SesionQueSeVaciaOut(
+                entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
+            )
+            for sesion in _sesiones_que_se_vacian(db, slot_id)
+        ],
+    )
+
+
+def _aviso_de_sesiones_que_se_borran(cuantas: int) -> str:
+    """La frase del 409 de borrar un hueco sobre las sesiones que se irían con él."""
+    if not cuantas:
+        return ""
+    if cuantas == 1:
+        return " Además, se borrará 1 sesión que solo tenía series de este hueco."
+    return f" Además, se borrarán {cuantas} sesiones que solo tenían series de este hueco."
+
+
 @router.delete("/{rutina_id}/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
 def borrar_slot(
     rutina_id: int,
@@ -518,8 +629,8 @@ def borrar_slot(
     - Sin series registradas: se borra de verdad (sus comodines se van con
       él, en cascada por FK), sin preguntar nada.
     - Con series: hace falta `modo=ocultar` (conserva todo) o
-      `modo=definitivo` (borra también las series que lo usan, sin vuelta
-      atrás).
+      `modo=definitivo` (borra también las series que lo usan, y las sesiones
+      que se quedan sin ninguna, sin vuelta atrás).
     """
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id, admitir_oculto=True)
 
@@ -537,9 +648,12 @@ def borrar_slot(
                 "Este hueco tiene series registradas. Repite la petición con "
                 "?modo=ocultar (conserva todo) o ?modo=definitivo (borra "
                 "también esas series, sin poder deshacerlo)."
+                + _aviso_de_sesiones_que_se_borran(len(_sesiones_que_se_vacian(db, slot_id)))
             ),
         )
 
+    # Antes de tocar nada: sin las series del hueco, ya no se sabría cuáles se vacían.
+    vacias = _sesiones_que_se_vacian(db, slot_id)
     # series.slot_id es RESTRICT: hay que borrar antes las series que lo usan.
     for serie in db.scalars(select(Serie).where(Serie.slot_id == slot_id)).all():
         db.delete(serie)
@@ -547,6 +661,8 @@ def borrar_slot(
     # series (no hay relación declarada entre ambos que le diga el orden), y
     # Postgres lo rechaza porque las series aún lo referencian.
     db.flush()
+    for sesion in vacias:
+        db.delete(sesion)
     db.delete(slot)
     db.commit()
 

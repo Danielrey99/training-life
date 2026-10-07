@@ -159,6 +159,25 @@ def test_duplicar_ni_reordenar_una_rutina_ajena_la_toca_ni_crea_nada(
     assert sesion_bd.scalars(select(Rutina.id)).all() == [hueco_ajeno["rutina_id"]]
 
 
+def test_los_avisos_de_borrado_de_una_rutina_ajena_dan_404(cliente, sesion_bd, hueco_ajeno):
+    """Son lecturas: 404 y no 403, para no confirmar que existe. Tampoco por la
+    ruta de una rutina propia.
+    """
+    rutina = f"/rutinas/{hueco_ajeno['rutina_id']}"
+    propia = cliente.post("/rutinas", json={"nombre": "Mía"}).json()["id"]
+
+    assert cliente.get(f"{rutina}/aviso-de-borrado").status_code == 404
+    assert (
+        cliente.get(f"{rutina}/slots/{hueco_ajeno['slot_id']}/aviso-de-borrado").status_code == 404
+    )
+    assert (
+        cliente.get(
+            f"/rutinas/{propia}/slots/{hueco_ajeno['slot_id']}/aviso-de-borrado"
+        ).status_code
+        == 404
+    )
+
+
 def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, grupo_muscular_id):
     """Las dos rutinas son del usuario, pero la ruta tiene que cuadrar: si no, se
     podría borrar o editar un hueco "desde" una rutina que no es la suya.
