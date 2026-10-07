@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
@@ -23,6 +23,7 @@ from app.ocultos import exigir_visible
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     ComodinCreate,
+    OrdenDeHuecos,
     RutinaCreate,
     RutinaOut,
     RutinaSlotCreate,
@@ -159,7 +160,21 @@ def listar_rutinas(
     volver a mostrarlas (`POST /rutinas/{id}/mostrar`) o borrarlas definitivamente.
     """
     filtro = Rutina.oculto_desde.is_not(None) if ocultas else Rutina.oculto_desde.is_(None)
-    stmt = select(Rutina).where(Rutina.usuario_id == usuario_id, filtro).order_by(Rutina.nombre)
+    huecos = selectinload(Rutina.slots)
+    stmt = (
+        select(Rutina)
+        .where(Rutina.usuario_id == usuario_id, filtro)
+        # De una vez para todas las rutinas, y no una consulta por rutina al
+        # serializar sus huecos, sus comodines y en qué programas está.
+        .options(
+            huecos.selectinload(RutinaSlot.ejercicio_principal),
+            huecos.selectinload(RutinaSlot.slot_alternativas).selectinload(
+                SlotAlternativa.ejercicio
+            ),
+            selectinload(Rutina.dias_de_programa).selectinload(ProgramaDia.programa),
+        )
+        .order_by(Rutina.nombre)
+    )
     return db.scalars(stmt).all()
 
 
@@ -199,6 +214,100 @@ def actualizar_rutina(
     for campo, valor in datos.model_dump().items():
         setattr(rutina, campo, valor)
     db.commit()
+    db.refresh(rutina)
+    return rutina
+
+
+def _nombre_de_copia(nombre: str, ocupados: set[str]) -> str:
+    """El nombre de la copia como lo pone Windows: «Push - copia», y si ya existe,
+    «Push - copia (2)», «(3)»… Si no cabe en los 100 caracteres, se recorta el
+    nombre y no el sufijo, que es lo que dice que es una copia.
+    """
+    numero = 1
+    while True:
+        sufijo = " - copia" if numero == 1 else f" - copia ({numero})"
+        candidato = nombre[: 100 - len(sufijo)].rstrip() + sufijo
+        if candidato.casefold() not in ocupados:
+            return candidato
+        numero += 1
+
+
+@router.post("/{rutina_id}/duplicar", response_model=RutinaOut, status_code=status.HTTP_201_CREATED)
+def duplicar_rutina(
+    rutina_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Una copia de la rutina para que diverja del original: editar una rutina
+    cambia todos los programas y días donde está, y esta es la forma de no
+    hacerlo.
+
+    Copia lo que se ve: los huecos visibles con su ejercicio y sus comodines,
+    aunque alguno esté oculto (decisión del autor). No copia los huecos ocultos,
+    ni los días de programa (la copia nace sin usar), ni el historial. Admite una
+    rutina oculta, porque duplicar no la modifica; la copia nace visible.
+    """
+    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
+    # También las ocultas: dos rutinas con el mismo nombre se confundirían al
+    # volver a mostrar una.
+    ocupados = {
+        nombre.casefold()
+        for nombre in db.scalars(select(Rutina.nombre).where(Rutina.usuario_id == usuario_id))
+    }
+    copia = Rutina(usuario_id=usuario_id, nombre=_nombre_de_copia(rutina.nombre, ocupados))
+    copia.slots = [
+        RutinaSlot(
+            ejercicio_principal_id=slot.ejercicio_principal_id,
+            orden=slot.orden,
+            series_objetivo=slot.series_objetivo,
+            reps_min=slot.reps_min,
+            reps_max=slot.reps_max,
+            slot_alternativas=[
+                SlotAlternativa(ejercicio_id=comodin.ejercicio_id)
+                for comodin in slot.slot_alternativas
+            ],
+        )
+        for slot in rutina.slots
+        if not slot.oculto
+    ]
+    db.add(copia)
+    db.commit()
+    db.refresh(copia)
+    return copia
+
+
+@router.put("/{rutina_id}/orden", response_model=RutinaOut)
+def ordenar_huecos(
+    rutina_id: int,
+    datos: OrdenDeHuecos,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Reordena los huecos visibles de una vez. Con PUT sueltos no se puede:
+    intercambiar dos huecos choca a medias con `UNIQUE(rutina_id, orden)`.
+
+    Los visibles se reparten los `orden` que ya tenían, en el orden nuevo, y los
+    ocultos conservan el suyo: así no chocan, y al mostrarlos vuelven a su sitio.
+    """
+    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id)
+    visibles = {slot.id: slot for slot in rutina.slots if not slot.oculto}
+    # 422 y no 404 con un id ajeno: no confirma que exista.
+    if set(datos.slot_ids) != set(visibles):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Manda todos los huecos visibles de la rutina, cada uno una vez",
+        )
+    ordenes = sorted(slot.orden for slot in visibles.values())
+    # Dos pasos: primero cada uno a un valor que no choca con nadie (los ocultos
+    # tienen orden positivo) y luego el definitivo. Sin el flush, la restricción
+    # única saltaría a mitad de camino.
+    for slot in visibles.values():
+        slot.orden = -slot.id
+    db.flush()
+    for orden, slot_id in zip(ordenes, datos.slot_ids, strict=True):
+        visibles[slot_id].orden = orden
+    db.commit()
+    # La lista de huecos ya cargada sigue en el orden de antes.
     db.refresh(rutina)
     return rutina
 

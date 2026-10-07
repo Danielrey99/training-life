@@ -191,6 +191,20 @@ class ComodinCreate(BaseModel):
     ejercicio_id: int
 
 
+class OrdenDeHuecos(BaseModel):
+    """Body para reordenar los huecos de una rutina: todos los visibles, cada uno
+    una vez, en el orden nuevo.
+    """
+
+    slot_ids: list[int]
+
+    @model_validator(mode="after")
+    def _validar_sin_repetir(self):
+        if len(self.slot_ids) != len(set(self.slot_ids)):
+            raise ValueError("Hay huecos repetidos")
+        return self
+
+
 class SerieBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar una serie."""
 

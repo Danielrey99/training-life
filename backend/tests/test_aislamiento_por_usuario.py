@@ -142,6 +142,23 @@ def test_ningun_verbo_de_una_rutina_ajena_ni_de_sus_huecos_la_modifica(
     assert _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno) == antes
 
 
+def test_duplicar_ni_reordenar_una_rutina_ajena_la_toca_ni_crea_nada(
+    cliente, sesion_bd, hueco_ajeno
+):
+    antes = _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno)
+    rutina = f"/rutinas/{hueco_ajeno['rutina_id']}"
+
+    assert cliente.post(f"{rutina}/duplicar").status_code == 403
+    assert (
+        cliente.put(f"{rutina}/orden", json={"slot_ids": [hueco_ajeno["slot_id"]]}).status_code
+        == 403
+    )
+    assert cliente.put(f"{rutina}/orden", json={"slot_ids": []}).status_code == 403
+
+    assert _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno) == antes
+    assert sesion_bd.scalars(select(Rutina.id)).all() == [hueco_ajeno["rutina_id"]]
+
+
 def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, grupo_muscular_id):
     """Las dos rutinas son del usuario, pero la ruta tiene que cuadrar: si no, se
     podría borrar o editar un hueco "desde" una rutina que no es la suya.
