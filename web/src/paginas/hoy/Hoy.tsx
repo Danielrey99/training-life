@@ -14,6 +14,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { MarcaDelDia } from '../../componentes/MarcaDelDia'
 import { conArticulo, fechaEnFrase, fechaLarga, nombreDelDia, sumarDias } from '../../utiles/fechas'
+import '../sesion/sesion.css'
 import './hoy.css'
 
 const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
@@ -217,7 +218,8 @@ export function Hoy() {
       />
 
       {/* Una sesión de un día pasado que se dejó a medias cuenta como hecha, pero quizá se
-          olvidó: se avisa aquí hasta que se termine o se cancele. */}
+          olvidó; una vacía no cuenta, pero quizá se abrió para apuntar ese día y se quedó
+          ahí. Las dos se avisan aquí hasta que se terminen o se cancelen. */}
       {sinTerminar.length > 0 && (
         <section className="entrada-seccion">
           <h2 className="entrada-rotulo">Sin terminar</h2>
@@ -226,9 +228,14 @@ export function Hoy() {
               <span className="entrada-fila-texto">
                 <strong>
                   {nombreDeRutina(sesion.rutina_id)} del {fechaEnFrase(sesion.fecha, false)}
+                  {sesion.series.length === 0 && <span className="etiqueta-chica">vacía</span>}
                 </strong>
+                {/* Una vacía no se hizo: se apunta lo que falte o se cancela (Terminar sin
+                    series también la cancela). */}
                 <span>
-                  {contar(sesion.series.length, 'serie', 'series')} · termínala o cancélala
+                  {sesion.series.length === 0
+                    ? 'apunta las series o cancélala'
+                    : `${contar(sesion.series.length, 'serie', 'series')} · termínala o cancélala`}
                 </span>
               </span>
               <Icono nombre="abrir" pequeno />
