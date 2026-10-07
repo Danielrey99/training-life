@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina
+from tests.ayudas import consultas_de
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -694,3 +695,137 @@ def test_la_base_no_admite_dos_filas_vigentes_del_mismo_dia(cliente, sesion_bd):
     with pytest.raises(IntegrityError):
         sesion_bd.commit()
     sesion_bd.rollback()
+
+
+# --- El último periodo de uso (lo que pinta la lista de programas) ---------
+#
+# `ultimo_periodo` es el abierto si está activo; si no, el último que se cerró;
+# nulo si nunca se usó. Además de la fecha, le dice a la pantalla del programa
+# qué diálogo de borrar enseñar (nulo = se borra directo).
+
+
+def periodo(desde_hace, hasta_hace=None) -> dict:
+    """El periodo como sale en la API, con las fechas contadas en días hacia atrás."""
+    hasta = None if hasta_hace is None else (hoy() - timedelta(days=hasta_hace)).isoformat()
+    return {"desde": (hoy() - timedelta(days=desde_hace)).isoformat(), "hasta": hasta}
+
+
+def periodo_cerrado(sesion_bd, programa_id, desde_hace, hasta_hace) -> None:
+    sesion_bd.add(
+        ProgramaPeriodo(
+            programa_id=programa_id,
+            usuario_id=1,
+            desde=hoy() - timedelta(days=desde_hace),
+            hasta=hoy() - timedelta(days=hasta_hace),
+        )
+    )
+    sesion_bd.commit()
+
+
+def test_un_programa_que_nunca_se_activo_no_tiene_ultimo_periodo(cliente):
+    assert crear_programa(cliente)["ultimo_periodo"] is None
+
+
+def test_el_ultimo_periodo_de_un_programa_activo_es_el_abierto(cliente):
+    programa = cliente.post("/programas", json={"nombre": "PPL", "activar": True}).json()
+
+    assert programa["ultimo_periodo"] == periodo(0)
+    assert programa["ultimo_periodo"]["desde"] == programa["activo_desde"]
+
+
+def test_con_dos_periodos_cerrados_el_ultimo_es_el_mas_reciente(cliente, sesion_bd):
+    """El más reciente se inserta primero, con el id más bajo: el último es el de
+    `desde` mayor, no el último que se guardó.
+    """
+    programa = crear_programa(cliente)
+    periodo_cerrado(sesion_bd, programa["id"], desde_hace=30, hasta_hace=10)
+    periodo_cerrado(sesion_bd, programa["id"], desde_hace=90, hasta_hace=60)
+
+    respuesta = cliente.get(f"/programas/{programa['id']}").json()
+
+    assert respuesta["activo"] is False
+    assert respuesta["ultimo_periodo"] == periodo(30, 10)
+
+
+def test_activar_y_desactivar_el_mismo_dia_deja_el_ultimo_periodo_nulo(cliente):
+    """El periodo que no llegó a cubrir ningún día se borra: también tiene que
+    desaparecer de la respuesta del propio desactivar, no solo al volver a leerlo.
+    """
+    programa = crear_programa(cliente)
+    activado = cliente.post(f"/programas/{programa['id']}/activar").json()
+
+    desactivado = cliente.post(f"/programas/{programa['id']}/desactivar").json()
+
+    assert activado["ultimo_periodo"] == periodo(0)
+    assert desactivado["ultimo_periodo"] is None
+    assert cliente.get(f"/programas/{programa['id']}").json()["ultimo_periodo"] is None
+
+
+def test_desactivar_y_reactivar_el_mismo_dia_deja_el_periodo_reabierto(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 10)
+
+    desactivado = cliente.post(f"/programas/{programa['id']}/desactivar").json()
+    reactivado = cliente.post(f"/programas/{programa['id']}/activar").json()
+
+    assert desactivado["ultimo_periodo"] == periodo(10, 0)
+    assert reactivado["ultimo_periodo"] == periodo(10)
+
+
+def test_ocultar_el_activo_cierra_su_ultimo_periodo_el_dia_en_que_se_oculta(cliente, sesion_bd):
+    programa = crear_programa(cliente)
+    activo_desde_hace(sesion_bd, programa["id"], 10)
+
+    ocultar_programa(cliente, programa["id"])
+
+    assert cliente.get(f"/programas/{programa['id']}").json()["ultimo_periodo"] == periodo(10, 0)
+
+
+def test_el_ultimo_periodo_sale_en_los_listados_y_en_el_detalle(cliente, sesion_bd):
+    """Cada programa con el suyo, y no el de otro: el listado los carga todos de
+    una vez y se podrían cruzar.
+    """
+    activo = cliente.post("/programas", json={"nombre": "A activo", "activar": True}).json()
+    usado = crear_programa(cliente, "B usado")
+    periodo_cerrado(sesion_bd, usado["id"], desde_hace=40, hasta_hace=20)
+    crear_programa(cliente, "C sin usar")
+    oculto = crear_programa(cliente, "D oculto")
+    periodo_cerrado(sesion_bd, oculto["id"], desde_hace=80, hasta_hace=50)
+    ocultar_programa(cliente, oculto["id"])
+
+    visibles = {p["nombre"]: p["ultimo_periodo"] for p in cliente.get("/programas").json()}
+    ocultos = cliente.get("/programas", params={"ocultos": True}).json()
+
+    assert visibles == {
+        "A activo": periodo(0),
+        "B usado": periodo(40, 20),
+        "C sin usar": None,
+    }
+    assert [(p["nombre"], p["ultimo_periodo"]) for p in ocultos] == [("D oculto", periodo(80, 50))]
+    for programa, esperado in ((activo, periodo(0)), (usado, periodo(40, 20))):
+        detalle = cliente.get(f"/programas/{programa['id']}").json()
+        assert detalle["ultimo_periodo"] == esperado
+
+
+# --- Consultas del listado ------------------------------------------------
+
+
+def test_listar_programas_hace_las_mismas_consultas_con_uno_que_con_cinco(cliente, sesion_bd):
+    """Sin cargarlos por lotes, serializar los periodos, los días y la rutina de
+    cada día haría una consulta por programa (y por rutina).
+    """
+
+    def programa_completo(numero) -> None:
+        rutinas = [crear_rutina(cliente, f"Rutina {numero}-{dia}") for dia in (1, 3)]
+        programa = crear_programa(cliente, f"Programa {numero}", dias=zip((1, 3), rutinas))
+        periodo_cerrado(sesion_bd, programa["id"], desde_hace=90, hasta_hace=80 - numero)
+        periodo_cerrado(sesion_bd, programa["id"], desde_hace=40, hasta_hace=30 + numero)
+
+    programa_completo(1)
+    con_uno = consultas_de(lambda: cliente.get("/programas"))
+    for numero in range(2, 6):
+        programa_completo(numero)
+    con_cinco = consultas_de(lambda: cliente.get("/programas"))
+
+    assert len(cliente.get("/programas").json()) == 5
+    assert con_cinco == con_uno <= 4

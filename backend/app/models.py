@@ -381,6 +381,16 @@ class Programa(Ocultable, Base):
     def activo_desde(self) -> date | None:
         return next((periodo.desde for periodo in self.periodos if periodo.hasta is None), None)
 
+    @property
+    def ultimo_periodo(self) -> "ProgramaPeriodo | None":
+        """El último tramo en uso: el abierto si está activo; si no, el último que
+        se cerró. Nulo si nunca se ha usado. Es lo que dice la lista de programas
+        ("Del 2 de marzo al 28 de junio") y si borrarlo pierde algo del calendario.
+        """
+        # Los periodos de un programa no se solapan y como mucho uno está abierto,
+        # así que el de `desde` más reciente es el abierto si lo hay.
+        return max(self.periodos, key=lambda periodo: (periodo.desde, periodo.id), default=None)
+
 
 class ProgramaDia(Base):
     """Qué rutina toca un día de la semana en un programa, y desde cuándo hasta

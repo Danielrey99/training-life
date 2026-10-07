@@ -385,6 +385,17 @@ class ProgramaUpdate(BaseModel):
     nombre: Nombre
 
 
+class PeriodoOut(BaseModel):
+    """Un tramo en que un programa estuvo activo, de `desde` a `hasta` (sin
+    incluirlo); `hasta` nulo si sigue activo.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    desde: date
+    hasta: date | None
+
+
 class ProgramaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -395,20 +406,11 @@ class ProgramaOut(BaseModel):
     # Los dos se deducen de sus periodos (ver Programa.activo).
     activo: bool
     activo_desde: date | None
+    # El abierto si está activo, si no el último que se cerró; nulo si nunca se usó.
+    ultimo_periodo: PeriodoOut | None
     created_at: datetime
     updated_at: datetime
     dias: list[ProgramaDiaOut]
-
-
-class PeriodoOut(BaseModel):
-    """Un tramo en que un programa estuvo activo, de `desde` a `hasta` (sin
-    incluirlo); `hasta` nulo si sigue activo.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-    desde: date
-    hasta: date | None
 
 
 # --- Plan ----------------------------------------------------------------

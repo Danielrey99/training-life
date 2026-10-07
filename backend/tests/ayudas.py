@@ -143,3 +143,29 @@ def hueco_en_bd(sesion_bd, rutina_id, ejercicio_id) -> int:
     sesion_bd.add(hueco)
     sesion_bd.flush()
     return hueco.id
+
+
+# --- Contar consultas -----------------------------------------------------
+
+
+def consultas_de(peticion) -> int:
+    """Cuántas consultas manda a la base `peticion()` (una función sin argumentos
+    que hace la llamada a la API). Para comprobar que un listado hace las mismas
+    con un elemento que con muchos, y no una por elemento.
+    """
+    from sqlalchemy import event
+
+    from app.database import engine
+
+    contador = []
+
+    def contar(*_):
+        contador.append(1)
+
+    event.listen(engine, "before_cursor_execute", contar)
+    try:
+        respuesta = peticion()
+    finally:
+        event.remove(engine, "before_cursor_execute", contar)
+    assert respuesta.status_code == 200, respuesta.text
+    return len(contador)

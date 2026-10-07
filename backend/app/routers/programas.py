@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_usuario_actual_id
 from app.database import get_db
@@ -112,7 +112,16 @@ def listar_programas(
 ):
     """Los programas visibles del usuario o, con `ocultos=true`, los que ha ocultado."""
     filtro = Programa.oculto_desde.is_not(None) if ocultos else Programa.oculto_desde.is_(None)
-    stmt = select(Programa).where(Programa.usuario_id == usuario_id, filtro)
+    stmt = (
+        select(Programa)
+        .where(Programa.usuario_id == usuario_id, filtro)
+        # De una vez para todos los programas, y no una consulta por programa al
+        # serializar sus periodos y sus días.
+        .options(
+            selectinload(Programa.periodos),
+            selectinload(Programa.filas_dias).selectinload(ProgramaDia.rutina),
+        )
+    )
     return db.scalars(stmt.order_by(Programa.nombre)).all()
 
 
