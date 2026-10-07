@@ -26,7 +26,7 @@ Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si est
 
 Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Una que se quedó abierta de un día para otro cuenta como terminada sin que nadie tenga que cerrarla. "Hoy" se calcula en la zona horaria del usuario, no en la del servidor.
 
-**Se entrena una rutina al día**: como mucho una sesión por día, sea de la rutina que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no ocupa su día, y se borra en cuanto otra lo necesita.
+**Se entrena una rutina al día**: como mucho una sesión por día, sea de la rutina que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no cuenta para ningún día ni ocupa el suyo, no cuenta como historial al borrar su rutina, y se borra en cuanto otra sesión necesita su fecha, al borrar su rutina o al borrar el hueco que la dejó vacía. Nada la borra por su cuenta: la pantalla de hoy la avisa para que se complete o se cancele.
 
 Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina (`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
 
@@ -202,12 +202,13 @@ No hay ningún paso previo que recordar:
 
 | Archivo | Qué cubre |
 |---|---|
-| `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas |
+| `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas, las sesiones canceladas que no cuentan como historial, las que se van con el hueco que las vació, y los dos avisos de borrado |
+| `test_rutinas.py` | Duplicar una rutina (el nombre de la copia, qué se copia y qué no), reordenar sus huecos y que el listado no haga una consulta por rutina |
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
-| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos |
+| `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos, y su último periodo de uso y que el listado no haga una consulta por programa |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
 | `test_plan.py` | Qué toca cada día: con y sin programa, un mes pasado comparado con el programa de entonces, una rutina oculta que cuenta como descanso desde su fecha, los días cambiados a mano (que el pasado no se toca) y el intercambio de dos días |
 | `test_cubre_fecha.py` | Qué día cuenta cada sesión: empezar, recuperar y adelantar, el plazo en sus dos extremos, días que no tocan esa rutina, el programa anterior, un día contado por dos sesiones, las sesiones canceladas, y mover una sesión solo dentro de su plazo |
@@ -276,11 +277,15 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
 | `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
 | `PUT` | `/rutinas/{id}` | Edita el nombre de una rutina propia (409 si está oculta). |
-| `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni historial y nunca tocó un día pasado del plan; si no, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos, comodines y sesiones, en transacción, y deja en descanso los días del plan que tenía). |
+| `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni sesiones registradas (las canceladas no cuentan y se van con ella) y nunca tocó un día pasado del plan; si no, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos, comodines y sesiones, en transacción, y deja en descanso los días del plan que tenía). |
+| `GET` | `/rutinas/{id}/aviso-de-borrado` | Lo que se perdería al borrarla, para enseñarlo antes de preguntar (el 409 del `DELETE` no sirve: sin historial, borraría sin preguntar): si tiene historial, cuántos huecos, sesiones con series, días de programa y días planificados a mano, si tocó días pasados y si hay una sesión suya abierta hoy, que se borraría con ella. También de una rutina oculta. |
+| `POST` | `/rutinas/{id}/duplicar` | Una copia independiente, que se llama como hace Windows con los archivos (`Push - copia`, `Push - copia (2)`…). Copia los huecos visibles con sus comodines; no copia los ocultos, los días de programa ni el historial. Se puede duplicar una rutina oculta; la copia nace visible. |
+| `PUT` | `/rutinas/{id}/orden` | Reordena los huecos visibles de una vez (`{slot_ids}` en el orden nuevo, 422 si no son exactamente los visibles). Con `PUT` sueltos no se puede: intercambiar dos huecos choca a medias con la restricción única del orden. Los ocultos conservan el suyo. |
 | `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). El principal solo se valida si cambia: si se ocultó después, el hueco se puede seguir corrigiendo. No puede pasar a principal un ejercicio que ya es comodín del hueco (409). |
-| `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`. |
+| `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`, que borra también esas series y las sesiones que se quedan sin ninguna (la de hoy en curso se conserva). El 409 dice cuántas sesiones se irían. |
+| `GET` | `/rutinas/{id}/slots/{slot_id}/aviso-de-borrado` | Lo que se perdería al borrarlo: cuántas series, desde cuándo y qué sesiones se borrarían con ellas, con el día que contaban. También con el hueco oculto. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/mostrar` | Deshace un `?modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio. |
 | `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, más `?ejercicio_id=` para quedarse solo con las series de ese ejercicio en el hueco: es la "última vez" con la que se compara al entrenar (con `?hasta=` el día anterior y `?limite=1`), que tiene que ser con el mismo ejercicio y no con el comodín de otra semana. También sigue funcionando con el hueco o la rutina ocultados. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/alternativas` | Añade un ejercicio comodín al hueco (409 si ya lo era o si es su principal). |
@@ -292,7 +297,7 @@ Un programa reparte rutinas en la semana: qué rutina toca cada día (1 = lunes 
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/programas` | Lista los programas visibles del usuario. Con `?ocultos=true`, los que ha ocultado. |
+| `GET` | `/programas` | Lista los programas visibles del usuario. Con `?ocultos=true`, los que ha ocultado. Cada uno trae su `ultimo_periodo` (el abierto si está activo; si no, el último en que lo estuvo; nulo si nunca se usó), que es lo que dice cuándo se usó. |
 | `GET` | `/programas/{id}` | Un programa con sus días, también si está oculto. Cada día trae su rutina con su `oculto_desde`: una rutina oculta sigue en el día (se enseña en gris y cuenta como descanso), para que mostrarla de nuevo lo deje como estaba. |
 | `POST` | `/programas` | Crea un programa con sus días de una vez (`{nombre, dias: [{dia_semana, rutina_id}], activar}`): o se guarda todo o nada. Con `activar: true` queda en uso desde hoy. 422 si un día se repite, 404 si una rutina no es tuya o está oculta. |
 | `PUT` | `/programas/{id}` | Cambia el nombre (409 si está oculto). |
@@ -336,7 +341,7 @@ El volumen va por la fecha real de cada sesión y cuenta también las abiertas, 
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes; `?en_curso=true` para quedarse solo con la sesión en curso, si la hay; `?sin_terminar=true` para las de días pasados que se dejaron sin terminar y con alguna serie (cuentan como hechas, pero quizá se dejaron a medias sin querer); y `?rutina_id=` junto con `?limite=` (de 1 a 500) para las últimas sesiones de una rutina. |
+| `GET` | `/entrenamientos` | Lista los entrenamientos del usuario actual, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes; `?en_curso=true` para quedarse solo con la sesión en curso, si la hay; `?sin_terminar=true` para las de días pasados que se dejaron sin terminar, con series (cuentan como hechas, pero quizá se dejaron a medias sin querer) o sin ellas (canceladas: quizá se abrieron para apuntar ese día y se olvidaron); y `?rutina_id=` junto con `?limite=` (de 1 a 500) para las últimas sesiones de una rutina. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
 | `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía): siempre es de una rutina, así que `rutina_id` es obligatorio. `cubre_fecha` (opcional) es el día del plan que cuenta: hoy, uno pasado que se recupera o uno de esta semana que se adelanta. Ese día tiene que tocar esa rutina, estar en plazo y caer en el mismo programa (422 si no), y no puede contarlo ya otra sesión (409 con su `entrenamiento_id`); si lo retenía una que no lo contaba, se lo quita. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. |
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |

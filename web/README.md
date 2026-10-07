@@ -3,7 +3,7 @@
 Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre **Vite**. Consume la API REST del [backend](../backend/README.md); nunca habla con la base de datos directamente.
 
 **Índice:** [Estado actual](#estado-actual) · [Cómo ejecutarlo](#cómo-ejecutarlo) ·
-[Estructura](#estructura) · [La sesión en curso](#la-sesión-en-curso) ·
+[Estructura](#estructura) · [La sesión en curso](#la-sesión-en-curso) · [Programas](#programas-y-rutinas) ·
 [Hablar con la API](#hablar-con-la-api) · [Variables de entorno](#variables-de-entorno)
 
 ## Estado actual
@@ -24,7 +24,8 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] La progresión de un ejercicio: una gráfica de peso, volumen o 1RM estimado por sesión
 - [x] Planificar los próximos días: qué toca cada día de hoy en adelante, sustituyéndolo al tocar
 - [x] El resumen: el volumen por semana o por mes con el desglose de la barra elegida, y la constancia del año
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): los programas y rutinas, y la biblioteca de ejercicios
+- [x] La lista de programas y rutinas, con sus ocultos plegados
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la semana de un programa, las rutinas y sus huecos, y la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -76,6 +77,9 @@ web/
         │   └── BloqueDelDia.tsx         # un hueco del día, con sus series y + Añadir serie
         ├── hoy/          # la pantalla de entrada
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
+        ├── programas/    # la pestaña de Programas
+        │   ├── Programas.tsx            # los programas y la biblioteca de rutinas, con sus ocultos
+        │   └── programas.css
         ├── progresion/   # la gráfica de un ejercicio
         │   ├── Progresion.tsx           # el rango, la medida, la cifra y la lista de sesiones
         │   ├── Grafica.tsx              # el SVG: ejes, línea, puntos y globo
@@ -113,7 +117,7 @@ La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendr�
 
 - **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre lo mismo, y la pantalla solo pinta.
 - **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy, *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan de los dos días y después empieza la de hoy.
-- **Las sesiones de un día pasado que se dejaron sin terminar se avisan** en una sección *Sin terminar* bajo la tarjeta, con sus series y un enlace para terminarlas o cancelarlas. Cuentan como hechas desde la primera serie, así que sin el aviso se podrían olvidar a medias.
+- **Las sesiones de un día pasado que se dejaron sin terminar se avisan** en una sección *Sin terminar* bajo la tarjeta, con sus series y un enlace para terminarlas o cancelarlas. Cuentan como hechas desde la primera serie, así que sin el aviso se podrían olvidar a medias. Una sesión que se abrió para apuntar un día pasado y se quedó sin ninguna serie también sale, con la etiqueta *vacía*, para completarla o cancelarla; no cuenta como hecha y nada la borra por su cuenta.
 - **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*, *Recuperar*, *Adelantar*, *Intercambiar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará pendiente, y hasta cuándo se podrá recuperar.
 - **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para que un día movido diga de dónde viene.
 - **La tarjeta cambia con el día**: empezar lo que toca, continuar la sesión a medias, ya entrenado, descanso (con qué toca después), hecho por adelantado, sin programa (con todas las rutinas para entrenar igualmente) o, la primera vez, una bienvenida que lleva a Programas.
@@ -166,6 +170,15 @@ La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha 
 - **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve.
 - **La gráfica es SVG hecho a mano**, sin librería: la cuadrícula busca valores redondos (pasos de 1, 2, 2,5 o 5), y se dibuja al ancho real de la tarjeta, medido con `ResizeObserver`, para que las letras no cambien de tamaño entre el móvil y el escritorio. Cada punto lleva una zona táctil mayor que él y se maneja también con el teclado; tocar uno cambia el globo con su día, su rutina y su valor.
 - Si el ejercicio no se ha hecho nunca, o no en el rango elegido, la pantalla lo dice en vez de enseñar una gráfica vacía.
+
+## Programas y rutinas
+
+La pestaña de Programas (`/programas`) tiene dos listas: los **programas**, con el activo primero y marcado, y la **biblioteca de rutinas**. Cada programa dice cuándo se usó (*Desde el 6 de julio*, *Del 2 de marzo al 28 de junio* o *Sin usar todavía*) y cada rutina cuántos ejercicios tiene y en cuántos programas está, o *sin programa*. Sin esa segunda lista, una rutina que no estuviera en ningún programa sería inalcanzable.
+
+- **Los ocultos van plegados al pie de cada lista** (*Ver 2 rutinas ocultas*), y cuáles están desplegadas queda en la URL (`?ver=rutinas`), para que volver desde uno oculto no los cierre. Un programa oculto no recuerda las fechas exactas, solo desde cuándo no se usa.
+- **Solo cuenta lo visible**: un programa con una rutina oculta dice un día menos (ese día queda en descanso) y una rutina con un hueco oculto, un ejercicio menos.
+- **Sin rutinas ni programas** la pantalla lo dice y *Nueva rutina* pasa a ser la acción principal, en verde: es el primer paso.
+- **Todo llega en cuatro llamadas en paralelo** (programas y rutinas, visibles y ocultos). El backend las responde con un número fijo de consultas, sin una por programa o por rutina.
 
 ## Hablar con la API
 

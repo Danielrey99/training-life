@@ -114,10 +114,9 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **H5** | Resumen | Volumen y constancia, no por ejercicio | H1 |
 | **P1** | Programas y rutinas | Los programas y, aparte, la biblioteca de rutinas | Pestaña Programas |
 | **P2** | Semana del programa | Qué rutina toca cada día | P1 |
-| **P3** | Rutina | Los huecos de una rutina | P2, P1, X2 |
-| **P4** | Hueco | Formulario de un hueco, nuevo o existente | P3, P6 |
+| **P3** | Rutina | Los huecos de una rutina; también la rutina nueva | P2, P1, P5, X2 |
+| **P4** | Hueco | Formulario de un hueco, nuevo o existente | P3 |
 | **P5** | Programa nuevo | Nombre, si se activa y los siete días | P1 |
-| **P6** | Rutina nueva | Nombre; arranca sin huecos | P1, P5 |
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
 | **X3** | Nuevo / editar ejercicio | Nombre, grupo y descripción | X1, X2 |
@@ -143,7 +142,7 @@ Qué enseña la tarjeta según el día:
 | Sin programa activo | *Sin programa*, con *Elegir un programa* (lleva a P1) |
 | Primera vez | Una bienvenida (ver [La primera vez](#la-primera-vez)) |
 
-**Sin terminar.** Una sesión de un día pasado (apuntada desde el calendario) con series y sin terminar cuenta como hecha, pero quizá se dejó a medias sin querer. E1 la avisa bajo la tarjeta (*Push del domingo 27 de septiembre · 1 serie · termínala o cancélala*) y la fila lleva a su sesión, donde se termina o se cancela; entonces el aviso desaparece. Una sin ninguna serie no se avisa: ya cuenta como no hecha.
+**Sin terminar.** Una sesión de un día pasado (apuntada desde el calendario) con series y sin terminar cuenta como hecha, pero quizá se dejó a medias sin querer. E1 la avisa bajo la tarjeta (*Push del domingo 27 de septiembre · 1 serie · termínala o cancélala*) y la fila lleva a su sesión, donde se termina o se cancela; entonces el aviso desaparece. Una sin ninguna serie también sale, en el mismo apartado y con la etiqueta *vacía* (*Push del lunes 7 de septiembre · vacía · apunta las series o cancélala*): no cuenta como hecha, pero quizá se abrió para apuntar ese día y se olvidó. Nada se borra solo: se queda ahí hasta que se completa o se cancela.
 
 **Por recuperar.** Lo que se quedó sin hacer se puede recuperar **hasta el día antes del mismo día de la semana siguiente** (el Push del lunes, hasta el domingo). Mientras tanto, E1 lo enseña todo en una lista, cada entrenamiento con su plazo; el que caduca hoy lo dice en ámbar (*hoy es el último día*). Cada uno lleva su *Recuperar*, que pregunta antes y abre E2; esa sesión cuenta como la del día que se recupera.
 
@@ -270,14 +269,14 @@ Progresión general, no por ejercicio. Un solo control arriba, *Por semana* o *P
 
 ### P1 · Programas y rutinas
 
-Dos secciones. **Programas**, con el activo marcado y desde cuándo lo está. **Rutinas**, todas las del usuario, con en cuántos programas se usa cada una. Sin esta segunda sección, una rutina que no estuviera en ningún programa sería inalcanzable. Al pie, una línea explica la diferencia: una rutina son los ejercicios de un día; un programa las reparte en la semana.
+Dos secciones. **Programas**, con el activo primero y marcado; cada uno dice cuándo se usó (*Desde el 6 de julio*, *Del 2 de marzo al 28 de junio* o *Sin usar todavía*). **Rutinas**, todas las del usuario, con cuántos ejercicios tiene y en cuántos programas se usa (o *sin programa*). Sin esta segunda sección, una rutina que no estuviera en ningún programa sería inalcanzable. Al pie, una línea explica la diferencia: una rutina son los ejercicios de un día; un programa las reparte en la semana.
 
 ### P2 · Semana del programa
 
 La plantilla que se repite: qué rutina toca cada día, o descanso. Tocar un día lleva a su rutina (P3). Mover un día concreto no se hace aquí, sino en H4.
 
 - **Arriba del todo, el interruptor *Programa activo*.** Es lo único que se cambia sin entrar en *Editar*, porque no toca el programa, solo cuál está en uso. Guarda al momento, así que pregunta antes. Apagarlo deja sin programa activo; encenderlo en otro dice cuál deja de estarlo. Se puede no tener ninguno.
-- **Editando**: el nombre pasa a ser un campo; la › de un día abre la hoja de elegir rutina (la misma que en P5) y la nueva sustituye a la que hubiera; la ✕ deja el día en descanso. Todo se guarda de golpe con *Guardar*. Al pie, *Ocultar programa* y *Borrar programa*.
+- **Editando**: el nombre pasa a ser un campo; la › de un día abre la hoja de elegir rutina (la misma que en P5) y la nueva sustituye a la que hubiera; la ✕ deja el día en descanso. Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar programa* y *Borrar programa*.
 - **Un día, una rutina.** Si un día ya tiene rutina y se le pone otra, la nueva la sustituye.
 - **Lo hecho por adelantado se queda como estaba.** Si el Leg del viernes ya se hizo el martes y los viernes pasan a Push, ese viernes sigue contando como Leg hecho, y el Push empieza el viernes siguiente. Los días que ya pasaron tampoco cambian.
 
@@ -285,8 +284,10 @@ La plantilla que se repite: qué rutina toca cada día, o descanso. Tocar un dí
 
 Los huecos de la rutina en orden, cada uno con su objetivo y sus comodines. Tocar un hueco lleva a P4. *Añadir hueco* y *Duplicar rutina* (una copia independiente, para que dos versiones diverjan). La copia se llama como hace Windows con los archivos: *Push - copia* y, si ya existe, *Push - copia (2)*, *Push - copia (3)*…
 
-- **Editando**: el nombre pasa a ser un campo y cada hueco gana un asa para reordenarlo; todo se guarda de golpe con *Guardar*. Al pie, *Ocultar rutina* y *Borrar rutina*. Ocultar y borrar un hueco no están aquí sino dentro del propio hueco (P4), que es donde se avisa de lo que se pierde.
+- **Editando**: el nombre pasa a ser un campo y cada hueco gana un asa para reordenarlo. Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar rutina* y *Borrar rutina*. Ocultar y borrar un hueco no están aquí sino dentro del propio hueco (P4), que es donde se avisa de lo que se pierde.
 - **Los huecos se numeran por su posición** entre los visibles (1, 2, 3…), no por el orden guardado: ocultar el primero renumera los demás.
+- **Rutina nueva**: la misma pantalla, sin *Editar* porque ya se está escribiendo. Pide el nombre y arranca sin huecos; *Añadir hueco* lleva a P4. Si se crea desde la hoja de elegir rutina, queda asignada a ese día; en cualquier caso entra en la biblioteca de rutinas.
+- Bajo el nombre no hay más datos: una rutina puede no estar en ningún programa ni día, o estar en varios.
 
 ### P4 · Hueco
 
@@ -294,15 +295,13 @@ Formulario: ejercicio principal (de la biblioteca), comodines (varios), series o
 
 - **Nuevo**: solo *Guardar* y *Cancelar*.
 - **Existente**: además, *Ocultar hueco* y *Borrar hueco*, cada uno con su diálogo.
-- **Oculto**: un aviso arriba y *Mostrar hueco* como acción principal.
+- **Oculto**: un aviso arriba, los datos en solo lectura y *Mostrar hueco* como acción principal.
+
+Bajo *Hueco 1* va el nombre de su rutina.
 
 ### P5 · Programa nuevo
 
-Todo en una pantalla: nombre, *Activarlo al crearlo* y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a P6. Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
-
-### P6 · Rutina nueva
-
-Pide el nombre y arranca sin huecos; *Añadir hueco* lleva a P4. Si se crea desde la hoja de elegir rutina, queda asignada a ese día. En cualquier caso entra en la biblioteca de rutinas.
+Todo en una pantalla: nombre, *Activarlo al crearlo* y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a la pantalla de una rutina nueva (P3). Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
 
 ## Ejercicios
 
@@ -325,11 +324,11 @@ Nombre, grupo muscular y descripción. Bajo la descripción, una línea aclara l
 Programas, rutinas, huecos y ejercicios propios se pueden ocultar o borrar. **Ocultar** los quita de la vista pero **conserva su historial**; **borrar** los elimina con todo lo que dependa de ellos. Cada uno tiene su sitio: el ejercicio en su ficha (X2), el hueco en P4, y el programa y la rutina en el modo editar de P2 y P3.
 
 - **Sin historial, borrar es directo**, porque no hay nada que perder (tras la confirmación de siempre). Una rutina que ya estuvo en el plan algún día pasado cuenta como con historial, aunque no se entrenara: borrarla quitaría esos días del calendario, así que pide elegir entre ocultarla o borrarla, como un programa que estuvo activo.
-- **Con historial, borrar cuenta lo que se pierde** —cuántas series, qué huecos, qué notas— y ofrece ocultar en su lugar. En rojo, porque no se puede deshacer.
+- **Con historial, borrar cuenta lo que se pierde** —cuántas series, qué huecos, qué notas, y las sesiones que solo tenían series de ese hueco, que se borran con él— y ofrece ocultar en su lugar. Si hay una sesión de esa rutina abierta hoy, también lo dice. En rojo, porque no se puede deshacer. Una sesión sin ninguna serie en un día pasado no cuenta como historial.
 - **Ocultar es reversible de verdad.** Una rutina oculta no sale del programa: el día la conserva, en gris, y cuenta como descanso; al mostrarla, vuelve a estar como estaba. Lo mismo un ejercicio oculto dentro de su hueco (se ve en gris, y E2 propone el comodín) o un hueco oculto dentro de su rutina. Si ocultar quitara la asignación, mostrarla no podría deshacerlo.
 - **Si a ese día se le pone otra rutina**, la nueva sustituye a la oculta, y mostrar la oculta ya no recupera el día: el sitio ya tiene dueño.
 - **Un programa oculto deja de ser el activo** si lo era, y no vuelve a serlo solo al mostrarlo.
-- **Cada lista con algo oculto lleva un *Ver N ocultos* al pie** (P1 una vez por sección, P3 y X1), que despliega los ocultos en gris, con la fecha desde la que lo están. Tocar uno lo abre en su estado oculto: un aviso arriba, *Mostrar* como acción principal y *Borrar* debajo, sin *Editar*.
+- **Cada lista con algo oculto lleva un *Ver N ocultos* al pie** (P1 una vez por sección, P3 y X1), que despliega los ocultos en gris, con la fecha desde la que lo están. Tocar uno lo abre en su estado oculto: un aviso arriba, *Mostrar* como acción principal y *Borrar* debajo, sin *Editar*: lo oculto no se edita, para cambiarlo primero se muestra (*Mostrar* pregunta antes, como el resto). Se puede *Duplicar* una rutina oculta, y las notas de un ejercicio oculto se siguen pudiendo escribir y cambiar, porque son del usuario.
 - **Las listas para elegir no enseñan lo oculto** (la hoja de rutinas de P5, el selector de ejercicio de P4, el de rutina de H4): ocultar significa que deja de ofrecerse. Para volver a usarlo, primero se muestra.
 
 ## La primera vez
