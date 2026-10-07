@@ -322,7 +322,7 @@ export function Sesion() {
               ? 'Se borrará la sesión, como si no la hubieras empezado.'
               : `Se borrarán ${
                   activa.series.length === 1 ? 'la serie' : `las ${activa.series.length} series`
-                } que llevas, como si no la hubieras empezado. No se puede deshacer.`
+                } que llevas, como si no la hubieras empezado.`
           }
           confirmar="Cancelar sesión"
           cancelar="Seguir entrenando"

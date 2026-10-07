@@ -563,7 +563,7 @@ export function Dia() {
               : dia.cubre_fecha
                 ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
                 : '') +
-            '. No se puede deshacer.'
+            '.'
           }
           confirmar="Borrar"
           peligro
