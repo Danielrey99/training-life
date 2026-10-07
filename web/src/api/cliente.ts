@@ -8,6 +8,8 @@
  */
 
 import type {
+  AvisoDeBorrarHueco,
+  AvisoDeBorrarRutina,
   DiaPlan,
   DiaSeguimiento,
   DiaSemana,
@@ -151,6 +153,14 @@ export const api = {
   borrarRutina: (id: number, modo?: ModoBorrado) =>
     peticion<void>(`/rutinas/${id}${consulta({ modo })}`, BORRAR),
   mostrarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/mostrar`, conCuerpo('POST')),
+  /** La copia se llama como en Windows («Push - copia») y nace sin estar en ningún programa. */
+  duplicarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/duplicar`, conCuerpo('POST')),
+  /** Todos los huecos visibles, cada uno una vez, en el orden nuevo. */
+  ordenarHuecos: (id: number, huecoIds: number[]) =>
+    peticion<Rutina>(`/rutinas/${id}/orden`, conCuerpo('PUT', { slot_ids: huecoIds })),
+  /** Lo que se perdería al borrarla, para enseñarlo antes de preguntar. */
+  avisoDeBorrarRutina: (id: number) =>
+    peticion<AvisoDeBorrarRutina>(`/rutinas/${id}/aviso-de-borrado`),
 
   crearHueco: (rutinaId: number, datos: NuevoHueco) =>
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots`, conCuerpo('POST', datos)),
@@ -158,6 +168,9 @@ export const api = {
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots/${huecoId}`, conCuerpo('PUT', datos)),
   borrarHueco: (rutinaId: number, huecoId: number, modo?: ModoBorrado) =>
     peticion<void>(`/rutinas/${rutinaId}/slots/${huecoId}${consulta({ modo })}`, BORRAR),
+  /** Lo que se perdería al borrarlo, para enseñarlo antes de preguntar. */
+  avisoDeBorrarHueco: (rutinaId: number, huecoId: number) =>
+    peticion<AvisoDeBorrarHueco>(`/rutinas/${rutinaId}/slots/${huecoId}/aviso-de-borrado`),
   mostrarHueco: (rutinaId: number, huecoId: number) =>
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots/${huecoId}/mostrar`, conCuerpo('POST')),
   /** Con `ejercicio_id`, solo los días en que el hueco se hizo con ese ejercicio. */
@@ -180,7 +193,7 @@ export const api = {
   // --- Entrenamientos y series ---
   /**
    * Con `en_curso`, una lista con la sesión abierta de hoy o vacía. Con `sin_terminar`,
-   * las de días pasados que se dejaron a medias (sin terminar y con alguna serie). Con
+   * las de días pasados que se dejaron sin terminar, con series o vacías. Con
    * `rutina_id` y `limite`, las últimas sesiones de una rutina.
    */
   entrenamientos: (

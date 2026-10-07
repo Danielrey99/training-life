@@ -1,0 +1,166 @@
+/* P1 · Programas y rutinas. Las medidas salen del boceto a 390 px. */
+
+.programas {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.programas-cabecera {
+  text-align: center;
+  padding-top: 4px;
+}
+
+.programas-cabecera h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.programas-seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.programas-rotulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--texto-tenue);
+}
+
+.programas-vacio {
+  margin: 0;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
+.programas-seccion .programas-nuevo {
+  margin-top: 6px;
+}
+
+.programas-seccion .programas-ver-ocultos {
+  gap: 4px;
+}
+
+/* --- Un programa: una tarjeta por programa ------------------------------- */
+
+.programas-tarjeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-tenue);
+  text-decoration: none;
+}
+
+.programas-tarjeta:hover {
+  border-color: var(--texto-tenue);
+}
+
+.programas-tarjeta.oculto {
+  border-style: dashed;
+}
+
+.programas-tarjeta-texto {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.programas-tarjeta-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Solo el activo lleva el nombre en blanco: los demás no se están usando. */
+.programas-tarjeta-nombre strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.programas-tarjeta.activo .programas-tarjeta-nombre strong {
+  color: var(--texto);
+}
+
+.programas-tarjeta-nombre .etiqueta {
+  align-self: center;
+  font-size: 12.5px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+/* --- Las rutinas: una sola tarjeta con una fila por rutina --------------- */
+
+.programas-rutinas {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.programas-rutinas.oculta {
+  border-style: dashed;
+}
+
+.programas-rutina {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--texto-tenue);
+  text-decoration: none;
+}
+
+.programas-rutina + .programas-rutina {
+  border-top: 1px solid var(--borde);
+}
+
+/* En una lista con borde propio, el hover va en el texto y no en un recuadro. */
+.programas-rutinas .programas-rutina:hover strong {
+  color: var(--acento-suave);
+}
+
+.programas-punto {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--borde);
+}
+
+.programas-rutina-texto {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.programas-rutina-texto strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.programas-rutinas.oculta .programas-rutina-texto strong {
+  color: var(--texto-tenue);
+}
+
+.programas-pie {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+  text-align: center;
+}

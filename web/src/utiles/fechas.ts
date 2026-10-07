@@ -167,6 +167,22 @@ export function diaYMes(iso: string): string {
   return `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
 }
 
+/** "6 de julio", y con el año si no es el actual: "6 de julio de 2025". */
+export function diaYMesConAnio(iso: string): string {
+  const fecha = aFecha(iso)
+  const anio =
+    fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
+  return `${diaYMes(iso)}${anio}`
+}
+
+/** "enero", y con el año si no es el actual: "enero de 2025". */
+export function mesConAnio(iso: string): string {
+  const fecha = aFecha(iso)
+  const anio =
+    fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
+  return `${MESES[fecha.getMonth()]}${anio}`
+}
+
 /** "sep": el mes en tres letras, para el eje de una gráfica. */
 export function mesCorto(iso: string): string {
   return MESES[aFecha(iso).getMonth()].slice(0, 3)

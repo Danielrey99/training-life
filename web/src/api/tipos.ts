@@ -167,10 +167,19 @@ export type Programa = {
   // El que usan Hoy y el calendario. Solo puede haber uno.
   activo: boolean
   activo_desde: string | null
+  // El abierto si está activo; si no, el último que se cerró. Nulo si nunca se usó.
+  ultimo_periodo: Periodo | null
   created_at: string
   updated_at: string
   // Solo los días con rutina: los que faltan son descanso.
   dias: ProgramaDia[]
+}
+
+/** Un tramo en que un programa estuvo en uso: de `desde` a `hasta` sin incluirlo. */
+export type Periodo = {
+  desde: string
+  // Nulo si sigue activo. El último día en uso es el anterior.
+  hasta: string | null
 }
 
 /** Qué toca un día. */
@@ -297,6 +306,36 @@ export type Resumen = {
   por_semana: EvolucionDeVolumen
   por_mes: EvolucionDeVolumen
   constancia: { meses: MesDeConstancia[]; entrenados: number; planificados: number }
+}
+
+// --- Avisos de borrado ---------------------------------------------------
+
+/** Lo que se perdería al borrar una rutina, para el diálogo de confirmar. */
+export type AvisoDeBorrarRutina = {
+  // Si el borrado directo se negaría (huecos, sesiones o días pasados del plan).
+  con_historial: boolean
+  // Todos, también los ocultos.
+  huecos: number
+  // Las que tienen alguna serie.
+  sesiones: number
+  // Días vigentes de programa, que pasarían a descanso.
+  dias_de_programa: number
+  // Días planificados a mano, que volverían a lo que diga el programa.
+  dias_planificados: number
+  toco_dias_pasados: boolean
+  // Si hay una sesión de esta rutina abierta hoy (se borraría con ella). Si es
+  // verdadero, `con_historial` también.
+  sesion_en_curso: boolean
+}
+
+/** Lo que se perdería al borrar un hueco, para el diálogo de confirmar. */
+export type AvisoDeBorrarHueco = {
+  series: number
+  // La primera fecha con series; nula si no tiene.
+  desde: string | null
+  // Se quedan sin ninguna serie y se borran con el hueco; si contaban un día, vuelve a
+  // quedar sin hacer. No incluye la sesión en curso de hoy, que sigue abierta.
+  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
 }
 
 /** Un día al que se le cambió a mano lo que toca. Sin rutina, es descanso. */

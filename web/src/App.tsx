@@ -8,6 +8,7 @@ import { Planificar } from './paginas/historial/Planificar'
 import { Resumen } from './paginas/historial/Resumen'
 import { Hoy } from './paginas/hoy/Hoy'
 import { PorHacer } from './paginas/PorHacer'
+import { Programas } from './paginas/programas/Programas'
 import { Progresion } from './paginas/progresion/Progresion'
 import { Sesion } from './paginas/sesion/Sesion'
 import './App.css'
@@ -32,7 +33,14 @@ export default function App() {
           <Route path="/registrar" element={<Navigate to="/historial" replace />} />
           <Route path="/registrar/:entrenamientoId" element={<RedirigirASesion />} />
           <Route path="/progresion/:ejercicioId" element={<Progresion />} />
-          <Route path="/programas" element={<PorHacer seccion="Programas y rutinas" />} />
+          <Route path="/programas" element={<Programas />} />
+          <Route path="/programas/nuevo" element={<PorHacer seccion="Nuevo programa" />} />
+          <Route
+            path="/programas/:programaId"
+            element={<PorHacer seccion="La semana del programa" />}
+          />
+          <Route path="/programas/rutinas/nueva" element={<PorHacer seccion="Nueva rutina" />} />
+          <Route path="/programas/rutinas/:rutinaId" element={<PorHacer seccion="La rutina" />} />
           <Route path="/ejercicios" element={<Ejercicios />} />
           <Route path="*" element={<p className="aviso">Esa página no existe.</p>} />
         </Routes>
