@@ -10,7 +10,7 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 
 🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento mientras se entrena.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días y el resumen de volumen y constancia.
+La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días, el resumen de volumen y constancia, y los programas con sus rutinas.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -25,7 +25,9 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] Planificar los próximos días: qué toca cada día de hoy en adelante, sustituyéndolo al tocar
 - [x] El resumen: el volumen por semana o por mes con el desglose de la barra elegida, y la constancia del año
 - [x] La lista de programas y rutinas, con sus ocultos plegados
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la semana de un programa, las rutinas y sus huecos, y la biblioteca de ejercicios
+- [x] La semana de un programa y crear un programa nuevo
+- [x] Una rutina y cada uno de sus ejercicios, también para crear una rutina nueva
+- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la biblioteca de ejercicios
 
 ## Cómo ejecutarlo
 
@@ -61,13 +63,14 @@ web/
     ├── componentes/      # piezas que usan varias pantallas
     │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar, y el aviso de un solo botón
     │   ├── Icono.tsx     # los iconos de trazo de los bocetos
+    │   ├── Interruptor.tsx  # la tarjeta con un interruptor: «Programa activo» y «Activarlo al crearlo»
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
     ├── utiles/           # fechas y números en formato español, el color de cada día y la flecha de volver
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
         ├── Ejercicios.tsx
-        ├── PorHacer.tsx  # lo que enseña una sección aún sin construir
+        ├── PorHacer.tsx  # lo que enseñaba una sección aún sin construir (ya sin uso)
         ├── historial/    # la pestaña de Historial
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
         │   ├── HojaRegistrar.tsx        # apuntar un día pasado
@@ -79,7 +82,18 @@ web/
         │   └── Hoy.tsx                  # la semana, la tarjeta de hoy, lo que recuperar y las listas
         ├── programas/    # la pestaña de Programas
         │   ├── Programas.tsx            # los programas y la biblioteca de rutinas, con sus ocultos
-        │   └── programas.css
+        │   ├── Semana.tsx               # la semana de un programa: qué rutina toca cada día
+        │   ├── ProgramaNuevo.tsx        # crear un programa
+        │   ├── Rutina.tsx               # una rutina: sus ejercicios, su orden, ocultarla y borrarla
+        │   ├── RutinaNueva.tsx          # crear una rutina con sus ejercicios, sobre un borrador
+        │   ├── Ejercicio.tsx            # un ejercicio de una rutina: principal, alternativas, series y reps
+        │   ├── DiasEditables.tsx        # los siete días de un programa que se está escribiendo
+        │   ├── HojaDeRutinas.tsx        # la hoja de elegir la rutina de un día
+        │   ├── HojaDeEjercicios.tsx     # la hoja de elegir un ejercicio, con buscador y filtro por grupo
+        │   ├── ListaDeEjercicios.tsx    # los ejercicios de una rutina, con el asa para reordenarlos
+        │   ├── borradores.ts            # lo que sigue ahí al ir a otra pantalla y volver
+        │   ├── textos.ts                # frases comunes: «4 × 6-10», «3 días»…
+        │   └── programas.css, semana.css, rutina.css, ejercicio.css
         ├── progresion/   # la gráfica de un ejercicio
         │   ├── Progresion.tsx           # el rango, la medida, la cifra y la lista de sesiones
         │   ├── Grafica.tsx              # el SVG: ejes, línea, puntos y globo
@@ -95,17 +109,17 @@ web/
 
 ## La sesión en curso
 
-Es la pantalla que se usa en el gimnasio (`/sesion/{id}`). Cada hueco de la rutina es un bloque, y solo uno va desplegado: el que se está haciendo. Plegados, los demás dicen cuántas series llevan de las que pide el hueco. Dentro del desplegado está la **última vez** que se hizo ese ejercicio en ese hueco, en fichas (una por serie, con su peso); las series de hoy, cada una con su lápiz para corregirla y su ✕ para borrarla; y el formulario de la siguiente, con peso y repeticiones en − / + para poder usarlo con una mano.
+Es la pantalla que se usa en el gimnasio (`/sesion/{id}`). Cada ejercicio de la rutina es un bloque, y solo uno va desplegado: el que se está haciendo. Plegados, los demás dicen cuántas series llevan de las que pide el ejercicio. Dentro del desplegado está la **última vez** que se hizo ese ejercicio en esa rutina, en fichas (una por serie, con su peso); las series de hoy, cada una con su lápiz para corregirla y su ✕ para borrarla; y el formulario de la siguiente, con peso y repeticiones en − / + para poder usarlo con una mano.
 
 Decisiones que se notan al usarla:
 
 - **Cada serie se guarda en cuanto se pulsa *Guardar***, en vez de acumularlas para enviarlas al final. Una sesión dura más de una hora, y cerrar la pestaña sin querer no puede llevarse el entrenamiento.
 - **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado. La flecha de volver lleva a la pantalla de la que se venía, y en una sesión de un día pasado, a su día en el historial.
-- **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante), porque las series de un hueco casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
+- **El formulario arranca con la serie anterior** de ese ejercicio (peso, repeticiones y variante), porque las series de un ejercicio casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
 - **El número de la siguiente serie es el más alto + 1**, no cuántas hay: borrando una del medio, contarlas repetiría un número.
-- **El comodín se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y los comodines, cada uno con su última vez. Al elegir uno, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el hueco empieza ya con el comodín.
+- **La alternativa se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y las alternativas, cada uno con su última vez. Al elegir una, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el ejercicio empieza ya con una alternativa.
 - **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar cambios* en la misma línea. No hay un modo de edición aparte.
-- **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás huecos, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
+- **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás ejercicios, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
 - **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
 - **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
 
@@ -132,14 +146,14 @@ Lo que se hizo sin contar para ningún día lleva el color del día de su rutina
 
 ### Un día
 
-La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por hueco con el ejercicio que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio en ese hueco**, en fichas, mirando siempre hacia atrás desde ese día.
+La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por ejercicio de la rutina con el que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio en esa rutina**, en fichas, mirando siempre hacia atrás desde ese día.
 
 - **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar. Si es la primera vez, *nuevo*.
-- **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó un comodín más ligero. La leyenda del final dice con qué se compara cada cosa.
+- **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó una alternativa más ligera. La leyenda del final dice con qué se compara cada cosa.
 - **Mientras una sesión de un día pasado no está terminada**, el día ofrece *Seguir apuntando*, que vuelve a la sesión.
-- **Si se hizo con un comodín, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
+- **Si se hizo con una alternativa, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
 - **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador** (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y *Guardar*.
-- **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada hueco lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen comodines llevan la misma flecha que en la sesión para elegir con qué ejercicio.
+- **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada ejercicio lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los ejercicios que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen alternativas llevan la misma flecha que en la sesión para elegir con cuál.
 - **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
 - **Al terminar una sesión** se llega a su día. La flecha de volver, aquí y en el resto de pantallas, lleva a la pantalla de la que se vino (de *Hoy* a un día, vuelve a *Hoy*), y tras terminar, cancelar o borrar no lleva a algo que ya no existe. Si la pantalla se abrió directamente (un enlace o una recarga), lleva a la pantalla de la que cuelga; para saberlo mira la posición en el historial del navegador, que no cambia cuando la pantalla reescribe su URL al elegir una opción.
 
@@ -164,7 +178,7 @@ La progresión general, no por ejercicio (`/historial/resumen?mes=2026-09`), a l
 
 ## Progresión
 
-La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada hueco en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cinco rangos (1 mes, 3, 6, 1 año y todo). El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
+La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cinco rangos (1 mes, 3, 6, 1 año y todo). El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
 
 - **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`).
 - **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve.
@@ -179,6 +193,25 @@ La pestaña de Programas (`/programas`) tiene dos listas: los **programas**, con
 - **Solo cuenta lo visible**: un programa con una rutina oculta dice un día menos (ese día queda en descanso) y una rutina con un hueco oculto, un ejercicio menos.
 - **Sin rutinas ni programas** la pantalla lo dice y *Nueva rutina* pasa a ser la acción principal, en verde: es el primer paso.
 - **Todo llega en cuatro llamadas en paralelo** (programas y rutinas, visibles y ocultos). El backend las responde con un número fijo de consultas, sin una por programa o por rutina.
+
+### La semana de un programa
+
+Tocar un programa abre su semana (`/programas/7`): qué rutina toca cada día, o descanso. Arriba, el interruptor **Programa activo**, que es lo único que se cambia sin entrar en *Editar* (no toca el programa, solo cuál está en uso): pregunta antes y guarda al momento. Con *Editar* el interruptor desaparece y todo va a un **borrador**: el nombre y los días se envían de golpe con *Guardar*, y *Cancelar* los descarta. La › de un día abre una hoja con las rutinas, la ✕ lo deja en descanso, y al pie están *Ocultar programa* y *Borrar programa*.
+
+- **Los textos están escritos para quien no conoce la app**: dicen qué pasa (*Entrenar dejará de decirte qué rutina toca*) y no cómo se llama cada pantalla por dentro. Para mandar a otro sitio nombran lo que se ve, como la pestaña *Historial*.
+- **Guardar no es atómico**, porque no hay un endpoint para todo a la vez: se envía primero el nombre, que es lo único que puede no valer, y después cada día cambiado; si algo falla a medias, lo dice y vuelve a leer el programa para enseñar lo que quedó guardado.
+- **Una rutina oculta sigue en su día, en gris**, y ese día cuenta como descanso. Un programa oculto es de solo lectura, con *Mostrar* y *Borrar*, y mostrarlo no lo reactiva.
+- **La hoja de elegir rutina ofrece *+ Nueva rutina*.** En un programa que ya existe, el borrador de la edición espera mientras se crea la rutina, y al guardarla se vuelve a la semana, todavía editando, con la rutina puesta en ese día.
+- **Crear un programa** (`/programas/nuevo`) es la misma lista de días, sobre un borrador que sobrevive a ir a crear una rutina y volver. *Activarlo al crearlo* empieza apagado: activarlo es algo que se elige a propósito.
+
+### Una rutina y sus ejercicios
+
+La rutina (`/programas/rutinas/10`) enseña sus ejercicios en orden, numerados por su posición entre los visibles, cada uno con su objetivo (*3 × 8-12*) y sus alternativas. *Editar* sirve para el nombre, el orden (arrastrando el asa, o con las flechas del teclado), *Ocultar rutina* y *Borrar rutina*; añadir, ocultar o borrar un ejercicio se hace dentro de él, y *Añadir ejercicio* y *Duplicar rutina* no salen al editar porque llevan a otra pantalla y lo cambiado se perdería.
+
+- **El formulario de un ejercicio** (`/programas/rutinas/10/ejercicios/19`) elige el principal y las alternativas en una hoja con buscador (sin tildes ni mayúsculas) y filtro por grupo muscular, y las series y repeticiones con − / +. Uno nuevo parte de 3 × 8-12 como referencia.
+- **Una rutina nueva trabaja sobre un borrador.** El *Guardar* del formulario de cada ejercicio solo cambia la lista de la pantalla; la rutina no existe hasta el *Guardar* de esa pantalla, que la crea con todos sus ejercicios en una sola petición. Si algo falla no queda ninguna rutina a medias, y salir sin guardar no deja nada. El borrador vive en memoria y en `sessionStorage`, así que sobrevive a recargar. Quien abre la pantalla para empezar una rutina lo marca en el estado de la navegación, y esa marca se quita enseguida: volver desde un ejercicio conserva lo escrito y entrar de nuevo empieza otra.
+- **Reordenar arrastrando** se hace a mano con eventos de puntero sobre el asa (sin librería): al pasar el dedo por la mitad de la tarjeta vecina se intercambian, y la arrastrada sigue al dedo. El asa va fuera del enlace de la tarjeta, para que arrastrar no abra el ejercicio.
+- **Lo oculto no se edita**: un ejercicio oculto, o cualquiera de una rutina oculta, se ve en solo lectura con *Mostrar*. Borrar cuenta lo que se pierde con las cifras que da la API (series, sesiones que se vaciarían, días de programa) y, si no hay nada que contar, la pregunta basta.
 
 ## Hablar con la API
 

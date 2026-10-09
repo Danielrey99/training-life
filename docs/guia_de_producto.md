@@ -27,7 +27,7 @@ Ordenado por frecuencia. No se diseña igual lo que se hace cada día que lo que
 | Cada cuánto | Qué | Contexto para el que se diseña |
 |---|---|---|
 | Cada día de gimnasio | Registrar la sesión, serie a serie | De pie, entre series, con una mano, sudado |
-| Cada día de gimnasio | Ver qué hizo la última vez en este hueco, para decidir el peso | El mismo momento: tiene que estar a la vista, sin buscarlo |
+| Cada día de gimnasio | Ver qué hizo la última vez en este ejercicio de la rutina, para decidir el peso | El mismo momento: tiene que estar a la vista, sin buscarlo |
 | Cada semana | Mirar el calendario: qué días fue, cuáles faltó, qué toca después | Sentado, de un vistazo |
 | Cada semana | Ver cómo va un ejercicio ("¿subo peso?") | Sentado, con calma |
 | De vez en cuando | Mover un día concreto del plan, o apuntar una sesión que olvidó | Sentado |
@@ -46,8 +46,8 @@ Un nombre para cada cosa, el mismo en la interfaz, en el código y en esta guía
 | **Programa** | Reparte rutinas en la semana: qué rutina toca cada día | "Push Pull Leg" |
 | **Programa activo** | El programa en uso: el que dice qué toca hoy y contra el que se pinta el calendario. Solo uno, o ninguno | — |
 | **Rutina** | Los ejercicios de un día; un "tipo de día" | "Push" |
-| **Hueco** | Un puesto dentro de la rutina: qué ejercicio, cuántas series y qué rango de reps | "1 · Press banca, 4 × 6-10" |
-| **Comodín** | Ejercicio alternativo para un hueco, por si el principal no se puede hacer | "Press banca en máquina" |
+| **Ejercicio de una rutina** | Un puesto dentro de la rutina: qué ejercicio, cuántas series y qué rango de reps. En el código y la API se llama *hueco*; la app nunca dice «hueco» | "1 · Press banca, 4 × 6-10" |
+| **Alternativa** | Ejercicio que se puede hacer en lugar del principal, por si ese día no se puede. En el código y la API se llama *comodín* | "Press banca en máquina" |
 | **Ejercicio** | Un movimiento de la biblioteca: predefinido (viene con la app) o propio | "Press banca con barra" |
 | **Sesión** | Un día real de entrenamiento, con fecha | "El Push del lunes 14" |
 | **Serie** | Lo que se hizo: peso × repeticiones, y su variante si la tiene | "60 kg × 10" |
@@ -114,14 +114,14 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **H5** | Resumen | Volumen y constancia, no por ejercicio | H1 |
 | **P1** | Programas y rutinas | Los programas y, aparte, la biblioteca de rutinas | Pestaña Programas |
 | **P2** | Semana del programa | Qué rutina toca cada día | P1 |
-| **P3** | Rutina | Los huecos de una rutina; también la rutina nueva | P2, P1, P5, X2 |
-| **P4** | Hueco | Formulario de un hueco, nuevo o existente | P3 |
+| **P3** | Rutina | Los ejercicios de una rutina; también la rutina nueva | P2, P1, P5, X2 |
+| **P4** | Ejercicio de la rutina | Formulario de un ejercicio de una rutina, nuevo o existente | P3 |
 | **P5** | Programa nuevo | Nombre, si se activa y los siete días | P1 |
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
 | **X3** | Nuevo / editar ejercicio | Nombre, grupo y descripción | X1, X2 |
 
-**Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un hueco no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
+**Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un ejercicio de una rutina no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
 
 ## Entrenar
 
@@ -161,10 +161,10 @@ Qué enseña la tarjeta según el día:
 
 ### E2 · Sesión en curso
 
-La pantalla importante. Un bloque por hueco de la rutina, en orden; el que se está haciendo va desplegado y los demás plegados a una línea (nombre y series hechas / objetivo), para no hacer scroll entre series. El bloque desplegado enseña:
+La pantalla importante. Un bloque por ejercicio de la rutina, en orden; el que se está haciendo va desplegado y los demás plegados a una línea (nombre y series hechas / objetivo), para no hacer scroll entre series. El bloque desplegado enseña:
 
-- **El objetivo** del hueco (4 × 6-10).
-- **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio en ese hueco**, no la última sesión sin más.
+- **El objetivo** del ejercicio (4 × 6-10).
+- **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio en esa rutina**, no la última sesión sin más.
 - **Las series de hoy**, con un lápiz y una ✕ cada una.
 - **El formulario**: peso y reps con − / +, y variante opcional.
 
@@ -172,7 +172,7 @@ Comportamiento:
 
 - **El formulario arranca con la serie anterior** (ejercicio, peso y variante). Lo normal es cambiar solo las reps.
 - **El número de la siguiente serie es el mayor + 1**, no la cuenta: si se borra una del medio, no se repite un número.
-- **Cambiar al comodín**: si el hueco tiene comodines, junto al nombre del ejercicio hay una flecha en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre no abre nada) se despliegan el principal y sus comodines, cada uno con su última vez, y el de hoy marcado. Al elegir un comodín, la última vez, el peso con el que arranca el formulario y las series que se apunten pasan a ser de ese ejercicio, y el hueco plegado lo dice con la etiqueta *comodín*. Se queda elegido para el resto del hueco. Si el principal está oculto, el hueco empieza ya con el comodín; un hueco sin comodines no lleva flecha, porque no hay nada que elegir.
+- **Cambiar a una alternativa**: si el ejercicio tiene alternativas, junto a su nombre hay una flecha en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre no abre nada) se despliegan el principal y sus alternativas, cada uno con su última vez, y el de hoy marcado. Al elegir una alternativa, la última vez, el peso con el que arranca el formulario y las series que se apunten pasan a ser de ese ejercicio, y el bloque plegado lo dice con la etiqueta *alternativa*. Se queda elegida para el resto del ejercicio. Si el principal está oculto, empieza ya con una alternativa; un ejercicio sin alternativas no lleva flecha, porque no hay nada que elegir.
 - **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, con *Cancelar* y *Guardar cambios* en la misma línea; mientras tanto, el resto de la sesión se queda en gris. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la base de datos lo admite, pero la interfaz no lo pide ni lo enseña.
@@ -215,18 +215,18 @@ Cada mes se compara con **el programa que estaba activo entonces**, no con el de
 
 ### H2 · Un día
 
-La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por hueco: qué ejercicio se hizo (y si fue el comodín) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en ese hueco, y por eso lleva su fecha. La flecha de cada hueco lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
+La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por ejercicio de la rutina: cuál se hizo (y si fue una alternativa) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en esa rutina, y por eso lleva su fecha. La flecha de cada ejercicio lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
 
 **Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. Mejora con `↑` en verde y empeora con `↓` en gris; en la primera vez sale `nuevo`.
 
-El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó un comodín más ligero. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
+El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó una alternativa más ligera. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
 
 Si la sesión es de un día pasado y no está terminada, el día ofrece **Seguir apuntando**, que vuelve a la sesión.
 
 **Editar**: la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*, que guarda de golpe todo lo cambiado (fecha, series y nota); *Cancelar* lo deshace todo. Lápiz y ✕ en cada serie: el lápiz despliega el formulario bajo la serie, con *Aplicar*, y la ✕ pregunta antes. Con un formulario abierto (una serie, una serie nueva o la nota), el resto se queda en gris. Además:
 
 - **La fecha pasa a ser un campo**, por si la sesión se apuntó en otro día. Sigue contando para el mismo día del plan, así que solo puede ir donde se habría podido hacer: hacia delante, hasta el día antes del mismo día de la semana siguiente; hacia atrás, dentro de la misma semana. Un día que ya tiene sesión tampoco vale. Si no vale, *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué (y, si el día está ocupado, que la otra sesión se mueve desde su propio día).
-- **Cada hueco lleva *+ Añadir serie***, para la serie que se olvidó apuntar: abre ahí mismo el formulario de la sesión, con la siguiente serie y los datos de la anterior. Los huecos que ese día se quedaron sin series también salen al editar, con borde discontinuo, para poder añadírselas; si tienen comodines, llevan la misma flecha que en la sesión para elegir con qué ejercicio. Un hueco oculto no admite series nuevas.
+- **Cada ejercicio lleva *+ Añadir serie***, para la serie que se olvidó apuntar: abre ahí mismo el formulario de la sesión, con la siguiente serie y los datos de la anterior. Los ejercicios que ese día se quedaron sin series también salen al editar, con borde discontinuo, para poder añadírselas; si tienen alternativas, llevan la misma flecha que en la sesión para elegir con cuál. Un ejercicio oculto no admite series nuevas.
 - **La nota gana su lápiz y su ✕**, como las series, o *Añadir nota* si no tiene. Sin editar, la nota solo se lee.
 - **Al pie, *Borrar este día*** en rojo: quita la sesión entera con sus series, para arreglar un día o una rutina apuntados por error. Pregunta antes. El día que contaba vuelve a quedar sin hacer, y se puede recuperar si sigue en plazo.
 
@@ -238,7 +238,7 @@ La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.
 - **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley), **como media de las series** de la sesión, igual que en H2. Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan. Se promedia y no se toma la mejor serie porque las rutinas son de doble progresión (se suben repeticiones hasta llegar al máximo del rango en todas las series y entonces se sube el peso): en esas semanas el progreso está en las series de después, y con la mejor serie la línea se quedaría plana aunque se mejorase cada semana. Por eso el globo dice *16,3 kg de media*.
 
-Arriba, el último valor y cuánto cambió desde la primera sesión del rango. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada hueco en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
+Arriba, el último valor y cuánto cambió desde la primera sesión del rango. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada ejercicio en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
 
 **Sin datos**: si el ejercicio no se ha hecho nunca, dice *Aún no has hecho este ejercicio.*; si se hizo pero no en el rango elegido, *No lo has hecho en este tiempo. Prueba con un rango más largo.* En ambos casos las píldoras del rango siguen ahí (en el segundo son la salida).
 
@@ -261,7 +261,7 @@ Progresión general, no por ejercicio. Un solo control arriba, *Por semana* o *P
 - **Volumen por semana** (o por mes): una barra por cada una de las últimas ocho semanas (o meses) ya terminadas, con el peso por repeticiones de todo lo entrenado. Si la semana (o el mes) de hoy cae en la gráfica, va una barra más, **rayada**, con lo que va de ella; las rayas siguen aunque se elija, para que se vea que no ha terminado.
 - **Tocar una barra la elige**: se pinta en verde vivo y arriba salen su periodo (*Semana del 15 sep*), su volumen y cuánto cambió. Al entrar, y al cambiar de semanas a meses, queda elegida la última terminada.
 - **El cambio se compara con el último periodo en que se entrenó**, aunque quede fuera de la gráfica: tras una semana de vacaciones, la siguiente dice *+5,7 % sobre la semana del 11 ago*. Si es la de justo antes, *sobre la semana anterior*. Una semana sin series dice *Sin series esta semana*.
-- **Volumen por rutina** y **Series por grupo muscular** son de la barra elegida: la gráfica enseña la evolución, y estos dos recuadros, el desglose de lo que se toca. Las series cuentan en el grupo del ejercicio que se hizo (un comodín de otro grupo cuenta en el suyo). Cada rutina lleva el color de su día en el programa, el mismo del calendario; las series por grupo van en gris, porque un color por grupo serían siete u ocho colores que no dicen nada y se confundirían con los de los días.
+- **Volumen por rutina** y **Series por grupo muscular** son de la barra elegida: la gráfica enseña la evolución, y estos dos recuadros, el desglose de lo que se toca. Las series cuentan en el grupo del ejercicio que se hizo (una alternativa de otro grupo cuenta en el suyo). Cada rutina lleva el color de su día en el programa, el mismo del calendario; las series por grupo van en gris, porque un color por grupo serían siete u ocho colores que no dicen nada y se confundirían con los de los días.
 - **Constancia** del año, fija, sin seguir a la barra elegida: dos alturas por mes, en gris lo planificado (también los días que aún no han llegado) y en verde lo entrenado, que lo va llenando. En los meses ya pasados el hueco es lo que se faltó. La cifra (*91 / 101 días entrenados, hasta hoy*) cuenta solo hasta hoy. Lo recuperado y lo adelantado cuentan como entrenado, en el mes del día que tocaba.
 - Al pie, la leyenda: *Toca una barra para ver esa semana. La rayada es la semana en curso, aún sin terminar.*
 
@@ -275,33 +275,39 @@ Dos secciones. **Programas**, con el activo primero y marcado; cada uno dice cu�
 
 La plantilla que se repite: qué rutina toca cada día, o descanso. Tocar un día lleva a su rutina (P3). Mover un día concreto no se hace aquí, sino en H4.
 
-- **Arriba del todo, el interruptor *Programa activo*.** Es lo único que se cambia sin entrar en *Editar*, porque no toca el programa, solo cuál está en uso. Guarda al momento, así que pregunta antes. Apagarlo deja sin programa activo; encenderlo en otro dice cuál deja de estarlo. Se puede no tener ninguno.
-- **Editando**: el nombre pasa a ser un campo; la › de un día abre la hoja de elegir rutina (la misma que en P5) y la nueva sustituye a la que hubiera; la ✕ deja el día en descanso. Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar programa* y *Borrar programa*.
+- **Arriba del todo, el interruptor *Programa activo*.** Es lo único que se cambia sin entrar en *Editar*, porque no toca el programa, solo cuál está en uso. Guarda al momento, así que pregunta antes, con palabras de lo que pasa (*Entrenar dejará de decirte qué rutina toca y el calendario no marcará los días que te saltes*). Apagarlo deja sin programa activo; encenderlo en otro dice cuál deja de estarlo. Se puede no tener ninguno. **Dentro de *Editar* el interruptor desaparece**, para que en el modo editar todo espere a *Guardar*.
+- **Editando**: el nombre pasa a ser un campo; la › de un día abre la hoja de elegir rutina y la nueva sustituye a la que hubiera; la ✕ deja el día en descanso. La hoja ofrece al final *+ Nueva rutina*: lleva a crear la rutina y, al guardarla, se vuelve aquí, todavía en *Editar*, con lo que se llevaba cambiado y la rutina puesta en ese día. Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar programa* y *Borrar programa*.
 - **Un día, una rutina.** Si un día ya tiene rutina y se le pone otra, la nueva la sustituye.
+- **Una rutina oculta sigue en su día**, en gris y con la etiqueta *oculta*, pero ese día cuenta como descanso; un párrafo lo explica y dice cómo volver a mostrarla.
+- **Un programa oculto no se edita**: la vista es de solo lectura, con el aviso de desde cuándo, *Mostrar programa* y *Borrar programa*. Mostrar pide confirmación y no lo reactiva solo.
+- **Borrar** avisa solo si el programa llegó a estar activo (el calendario dejará de saber qué tocaba); si nunca se usó, la pregunta basta.
 - **Lo hecho por adelantado se queda como estaba.** Si el Leg del viernes ya se hizo el martes y los viernes pasan a Push, ese viernes sigue contando como Leg hecho, y el Push empieza el viernes siguiente. Los días que ya pasaron tampoco cambian.
 
 ### P3 · Rutina
 
-Los huecos de la rutina en orden, cada uno con su objetivo y sus comodines. Tocar un hueco lleva a P4. *Añadir hueco* y *Duplicar rutina* (una copia independiente, para que dos versiones diverjan). La copia se llama como hace Windows con los archivos: *Push - copia* y, si ya existe, *Push - copia (2)*, *Push - copia (3)*…
+Los ejercicios de la rutina en orden, cada uno con su objetivo y sus alternativas. Tocar uno lleva a P4. *Añadir ejercicio* y *Duplicar rutina* (una copia independiente, para que dos versiones diverjan). La copia se llama como hace Windows con los archivos: *Push - copia* y, si ya existe, *Push - copia (2)*, *Push - copia (3)*…
 
-- **Editando**: el nombre pasa a ser un campo y cada hueco gana un asa para reordenarlo. Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar rutina* y *Borrar rutina*. Ocultar y borrar un hueco no están aquí sino dentro del propio hueco (P4), que es donde se avisa de lo que se pierde.
-- **Los huecos se numeran por su posición** entre los visibles (1, 2, 3…), no por el orden guardado: ocultar el primero renumera los demás.
-- **Rutina nueva**: la misma pantalla, sin *Editar* porque ya se está escribiendo. Pide el nombre y arranca sin huecos; *Añadir hueco* lleva a P4. Si se crea desde la hoja de elegir rutina, queda asignada a ese día; en cualquier caso entra en la biblioteca de rutinas.
+- **Editando**: el nombre pasa a ser un campo y cada ejercicio gana un asa ≡ para arrastrarlo (también con las flechas del teclado). Se trabaja sobre un borrador: *Guardar* lo guarda todo de golpe y *Cancelar* lo descarta. Al pie, *Ocultar rutina* y *Borrar rutina*. **Editar sirve solo para el nombre, el orden, ocultar y borrar la rutina**: *Añadir ejercicio* y *Duplicar rutina* no salen mientras se edita, porque llevan a otra pantalla y lo cambiado se perdería; y ocultar o borrar un ejercicio está dentro del propio ejercicio (P4), que es donde se avisa de lo que se pierde.
+- **Los ejercicios se numeran por su posición** entre los visibles (1, 2, 3…), no por el orden guardado: ocultar el primero renumera los demás. Los ocultos van plegados al pie (*Ver 1 ejercicio oculto*).
+- **Rutina nueva**: la misma pantalla, sin *Editar* porque ya se está escribiendo. Pide el nombre y arranca sin ejercicios. **Todo va a un borrador**: *Añadir ejercicio* abre el formulario de P4, cuyo *Guardar* solo apunta el ejercicio en la lista; la rutina no existe hasta el *Guardar* de esta pantalla, que la crea con todos sus ejercicios de una vez. Salir sin guardar no deja nada. Si se crea desde la hoja de elegir rutina de un programa (nuevo o ya creado), el subtítulo lo recuerda (*Se pondrá el jueves de PPL*) y, al guardar, se vuelve allí con la rutina puesta en ese día.
+- **Una rutina oculta no se edita**: aviso arriba, sus ejercicios en solo lectura, *Duplicar rutina* (no la modifica), *Mostrar rutina* y *Borrar rutina*.
+- **Borrar cuenta lo que se pierde** con cifras reales (ejercicios, series de sus sesiones, días de programa que pasarían a descanso, sesión abierta hoy) y, si no hay nada que contar, la pregunta basta.
 - Bajo el nombre no hay más datos: una rutina puede no estar en ningún programa ni día, o estar en varios.
 
-### P4 · Hueco
+### P4 · Ejercicio de la rutina
 
-Formulario: ejercicio principal (de la biblioteca), comodines (varios), series objetivo y reps mínimas y máximas, con − / +. El ejercicio y cada comodín se eligen en una hoja con buscador y filtro por grupo, como la biblioteca, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. Tres estados de la misma pantalla:
+Formulario: ejercicio principal, alternativas (varias; las que se pueden hacer en su lugar, por ejemplo si la máquina está ocupada), series objetivo y reps mínimas y máximas, con − / +. Un ejercicio nuevo parte de 3 × 8-12 como referencia, que se cambia antes de guardar. El principal y cada alternativa se eligen en una hoja con buscador y filtro por grupo muscular, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. Estados de la misma pantalla:
 
-- **Nuevo**: solo *Guardar* y *Cancelar*.
-- **Existente**: además, *Ocultar hueco* y *Borrar hueco*, cada uno con su diálogo.
-- **Oculto**: un aviso arriba, los datos en solo lectura y *Mostrar hueco* como acción principal.
+- **Nuevo en una rutina que ya existe**: *Guardar* guarda al momento. Debajo del título, el nombre de la rutina y *será el ejercicio 5*.
+- **Nuevo o existente en una rutina nueva**: *Guardar* solo cambia el borrador de la rutina; un ejercicio ya añadido ofrece *Quitar de la rutina* en lugar de Ocultar y Borrar.
+- **Existente**: además, *Ocultar ejercicio* y *Borrar ejercicio*, cada uno con su diálogo (borrar cuenta las series y las sesiones que se vaciarían con él).
+- **Oculto**: un aviso arriba, los datos en solo lectura y *Mostrar ejercicio* como acción principal. Lo mismo si lo oculta es la rutina entera: se ve sin poder cambiarlo y dice que primero hay que mostrarla.
 
-Bajo *Hueco 1* va el nombre de su rutina.
+Bajo *Ejercicio 1* va el nombre de su rutina.
 
 ### P5 · Programa nuevo
 
-Todo en una pantalla: nombre, *Activarlo al crearlo* y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a la pantalla de una rutina nueva (P3). Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
+Todo en una pantalla: nombre, *Activarlo al crearlo* (empieza apagado: activarlo es algo que se elige a propósito) y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a la pantalla de una rutina nueva (P3); al guardarla se vuelve aquí con la rutina puesta en ese día, y lo escrito en el programa sigue ahí. Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
 
 ## Ejercicios
 
@@ -311,7 +317,7 @@ Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo
 
 ### X2 · Ficha
 
-Descripción; acceso a la progresión (H3) con el peso actual; las notas personales con su fecha, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el hueco, la rutina y su programa (lleva a P3). Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie.
+Descripción; acceso a la progresión (H3) con el peso actual; las notas personales con su fecha, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el lugar que ocupa en la rutina, la rutina y su programa (lleva a P3). Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie.
 
 **Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app y son compartidos por todos los usuarios. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son del usuario.
 
@@ -321,11 +327,11 @@ Nombre, grupo muscular y descripción. Bajo la descripción, una línea aclara l
 
 ## Ocultar y borrar
 
-Programas, rutinas, huecos y ejercicios propios se pueden ocultar o borrar. **Ocultar** los quita de la vista pero **conserva su historial**; **borrar** los elimina con todo lo que dependa de ellos. Cada uno tiene su sitio: el ejercicio en su ficha (X2), el hueco en P4, y el programa y la rutina en el modo editar de P2 y P3.
+Programas, rutinas, ejercicios de una rutina y ejercicios propios se pueden ocultar o borrar. **Ocultar** los quita de la vista pero **conserva su historial**; **borrar** los elimina con todo lo que dependa de ellos. Cada uno tiene su sitio: el ejercicio en su ficha (X2), el ejercicio de una rutina en P4, y el programa y la rutina en el modo editar de P2 y P3.
 
 - **Sin historial, borrar es directo**, porque no hay nada que perder (tras la confirmación de siempre). Una rutina que ya estuvo en el plan algún día pasado cuenta como con historial, aunque no se entrenara: borrarla quitaría esos días del calendario, así que pide elegir entre ocultarla o borrarla, como un programa que estuvo activo.
-- **Con historial, borrar cuenta lo que se pierde** —cuántas series, qué huecos, qué notas, y las sesiones que solo tenían series de ese hueco, que se borran con él— y ofrece ocultar en su lugar. Si hay una sesión de esa rutina abierta hoy, también lo dice. En rojo, porque no se puede deshacer. Una sesión sin ninguna serie en un día pasado no cuenta como historial.
-- **Ocultar es reversible de verdad.** Una rutina oculta no sale del programa: el día la conserva, en gris, y cuenta como descanso; al mostrarla, vuelve a estar como estaba. Lo mismo un ejercicio oculto dentro de su hueco (se ve en gris, y E2 propone el comodín) o un hueco oculto dentro de su rutina. Si ocultar quitara la asignación, mostrarla no podría deshacerlo.
+- **Con historial, borrar cuenta lo que se pierde** —cuántas series, qué ejercicios, qué notas, y las sesiones que solo tenían series de ese ejercicio, que se borran con él— y ofrece ocultar en su lugar. Si hay una sesión de esa rutina abierta hoy, también lo dice. En rojo, porque no se puede deshacer. Una sesión sin ninguna serie en un día pasado no cuenta como historial.
+- **Ocultar es reversible de verdad.** Una rutina oculta no sale del programa: el día la conserva, en gris, y cuenta como descanso; al mostrarla, vuelve a estar como estaba. Lo mismo un ejercicio oculto dentro de su puesto en la rutina (se ve en gris, y E2 propone la alternativa) o un ejercicio de la rutina oculto dentro de su rutina. Si ocultar quitara la asignación, mostrarla no podría deshacerlo.
 - **Si a ese día se le pone otra rutina**, la nueva sustituye a la oculta, y mostrar la oculta ya no recupera el día: el sitio ya tiene dueño.
 - **Un programa oculto deja de ser el activo** si lo era, y no vuelve a serlo solo al mostrarlo.
 - **Cada lista con algo oculto lleva un *Ver N ocultos* al pie** (P1 una vez por sección, P3 y X1), que despliega los ocultos en gris, con la fecha desde la que lo están. Tocar uno lo abre en su estado oculto: un aviso arriba, *Mostrar* como acción principal y *Borrar* debajo, sin *Editar*: lo oculto no se edita, para cambiarlo primero se muestra (*Mostrar* pregunta antes, como el resto). Se puede *Duplicar* una rutina oculta, y las notas de un ejercicio oculto se siguen pudiendo escribir y cambiar, porque son del usuario.
@@ -344,10 +350,10 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 **Un día de gimnasio**
 
 1. Abre la app. E1 dice *Hoy toca Push*. Pulsa *Empezar Push* y confirma.
-2. E2 aparece con el hueco 1 desplegado: la última vez en fichas y el formulario ya relleno.
+2. E2 aparece con el ejercicio 1 desplegado: la última vez en fichas y el formulario ya relleno.
 3. Hace la primera serie, ajusta las reps si cambian y pulsa *Guardar serie 1*. El botón pasa a *Guardar serie 2*, con los mismos valores.
-4. Repite. Al acabar el hueco, despliega el siguiente.
-5. En el hueco 3 la máquina está ocupada: toca la flecha junto al nombre del ejercicio y elige el comodín. La última vez y el peso pasan a ser los del comodín.
+4. Repite. Al acabar el ejercicio, despliega el siguiente.
+5. En el ejercicio 3 la máquina está ocupada: toca la flecha junto al nombre del ejercicio y elige la alternativa. La última vez y el peso pasan a ser los de la alternativa.
 6. Se equivoca al apuntar una serie: el lápiz la carga en el formulario y la corrige.
 7. Entre series se acuerda de algo y lo apunta en *Añadir nota*. Al acabar, *Terminar sesión* y confirma. H2 le enseña en qué ejercicios mejoró.
 
@@ -357,11 +363,11 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 **"Esta semana el miércoles no puedo"**: Historial → *Planificar los próximos días* → el miércoles → *Descanso*, o la rutina que prefiera. El programa no cambia; solo ese día.
 
-**Montar un programa desde cero** (una vez, sentado): Programas → *Nueva rutina* → "Push" → *Añadir hueco* → ejercicio, comodines, series y reps → *Guardar* → siguiente hueco… Luego *Nuevo programa* → nombre → lunes → Push, miércoles → Pull… → *Activarlo al crearlo* → *Crear*.
+**Montar un programa desde cero** (una vez, sentado): Programas → *Nueva rutina* → "Push" → *Añadir ejercicio* → ejercicio, alternativas, series y reps → *Guardar* → siguiente ejercicio… → *Guardar*. Luego *Nuevo programa* → nombre → lunes → Push, miércoles → Pull… → *Crear* (y, si se quiere usar ya, activarlo después).
 
 **Pasar la libreta de meses anteriores**: Historial → el mes → un día pasado sin sesión → la rutina → E2 con esa fecha, serie a serie.
 
-**"¿Subo peso en el press banca?"**: Ejercicios → buscar → la ficha → la progresión. O desde un día del historial, con la flecha del hueco.
+**"¿Subo peso en el press banca?"**: Ejercicios → buscar → la ficha → la progresión. O desde un día del historial, con la flecha del ejercicio.
 
 **Corregir una serie de otro día**: Historial → el día → *Editar* → el lápiz de la serie.
 
@@ -375,7 +381,7 @@ Lo que queda es construir las pantallas.
 
 Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
-- **Objetivo por ejercicio y no por hueco.** Hoy las series objetivo y el rango de reps son del hueco, y el comodín los hereda. Queda por ver si cada ejercicio del hueco debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
+- **Objetivo por ejercicio y no por puesto en la rutina.** Hoy las series objetivo y el rango de reps son del puesto, y la alternativa los hereda. Queda por ver si cada alternativa debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
 - **Ocultar predefinidos**: haría falta guardarlo por usuario, porque ocultar la fila compartida la ocultaría para todos.
 - **Temporizador de descanso** entre series, en E2.
 - **Peso corporal**, para comparar con el peso levantado.

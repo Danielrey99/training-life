@@ -55,14 +55,14 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Y encima del plan, su seguimiento: qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar, y todo lo que necesita la pantalla de hoy en una sola llamada, además de las estadísticas del resumen (volumen por semana y por mes y constancia del año). La web se está rehaciendo pantalla a pantalla y ya tiene la pantalla de hoy, la sesión de entrenamiento y todo el historial: el calendario, cada día, la progresión de un ejercicio, la planificación y el resumen, y la lista de programas y rutinas. El móvil, sin empezar.
+🚧 El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Y encima del plan, su seguimiento: qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar, y todo lo que necesita la pantalla de hoy en una sola llamada, además de las estadísticas del resumen (volumen por semana y por mes y constancia del año). La web se está rehaciendo pantalla a pantalla y ya tiene la pantalla de hoy, la sesión de entrenamiento y todo el historial: el calendario, cada día, la progresión de un ejercicio, la planificación el resumen, y los programas con sus rutinas: la semana de cada uno, crear un programa y editar una rutina con sus ejercicios. El móvil, sin empezar.
 
 Antes de seguir construyendo pantallas sueltas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salió el trabajo de ahora: completar el backend con lo que pide ese diseño y rehacer la web siguiéndolo.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
-- [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, mismo patrón de borrado)
+- [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, creables de una vez con la rutina; mismo patrón de borrado)
 - [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso/repeticiones/RPE, base del historial de progresión)
 - [x] Backend: notas personales por ejercicio (privadas de cada usuario, también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
@@ -76,7 +76,8 @@ Antes de seguir construyendo pantallas sueltas se definió la app entera —qué
 - [x] Web: armazón del diseño (las cuatro secciones), la pantalla de hoy y la sesión de entrenamiento
 - [x] Backend: el resumen — volumen por semana y por mes con su desglose, y constancia del año
 - [x] Web: el historial — calendario, cada día, progresión de un ejercicio, planificación y resumen
-- [ ] Web: el resto de pantallas según el diseño — programas y ejercicios
+- [x] Web: programas y rutinas — la semana de un programa, crear un programa, y una rutina con sus ejercicios y alternativas (también para crear una rutina nueva)
+- [ ] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
 - [ ] Móvil: React Native + Expo
 - [ ] Sincronización offline-first móvil ↔ PC
 

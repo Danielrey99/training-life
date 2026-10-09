@@ -90,6 +90,8 @@ backend/
 │   ├── test_borrados.py     # borrado con historial y cascadas
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
+│   ├── test_rutinas.py      # duplicar, reordenar y crear una rutina con sus huecos
+│   ├── test_huecos.py       # el orden de un hueco nuevo y sustituir sus comodines
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
 │   ├── test_sesiones.py     # la sesión en curso y una sesión por día
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
@@ -203,7 +205,8 @@ No hay ningún paso previo que recordar:
 | Archivo | Qué cubre |
 |---|---|
 | `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas, las sesiones canceladas que no cuentan como historial, las que se van con el hueco que las vació, y los dos avisos de borrado |
-| `test_rutinas.py` | Duplicar una rutina (el nombre de la copia, qué se copia y qué no), reordenar sus huecos y que el listado no haga una consulta por rutina |
+| `test_rutinas.py` | Duplicar una rutina (el nombre de la copia, qué se copia y qué no), reordenar sus huecos, crear una rutina con sus huecos y comodines de una vez (y que un fallo no deje nada a medias) y que el listado no haga una consulta por rutina |
+| `test_huecos.py` | El orden automático de un hueco nuevo, y sustituir sus comodines con una lista: que se conserven las filas de los que siguen, la lista repetida, un comodín oculto que se conserva y quitar uno con series |
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
@@ -275,15 +278,15 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 |---|---|---|
 | `GET` | `/rutinas` | Lista las rutinas visibles del usuario actual. Con `?ocultas=true`, lista en cambio las ocultadas. |
 | `GET` | `/rutinas/{id}` | Obtiene una rutina con sus huecos y comodines anidados, también si está oculta, y con sus huecos ocultos incluidos. |
-| `POST` | `/rutinas` | Crea una rutina (sin huecos todavía). |
+| `POST` | `/rutinas` | Crea una rutina, vacía o con sus huecos y comodines de una vez (`slots`, cada uno con `alternativa_ids`; su orden es su posición en la lista). Todo en una transacción: si un ejercicio no vale (inexistente, ajeno u oculto: 404) o el cuerpo es incoherente (422: un comodín igual al principal o repetido, `reps_max` menor que `reps_min`, más de 100 huecos), no se crea nada. |
 | `PUT` | `/rutinas/{id}` | Edita el nombre de una rutina propia (409 si está oculta). |
 | `DELETE` | `/rutinas/{id}` | Borra una rutina propia. Mismo patrón que `Ejercicio`: directo si no tiene huecos ni sesiones registradas (las canceladas no cuentan y se van con ella) y nunca tocó un día pasado del plan; si no, exige `?modo=ocultar` o `?modo=definitivo` (que borra también sus huecos, comodines y sesiones, en transacción, y deja en descanso los días del plan que tenía). |
 | `GET` | `/rutinas/{id}/aviso-de-borrado` | Lo que se perdería al borrarla, para enseñarlo antes de preguntar (el 409 del `DELETE` no sirve: sin historial, borraría sin preguntar): si tiene historial, cuántos huecos, sesiones con series, días de programa y días planificados a mano, si tocó días pasados y si hay una sesión suya abierta hoy, que se borraría con ella. También de una rutina oculta. |
 | `POST` | `/rutinas/{id}/duplicar` | Una copia independiente, que se llama como hace Windows con los archivos (`Push - copia`, `Push - copia (2)`…). Copia los huecos visibles con sus comodines; no copia los ocultos, los días de programa ni el historial. Se puede duplicar una rutina oculta; la copia nace visible. |
 | `PUT` | `/rutinas/{id}/orden` | Reordena los huecos visibles de una vez (`{slot_ids}` en el orden nuevo, 422 si no son exactamente los visibles). Con `PUT` sueltos no se puede: intercambiar dos huecos choca a medias con la restricción única del orden. Los ocultos conservan el suyo. |
 | `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
-| `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia. |
-| `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). El principal solo se valida si cambia: si se ocultó después, el hueco se puede seguir corrigiendo. No puede pasar a principal un ejercicio que ya es comodín del hueco (409). |
+| `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia, con sus comodines si llegan en `alternativa_ids`. `orden` es opcional: sin él, el hueco va al final (el mayor `orden` de todos los huecos, también los ocultos, más uno; 409 si pasara de 100). |
+| `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). El principal solo se valida si cambia: si se ocultó después, el hueco se puede seguir corrigiendo. Con `alternativa_ids`, la lista sustituye a los comodines actuales (vacía, los quita todos) y solo se valida lo que se añade, así que un comodín oculto que se conserva no da error; sin ella, los comodines no se tocan y no se puede pasar a principal un ejercicio que ya es comodín del hueco (409). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`, que borra también esas series y las sesiones que se quedan sin ninguna (la de hoy en curso se conserva). El 409 dice cuántas sesiones se irían. |
 | `GET` | `/rutinas/{id}/slots/{slot_id}/aviso-de-borrado` | Lo que se perdería al borrarlo: cuántas series, desde cuándo y qué sesiones se borrarían con ellas, con el día que contaban. También con el hueco oculto. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/mostrar` | Deshace un `?modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio. |
