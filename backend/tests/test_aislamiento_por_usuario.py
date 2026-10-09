@@ -9,7 +9,7 @@ son la red que avisa si el aislamiento se rompe.
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth import USUARIO_SEMBRADO_ID
 from app.fechas import hoy
@@ -294,6 +294,116 @@ def test_no_se_puede_usar_un_ejercicio_ajeno_en_huecos_comodines_ni_series(
         "repeticiones": 8,
     }
     assert cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=serie).status_code == 404
+
+
+# --- Rutina nueva con sus huecos, orden automático y lista de comodines -----
+
+
+def _hueco_sin_orden(principal, comodines=()) -> dict:
+    return {
+        "ejercicio_principal_id": principal,
+        "alternativa_ids": list(comodines),
+        "series_objetivo": 4,
+        "reps_min": 6,
+        "reps_max": 10,
+    }
+
+
+def _filas(sesion_bd) -> tuple[int, int, int]:
+    """Cuántas rutinas, huecos y comodines hay en la base, de todos los usuarios."""
+    sesion_bd.expire_all()
+    return tuple(
+        sesion_bd.scalar(select(func.count()).select_from(modelo))
+        for modelo in (Rutina, RutinaSlot, SlotAlternativa)
+    )
+
+
+@pytest.mark.parametrize("donde", ["principal", "comodín"])
+def test_una_rutina_nueva_con_un_ejercicio_ajeno_da_404_y_no_crea_nada(
+    cliente, sesion_bd, ejercicio_ajeno_id, ejercicio_predefinido_id, donde
+):
+    hueco = (
+        _hueco_sin_orden(ejercicio_ajeno_id)
+        if donde == "principal"
+        else _hueco_sin_orden(ejercicio_predefinido_id, comodines=[ejercicio_ajeno_id])
+    )
+    bien = _hueco_sin_orden(ejercicio_predefinido_id)
+
+    respuesta = cliente.post("/rutinas", json={"nombre": "Push", "slots": [bien, hueco]})
+
+    assert respuesta.status_code == 404
+    assert _filas(sesion_bd) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("orden", [None, 2], ids=["sin orden", "con orden"])
+def test_no_se_anade_un_hueco_a_una_rutina_ajena_ni_sin_orden(
+    cliente, sesion_bd, hueco_ajeno, ejercicio_predefinido_id, orden
+):
+    antes = _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno)
+    cuerpo = _hueco_sin_orden(ejercicio_predefinido_id)
+    if orden is not None:
+        cuerpo["orden"] = orden
+
+    respuesta = cliente.post(f"/rutinas/{hueco_ajeno['rutina_id']}/slots", json=cuerpo)
+
+    assert respuesta.status_code == 403
+    assert _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno) == antes
+    assert _filas(sesion_bd) == (1, 1, 1)
+
+
+@pytest.mark.parametrize("lista", ["vacía", "con uno mío"])
+def test_no_se_cambian_los_comodines_de_un_hueco_ajeno(
+    cliente, sesion_bd, hueco_ajeno, ejercicio_predefinido_id, lista
+):
+    antes = _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno)
+    principal = sesion_bd.get(RutinaSlot, hueco_ajeno["slot_id"]).ejercicio_principal_id
+    cuerpo = {
+        **_hueco_sin_orden(principal),
+        "orden": 1,
+        "alternativa_ids": [] if lista == "vacía" else [ejercicio_predefinido_id],
+    }
+
+    respuesta = cliente.put(
+        f"/rutinas/{hueco_ajeno['rutina_id']}/slots/{hueco_ajeno['slot_id']}", json=cuerpo
+    )
+
+    assert respuesta.status_code == 403
+    assert _estado_de_la_rutina_ajena(sesion_bd, hueco_ajeno) == antes
+
+
+def test_un_comodin_ajeno_no_entra_en_un_hueco_propio_por_ninguna_lista(
+    cliente, sesion_bd, ejercicio_ajeno_id, ejercicio_predefinido_id
+):
+    rutina = cliente.post(
+        "/rutinas", json={"nombre": "Push", "slots": [_hueco_sin_orden(ejercicio_predefinido_id)]}
+    ).json()
+    slot_id = rutina["slots"][0]["id"]
+    con_ajeno = _hueco_sin_orden(ejercicio_predefinido_id, comodines=[ejercicio_ajeno_id])
+
+    assert cliente.post(f"/rutinas/{rutina['id']}/slots", json=con_ajeno).status_code == 404
+    assert (
+        cliente.put(
+            f"/rutinas/{rutina['id']}/slots/{slot_id}", json={**con_ajeno, "orden": 1}
+        ).status_code
+        == 404
+    )
+    assert _filas(sesion_bd) == (1, 1, 0)
+
+
+def test_el_orden_automatico_no_cuenta_los_huecos_de_otro_usuario(
+    cliente, sesion_bd, hueco_ajeno, ejercicio_predefinido_id
+):
+    """El hueco ajeno está en el 100: si contara, la rutina propia estaría «llena»."""
+    sesion_bd.get(RutinaSlot, hueco_ajeno["slot_id"]).orden = 100
+    sesion_bd.commit()
+    propia = cliente.post("/rutinas", json={"nombre": "Mía"}).json()["id"]
+
+    respuesta = cliente.post(
+        f"/rutinas/{propia}/slots", json=_hueco_sin_orden(ejercicio_predefinido_id)
+    )
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["orden"] == 1
 
 
 # --- Notas sobre ejercicios ----------------------------------------------

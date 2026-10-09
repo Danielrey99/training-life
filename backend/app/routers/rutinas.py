@@ -221,10 +221,34 @@ def crear_rutina(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Crea la rutina "vacía" (sin huecos todavía) — los huecos se añaden
-    aparte, con POST /rutinas/{id}/slots.
+    """Crea una rutina, vacía o con sus huecos y comodines de una vez.
+
+    Todo en una transacción: primero se comprueba cada ejercicio y solo después se
+    construye nada, así que un ejercicio que no vale (inexistente, ajeno u oculto:
+    404) no deja una rutina a medias. El orden de los huecos es el de la lista.
     """
-    rutina = Rutina(**datos.model_dump(), usuario_id=usuario_id)
+    _validar_ejercicios_elegidos(
+        db,
+        [
+            id_
+            for hueco in datos.slots
+            for id_ in (hueco.ejercicio_principal_id, *hueco.alternativa_ids)
+        ],
+        usuario_id,
+    )
+    rutina = Rutina(usuario_id=usuario_id, nombre=datos.nombre)
+    # Solo INSERT, todos en la misma relación: no hace falta flush() entre ellos.
+    rutina.slots = [
+        RutinaSlot(
+            orden=posicion,
+            ejercicio_principal_id=hueco.ejercicio_principal_id,
+            series_objetivo=hueco.series_objetivo,
+            reps_min=hueco.reps_min,
+            reps_max=hueco.reps_max,
+            slot_alternativas=[SlotAlternativa(ejercicio_id=id_) for id_ in hueco.alternativa_ids],
+        )
+        for posicion, hueco in enumerate(datos.slots, start=1)
+    ]
     db.add(rutina)
     db.commit()
     db.refresh(rutina)
@@ -505,6 +529,34 @@ def _validar_orden_disponible(
         )
 
 
+def _validar_ejercicios_elegidos(db: Session, ids, usuario_id: int) -> None:
+    """Cada ejercicio que se elige (principal o comodín) tiene que ser visible: 404
+    si no existe, es de otro usuario o está oculto. Cada id se mira una vez.
+    """
+    for ejercicio_id in dict.fromkeys(ids):
+        obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+
+
+ORDEN_MAXIMO = 100
+
+
+def _siguiente_orden(db: Session, rutina_id: int) -> int:
+    """Al final de la rutina: el mayor `orden` de todos sus huecos, también los
+    ocultos (al mostrarlos vuelven a su sitio y no deben chocar), más uno.
+
+    Con tope, porque el PUT de un hueco exige `orden <= 100`: uno con 101 ya no se
+    podría editar.
+    """
+    mayor = db.scalar(select(func.max(RutinaSlot.orden)).where(RutinaSlot.rutina_id == rutina_id))
+    siguiente = (mayor or 0) + 1
+    if siguiente > ORDEN_MAXIMO:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta rutina no admite más ejercicios",
+        )
+    return siguiente
+
+
 @router.post(
     "/{rutina_id}/slots",
     response_model=RutinaSlotOut,
@@ -517,9 +569,23 @@ def crear_slot(
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
     _obtener_rutina_propia(db, rutina_id, usuario_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
-    _validar_orden_disponible(db, rutina_id, datos.orden)
-    slot = RutinaSlot(**datos.model_dump(), rutina_id=rutina_id)
+    _validar_ejercicios_elegidos(
+        db, [datos.ejercicio_principal_id, *datos.alternativa_ids], usuario_id
+    )
+    if datos.orden is None:
+        orden = _siguiente_orden(db, rutina_id)
+    else:
+        _validar_orden_disponible(db, rutina_id, datos.orden)
+        orden = datos.orden
+    slot = RutinaSlot(
+        rutina_id=rutina_id,
+        orden=orden,
+        ejercicio_principal_id=datos.ejercicio_principal_id,
+        series_objetivo=datos.series_objetivo,
+        reps_min=datos.reps_min,
+        reps_max=datos.reps_max,
+        slot_alternativas=[SlotAlternativa(ejercicio_id=id_) for id_ in datos.alternativa_ids],
+    )
     db.add(slot)
     db.commit()
     db.refresh(slot)
@@ -534,19 +600,42 @@ def actualizar_slot(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
+    """Cambia un hueco. Con `alternativa_ids`, la lista sustituye a los comodines
+    actuales (vacía, los quita todos); sin ella, los comodines no se tocan.
+    """
     slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
+    actuales = {fila.ejercicio_id for fila in slot.slot_alternativas}
     # El principal solo se valida si cambia: si se ocultó después, el hueco lo
     # sigue enseñando, y corregir sus series o reps no es elegirlo de nuevo.
     if datos.ejercicio_principal_id != slot.ejercicio_principal_id:
         obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
-        if any(comodin.id == datos.ejercicio_principal_id for comodin in slot.alternativas):
+        # Con la lista nueva, el validador ya garantiza que el principal no está en
+        # ella: intercambiar principal y comodín en una sola petición vale.
+        if datos.alternativa_ids is None and datos.ejercicio_principal_id in actuales:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Ese ejercicio ya es comodín de este hueco: quítalo antes de hacerlo principal",
             )
+    # Solo se validan los comodines que se añaden: uno ya oculto que se conserva no
+    # se está eligiendo de nuevo ("corregir sí, elegir algo oculto no").
+    if datos.alternativa_ids is not None:
+        _validar_ejercicios_elegidos(
+            db, [id_ for id_ in datos.alternativa_ids if id_ not in actuales], usuario_id
+        )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
-    for campo, valor in datos.model_dump().items():
+    for campo, valor in datos.model_dump(exclude={"alternativa_ids"}).items():
         setattr(slot, campo, valor)
+    if datos.alternativa_ids is not None:
+        # Se conservan las filas de los que siguen. Reconstruir la lista entera
+        # borraría y volvería a insertar el mismo par (hueco, ejercicio), y SQLAlchemy
+        # emite los INSERT antes que los DELETE: UNIQUE(slot_id, ejercicio_id) daría 500.
+        nuevos = set(datos.alternativa_ids)
+        for fila in list(slot.slot_alternativas):
+            if fila.ejercicio_id not in nuevos:
+                slot.slot_alternativas.remove(fila)
+        for id_ in datos.alternativa_ids:
+            if id_ not in actuales:
+                slot.slot_alternativas.append(SlotAlternativa(ejercicio_id=id_))
     db.commit()
     db.refresh(slot)
     return slot

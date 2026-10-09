@@ -1,15 +1,18 @@
-"""Tests de lo que se hace con una rutina entera: duplicarla, reordenar sus
-huecos y listarlas.
+"""Tests de lo que se hace con una rutina entera: crearla con sus huecos,
+duplicarla, reordenar sus huecos y listarlas.
 
-Duplicar es la forma de que una rutina diverja sin cambiar los programas donde
-está; reordenar existe porque con PUT sueltos intercambiar dos huecos choca a
-medias con `UNIQUE(rutina_id, orden)`.
+Crearla de una vez existe porque la pantalla de rutina nueva no guarda nada hasta
+Guardar: un fallo a medias no puede dejar una rutina a medias. Duplicar es la
+forma de que una rutina diverja sin cambiar los programas donde está; reordenar
+existe porque con PUT sueltos intercambiar dos huecos choca a medias con
+`UNIQUE(rutina_id, orden)`.
 """
 
 import pytest
+from sqlalchemy import func, select
 
 from app.fechas import hoy
-from app.models import Rutina
+from app.models import Rutina, RutinaSlot, SlotAlternativa
 from tests.ayudas import consultas_de, entrenar, hueco_en_bd, rutina_en_bd
 
 # --- Ayudantes -----------------------------------------------------------
@@ -88,6 +91,171 @@ def lo_que_tiene(rutina) -> list[tuple]:
         )
         for hueco in rutina["slots"]
     ]
+
+
+def hueco_nuevo(principal, comodines=(), series=4, reps=(6, 10)) -> dict:
+    """Un hueco dentro del cuerpo de `POST /rutinas`: sin `orden`, que es su posición."""
+    return {
+        "ejercicio_principal_id": principal,
+        "alternativa_ids": list(comodines),
+        "series_objetivo": series,
+        "reps_min": reps[0],
+        "reps_max": reps[1],
+    }
+
+
+def filas_guardadas(sesion_bd) -> tuple[int, int, int]:
+    """Cuántas rutinas, huecos y comodines hay en la base, también los ocultos y
+    los de otros usuarios: para ver que un fallo no ha dejado nada a medias.
+    """
+    sesion_bd.expire_all()
+    return tuple(
+        sesion_bd.scalar(select(func.count()).select_from(modelo))
+        for modelo in (Rutina, RutinaSlot, SlotAlternativa)
+    )
+
+
+# --- Crear una rutina con sus huecos ----------------------------------------
+
+
+@pytest.mark.parametrize("cuerpo", [{"nombre": "Push"}, {"nombre": "Push", "slots": []}])
+def test_una_rutina_nueva_sin_huecos_sigue_creandose_vacia(cliente, cuerpo):
+    respuesta = cliente.post("/rutinas", json=cuerpo)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["slots"] == []
+    assert cliente.get(f"/rutinas/{respuesta.json()['id']}").json()["slots"] == []
+
+
+def test_una_rutina_nueva_guarda_sus_huecos_en_el_orden_de_la_lista(cliente, grupo_muscular_id):
+    """El orden sale de la posición en la lista, no de los ids: los ejercicios se
+    crean en un orden y se mandan en otro, y los comodines igual.
+    """
+    a, b, c, d, e, f = (
+        crear_ejercicio(cliente, grupo_muscular_id, nombre)
+        for nombre in ("Press", "Aperturas", "Fondos", "Cruces", "Elevaciones", "Remo")
+    )
+    cuerpo = {
+        "nombre": "Push",
+        "slots": [
+            hueco_nuevo(c, comodines=[f, d], series=5, reps=(3, 5)),
+            hueco_nuevo(a, series=3, reps=(8, 12)),
+            hueco_nuevo(b, comodines=[e], series=2, reps=(15, 20)),
+        ],
+    }
+
+    respuesta = cliente.post("/rutinas", json=cuerpo)
+
+    assert respuesta.status_code == 201, respuesta.text
+    rutina = respuesta.json()
+    esperado = [
+        (1, c, 5, 3, 5, [f, d]),
+        (2, a, 3, 8, 12, []),
+        (3, b, 2, 15, 20, [e]),
+    ]
+    assert lo_que_tiene(rutina) == esperado
+    assert rutina["num_programas"] == 0
+    assert rutina["oculto_desde"] is None
+    assert all(
+        h["oculto_desde"] is None and h["rutina_id"] == rutina["id"] for h in rutina["slots"]
+    )
+    # Y se ha guardado así, no solo respondido.
+    assert lo_que_tiene(cliente.get(f"/rutinas/{rutina['id']}").json()) == esperado
+
+
+def test_una_rutina_nueva_admite_predefinidos_y_el_mismo_ejercicio_en_dos_huecos(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    propio = crear_ejercicio(cliente, grupo_muscular_id, "Prensa")
+    cuerpo = {
+        "nombre": "Leg",
+        "slots": [
+            hueco_nuevo(ejercicio_predefinido_id, comodines=[propio]),
+            hueco_nuevo(propio, comodines=[ejercicio_predefinido_id]),
+            hueco_nuevo(ejercicio_predefinido_id),
+        ],
+    }
+
+    respuesta = cliente.post("/rutinas", json=cuerpo)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert lo_que_tiene(respuesta.json()) == [
+        (1, ejercicio_predefinido_id, 4, 6, 10, [propio]),
+        (2, propio, 4, 6, 10, [ejercicio_predefinido_id]),
+        (3, ejercicio_predefinido_id, 4, 6, 10, []),
+    ]
+
+
+def test_una_rutina_nueva_admite_100_huecos_justos(cliente, ejercicio_predefinido_id):
+    cuerpo = {"nombre": "Larga", "slots": [hueco_nuevo(ejercicio_predefinido_id)] * 100}
+
+    respuesta = cliente.post("/rutinas", json=cuerpo)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert [h["orden"] for h in respuesta.json()["slots"]] == list(range(1, 101))
+
+
+@pytest.mark.parametrize(
+    "caso, lo_que_dice",
+    [
+        ("reps al revés en el tercer hueco", "reps_max no puede ser menor que reps_min"),
+        ("demasiadas series", "less than or equal to 50"),
+        ("comodín igual al principal", "Un comodín no puede ser el ejercicio principal"),
+        ("comodín repetido", "Hay comodines repetidos"),
+        ("101 huecos", "at most 100"),
+    ],
+)
+def test_una_rutina_nueva_con_datos_incoherentes_da_422_y_no_crea_nada(
+    cliente, sesion_bd, grupo_muscular_id, ejercicio_predefinido_id, caso, lo_que_dice
+):
+    """`lo_que_dice` asegura que el 422 es por lo que se prueba y no por otro
+    campo mal escrito en el cuerpo.
+    """
+    propio = crear_ejercicio(cliente, grupo_muscular_id, "Prensa")
+    bien = hueco_nuevo(ejercicio_predefinido_id, comodines=[propio])
+    huecos = {
+        "reps al revés en el tercer hueco": [bien, bien, hueco_nuevo(propio, reps=(10, 6))],
+        "demasiadas series": [bien, hueco_nuevo(propio, series=51)],
+        "comodín igual al principal": [bien, hueco_nuevo(propio, comodines=[propio])],
+        "comodín repetido": [
+            bien,
+            hueco_nuevo(propio, comodines=[ejercicio_predefinido_id, ejercicio_predefinido_id]),
+        ],
+        "101 huecos": [bien] * 101,
+    }[caso]
+
+    respuesta = cliente.post("/rutinas", json={"nombre": "Push", "slots": huecos})
+
+    assert respuesta.status_code == 422
+    assert lo_que_dice in str(respuesta.json()["detail"])
+    assert filas_guardadas(sesion_bd) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("caso", ["principal inexistente", "comodín oculto en el último hueco"])
+def test_una_rutina_nueva_con_un_ejercicio_que_no_vale_da_404_y_no_crea_nada(
+    cliente, sesion_bd, grupo_muscular_id, ejercicio_predefinido_id, caso
+):
+    """La atomicidad: los huecos de antes del que falla eran válidos, y aun así no
+    puede quedar ni la rutina ni ninguno de ellos.
+    """
+    propio = crear_ejercicio(cliente, grupo_muscular_id, "Prensa")
+    oculto = crear_ejercicio(cliente, grupo_muscular_id, "Hack")
+    assert cliente.delete(f"/ejercicios/{oculto}?modo=ocultar").status_code == 204
+    bien = hueco_nuevo(ejercicio_predefinido_id, comodines=[propio])
+    huecos = {
+        "principal inexistente": [hueco_nuevo(999_999), bien],
+        "comodín oculto en el último hueco": [
+            bien,
+            bien,
+            hueco_nuevo(propio, comodines=[ejercicio_predefinido_id, oculto]),
+        ],
+    }[caso]
+
+    respuesta = cliente.post("/rutinas", json={"nombre": "Leg", "slots": huecos})
+
+    assert respuesta.status_code == 404
+    assert filas_guardadas(sesion_bd) == (0, 0, 0)
+    assert cliente.get("/rutinas").json() == []
 
 
 # --- Duplicar: el nombre --------------------------------------------------

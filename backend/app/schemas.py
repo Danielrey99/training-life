@@ -110,12 +110,15 @@ class NotaOut(NotaBase):
 
 
 class RutinaSlotBase(BaseModel):
-    """Campos que el cliente puede enviar al crear o editar un hueco."""
+    """Campos de un hueco que valen igual al crearlo que al editarlo.
+
+    Sin `orden`: al crear es opcional (el backend lo pone al final) y al editar es
+    obligatorio, así que cada esquema lo declara a su manera.
+    """
 
     ejercicio_principal_id: int
     # Los topes no son de la base de datos (que admite mucho más), sino de lo que
     # tiene sentido: un número fuera de ellos solo puede ser un error al teclear.
-    orden: int = Field(gt=0, le=100)
     series_objetivo: int = Field(gt=0, le=50)
     reps_min: int = Field(gt=0, le=1000)
     reps_max: int = Field(gt=0, le=1000)
@@ -127,12 +130,43 @@ class RutinaSlotBase(BaseModel):
         return self
 
 
-class RutinaSlotCreate(RutinaSlotBase):
-    pass
+def _validar_comodines(principal_id: int, alternativa_ids: list[int] | None) -> None:
+    """Lo incoherente dentro del propio cuerpo es un 422, no un 409: no choca con
+    nada guardado (como `_validar_dias_sin_repetir` de `ProgramaCreate`).
+    """
+    if alternativa_ids is None:
+        return
+    if principal_id in alternativa_ids:
+        raise ValueError("Un comodín no puede ser el ejercicio principal del hueco")
+    if len(set(alternativa_ids)) != len(alternativa_ids):
+        raise ValueError("Hay comodines repetidos")
+
+
+class SlotDeRutinaNueva(RutinaSlotBase):
+    """Un hueco dentro de `RutinaCreate`: su orden es su posición en la lista."""
+
+    alternativa_ids: list[int] = []
+
+    @model_validator(mode="after")
+    def _validar_alternativas(self):
+        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        return self
+
+
+class RutinaSlotCreate(SlotDeRutinaNueva):
+    # Sin él, el hueco va al final (máximo de todos, también los ocultos, + 1).
+    orden: int | None = Field(None, gt=0, le=100)
 
 
 class RutinaSlotUpdate(RutinaSlotBase):
-    pass
+    orden: int = Field(gt=0, le=100)
+    # Sin ella (o nula), los comodines no se tocan; una lista sustituye a la actual.
+    alternativa_ids: list[int] | None = None
+
+    @model_validator(mode="after")
+    def _validar_alternativas(self):
+        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        return self
 
 
 class RutinaSlotOut(RutinaSlotBase):
@@ -145,6 +179,7 @@ class RutinaSlotOut(RutinaSlotBase):
 
     id: int
     rutina_id: int
+    orden: int
     oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
@@ -155,7 +190,7 @@ class RutinaSlotOut(RutinaSlotBase):
 class RutinaBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar una rutina.
 
-    No incluye los huecos (slots): se gestionan aparte, con sus propios
+    No incluye los huecos (slots): al editar se gestionan aparte, con sus propios
     endpoints anidados bajo /rutinas/{id}/slots.
     """
 
@@ -163,7 +198,16 @@ class RutinaBase(BaseModel):
 
 
 class RutinaCreate(RutinaBase):
-    pass
+    """Una rutina nueva, opcionalmente con sus huecos y comodines de una vez: la
+    pantalla de rutina nueva no guarda nada hasta pulsar Guardar, y crearlo todo en
+    una sola petición evita que un fallo a medias deje una rutina a medias.
+
+    `slots` va aquí y no en `RutinaBase`: el PUT copia todo el cuerpo a la rutina y
+    acabaría asignando diccionarios a la relación.
+    """
+
+    # El tope coincide con el de `orden`.
+    slots: list[SlotDeRutinaNueva] = Field(default=[], max_length=100)
 
 
 class RutinaUpdate(RutinaBase):
