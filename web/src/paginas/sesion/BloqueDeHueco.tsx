@@ -49,7 +49,7 @@ export function BloqueDeHueco(props: Props) {
       <button type="button" className="hueco-plegado" onClick={abrir} disabled={bloqueado}>
         <span className="hueco-plegado-nombre">
           <span>{titulo}</span>
-          {comodin && <span className="etiqueta-chica">comodín</span>}
+          {comodin && <span className="etiqueta-chica">alternativa</span>}
           {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
         </span>
         <span className={completo ? 'hueco-cuenta num completo' : 'hueco-cuenta num'}>
@@ -204,7 +204,7 @@ function HuecoAbierto({
 
       {!elegido && (
         <p className="nota">
-          Los ejercicios de este hueco están ocultos: muestra alguno para usarlo.
+          Este ejercicio y sus alternativas están ocultos: muestra alguno para usarlo.
         </p>
       )}
     </section>

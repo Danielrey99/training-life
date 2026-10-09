@@ -55,7 +55,7 @@ export function SelectorDeEjercicio({
 
   const opciones = [
     { ejercicio: principal, rol: 'principal' },
-    ...comodines.map((ejercicio) => ({ ejercicio, rol: 'comodín' })),
+    ...comodines.map((ejercicio) => ({ ejercicio, rol: 'alternativa' })),
   ]
 
   return (
@@ -119,7 +119,7 @@ function Opcion({
 
   let detalle = ' '
   if (oculto) detalle = 'Oculto'
-  else if (vez === null) detalle = 'Todavía no lo has hecho en este hueco'
+  else if (vez === null) detalle = 'Todavía no lo has hecho en esta rutina'
   else if (vez && primera) {
     detalle = `Última vez · ${pesoLegible(primera.peso)} × ${primera.repeticiones} · ${fechaCorta(vez.fecha)}`
   }

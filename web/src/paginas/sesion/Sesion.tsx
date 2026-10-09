@@ -300,7 +300,7 @@ export function Sesion() {
       {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
-          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completos} de ${visibles.length} ejercicios completos. Podrás revisarla y corregirla después en el historial.`}
+          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completos} de ${visibles.length} ejercicios completos. Podrás revisarla y corregirla después en la pestaña Historial.`}
           confirmar="Terminar"
           cancelar="Seguir entrenando"
           alConfirmar={async () => {

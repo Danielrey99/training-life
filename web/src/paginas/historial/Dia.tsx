@@ -326,7 +326,7 @@ export function Dia() {
     if (fallo instanceof ErrorDeApi && fallo.estado === 409) {
       return (
         `El ${fechaEnFrase(nueva, false)} ya tiene una sesión, y solo se hace una por día. ` +
-        `Para usar ese día, cambia antes la fecha de esa sesión desde su día en el Historial.`
+        `Para usar ese día, cambia antes la fecha de esa sesión desde su día en la pestaña Historial.`
       )
     }
     if (fallo instanceof ErrorDeApi && fallo.estado === 422 && dia.cubre_fecha && nueva <= hoy()) {

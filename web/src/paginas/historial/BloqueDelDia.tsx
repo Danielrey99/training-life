@@ -222,14 +222,16 @@ export function BloqueDelDia({
               <FichasUltimaVez series={bloque.ultima.series} />
             </>
           ) : (
-            <span className="rotulo dia-primera">Primera vez con este ejercicio en el hueco</span>
+            <span className="rotulo dia-primera">
+              Primera vez con este ejercicio en esta rutina
+            </span>
           )}
         </div>
       )}
       {esComodin && (
         <div className="dia-pie">
           <span>En lugar de {principal.nombre}</span>
-          <span className="etiqueta-chica">comodín</span>
+          <span className="etiqueta-chica">alternativa</span>
         </div>
       )}
     </section>

@@ -365,7 +365,7 @@ function Tarjeta({
           <p className="tarjeta-antes">Hoy</p>
           <p className="tarjeta-grande">Sin programa</p>
           <p className="tarjeta-despues">
-            Hoy y el calendario no proponen nada hasta que actives uno.
+            Activa un programa para que te diga qué rutina toca cada día.
           </p>
           <Link to="/programas" className="boton tarjeta-boton-normal">
             Elegir un programa
