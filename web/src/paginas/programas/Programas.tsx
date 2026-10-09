@@ -6,29 +6,14 @@ import type { Programa, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { colorDeRutina } from '../../utiles/colores'
 import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
+import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from './textos'
 import './programas.css'
-
-const NOMBRES_DE_LOS_DIAS = [
-  'lunes',
-  'martes',
-  'miércoles',
-  'jueves',
-  'viernes',
-  'sábado',
-  'domingo',
-]
 
 type Datos = {
   programas: Programa[]
   programasOcultos: Programa[]
   rutinas: Rutina[]
   rutinasOcultas: Rutina[]
-}
-
-/** "lunes, miércoles y viernes". */
-function enumerar(partes: string[]) {
-  if (partes.length <= 1) return partes.join('')
-  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
 }
 
 /**
@@ -38,9 +23,8 @@ function enumerar(partes: string[]) {
  */
 function diasDelPrograma(programa: Programa, conNombres = true) {
   const dias = programa.dias.filter((dia) => dia.rutina.oculto_desde === null)
-  if (dias.length === 0) return 'Sin días de entreno'
-  const cuantos = dias.length === 1 ? '1 día' : `${dias.length} días`
-  if (!conNombres) return cuantos
+  const cuantos = cuantosDias(dias.length)
+  if (dias.length === 0 || !conNombres) return cuantos
   if (dias.length === 7) return `${cuantos} · todos los días`
   return `${cuantos} · ${enumerar(dias.map((dia) => NOMBRES_DE_LOS_DIAS[dia.dia_semana - 1]))}`
 }
@@ -54,13 +38,6 @@ function usoDelPrograma(programa: Programa) {
   const ultimo = sumarDias(periodo.hasta, -1)
   if (ultimo === periodo.desde) return `El ${diaYMesConAnio(ultimo)}`
   return `Del ${diaYMesConAnio(periodo.desde)} al ${diaYMesConAnio(ultimo)}`
-}
-
-/** Los ejercicios de una rutina son sus huecos visibles: los ocultos ya no se entrenan. */
-function ejercicios(rutina: Rutina) {
-  const cuantos = rutina.slots.filter((hueco) => hueco.oculto_desde === null).length
-  if (cuantos === 0) return 'Sin ejercicios'
-  return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
 }
 
 function enProgramas(rutina: Rutina) {
@@ -135,7 +112,7 @@ export function Programas() {
         {programas.map((programa) => (
           <TarjetaDePrograma key={programa.id} programa={programa} />
         ))}
-        <Link to="/programas/nuevo" className="boton programas-nuevo">
+        <Link to="/programas/nuevo" state={{ empezar: true }} className="boton programas-nuevo">
           Nuevo programa
         </Link>
         <Ocultos
@@ -173,6 +150,7 @@ export function Programas() {
         {/* Sin rutinas no se puede hacer nada más: crear una es lo primero. */}
         <Link
           to="/programas/rutinas/nueva"
+          state={{ empezar: true }}
           className={`boton programas-nuevo${sinRutinas ? ' boton-principal' : ''}`}
         >
           Nueva rutina

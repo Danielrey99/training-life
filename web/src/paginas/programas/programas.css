@@ -164,3 +164,10 @@
   color: var(--texto-tenue);
   text-align: center;
 }
+
+/* *+ Nueva rutina* al pie de la hoja de elegir rutina (P5). */
+.programas-hoja-nueva.hoja-fila {
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}

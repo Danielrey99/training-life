@@ -1,0 +1,174 @@
+/* P4 · Un ejercicio de la rutina, y su hoja de elegir ejercicio. Reutiliza de la sesión
+   la cabecera y el control − / +, y de P2 el aviso de oculto. */
+
+.ejercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* El recuadro del ejercicio principal (un botón que abre la hoja) y, en solo lectura,
+   el de cada valor. */
+.ejercicio-caja {
+  font: inherit;
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  color: var(--texto);
+  font-size: 15px;
+  text-align: left;
+}
+
+button.ejercicio-caja {
+  cursor: pointer;
+}
+
+button.ejercicio-caja > span:first-child {
+  flex-grow: 1;
+}
+
+button.ejercicio-caja .icono {
+  color: var(--texto-tenue);
+}
+
+.ejercicio-sin-elegir {
+  color: var(--texto-tenue);
+}
+
+.ejercicio-ayuda {
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.ejercicio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ejercicio-chip {
+  font: inherit;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 14px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--fondo);
+  color: var(--texto);
+  font-size: 14px;
+}
+
+.ejercicio-chip.nueva {
+  padding: 0 14px;
+  border-style: dashed;
+  background: none;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}
+
+.ejercicio-chip-quitar {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--texto-tenue);
+  cursor: pointer;
+}
+
+.ejercicio-reps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ejercicio-acciones {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+/* --- La hoja de elegir ejercicio ---------------------------------------- */
+
+.ejercicio-hoja {
+  gap: 0;
+}
+
+.ejercicio-buscador {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 12px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  color: var(--texto-tenue);
+}
+
+.ejercicio-buscador:focus-within {
+  border-color: var(--acento);
+}
+
+.ejercicio-buscador input {
+  font: inherit;
+  flex-grow: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--texto);
+  font-size: 15px;
+  outline: none;
+}
+
+/* Una sola fila que se desplaza de lado: con todos los grupos, envueltas ocupaban media hoja. */
+.ejercicio-grupos {
+  display: flex;
+  gap: 6px;
+  margin: 0 -20px;
+  padding: 0 20px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ejercicio-pildora {
+  font: inherit;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: none;
+  color: var(--texto-tenue);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ejercicio-pildora.elegida {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.ejercicio-hoja-pie {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde);
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+  text-align: center;
+}

@@ -10,6 +10,7 @@
 import type {
   AvisoDeBorrarHueco,
   AvisoDeBorrarRutina,
+  CambiosDeHueco,
   DiaPlan,
   DiaSeguimiento,
   DiaSemana,
@@ -22,6 +23,7 @@ import type {
   HuecoDeRutina,
   ModoBorrado,
   Nota,
+  NuevaRutina,
   NuevaSerie,
   NuevoEjercicio,
   NuevoEntrenamiento,
@@ -147,7 +149,8 @@ export const api = {
   rutinas: (filtro: { ocultas?: boolean } = {}) =>
     peticion<Rutina[]>(`/rutinas${consulta(filtro)}`),
   rutina: (id: number) => peticion<Rutina>(`/rutinas/${id}`),
-  crearRutina: (nombre: string) => peticion<Rutina>('/rutinas', conCuerpo('POST', { nombre })),
+  /** Con sus ejercicios (`slots`), todo en una petición: si algo no vale, no se crea nada. */
+  crearRutina: (datos: NuevaRutina) => peticion<Rutina>('/rutinas', conCuerpo('POST', datos)),
   actualizarRutina: (id: number, nombre: string) =>
     peticion<Rutina>(`/rutinas/${id}`, conCuerpo('PUT', { nombre })),
   borrarRutina: (id: number, modo?: ModoBorrado) =>
@@ -164,7 +167,7 @@ export const api = {
 
   crearHueco: (rutinaId: number, datos: NuevoHueco) =>
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots`, conCuerpo('POST', datos)),
-  actualizarHueco: (rutinaId: number, huecoId: number, datos: NuevoHueco) =>
+  actualizarHueco: (rutinaId: number, huecoId: number, datos: CambiosDeHueco) =>
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots/${huecoId}`, conCuerpo('PUT', datos)),
   borrarHueco: (rutinaId: number, huecoId: number, modo?: ModoBorrado) =>
     peticion<void>(`/rutinas/${rutinaId}/slots/${huecoId}${consulta({ modo })}`, BORRAR),

@@ -40,6 +40,14 @@ const TRAZOS = {
   quitar: <path d="M6 6l12 12M18 6L6 18" />,
   mas: <path d="M12 5v14M5 12h14" />,
   menos: <path d="M5 12h14" />,
+  // El asa para arrastrar y cambiar el orden.
+  asa: <path d="M5 9h14M5 15h14" />,
+  buscar: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4-4" />
+    </>
+  ),
 }
 
 export type NombreIcono = keyof typeof TRAZOS

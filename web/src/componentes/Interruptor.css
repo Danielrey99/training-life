@@ -1,0 +1,67 @@
+/* El interruptor de P2 y P5, con las medidas del boceto. */
+
+.interruptor {
+  font: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.interruptor:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.interruptor-texto {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.interruptor-texto strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.interruptor-texto span {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.interruptor-pista {
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--borde);
+  transition: background 0.15s;
+}
+
+.interruptor-bola {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--texto-tenue);
+  transition: transform 0.15s;
+}
+
+.interruptor-pista.encendido {
+  background: var(--acento);
+}
+
+.interruptor-pista.encendido .interruptor-bola {
+  transform: translateX(18px);
+  background: var(--fondo);
+}

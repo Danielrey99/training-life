@@ -136,7 +136,7 @@ export function FormularioDeSerie({
   )
 }
 
-function CampoConPasos({
+export function CampoConPasos({
   etiqueta,
   valor,
   cambiar,

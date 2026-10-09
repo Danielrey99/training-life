@@ -357,12 +357,29 @@ export type NuevoEjercicio = {
   descripcion: string | null
 }
 
-export type NuevoHueco = {
+/** Un ejercicio (hueco) de una rutina nueva: su orden es su posición en la lista. */
+export type HuecoDeRutinaNueva = {
   ejercicio_principal_id: number
-  orden: number
+  // Los comodines; ni el principal ni repetidos (422).
+  alternativa_ids: number[]
   series_objetivo: number
   reps_min: number
   reps_max: number
+}
+
+/** Una rutina nueva, vacía o con sus ejercicios: se crea todo de una vez o nada. */
+export type NuevaRutina = {
+  nombre: string
+  slots?: HuecoDeRutinaNueva[]
+}
+
+/** Sin `orden`, el hueco va al final de la rutina. */
+export type NuevoHueco = HuecoDeRutinaNueva & { orden?: number }
+
+/** Con `alternativa_ids`, la lista sustituye a los comodines actuales; sin ella, no se tocan. */
+export type CambiosDeHueco = Omit<HuecoDeRutinaNueva, 'alternativa_ids'> & {
+  orden: number
+  alternativa_ids?: number[]
 }
 
 // La rutina y el día que cuenta solo van al crear: los decide el botón pulsado

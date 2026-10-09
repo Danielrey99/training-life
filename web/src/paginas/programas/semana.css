@@ -1,0 +1,158 @@
+/* P2 · La semana del programa. Reutiliza de la sesión la cabecera y el campo de texto,
+   de H2 los botones de la cabecera, y de P1 el punto de color. */
+
+.semana {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* El hueco de 44 px donde iría Editar: sin él, el título no queda centrado. */
+.semana-hueco {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.semana-rotulo {
+  margin: 4px 0 -4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--texto-tenue);
+}
+
+.semana-oculto {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px dashed var(--borde);
+  border-radius: var(--radio);
+  font-size: 13px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
+.semana-oculto strong {
+  font-size: 14px;
+}
+
+/* --- Los siete días: una tarjeta con una fila por día ------------------- */
+
+.semana-dias {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.semana-dia {
+  font: inherit;
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--texto-tenue);
+  text-align: left;
+  text-decoration: none;
+}
+
+/* Los botones de la derecha (✕, ›) se acercan al borde: su zona de toque es mayor
+   que el icono, y así las líneas entre días quedan iguales a los dos lados. */
+div.semana-dia:has(.boton-icono) {
+  padding-right: 0;
+}
+
+.semana-dia .boton-icono:last-child {
+  margin-right: -14px;
+}
+
+.semana-dia + .semana-dia {
+  border-top: 1px solid var(--borde);
+}
+
+a.semana-dia,
+button.semana-dia {
+  cursor: pointer;
+}
+
+a.semana-dia:hover strong,
+button.semana-dia:hover .semana-dia-rutina {
+  color: var(--acento-suave);
+}
+
+button.semana-dia:disabled {
+  cursor: default;
+}
+
+.semana-dia-nombre {
+  width: 84px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.semana-dia-rutina {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.semana-dia-rutina strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.semana-dia-rutina strong.oculta {
+  color: var(--texto-tenue);
+}
+
+.semana-dia-rutina.descanso {
+  font-size: 14px;
+  font-style: italic;
+}
+
+.semana-dia-rutina.vacia {
+  font-size: 15px;
+}
+
+/* --- Debajo de los días ------------------------------------------------ */
+
+.semana-parrafo {
+  max-width: 320px;
+  margin: 0 auto;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.semana-acciones {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.semana-leyenda {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
+/* El icono del control, a su tamaño real y en la línea del texto. */
+.semana-leyenda .icono,
+.semana-parrafo .icono {
+  vertical-align: -4px;
+  margin: 0 2px;
+}
