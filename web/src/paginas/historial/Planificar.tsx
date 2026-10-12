@@ -8,6 +8,7 @@ import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
   conArticulo,
   diaDeLaSemana,
+  diaYMesConAnio,
   fechaLarga,
   nombreDelDia,
   sumarDias,
@@ -161,7 +162,7 @@ export function Planificar() {
     setConfirmando({
       titulo: esta
         ? '¿Restablecer esta semana?'
-        : `¿Restablecer la semana del ${Number(semana.lunes.slice(8))}?`,
+        : `¿Restablecer la semana del ${diaYMesConAnio(semana.lunes)}?`,
       cuerpo:
         cambiados === 1
           ? 'El día que cambiaste volverá a lo que dice el programa.'
@@ -211,7 +212,7 @@ export function Planificar() {
           <section key={semana.lunes} className="planificar-seccion">
             <div className="planificar-semana">
               <h2 className="rotulo">
-                {esta ? 'Esta semana' : `Semana del ${Number(semana.lunes.slice(8))}`}
+                {esta ? 'Esta semana' : `Semana del ${diaYMesConAnio(semana.lunes)}`}
               </h2>
               {hayCambios && (
                 <button

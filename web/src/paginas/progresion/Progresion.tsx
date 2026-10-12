@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { diaYMes, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
+import { diaYMesConAnio, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
 import { valorDe } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
@@ -173,7 +173,7 @@ export function Progresion() {
               <span className="progresion-valor num">{enKilos(ultimo.valor)}</span>
               <span className="progresion-cambio num">
                 {puntos.length > 1
-                  ? `${conSigno(ultimo.valor - primero.valor)} desde el ${diaYMes(primero.fecha)} · ${puntos.length} sesiones`
+                  ? `${conSigno(ultimo.valor - primero.valor)} desde el ${diaYMesConAnio(primero.fecha)} · ${puntos.length} sesiones`
                   : '1 sesión'}
               </span>
             </div>

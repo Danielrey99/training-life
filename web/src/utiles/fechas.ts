@@ -108,10 +108,18 @@ export function nombreDelDia(iso: string): string {
   return DIAS[aFecha(iso).getDay()]
 }
 
-/** Para la cabecera de Hoy: "Lunes 14 de septiembre", siempre con el mes. */
+/**
+ * Para una cabecera: "Lunes 14 de septiembre", siempre con el mes, y con el año si no
+ * es el actual ("Jueves 1 de octubre de 2025"): un día de otro año no se confunde.
+ */
 export function fechaLarga(iso: string): string {
   const fecha = aFecha(iso)
-  return `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+  return `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}${deOtroAnio(fecha)}`
+}
+
+/** " de 2025" si la fecha no es de este año; nada si lo es. */
+function deOtroAnio(fecha: Date): string {
+  return fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
 }
 
 /**
@@ -202,7 +210,12 @@ export function diaYMesCorto(iso: string): string {
   return `${aFecha(iso).getDate()} ${mesCorto(iso)}`
 }
 
-/** "lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. */
+/**
+ * "lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. Con el
+ * año si no es el actual ("lun 14 sep 2025"): con el rango de un año o todo, se mezclan.
+ */
 export function fechaAbreviada(iso: string): string {
-  return `${DIAS[aFecha(iso).getDay()].slice(0, 3)} ${diaYMesCorto(iso)}`
+  const fecha = aFecha(iso)
+  const anio = fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` ${fecha.getFullYear()}`
+  return `${DIAS[fecha.getDay()].slice(0, 3)} ${diaYMesCorto(iso)}${anio}`
 }

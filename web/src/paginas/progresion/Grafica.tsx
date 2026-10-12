@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
-import { diasEntre, diaYMesCorto, fechaAbreviada, mesCorto } from '../../utiles/fechas'
+import { diasEntre, diaYMesCorto, fechaAbreviada, hoy, mesCorto } from '../../utiles/fechas'
 
 export type Punto = {
   id: number
@@ -96,21 +96,30 @@ export function Grafica({ puntos, elegido, alElegir }: Props) {
   const trazado = puntos.map((p) => `${x(p.fecha).toFixed(1)},${y(p.valor).toFixed(1)}`)
 
   // El eje de abajo, como en el boceto: el mes bajo el primer punto de cada mes, salvo
-  // que quede a menos de 30 unidades del anterior y se pisen. Si todo cae en un mismo
-  // mes, un solo "sep" no dice nada: se nombran el primer día y el último.
-  const meses: { texto: string; x: number }[] = [{ texto: mesCorto(primero), x: x(primero) }]
+  // que quede demasiado cerca del anterior y se pisen. Lleva el año cuando cambia, y en
+  // el primero si no es el actual: con el rango de un año o todo, "sep" sería ambiguo.
+  // Si todo cae en un mismo mes, un solo "sep" no dice nada: el primer día y el último.
+  const anioActual = hoy().slice(0, 4)
+  const meses: { mes: string; texto: string; x: number }[] = []
   for (const punto of puntos) {
-    const anterior = meses[meses.length - 1]
-    if (mesCorto(punto.fecha) !== anterior.texto && x(punto.fecha) - anterior.x > 30) {
-      meses.push({ texto: mesCorto(punto.fecha), x: x(punto.fecha) })
+    const anterior = meses.at(-1)
+    const mes = punto.fecha.slice(0, 7)
+    const anio = punto.fecha.slice(0, 4)
+    const conAnio = anterior ? anterior.mes.slice(0, 4) !== anio : anio !== anioActual
+    const texto = `${mesCorto(punto.fecha)}${conAnio ? ` ${anio}` : ''}`
+    // Con el año la etiqueta es más ancha: hace falta más hueco.
+    if (!anterior || (mes !== anterior.mes && x(punto.fecha) - anterior.x > (conAnio ? 48 : 30))) {
+      meses.push({ mes, texto, x: x(punto.fecha) })
     }
   }
+  const conAnio = (iso: string) =>
+    iso.slice(0, 4) === anioActual ? diaYMesCorto(iso) : `${diaYMesCorto(iso)} ${iso.slice(0, 4)}`
   const etiquetas =
     meses.length > 1 || total === 0
       ? meses
       : [
-          { texto: diaYMesCorto(primero), x: IZQUIERDA },
-          { texto: diaYMesCorto(ultimo), x: derecha },
+          { texto: conAnio(primero), x: IZQUIERDA },
+          { texto: conAnio(ultimo), x: derecha },
         ]
 
   // El globo, a la izquierda del punto si no cabe a la derecha y debajo si no cabe encima.
