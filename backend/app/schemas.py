@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import (
+    AwareDatetime,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -809,3 +810,164 @@ class ActivarPrograma(BaseModel):
     # Al cambiar de programa, lo que se planificó a mano para los próximos días
     # se hizo pensando en el anterior; la pantalla ofrece quitarlo.
     quitar_excepciones: bool = False
+
+
+# --- Datos: exportar e importar -------------------------------------------------
+#
+# Un solo formato para la ida y la vuelta: el mismo modelo es el `response_model` al
+# exportar y el validador al importar, así que no pueden divergir. Los ids del archivo
+# son los de la base que lo exportó y solo sirven para enlazar cosas dentro del propio
+# archivo: al importar se asignan otros. Las fechas con hora llevan zona (sin ella se
+# interpretarían con la del servidor).
+
+
+class PredefinidoDeArchivo(BaseModel):
+    """Un ejercicio predefinido que usa algo del archivo. Va por nombre: su id cambia
+    de una instalación a otra, porque lo siembra una migración.
+    """
+
+    id: int
+    nombre: str
+
+
+class EjercicioDeArchivo(BaseModel):
+    id: int
+    nombre: Nombre
+    # Por nombre, como los predefinidos: el catálogo de grupos es de cada instalación.
+    grupo_muscular: str
+    descripcion: TextoOpcional = Field(default=None, max_length=500)
+    oculto_desde: date | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class NotaDeArchivo(BaseModel):
+    ejercicio_id: int
+    nota: TextoNota
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class SlotDeArchivo(RutinaSlotBase):
+    id: int
+    orden: int = Field(gt=0, le=100)
+    alternativa_ids: list[int] = []
+    oculto_desde: date | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def _validar_alternativas(self):
+        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        return self
+
+
+class RutinaDeArchivo(BaseModel):
+    id: int
+    nombre: Nombre
+    oculto_desde: date | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    slots: list[SlotDeArchivo] = []
+
+
+class DiaDeArchivo(BaseModel):
+    dia_semana: DiaSemana
+    rutina_id: int
+    desde: date | None = None
+    hasta: date | None = None
+
+    @model_validator(mode="after")
+    def _validar_vigencia(self):
+        # El mismo CHECK de la base (`programa_dias_vigencia_check`).
+        if self.desde is not None and self.hasta is not None and self.hasta <= self.desde:
+            raise ValueError("la vigencia de un día termina antes de empezar")
+        return self
+
+
+class PeriodoDeArchivo(BaseModel):
+    desde: date
+    hasta: date | None = None
+
+    @model_validator(mode="after")
+    def _validar_rango(self):
+        # El mismo CHECK de la base (`programa_periodos_rango_check`).
+        if self.hasta is not None and self.hasta < self.desde:
+            raise ValueError("un periodo termina antes de empezar")
+        return self
+
+
+class ProgramaDeArchivo(BaseModel):
+    nombre: Nombre
+    oculto_desde: date | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    dias: list[DiaDeArchivo] = []
+    periodos: list[PeriodoDeArchivo] = []
+
+
+class ExcepcionDeArchivo(BaseModel):
+    fecha: date
+    # Nula: ese día es descanso.
+    rutina_id: int | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class SerieDeArchivo(SerieBase):
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+
+
+class EntrenamientoDeArchivo(BaseModel):
+    rutina_id: int
+    fecha: date
+    cubre_fecha: date | None = None
+    notas: TextoOpcional = Field(default=None, max_length=1000)
+    terminada_en: AwareDatetime | None = None
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
+    series: list[SerieDeArchivo] = []
+
+
+class DatosDeUsuario(BaseModel):
+    """Todos los datos de un usuario, para pasarlos a otro dispositivo o guardarlos
+    como copia. Cada lista va por id, también dentro de cada padre: se inserta en ese
+    orden, y así se conserva el orden relativo de los ids (el de los comodines y el
+    desempate de las series dependen de él).
+    """
+
+    formato: Literal["training-life"] = "training-life"
+    version: Literal[1] = 1
+    exportado_en: AwareDatetime
+    predefinidos: list[PredefinidoDeArchivo] = []
+    ejercicios: list[EjercicioDeArchivo] = []
+    notas: list[NotaDeArchivo] = []
+    rutinas: list[RutinaDeArchivo] = []
+    programas: list[ProgramaDeArchivo] = []
+    excepciones: list[ExcepcionDeArchivo] = []
+    entrenamientos: list[EntrenamientoDeArchivo] = []
+
+
+class ResumenDeDatos(BaseModel):
+    """Cuánto hay: para que el diálogo de exportar diga qué se va a guardar, y el de
+    importar, qué se sustituye por qué.
+    """
+
+    ejercicios: int
+    notas: int
+    rutinas: int
+    programas: int
+    # Las que tienen alguna serie: una cancelada no es algo que se pierda.
+    sesiones: int
+    series: int
+    primera_sesion: date | None
+    ultima_sesion: date | None
+
+
+class ComprobacionDeImportar(BaseModel):
+    """`POST /datos/importar?comprobar=true`: el archivo vale y esto es lo que cambiaría."""
+
+    exportado_en: datetime
+    archivo: ResumenDeDatos
+    actual: ResumenDeDatos

@@ -254,7 +254,7 @@ class Entrenamiento(Base):
     # arrastrarlos por accidente (ver Rutina/borrar_rutina, modo=definitivo).
     # Se fija al crear la sesión y no cambia: sus series van en huecos de esta
     # rutina, y solo eso lo garantiza (junto con `_validar_slot`). Si algún día otro
-    # camino la cambiara (la sincronización del móvil), habría que volver a comprobarlo.
+    # camino la cambiara (importar datos), habría que volver a comprobarlo.
     rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="RESTRICT"))
     fecha: Mapped[date] = mapped_column(Date)
     # El día del plan que cuenta esta sesión: el mismo que `fecha` al empezar lo

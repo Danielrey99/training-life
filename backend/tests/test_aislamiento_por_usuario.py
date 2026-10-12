@@ -930,3 +930,175 @@ def test_la_ficha_y_el_aviso_de_borrado_de_un_ejercicio_ajeno_dan_404(cliente, e
 
     assert cliente.get(f"{ruta}/donde-se-usa").status_code == 404
     assert cliente.get(f"{ruta}/aviso-de-borrado").status_code == 404
+
+
+# --- Exportar e importar ---------------------------------------------------
+#
+# Importar borra todo lo del usuario con sentencias directas (`borrar_todo`), sin
+# ids concretos: un `WHERE` mal escrito arrasaría con los datos de todos. El otro
+# usuario tiene aquí el escenario completo de `test_datos.py` (rutinas, sesiones,
+# notas de predefinidos, un periodo abierto, excepciones), en las mismas fechas que
+# las mías, para que también choquen las restricciones por usuario si se colaran.
+
+
+def _foto_de(sesion_bd, usuario_id) -> dict:
+    """Cada fila de cada tabla que es de ese usuario, con todas sus columnas."""
+    sesion_bd.expire_all()
+
+    def filas(consulta):
+        return [tuple(fila) for fila in sesion_bd.execute(consulta)]
+
+    def todo(modelo, *condiciones, join=()):
+        consulta = select(*modelo.__table__.columns)
+        for tabla, enlace in join:
+            consulta = consulta.join(tabla, enlace)
+        return filas(consulta.where(*condiciones).order_by(modelo.id))
+
+    return {
+        "ejercicios": todo(Ejercicio, Ejercicio.usuario_id == usuario_id),
+        "notas": todo(NotaUsuarioEjercicio, NotaUsuarioEjercicio.usuario_id == usuario_id),
+        "rutinas": todo(Rutina, Rutina.usuario_id == usuario_id),
+        "huecos": todo(
+            RutinaSlot,
+            Rutina.usuario_id == usuario_id,
+            join=[(Rutina, Rutina.id == RutinaSlot.rutina_id)],
+        ),
+        "comodines": todo(
+            SlotAlternativa,
+            Rutina.usuario_id == usuario_id,
+            join=[
+                (RutinaSlot, RutinaSlot.id == SlotAlternativa.slot_id),
+                (Rutina, Rutina.id == RutinaSlot.rutina_id),
+            ],
+        ),
+        "programas": todo(Programa, Programa.usuario_id == usuario_id),
+        "dias": todo(
+            ProgramaDia,
+            Programa.usuario_id == usuario_id,
+            join=[(Programa, Programa.id == ProgramaDia.programa_id)],
+        ),
+        "periodos": todo(ProgramaPeriodo, ProgramaPeriodo.usuario_id == usuario_id),
+        "excepciones": todo(ExcepcionDelPlan, ExcepcionDelPlan.usuario_id == usuario_id),
+        "sesiones": todo(Entrenamiento, Entrenamiento.usuario_id == usuario_id),
+        "series": todo(
+            Serie,
+            Entrenamiento.usuario_id == usuario_id,
+            join=[(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)],
+        ),
+    }
+
+
+@pytest.fixture
+def datos_ajenos(sesion_bd, hoy_es, otro_usuario_id, ejercicio_predefinido_id) -> dict:
+    from tests.test_datos import HOY, montar_datos
+
+    hoy_es(HOY)
+    return montar_datos(sesion_bd, otro_usuario_id, ejercicio_predefinido_id)
+
+
+def test_exportar_no_lleva_nada_de_otro_usuario(cliente, datos_ajenos):
+    """Ni sus cosas ni los predefinidos que solo usa él."""
+    archivo = cliente.get("/datos/exportar").json()
+
+    for lista in ("predefinidos", "ejercicios", "notas", "rutinas", "programas"):
+        assert archivo[lista] == [], lista
+    assert archivo["excepciones"] == archivo["entrenamientos"] == []
+
+
+def test_exportar_con_datos_de_los_dos_solo_lleva_los_mios(
+    cliente, sesion_bd, datos_ajenos, ejercicio_predefinido_id
+):
+    from tests.test_datos import montar_datos, sin_ids
+
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    mio = cliente.get("/datos/exportar").json()
+
+    # El mismo escenario sin el otro usuario tiene que dar lo mismo.
+    vacio = {"formato": "training-life", "version": 1, "exportado_en": "2026-09-16T10:00:00Z"}
+    assert cliente.post("/datos/importar", json=vacio).status_code == 200
+    sesion_bd.expire_all()
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    assert sin_ids(cliente.get("/datos/exportar").json()) == sin_ids(mio)
+    assert len(mio["entrenamientos"]) == 5
+
+
+@pytest.mark.parametrize("archivo", ["el mío", "uno vacío"])
+def test_importar_no_toca_nada_de_otro_usuario(
+    cliente, sesion_bd, datos_ajenos, otro_usuario_id, ejercicio_predefinido_id, archivo
+):
+    """También su periodo abierto (el índice de un solo periodo abierto es por
+    usuario) y sus notas de predefinidos, que `borrar_todo` borra por usuario y no
+    por ejercicio.
+    """
+    from tests.test_datos import montar_datos
+
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    cuerpo = cliente.get("/datos/exportar").json()
+    if archivo == "uno vacío":
+        cuerpo = {"formato": "training-life", "version": 1, "exportado_en": cuerpo["exportado_en"]}
+    antes = _foto_de(sesion_bd, otro_usuario_id)
+    assert [p[-1] for p in antes["periodos"]].count(None) == 1
+
+    respuesta = cliente.post("/datos/importar", json=cuerpo)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert _foto_de(sesion_bd, otro_usuario_id) == antes
+
+
+def test_importar_cuando_solo_otro_usuario_tiene_datos_no_los_toca(
+    cliente, sesion_bd, datos_ajenos, otro_usuario_id
+):
+    """El caso más peligroso: yo no tengo nada que borrar, y un filtro perdido
+    borraría lo único que hay.
+    """
+    antes = _foto_de(sesion_bd, otro_usuario_id)
+    vacio = {"formato": "training-life", "version": 1, "exportado_en": "2026-09-16T10:00:00Z"}
+
+    assert cliente.post("/datos/importar", json=vacio).status_code == 200
+
+    assert _foto_de(sesion_bd, otro_usuario_id) == antes
+
+
+def test_comprobar_no_cuenta_lo_de_otro_usuario(cliente, datos_ajenos):
+    vacio = {"formato": "training-life", "version": 1, "exportado_en": "2026-09-16T10:00:00Z"}
+
+    respuesta = cliente.post("/datos/importar", json=vacio, params={"comprobar": True})
+
+    assert respuesta.status_code == 200, respuesta.text
+    actual = respuesta.json()["actual"]
+    assert actual["ejercicios"] == actual["notas"] == actual["sesiones"] == 0
+    assert actual["primera_sesion"] is None
+
+
+def test_el_resumen_antes_de_exportar_no_cuenta_lo_de_otro_usuario(
+    cliente, sesion_bd, datos_ajenos, ejercicio_predefinido_id
+):
+    """Ni solo con lo suyo (todo a cero) ni con lo de los dos: con su mismo
+    escenario, mis cifras son las mismas que sin él.
+    """
+    from tests.test_datos import montar_datos
+
+    respuesta = cliente.get("/datos/resumen")
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json() == {
+        "ejercicios": 0,
+        "notas": 0,
+        "rutinas": 0,
+        "programas": 0,
+        "sesiones": 0,
+        "series": 0,
+        "primera_sesion": None,
+        "ultima_sesion": None,
+    }
+
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    assert cliente.get("/datos/resumen").json() == {
+        "ejercicios": 2,
+        "notas": 2,
+        "rutinas": 2,
+        "programas": 2,
+        "sesiones": 4,
+        "series": 7,
+        "primera_sesion": "2026-09-07",
+        "ultima_sesion": "2026-09-16",
+    }

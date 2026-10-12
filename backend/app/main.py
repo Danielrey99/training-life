@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.datos import NO_ES_UNA_COPIA
 from app.routers import (
+    datos,
     ejercicios,
     entrenamientos,
     grupos_musculares,
@@ -23,6 +28,21 @@ app = FastAPI(
 # cualquier página llamara a la API desde el navegador de un usuario con sesión.
 # En producción la web se servirá desde el mismo origen que la API y esto dejará
 # de hacer falta.
+
+
+@app.exception_handler(RequestValidationError)
+async def _json_que_no_se_puede_leer(request: Request, error: RequestValidationError):
+    """Un archivo que ni siquiera es JSON, al importar datos: FastAPI lo rechaza antes
+    de llegar al endpoint con su 422 en inglés. Se contesta como cualquier archivo que
+    no es una copia; el resto de 422 de validación siguen igual.
+    """
+    if request.url.path == "/datos/importar" and any(
+        fallo.get("type") == "json_invalid" for fallo in error.errors()
+    ):
+        return JSONResponse(status_code=422, content={"detail": {"mensaje": NO_ES_UNA_COPIA}})
+    return await request_validation_exception_handler(request, error)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -37,6 +57,7 @@ app.include_router(entrenamientos.router)
 app.include_router(programas.router)
 app.include_router(plan.router)
 app.include_router(resumen.router)
+app.include_router(datos.router)
 
 
 @app.get("/health", tags=["health"])
