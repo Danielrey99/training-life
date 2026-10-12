@@ -457,7 +457,7 @@ export function Ejercicio() {
         {origen.tipo === 'borrador' && origen.indice !== null && (
           <button
             type="button"
-            className="boton boton-texto peligro"
+            className="boton boton-texto peligro aislado"
             onClick={() => setPregunta('quitar')}
           >
             Quitar de la rutina

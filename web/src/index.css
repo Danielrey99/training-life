@@ -155,6 +155,13 @@ code {
   color: var(--error);
 }
 
+/* Uno peligroso que va solo, sin Ocultar ni Mostrar al lado (decisión del autor): con
+   recuadro, porque solo el texto se leía como un rótulo, pero sin fondo, para no invitar
+   a pulsarlo. La confirmación de verdad es el botón rojo del diálogo. */
+.boton-texto.peligro.aislado {
+  border-color: var(--error);
+}
+
 /* Cancelar en un formulario pequeño (una nota, editar una serie): en rojo y al lado de
    Guardar, en verde, para que se distingan de un vistazo (decisión del autor). */
 .boton-cancelar {
