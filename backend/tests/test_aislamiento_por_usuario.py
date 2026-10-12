@@ -829,3 +829,104 @@ def test_el_plan_de_otro_usuario_no_se_cuela_al_intercambiar(cliente, programa_a
         )
         assert respuesta.status_code == 200
         assert [dia["rutina"] for dia in respuesta.json()] == [None, None]
+
+
+# --- La ficha de un ejercicio ------------------------------------------------
+#
+# Un predefinido es de todos: sus huecos y los programas donde está cada uno son de
+# cada usuario, y la ficha solo puede contar los suyos.
+
+
+def test_la_ficha_de_un_predefinido_no_ensena_las_rutinas_ni_los_programas_de_otro(
+    cliente,
+    sesion_bd,
+    otro_usuario_id,
+    programa_ajeno_activo,
+    rutina_ajena_id,
+    ejercicio_predefinido_id,
+    grupo_muscular_id,
+):
+    """El otro usa el predefinido de principal en un hueco y de alternativa en otro,
+    y tiene su programa activo con esa rutina: nada de eso es mío.
+    """
+    hueco_en_bd(sesion_bd, rutina_ajena_id, ejercicio_predefinido_id)
+    principal_ajeno = Ejercicio(
+        nombre="Press de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
+    )
+    sesion_bd.add(principal_ajeno)
+    sesion_bd.flush()
+    con_alternativa = hueco_en_bd(sesion_bd, rutina_ajena_id, principal_ajeno.id)
+    sesion_bd.add(SlotAlternativa(slot_id=con_alternativa, ejercicio_id=ejercicio_predefinido_id))
+    sesion_bd.commit()
+    mia = cliente.post(
+        "/rutinas",
+        json={
+            "nombre": "Leg",
+            "slots": [
+                {
+                    "ejercicio_principal_id": ejercicio_predefinido_id,
+                    "series_objetivo": 3,
+                    "reps_min": 5,
+                    "reps_max": 8,
+                }
+            ],
+        },
+    ).json()
+
+    respuesta = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}/donde-se-usa")
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert [(uso["rutina"]["id"], uso["programas"]) for uso in respuesta.json()] == [
+        (mia["id"], [])
+    ]
+
+
+def test_la_ficha_no_cuenta_un_programa_ajeno_con_mi_rutina_ni_un_periodo_ajeno(
+    cliente, sesion_bd, otro_usuario_id, grupo_muscular_id
+):
+    """Estados que la API no deja crear, montados en la base: un programa del otro
+    con un día de mi rutina, y un periodo abierto suyo en mi programa. Ni el primero
+    sale ni el segundo hace activo el mío.
+    """
+    ejercicio = cliente.post(
+        "/ejercicios", json={"nombre": "Mío", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    rutina = cliente.post(
+        "/rutinas",
+        json={
+            "nombre": "Push",
+            "slots": [
+                {
+                    "ejercicio_principal_id": ejercicio,
+                    "series_objetivo": 3,
+                    "reps_min": 5,
+                    "reps_max": 8,
+                }
+            ],
+        },
+    ).json()["id"]
+    mio = cliente.post(
+        "/programas", json={"nombre": "Mío", "dias": [{"dia_semana": 1, "rutina_id": rutina}]}
+    ).json()["id"]
+    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
+    sesion_bd.add(ajeno)
+    sesion_bd.flush()
+    sesion_bd.add(ProgramaDia(programa_id=ajeno.id, dia_semana=2, rutina_id=rutina))
+    sesion_bd.add(
+        ProgramaPeriodo(
+            programa_id=mio, usuario_id=otro_usuario_id, desde=hoy() - timedelta(days=7)
+        )
+    )
+    sesion_bd.commit()
+
+    [uso] = cliente.get(f"/ejercicios/{ejercicio}/donde-se-usa").json()
+
+    assert uso["programas"] == [{"id": mio, "nombre": "Mío", "activo": False, "dias_semana": [1]}]
+
+
+def test_la_ficha_y_el_aviso_de_borrado_de_un_ejercicio_ajeno_dan_404(cliente, ejercicio_ajeno_id):
+    """404 y no 403: un GET no delata que el id existe."""
+    ruta = f"/ejercicios/{ejercicio_ajeno_id}"
+
+    assert cliente.get(f"{ruta}/donde-se-usa").status_code == 404
+    assert cliente.get(f"{ruta}/aviso-de-borrado").status_code == 404

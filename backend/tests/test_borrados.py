@@ -20,6 +20,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
+from tests.ayudas import consultas_de
 from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
 
 FECHA = "2026-09-04"
@@ -163,8 +164,9 @@ def test_borrar_un_ejercicio_en_definitivo_arrastra_tambien_sus_series(cliente, 
 
     assert respuesta.status_code == 204, f"esperaba 204, llegó {respuesta.status_code}"
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
-    # El entrenamiento sobrevive (es historial propio), pero se queda sin series
-    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
+    # Su única serie era de este ejercicio: sin ella estaría cancelada, así que se va
+    # con él. Antes se quedaba vacía.
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
 
 
 # --- Hueco (slot) --------------------------------------------------------
@@ -505,7 +507,8 @@ def test_un_comodin_con_series_dice_en_que_sesiones_y_el_definitivo_se_las_lleva
     cliente, grupo_muscular_id
 ):
     """Las series hechas con un comodín son historial: el aviso las enumera por
-    sesión, y `?modo=definitivo` se las lleva dejando la sesión y el hueco.
+    sesión, y `?modo=definitivo` se las lleva dejando el hueco. La sesión solo tenía
+    esa serie: se queda sin ninguna y se va con ellas (antes se quedaba vacía).
     """
     principal = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
@@ -524,7 +527,7 @@ def test_un_comodin_con_series_dice_en_que_sesiones_y_el_definitivo_se_las_lleva
         {"rol": "serie registrada", "entrenamiento_id": entrenamiento_id, "fecha": FECHA},
     ]
     assert definitivo.status_code == 204
-    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
     assert len(cliente.get(f"/rutinas/{rutina_id}").json()["slots"]) == 1
 
 
@@ -1690,3 +1693,358 @@ def test_el_aviso_de_una_rutina_cuenta_sus_dias_vigentes_y_planificados(cliente,
 
 def test_el_aviso_de_una_rutina_inexistente_da_404(cliente):
     assert cliente.get("/rutinas/999999/aviso-de-borrado").status_code == 404
+
+
+# --- El aviso de borrar un ejercicio, y lo que el definitivo se lleva --------
+#
+# `GET /ejercicios/{id}/aviso-de-borrado` cuenta lo que se perdería; el DELETE con
+# `?modo=definitivo` tiene que llevarse justo eso, también las sesiones que se
+# quedan sin ninguna serie. Hoy es el miércoles 16 de `tests/semana.py`.
+
+ONCE_DE_SEPTIEMBRE = date(2026, 9, 11)
+DOCE_DE_SEPTIEMBRE = date(2026, 9, 12)
+
+
+def aviso_de_ejercicio(cliente, ejercicio_id) -> dict:
+    respuesta = cliente.get(f"/ejercicios/{ejercicio_id}/aviso-de-borrado")
+    assert respuesta.status_code == 200, respuesta.text
+    return respuesta.json()
+
+
+def ids_que_se_vacian(aviso) -> list[int]:
+    return [sesion["entrenamiento_id"] for sesion in aviso["sesiones_que_se_vacian"]]
+
+
+@pytest.fixture
+def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
+    """Press banca es el principal del hueco A de Push (con Press en máquina de
+    alternativa; Fondos va en el B) y la alternativa del hueco C de Pull, cuyo
+    principal es Remo. Push se crea antes, para que el orden por nombre no salga del
+    de los ids. Sesiones, todas de días pasados y sin terminar:
+
+    - la del 11, solo con press en C (se crea la primera, para que el orden por
+      fecha no salga del de los ids);
+    - la del 1, solo con press en A;
+    - la del 4, solo con la máquina en A: una serie de alternativa en un hueco que
+      se borra entero con press;
+    - la del 8, con press en A y fondos en B;
+    - la del 10, solo con fondos en B;
+    - la del 12, con press y remo en C.
+
+    Con press se van 5 series (1 de la máquina) de 5 sesiones, y se vacían la del 1,
+    la del 4 y la del 11.
+    """
+    hoy_es(HOY)
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    maquina = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+    push, a = crear_rutina_con_hueco(cliente, press)
+    respuesta = cliente.post(
+        f"/rutinas/{push}/slots/{a}/alternativas", json={"ejercicio_id": maquina}
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    b = segundo_hueco(cliente, push, fondos)
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    respuesta = cliente.post(
+        f"/rutinas/{pull}/slots",
+        json={
+            "ejercicio_principal_id": remo,
+            "series_objetivo": 3,
+            "reps_min": 8,
+            "reps_max": 12,
+            "alternativa_ids": [press],
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    c = respuesta.json()["id"]
+    sesiones = {
+        "dia_11": sesion_con_series(cliente, pull, ONCE_DE_SEPTIEMBRE, (c, press)),
+        "dia_1": sesion_con_series(cliente, push, PRIMERO_DE_SEPTIEMBRE, (a, press)),
+        "dia_4": sesion_con_series(cliente, push, CUATRO_DE_SEPTIEMBRE, (a, maquina)),
+        "dia_8": sesion_con_series(cliente, push, OCHO_DE_SEPTIEMBRE, (a, press), (b, fondos)),
+        "dia_10": sesion_con_series(cliente, push, DIEZ_DE_SEPTIEMBRE, (b, fondos)),
+        "dia_12": sesion_con_series(cliente, pull, DOCE_DE_SEPTIEMBRE, (c, press), (c, remo)),
+    }
+    return {"press": press, "push": push, "pull": pull, "a": a, "b": b, "c": c, **sesiones}
+
+
+def test_el_aviso_de_un_ejercicio_cuenta_lo_que_se_perderia(cliente, press_en_dos_rutinas):
+    e = press_en_dos_rutinas
+    crear_nota(cliente, e["press"], "El asiento va en el 4")
+
+    aviso = aviso_de_ejercicio(cliente, e["press"])
+
+    assert {clave: valor for clave, valor in aviso.items() if clave != "huecos"} == {
+        "con_historial": True,
+        "series": 5,
+        "series_de_comodines": 1,
+        "sesiones": 5,
+        "desde": "2026-09-01",
+        "notas": 1,
+        "sesiones_que_se_vacian": [
+            {"entrenamiento_id": e["dia_1"], "fecha": "2026-09-01", "cubre_fecha": None},
+            {"entrenamiento_id": e["dia_4"], "fecha": "2026-09-04", "cubre_fecha": None},
+            {"entrenamiento_id": e["dia_11"], "fecha": "2026-09-11", "cubre_fecha": None},
+        ],
+    }
+    assert [(h["rutina"]["nombre"], h["slot_id"], h["rol"]) for h in aviso["huecos"]] == [
+        ("Pull", e["c"], "comodin"),
+        ("Push", e["a"], "principal"),
+    ]
+
+
+def test_el_aviso_de_un_ejercicio_sin_nada_va_vacio(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+
+    assert aviso_de_ejercicio(cliente, ejercicio_id) == {
+        "con_historial": False,
+        "series": 0,
+        "series_de_comodines": 0,
+        "sesiones": 0,
+        "desde": None,
+        "notas": 0,
+        "huecos": [],
+        "sesiones_que_se_vacian": [],
+    }
+
+
+def _ejercicio_sin_usar(cliente, grupo_muscular_id) -> int:
+    return crear_ejercicio(cliente, grupo_muscular_id, "Curl")
+
+
+def _ejercicio_con_solo_notas(cliente, grupo_muscular_id) -> int:
+    ejercicio_id = _ejercicio_sin_usar(cliente, grupo_muscular_id)
+    crear_nota(cliente, ejercicio_id, "Codos pegados")
+    return ejercicio_id
+
+
+def _ejercicio_que_solo_es_alternativa(cliente, grupo_muscular_id) -> int:
+    _, comodin, _, _ = con_comodin(cliente, grupo_muscular_id)
+    return comodin
+
+
+def _ejercicio_principal_sin_series(cliente, grupo_muscular_id) -> int:
+    principal, _, _, _ = con_comodin(cliente, grupo_muscular_id)
+    return principal
+
+
+def _ejercicio_con_series_que_ya_no_esta_en_ningun_hueco(cliente, grupo_muscular_id) -> int:
+    """Fue alternativa, se apuntó una serie con él y luego se quitó del hueco: ya no
+    está en ninguna rutina, pero su serie sigue (quitar un comodín no la borra).
+    """
+    _, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    registrar_serie(cliente, rutina_id, slot_id, comodin)
+    ruta = f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas/{comodin}"
+    assert cliente.delete(ruta).status_code == 204
+    return comodin
+
+
+@pytest.mark.parametrize(
+    "montar, con_historial",
+    [
+        pytest.param(_ejercicio_sin_usar, False, id="sin-usar"),
+        pytest.param(_ejercicio_con_solo_notas, False, id="solo-notas"),
+        pytest.param(_ejercicio_que_solo_es_alternativa, True, id="solo-alternativa"),
+        pytest.param(_ejercicio_principal_sin_series, True, id="principal-sin-series"),
+        pytest.param(_ejercicio_con_series_que_ya_no_esta_en_ningun_hueco, True, id="solo-series"),
+    ],
+)
+def test_con_historial_del_ejercicio_coincide_con_que_el_delete_pida_modo(
+    cliente, grupo_muscular_id, montar, con_historial
+):
+    """Si no coincidieran, la web enseñaría un diálogo y el DELETE haría otra cosa
+    (o borraría sin preguntar lo que el diálogo no avisó).
+    """
+    ejercicio_id = montar(cliente, grupo_muscular_id)
+
+    aviso = aviso_de_ejercicio(cliente, ejercicio_id)
+    borrado = cliente.delete(f"/ejercicios/{ejercicio_id}")
+
+    assert aviso["con_historial"] is con_historial
+    assert borrado.status_code == (409 if con_historial else 204), borrado.text
+
+
+def test_el_aviso_de_un_ejercicio_no_cuenta_la_sesion_abierta_hoy(cliente, press_en_dos_rutinas):
+    """Se quedaría vacía, pero no está cancelada y puede estar abierta en E2: ni se
+    anuncia ni se borra, y sigue en curso sin series.
+    """
+    e = press_en_dos_rutinas
+    abierta = sesion_con_series(cliente, e["push"], HOY, (e["a"], e["press"]))
+
+    aviso = aviso_de_ejercicio(cliente, e["press"])
+    conflicto = cliente.delete(f"/ejercicios/{e['press']}")
+    borrado = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
+
+    assert aviso["series"] == 6
+    assert abierta not in ids_que_se_vacian(aviso)
+    assert conflicto.json()["detail"]["sesiones_que_se_borrarian"] == 3
+    assert borrado.status_code == 204, borrado.text
+    assert series_de(cliente, abierta) == []
+    en_curso = cliente.get("/entrenamientos", params={"en_curso": True}).json()
+    assert [s["id"] for s in en_curso] == [abierta]
+
+
+def test_la_sesion_de_hoy_ya_terminada_si_se_va_con_el_ejercicio(cliente, press_en_dos_rutinas):
+    e = press_en_dos_rutinas
+    terminada = sesion_con_series(cliente, e["push"], HOY, (e["a"], e["press"]))
+    assert cliente.post(f"/entrenamientos/{terminada}/terminar").status_code == 200
+
+    aviso = aviso_de_ejercicio(cliente, e["press"])
+    borrado = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
+
+    assert ids_que_se_vacian(aviso) == [e["dia_1"], e["dia_4"], e["dia_11"], terminada]
+    assert borrado.status_code == 204, borrado.text
+    assert series_de(cliente, terminada) is None
+
+
+def test_una_sesion_ya_vacia_no_sale_en_el_aviso_del_ejercicio_ni_se_toca(
+    cliente, press_en_dos_rutinas
+):
+    e = press_en_dos_rutinas
+    ya_vacia = sesion_con_series(cliente, e["push"], date(2026, 9, 13))
+
+    aviso = aviso_de_ejercicio(cliente, e["press"])
+    borrado = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
+
+    assert ya_vacia not in ids_que_se_vacian(aviso)
+    assert borrado.status_code == 204, borrado.text
+    assert series_de(cliente, ya_vacia) == []
+
+
+def test_el_aviso_de_un_ejercicio_oculto_se_puede_leer(cliente, press_en_dos_rutinas):
+    """X2 de un ejercicio oculto ofrece Borrar: el diálogo tiene que poder contarlo."""
+    e = press_en_dos_rutinas
+    assert cliente.delete(f"/ejercicios/{e['press']}?modo=ocultar").status_code == 204
+
+    aviso = aviso_de_ejercicio(cliente, e["press"])
+
+    assert (aviso["series"], len(aviso["sesiones_que_se_vacian"])) == (5, 3)
+
+
+def test_el_aviso_de_un_ejercicio_predefinido_o_inexistente_da_404(
+    cliente, ejercicio_predefinido_id
+):
+    """Un predefinido no se puede borrar: su aviso no existe (404 y no 403, es un GET)."""
+    predefinido = f"/ejercicios/{ejercicio_predefinido_id}/aviso-de-borrado"
+    assert cliente.get(predefinido).status_code == 404
+    assert cliente.get("/ejercicios/999999/aviso-de-borrado").status_code == 404
+
+
+def test_el_aviso_de_un_ejercicio_hace_las_mismas_consultas_con_poco_que_con_mucho(
+    cliente, grupo_muscular_id, hoy_es
+):
+    hoy_es(HOY)
+    press = crear_ejercicio(cliente, grupo_muscular_id)
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, press)
+    sesion_con_series(cliente, rutina_id, PRIMERO_DE_SEPTIEMBRE, (slot_id, press))
+    con_poco = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/aviso-de-borrado"))
+
+    for dia in range(2, 7):
+        sesion_con_series(
+            cliente, rutina_id, date(2026, 9, dia), (slot_id, press), (slot_id, press)
+        )
+    otro_hueco = segundo_hueco(cliente, rutina_id, press)
+    sesion_con_series(cliente, rutina_id, date(2026, 9, 8), (otro_hueco, press))
+    con_mucho = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/aviso-de-borrado"))
+
+    assert con_poco == con_mucho
+
+
+def test_el_409_de_borrar_un_ejercicio_dice_cuantas_sesiones_se_borraran(
+    cliente, press_en_dos_rutinas, grupo_muscular_id
+):
+    """En plural y en singular, en la frase y en `sesiones_que_se_borrarian`."""
+    e = press_en_dos_rutinas
+    curl = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
+    brazos, hueco_curl = crear_rutina_con_hueco(cliente, curl)
+    sesion_con_series(cliente, brazos, date(2026, 9, 2), (hueco_curl, curl))
+
+    plural = cliente.delete(f"/ejercicios/{e['press']}").json()["detail"]
+    singular = cliente.delete(f"/ejercicios/{curl}").json()["detail"]
+
+    assert plural["sesiones_que_se_borrarian"] == 3
+    assert (
+        " Además, se borrarán 3 sesiones que solo tenían series de este ejercicio."
+        in plural["mensaje"]
+    )
+    assert singular["sesiones_que_se_borrarian"] == 1
+    assert (
+        " Además, se borrará 1 sesión que solo tenía series de este ejercicio."
+        in singular["mensaje"]
+    )
+
+
+def test_el_409_de_borrar_un_ejercicio_no_habla_de_sesiones_si_ninguna_se_vacia(
+    cliente, grupo_muscular_id
+):
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
+    rutina_id, a = crear_rutina_con_hueco(cliente, press)
+    b = segundo_hueco(cliente, rutina_id, fondos)
+    sesion_con_series(cliente, rutina_id, date.fromisoformat(FECHA), (a, press), (b, fondos))
+
+    detalle = cliente.delete(f"/ejercicios/{press}").json()["detail"]
+
+    assert detalle["sesiones_que_se_borrarian"] == 0
+    assert "Además" not in detalle["mensaje"]
+
+
+def test_borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso(
+    cliente, press_en_dos_rutinas
+):
+    """Regresión del orden en `borrar_ejercicio`: las sesiones que se vacían se
+    calculan antes de borrar las series. Calculadas después, ya no tienen ninguna
+    serie del ejercicio, la lista sale vacía y el borrado las deja canceladas sin
+    dar ningún error.
+
+    En una sola petición, con sesiones que se van (la del 1; la del 4, que solo
+    tenía la alternativa en un hueco de press; y la del 11, donde press era la
+    alternativa) y otras que se quedan (la del 8 y la del 12 con otra serie, la del
+    10 sin nada de press, una ya vacía y la abierta hoy).
+    """
+    e = press_en_dos_rutinas
+    ya_vacia = sesion_con_series(cliente, e["push"], date(2026, 9, 13))
+    abierta = sesion_con_series(cliente, e["push"], HOY, (e["a"], e["press"]))
+    todas = [e[dia] for dia in ("dia_1", "dia_4", "dia_8", "dia_10", "dia_11", "dia_12")]
+    todas += [ya_vacia, abierta]
+
+    anunciadas = set(ids_que_se_vacian(aviso_de_ejercicio(cliente, e["press"])))
+    respuesta = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
+
+    assert respuesta.status_code == 204, respuesta.text
+    borradas = {sesion for sesion in todas if series_de(cliente, sesion) is None}
+    assert borradas == anunciadas == {e["dia_1"], e["dia_4"], e["dia_11"]}
+    assert [s["slot_id"] for s in series_de(cliente, e["dia_8"])] == [e["b"]]
+    assert [s["slot_id"] for s in series_de(cliente, e["dia_12"])] == [e["c"]]
+    assert len(series_de(cliente, e["dia_10"])) == 1
+    # El hueco A se va entero; el C se queda con su principal y sin la alternativa.
+    assert [h["id"] for h in cliente.get(f"/rutinas/{e['push']}").json()["slots"]] == [e["b"]]
+    [hueco_c] = cliente.get(f"/rutinas/{e['pull']}").json()["slots"]
+    assert hueco_c["alternativas"] == []
+
+
+def test_la_sesion_que_se_va_con_el_ejercicio_deja_su_dia_sin_hacer(
+    cliente, ppl, grupo_muscular_id
+):
+    """Contaba el lunes 14 del plan con una sola serie de Press banca; al irse con
+    el ejercicio, ese día vuelve a quedar sin hacer.
+    """
+    sesion = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
+    [hueco] = cliente.get(f"/rutinas/{ppl['Push']}").json()["slots"]
+    press = hueco["ejercicio_principal"]["id"]
+
+    def estado_del_lunes():
+        respuesta = cliente.get(
+            "/plan/seguimiento",
+            params={"desde": LUNES_14.isoformat(), "hasta": LUNES_14.isoformat()},
+        )
+        assert respuesta.status_code == 200, respuesta.text
+        return respuesta.json()[0]["estado"]
+
+    assert estado_del_lunes() == "hecho"
+    respuesta = cliente.delete(f"/ejercicios/{press}?modo=definitivo")
+
+    assert respuesta.status_code == 204, respuesta.text
+    assert cliente.get(f"/entrenamientos/{sesion}").status_code == 404
+    assert estado_del_lunes() == "sin_hacer"

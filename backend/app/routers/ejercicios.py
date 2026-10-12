@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_usuario_actual_id
@@ -15,20 +15,29 @@ from app.models import (
     Entrenamiento,
     GrupoMuscular,
     NotaUsuarioEjercicio,
+    Programa,
+    ProgramaDia,
+    ProgramaPeriodo,
     Rutina,
     RutinaSlot,
     Serie,
     SlotAlternativa,
 )
 from app.schemas import (
+    AvisoDeBorrarEjercicioOut,
     EjercicioCreate,
     EjercicioOut,
     EjercicioUpdate,
     NotaCreate,
     NotaOut,
     NotaUpdate,
+    ProgramaDeUnUsoOut,
+    RutinaMinima,
     SesionHistorial,
+    SesionQueSeVaciaOut,
+    UsoEnRutinaOut,
 )
+from app.seguimiento import aviso_de_sesiones_que_se_borran, sesiones_que_se_vacian
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
 
@@ -74,7 +83,19 @@ def _huecos_donde_es_principal(ejercicio_id: int):
     return select(RutinaSlot.id).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
 
 
-def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
+def _series_que_se_borran(ejercicio_id: int):
+    """Las series que se van con el ejercicio, como condición: las suyas y todas las
+    de los huecos donde es el principal (también las hechas con un comodín, que
+    apuntan al hueco). Una sola expresión para el aviso, el 409 y el borrado, para
+    que lo que se anuncia sea lo que se borra.
+    """
+    return or_(
+        Serie.ejercicio_id == ejercicio_id,
+        Serie.slot_id.in_(_huecos_donde_es_principal(ejercicio_id)),
+    )
+
+
+def _usos_de_ejercicio(db: Session, ejercicio_id: int, usuario_id: int) -> list[dict]:
     """¿Dónde se usa este ejercicio? Una entrada por cada hueco donde
     aparece (como principal o como comodín) y una por cada entrenamiento con
     series registradas de este ejercicio — con nombre/fecha, para que el
@@ -86,18 +107,18 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
     principales = db.execute(
         select(RutinaSlot.id, Rutina.id, Rutina.nombre)
         .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
+        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id, Rutina.usuario_id == usuario_id)
     ).all()
     comodines = db.execute(
         select(RutinaSlot.id, Rutina.id, Rutina.nombre)
         .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
         .join(SlotAlternativa, SlotAlternativa.slot_id == RutinaSlot.id)
-        .where(SlotAlternativa.ejercicio_id == ejercicio_id)
+        .where(SlotAlternativa.ejercicio_id == ejercicio_id, Rutina.usuario_id == usuario_id)
     ).all()
     entrenamientos_con_series = db.execute(
         select(Entrenamiento.id, Entrenamiento.fecha)
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Serie.ejercicio_id == ejercicio_id)
+        .where(Serie.ejercicio_id == ejercicio_id, Entrenamiento.usuario_id == usuario_id)
         .distinct()
     ).all()
     return (
@@ -128,6 +149,94 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
             for entrenamiento_id, fecha in entrenamientos_con_series
         ]
     )
+
+
+def _usos_en_rutinas(db: Session, ejercicio_id: int, usuario_id: int) -> list[UsoEnRutinaOut]:
+    """Los huecos de las rutinas del usuario donde aparece el ejercicio, con lo que
+    hace falta para enseñarlos: su número en la rutina, si están ocultos y en qué
+    programas está la rutina. Tres consultas, sin una más por uso.
+
+    Todo se filtra por el usuario: un predefinido es de todos, y sin el filtro
+    saldrían las rutinas (y los programas activos) de otros.
+    """
+    filas = db.execute(
+        select(RutinaSlot, Rutina)
+        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
+        .outerjoin(
+            SlotAlternativa,
+            and_(
+                SlotAlternativa.slot_id == RutinaSlot.id,
+                SlotAlternativa.ejercicio_id == ejercicio_id,
+            ),
+        )
+        .where(
+            Rutina.usuario_id == usuario_id,
+            or_(
+                RutinaSlot.ejercicio_principal_id == ejercicio_id,
+                SlotAlternativa.id.is_not(None),
+            ),
+        )
+        .order_by(Rutina.nombre, Rutina.id, RutinaSlot.orden)
+    ).all()
+    if not filas:
+        return []
+    rutina_ids = {rutina.id for _, rutina in filas}
+
+    # El número de un hueco es su posición entre los visibles, no su `orden`: un
+    # hueco oculto no cuenta, igual que en la rutina.
+    posiciones: dict[int, int] = {}
+    vistos: dict[int, int] = {}
+    for slot_id, rutina_id in db.execute(
+        select(RutinaSlot.id, RutinaSlot.rutina_id)
+        .where(RutinaSlot.rutina_id.in_(rutina_ids), RutinaSlot.oculto_desde.is_(None))
+        .order_by(RutinaSlot.rutina_id, RutinaSlot.orden)
+    ):
+        vistos[rutina_id] = vistos.get(rutina_id, 0) + 1
+        posiciones[slot_id] = vistos[rutina_id]
+
+    # Los programas visibles donde la rutina tiene algún día vigente, con sus días.
+    programas: dict[int, dict[int, ProgramaDeUnUsoOut]] = {}
+    for rutina_id, dia_semana, programa, periodo_abierto in db.execute(
+        select(ProgramaDia.rutina_id, ProgramaDia.dia_semana, Programa, ProgramaPeriodo.id)
+        .join(Programa, Programa.id == ProgramaDia.programa_id)
+        .outerjoin(
+            ProgramaPeriodo,
+            and_(
+                ProgramaPeriodo.programa_id == Programa.id,
+                ProgramaPeriodo.hasta.is_(None),
+                ProgramaPeriodo.usuario_id == usuario_id,
+            ),
+        )
+        .where(
+            ProgramaDia.rutina_id.in_(rutina_ids),
+            ProgramaDia.hasta.is_(None),
+            Programa.oculto_desde.is_(None),
+            Programa.usuario_id == usuario_id,
+        )
+        .order_by(Programa.nombre, Programa.id, ProgramaDia.dia_semana)
+    ):
+        del_programa = programas.setdefault(rutina_id, {})
+        if programa.id not in del_programa:
+            del_programa[programa.id] = ProgramaDeUnUsoOut(
+                id=programa.id,
+                nombre=programa.nombre,
+                activo=periodo_abierto is not None,
+                dias_semana=[],
+            )
+        del_programa[programa.id].dias_semana.append(dia_semana)
+
+    return [
+        UsoEnRutinaOut(
+            rutina=RutinaMinima.model_validate(rutina),
+            slot_id=slot.id,
+            rol="principal" if slot.ejercicio_principal_id == ejercicio_id else "comodin",
+            posicion=posiciones.get(slot.id),
+            hueco_oculto_desde=slot.oculto_desde,
+            oculto=slot.oculto or rutina.oculto,
+            programas=list(programas.get(rutina.id, {}).values()),
+        )
+        for slot, rutina in filas
+    ]
 
 
 @router.get("", response_model=list[EjercicioOut])
@@ -162,6 +271,75 @@ def obtener_ejercicio(
 ):
     # Legible y no visible: la ficha de un ejercicio oculto necesita abrirlo.
     return obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+
+
+@router.get("/{ejercicio_id}/donde-se-usa", response_model=list[UsoEnRutinaOut])
+def donde_se_usa(
+    ejercicio_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Las rutinas del usuario donde aparece, para la ficha del ejercicio. Aparte
+    del 409 del DELETE porque la ficha lo enseña siempre, no solo al borrar.
+    Admite ocultos y predefinidos.
+    """
+    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    return _usos_en_rutinas(db, ejercicio_id, usuario_id)
+
+
+def _notas_del_usuario(db: Session, ejercicio_id: int, usuario_id: int) -> int:
+    return db.scalar(
+        select(func.count())
+        .select_from(NotaUsuarioEjercicio)
+        .where(
+            NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
+            NotaUsuarioEjercicio.usuario_id == usuario_id,
+        )
+    )
+
+
+@router.get("/{ejercicio_id}/aviso-de-borrado", response_model=AvisoDeBorrarEjercicioOut)
+def aviso_de_borrar_ejercicio(
+    ejercicio_id: int,
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """Lo que se perdería al borrarlo, para el diálogo de confirmar (como el de la
+    rutina y el del hueco). No modifica nada.
+
+    Un predefinido da 404 y no 403: no se puede borrar, así que su aviso no existe.
+    """
+    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    if ejercicio.es_predefinido:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    series, series_de_comodines, sesiones, desde = db.execute(
+        select(
+            func.count(Serie.id),
+            func.count(Serie.id).filter(Serie.ejercicio_id != ejercicio_id),
+            func.count(func.distinct(Serie.entrenamiento_id)),
+            func.min(Entrenamiento.fecha),
+        )
+        .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
+        .where(_series_que_se_borran(ejercicio_id), Entrenamiento.usuario_id == usuario_id)
+    ).one()
+    return AvisoDeBorrarEjercicioOut(
+        # Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
+        con_historial=bool(_usos_de_ejercicio(db, ejercicio_id, usuario_id)),
+        series=series,
+        series_de_comodines=series_de_comodines,
+        sesiones=sesiones,
+        desde=desde,
+        notas=_notas_del_usuario(db, ejercicio_id, usuario_id),
+        huecos=_usos_en_rutinas(db, ejercicio_id, usuario_id),
+        sesiones_que_se_vacian=[
+            SesionQueSeVaciaOut(
+                entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
+            )
+            for sesion in sesiones_que_se_vacian(
+                db, usuario_id, _series_que_se_borran(ejercicio_id)
+            )
+        ],
+    )
 
 
 @router.post("", response_model=EjercicioOut, status_code=status.HTTP_201_CREATED)
@@ -220,7 +398,8 @@ def borrar_ejercicio(
     - Sin usos (ver `_usos_de_ejercicio`): se borra de verdad, sin preguntar nada.
     - En uso: hace falta indicar `modo` explícitamente — `modo=ocultar`
       (borrado lógico: `oculto_desde=hoy`, conserva todo) o `modo=definitivo`
-      (borra también las filas dependientes, sin vuelta atrás). Sin `modo`,
+      (borra también las filas dependientes y las sesiones que se quedan sin
+      ninguna serie, sin vuelta atrás). Sin `modo`,
       el 409 explica dónde se usa.
     """
     # Admite lo oculto: la ficha de un ejercicio oculto ofrece borrarlo.
@@ -240,20 +419,16 @@ def borrar_ejercicio(
         db.commit()
         return
 
-    usos = _usos_de_ejercicio(db, ejercicio_id)
+    usos = _usos_de_ejercicio(db, ejercicio_id, usuario_id)
     if usos and modo != "definitivo":
         # Las notas nunca bloquean el borrado (su FK es CASCADE: se van solas
         # con el ejercicio). Pero si algo más ya lo está bloqueando, el aviso
         # tiene que enumerar todo lo que se perdería con modo=definitivo, no
         # solo lo que lo impide — si no, las notas desaparecen en silencio
         # justo cuando la API está detallando el resto.
-        notas = db.scalar(
-            select(func.count())
-            .select_from(NotaUsuarioEjercicio)
-            .where(
-                NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
-                NotaUsuarioEjercicio.usuario_id == usuario_id,
-            )
+        notas = _notas_del_usuario(db, ejercicio_id, usuario_id)
+        sesiones_que_se_borrarian = len(
+            sesiones_que_se_vacian(db, usuario_id, _series_que_se_borran(ejercicio_id))
         )
         # Los huecos donde es principal se borran enteros, así que se llevan
         # también las series que se hicieron en ellos con un comodín.
@@ -277,6 +452,7 @@ def borrar_ejercicio(
                 " Con ?modo=definitivo se borrarán también las series hechas con un comodín"
                 f" en los huecos donde es el principal ({series_de_comodines})."
             )
+        mensaje += aviso_de_sesiones_que_se_borran(sesiones_que_se_borrarian, "este ejercicio")
         if notas:
             mensaje += (
                 f" Con ?modo=definitivo perderás también tus notas sobre este ejercicio ({notas})."
@@ -288,6 +464,7 @@ def borrar_ejercicio(
                 "usos": usos,
                 "series_de_comodines_que_se_perderian": series_de_comodines,
                 "notas_que_se_perderian": notas,
+                "sesiones_que_se_borrarian": sesiones_que_se_borrarian,
             },
         )
 
@@ -295,21 +472,19 @@ def borrar_ejercicio(
     # slot_alternativas y series hacia ejercicios son RESTRICT, así que hay
     # que borrar antes las filas dependientes explícitamente (los comodines
     # de cada hueco se van solos, en cascada por FK).
+    # Antes de tocar nada: sin las series, ya no se sabría qué sesiones se vacían.
+    vacias = sesiones_que_se_vacian(db, usuario_id, _series_que_se_borran(ejercicio_id))
     # Las series del ejercicio y, además, todas las de los huecos que se van a
     # borrar: las hechas con un comodín también apuntan al hueco (RESTRICT).
-    for serie in db.scalars(
-        select(Serie).where(
-            or_(
-                Serie.ejercicio_id == ejercicio_id,
-                Serie.slot_id.in_(_huecos_donde_es_principal(ejercicio_id)),
-            )
-        )
-    ).all():
+    for serie in db.scalars(select(Serie).where(_series_que_se_borran(ejercicio_id))).all():
         db.delete(serie)
     # flush obligatorio: sin él los DELETE viajan juntos al commit y SQLAlchemy
     # los ordena por las relationship() que conoce — no hay ninguna entre Serie y
     # RutinaSlot, así que borraría el hueco antes que sus series (RESTRICT).
     db.flush()
+    # Ya sin series: se quedarían canceladas, así que se van con él.
+    for sesion in vacias:
+        db.delete(sesion)
     for slot in db.scalars(
         select(RutinaSlot).where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
     ).all():

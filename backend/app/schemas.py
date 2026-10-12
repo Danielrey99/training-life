@@ -445,6 +445,63 @@ class RutinaMinima(BaseModel):
     oculto_desde: date | None
 
 
+class ProgramaDeUnUsoOut(BaseModel):
+    """Un programa donde está la rutina de un uso, para decir en cuál está."""
+
+    id: int
+    nombre: str
+    # Si es el programa en uso ahora.
+    activo: bool
+    # Los días vigentes de esa rutina en el programa (1 = lunes), ordenados: con
+    # ellos se pinta el punto con el color de su día, sin pedir los programas.
+    dias_semana: list[int]
+
+
+class UsoEnRutinaOut(BaseModel):
+    """Un hueco del usuario donde aparece un ejercicio, para «Rutinas donde se usa»
+    y para el aviso de borrarlo.
+    """
+
+    rutina: RutinaMinima
+    slot_id: int
+    # En ASCII, como el resto de valores fijos de la API.
+    rol: Literal["principal", "comodin"]
+    # Su número entre los huecos visibles de la rutina, desde 1; nulo si el hueco
+    # está oculto (un hueco oculto no es un ejercicio de la rutina).
+    posicion: int | None
+    hueco_oculto_desde: date | None
+    # El hueco o su rutina están ocultos: la ficha lo enseña aparte, plegado. Lo
+    # decide la API para que la web y el móvil no repitan la regla.
+    oculto: bool
+    # Los visibles donde la rutina tiene algún día vigente.
+    programas: list[ProgramaDeUnUsoOut]
+
+
+class AvisoDeBorrarEjercicioOut(BaseModel):
+    """Lo que se perdería al borrar un ejercicio, para el diálogo de confirmar.
+
+    Existe porque la web no puede pedir el 409 del DELETE para saberlo: sin
+    historial, el DELETE lo borraría sin preguntar.
+    """
+
+    # Si el DELETE sin `modo` daría 409. Las notas no cuentan: no lo bloquean.
+    con_historial: bool
+    # Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
+    series: int
+    # De esas, las hechas con otro ejercicio (una alternativa) en esos huecos.
+    series_de_comodines: int
+    # Sesiones distintas con alguna de esas series.
+    sesiones: int
+    # La primera fecha con alguna de esas series; nula si no hay.
+    desde: date | None
+    notas: int
+    # Principal: el hueco se borra. Comodín: deja de ser alternativa en él.
+    huecos: list[UsoEnRutinaOut]
+    # Se quedan sin ninguna serie y se borran con él; no incluye la sesión en curso
+    # de hoy, que sigue abierta.
+    sesiones_que_se_vacian: list[SesionQueSeVaciaOut]
+
+
 DiaSemana = Annotated[int, Field(ge=1, le=7, description="1 = lunes … 7 = domingo")]
 
 
