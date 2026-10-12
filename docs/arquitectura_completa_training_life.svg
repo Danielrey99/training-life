@@ -1,6 +1,6 @@
 <svg width="1200" height="740" viewBox="0 0 1200 740" xmlns="http://www.w3.org/2000/svg" role="img">
 <title>Arquitectura completa de Training Life con recorrido de una petición</title>
-<desc>Diagrama detallado: navegador y app móvil envían peticiones HTTP hacia Docker, donde Uvicorn recibe, FastAPI valida con Pydantic, SQLAlchemy traduce a SQL y PostgreSQL ejecuta la consulta, con Alembic gestionando migraciones y docker-compose.yml inyectando la configuración (DATABASE_URL)</desc>
+<desc>Diagrama detallado: el navegador envía peticiones HTTP hacia Docker, donde Uvicorn recibe, FastAPI valida con Pydantic, SQLAlchemy traduce a SQL y PostgreSQL ejecuta la consulta, con Alembic gestionando migraciones y docker-compose.yml inyectando la configuración (DATABASE_URL). La app móvil funciona por su cuenta, con su propia base de datos, y los datos pasan del PC al móvil y al revés exportándolos e importándolos en un archivo.</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
 <path d="M2 1L8 5L2 9" fill="none" stroke="#5f5e5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -101,21 +101,21 @@
 <text x="1020" y="387" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">+ Expo</text>
 
 <rect x="910" y="418" width="220" height="55" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
-<text x="1020" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">SQLite / WatermelonDB</text>
-<text x="1020" y="457" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">modo offline (a decidir)</text>
+<text x="1020" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Base de datos local</text>
+<text x="1020" y="457" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">funciona sin el PC (a decidir)</text>
 
 <rect x="910" y="488" width="220" height="50" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
 <text x="1020" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">EAS build</text>
 <text x="1020" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">genera el APK instalable</text>
 
 <rect x="910" y="553" width="220" height="50" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
-<text x="1020" y="573" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Tailscale</text>
-<text x="1020" y="590" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">acceso remoto fuera de tu WiFi</text>
+<text x="1020" y="573" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Exportar / Importar</text>
+<text x="1020" y="590" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">tus datos en un archivo</text>
 
-<!-- Móvil -> Backend (flecha recta, misma altura que Uvicorn) -->
-<line x1="910" y1="375" x2="727" y2="375" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
-<text x="840" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">1. Petición HTTP</text>
-<text x="840" y="398" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">(WiFi, misma red)</text>
+<!-- Móvil <-> datos del PC: no hay conexión; se pasa un archivo exportado -->
+<line x1="908" y1="578" x2="744" y2="578" stroke="#5F5E5A" stroke-width="1" stroke-dasharray="5 4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="840" y="563" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">archivo exportado</text>
+<text x="840" y="598" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">(sin conexión)</text>
 
 <!-- Nota de retorno -->
 <text x="80" y="720" font-family="Arial, sans-serif" font-size="12" fill="#5F5E5A" font-style="italic">La respuesta (JSON) recorre el mismo camino en sentido inverso: PostgreSQL → SQLAlchemy → FastAPI → Uvicorn → cliente.</text>

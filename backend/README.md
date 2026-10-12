@@ -2,7 +2,7 @@
 
 API REST del proyecto, construida con **FastAPI** (Python) sobre **PostgreSQL**, usando **SQLAlchemy** como ORM y **Alembic** para gestionar los cambios del esquema de base de datos.
 
-Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre pasan por esta API.
+La web nunca accede directamente a la base de datos: siempre pasa por esta API.
 
 **Índice:** [Estado actual](#estado-actual) · [Estructura](#estructura) ·
 [Cómo ejecutarlo](#cómo-ejecutarlo) · [Modelos y migraciones](#modelos-y-migraciones-alembic) ·
@@ -12,7 +12,7 @@ Ningún frontend (web ni móvil) accede directamente a la base de datos: siempre
 
 ## Estado actual
 
-🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana.
+🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana. Y todos los datos de un usuario se pueden **exportar e importar** en un archivo (ver más abajo).
 
 El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados reales:
 
@@ -26,7 +26,7 @@ Ocultar guarda desde cuándo está oculta cada cosa (`oculto_desde`, nula si est
 
 Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. Una que se quedó abierta de un día para otro cuenta como terminada sin que nadie tenga que cerrarla. "Hoy" se calcula en la zona horaria del usuario, no en la del servidor.
 
-**Se entrena una rutina al día**: como mucho una sesión por día, sea de la rutina que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no cuenta para ningún día ni ocupa el suyo, no cuenta como historial al borrar su rutina, y se borra en cuanto otra sesión necesita su fecha, al borrar su rutina o al borrar el hueco que la dejó vacía. Nada la borra por su cuenta: la pantalla de hoy la avisa para que se complete o se cancele.
+**Se entrena una rutina al día**: como mucho una sesión por día, sea de la rutina que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no cuenta para ningún día ni ocupa el suyo, no cuenta como historial al borrar su rutina, y se borra en cuanto otra sesión necesita su fecha, al borrar su rutina, o al borrar el hueco o el ejercicio que la dejaron vacía. Nada la borra por su cuenta: la pantalla de hoy la avisa para que se complete o se cancele.
 
 Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina (`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
 
@@ -54,7 +54,11 @@ Lo hecho por adelantado se respeta al cambiar el plan:
 - **Al editar el programa**, ese día se queda como estaba y el cambio empieza la semana siguiente.
 - **Borrar una rutina que ya tocó días pasados** pide elegir entre ocultarla y borrarla, porque borrarla dejaría esos días como descanso en el calendario.
 
-La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. El resumen (`/resumen`) hace lo mismo con las estadísticas: el volumen por semana y por mes, su desglose por rutina y por grupo muscular, y la constancia del año, calculados en el servidor para que la web y el móvil enseñen lo mismo. La web se rehace en paralelo, pantalla a pantalla.
+La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. El resumen (`/resumen`) hace lo mismo con las estadísticas: el volumen por semana y por mes, su desglose por rutina y por grupo muscular, y la constancia del año, calculados en el servidor para que la web solo tenga que pintarlos.
+
+### Exportar e importar
+
+La web y la app móvil no se conectan entre sí: los datos pasan de una a otra en un archivo JSON con versión, que también sirve de copia. **Importar sustituye todo** lo del usuario, en una sola transacción. Antes, la propia API comprueba el archivo sin escribir nada (formato, versión, referencias internas y las restricciones de la base) y, si algo no vale, lo dice en español y no toca nada. Los ids del archivo solo enlazan cosas dentro de él (al importar se asignan otros), y los ejercicios predefinidos y los grupos musculares van por nombre, porque su id cambia de una instalación a otra.
 
 ## Estructura
 
@@ -73,6 +77,7 @@ backend/
 │   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
 │   ├── seguimiento.py      # qué se hizo con cada día del plan, y lo que necesita la pantalla de hoy
 │   ├── resumen.py          # las estadísticas: volumen, series por grupo y constancia
+│   ├── datos.py            # exportar e importar todos los datos de un usuario
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
@@ -80,16 +85,19 @@ backend/
 │       ├── entrenamientos.py      # CRUD de entrenamientos y series, anidado
 │       ├── programas.py           # programas y qué rutina toca cada día de la semana
 │       ├── plan.py                # el plan, su seguimiento, la pantalla de hoy y Planificar
-│       └── resumen.py             # el resumen de volumen y constancia
+│       ├── resumen.py             # el resumen de volumen y constancia
+│       └── datos.py               # exportar e importar, y lo que hay para confirmarlo
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
 ├── tests/                   # tests automáticos (pytest)
 │   ├── conftest.py          # base de datos de tests, cliente HTTP, reloj congelado y limpieza
+│   ├── ayudas.py            # montar rutinas, huecos y series, y contar consultas SQL
 │   ├── semana.py            # la semana de ejemplo que comparten los tests del seguimiento
 │   ├── test_borrados.py     # borrado con historial y cascadas
 │   ├── test_aislamiento_por_usuario.py
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
+│   ├── test_ejercicios.py   # dónde se usa cada ejercicio
 │   ├── test_rutinas.py      # duplicar, reordenar y crear una rutina con sus huecos
 │   ├── test_huecos.py       # el orden de un hueco nuevo y sustituir sus comodines
 │   ├── test_historial.py    # la progresión por ejercicio y por hueco
@@ -102,6 +110,7 @@ backend/
 │   ├── test_hoy.py          # lo que necesita la pantalla de hoy
 │   ├── test_replanificar.py # qué pasa con lo hecho por adelantado al cambiar el plan
 │   ├── test_resumen.py      # el volumen por semana y por mes, su desglose y la constancia
+│   ├── test_datos.py        # exportar e importar los datos de un usuario
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -116,7 +125,7 @@ backend/
 Cómo dependen unos de otros, de arriba abajo:
 
 ```
-main.py         registra los routers y nada más, sin lógica de negocio propia
+main.py         registra los routers (y traduce el JSON ilegible al importar), sin lógica de negocio
    ↑
 routers/        los endpoints: juntan las cuatro piezas de abajo
    ↑
@@ -204,11 +213,12 @@ No hay ningún paso previo que recordar:
 
 | Archivo | Qué cubre |
 |---|---|
-| `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas, las sesiones canceladas que no cuentan como historial, las que se van con el hueco que las vació, y los dos avisos de borrado |
+| `test_borrados.py` | El borrado con historial (`modo=ocultar`/`definitivo`) y sus cascadas, las sesiones canceladas que no cuentan como historial, las que se van con el hueco o el ejercicio que las vació, y los avisos de borrado de rutina, hueco y ejercicio (que lo que anuncian es lo que se borra) |
 | `test_rutinas.py` | Duplicar una rutina (el nombre de la copia, qué se copia y qué no), reordenar sus huecos, crear una rutina con sus huecos y comodines de una vez (y que un fallo no deje nada a medias) y que el listado no haga una consulta por rutina |
 | `test_huecos.py` | El orden automático de un hueco nuevo, y sustituir sus comodines con una lista: que se conserven las filas de los que siguen, la lista repetida, un comodín oculto que se conserva y quitar uno con series |
 | `test_aislamiento_por_usuario.py` | Que los datos de un usuario no son visibles ni editables por otro |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
+| `test_ejercicios.py` | Dónde se usa un ejercicio: su número en cada rutina contando solo los visibles, los huecos y rutinas ocultos, los programas donde está y cuál es el activo, y que las consultas no crezcan con los datos |
 | `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos, y su último periodo de uso y que el listado no haga una consulta por programa |
@@ -219,6 +229,7 @@ No hay ningún paso previo que recordar:
 | `test_hoy.py` | La pantalla de hoy en cada situación (día de entrenamiento, descanso, sesión en curso, ya entrenado, día hecho por adelantado, primera vez y sin programa), lo que se puede recuperar y hasta cuándo, lo que se ofrece, y la hoja de registrar un día pasado |
 | `test_replanificar.py` | Lo hecho por adelantado al cambiar el plan: que siga a su rutina en Planificar (o que el cambio no se guarde si la deja sin día), y que editar el programa lo respete |
 | `test_resumen.py` | El resumen: qué semanas y meses salen según el mes pedido y el día de hoy (también la barra en curso y las que cruzan de mes o de año), el volumen y su cambio frente al último periodo con entrenamiento aunque quede fuera de la gráfica, el desglose de cada barra por rutina y por grupo muscular (el del ejercicio que se hizo), la constancia mes a mes, el aislamiento entre usuarios y que las consultas no crezcan con los datos |
+| `test_datos.py` | Exportar e importar: qué sale en el archivo (también lo oculto, lo cancelado y lo cerrado, y solo los predefinidos que se usan), que exportar, importar y volver a exportar da lo mismo y deja igual el plan, el seguimiento y el resumen, que importar sustituye todo, un caso por cada archivo que no vale (sin tocar nada), la comprobación previa, que los predefinidos no cambian y que ninguna columna nueva se quede sin exportar |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
 
 ## Convenciones de código
@@ -251,15 +262,25 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `GET` | `/docs` | Documentación interactiva (Swagger UI), autogenerada por FastAPI. |
 | `GET` | `/grupos-musculares` | Lista el catálogo de grupos musculares (sembrado por migración, sin CRUD propio). |
 
+### Tus datos: exportar e importar
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/datos/exportar` | Todos los datos del usuario actual en un archivo JSON con versión (`training-life-<fecha>.json`), para pasarlos a otro dispositivo o guardarlos como copia. Los ejercicios predefinidos y los grupos van por nombre, porque su id cambia de una instalación a otra. |
+| `GET` | `/datos/resumen` | Cuánto hay (rutinas, programas, ejercicios propios, notas, sesiones con series y entre qué fechas), para que la confirmación de exportar diga qué se va a guardar. Son las mismas cifras que la comprobación de importar da como «lo que tienes ahora». |
+| `POST` | `/datos/importar` | **Sustituye todos los datos** del usuario por los del archivo, en una sola transacción: si algo no vale (no es una copia, es de una versión más nueva, está dañado, un id repetido, una referencia que no está, un predefinido que no existe aquí, dos sesiones el mismo día…), responde 422 con la lista en español y no toca nada. Con `?comprobar=true` no escribe: dice qué hay en el archivo y qué hay ahora, para la confirmación. |
+
 ### Ejercicios
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/ejercicios` | Lista los ejercicios visibles para el usuario actual (predefinidos + propios, sin los ocultos). Con `?ocultos=true`, lista en cambio los propios ocultados. |
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id, también si está oculto (404 si no existe o es de otro usuario). |
+| `GET` | `/ejercicios/{id}/donde-se-usa` | Las rutinas donde aparece, una fila por hueco: si es el principal o un comodín, su número entre los huecos visibles de la rutina, si el hueco o la rutina están ocultos y en qué programas está la rutina (cuál es el activo y en qué días). Solo tus rutinas, también para un predefinido. |
+| `GET` | `/ejercicios/{id}/aviso-de-borrado` | Lo que se perdería al borrarlo, para enseñarlo antes de preguntar: si tiene historial, cuántas series y de cuántas sesiones, cuántas hechas con un comodín en sus huecos, tus notas, los huecos donde está y las sesiones que se quedarían sin series. 404 en un predefinido, que no se puede borrar. |
 | `POST` | `/ejercicios` | Crea un ejercicio propio del usuario actual. |
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es de otro usuario o predefinido, 409 si está oculto: hay que mostrarlo antes). |
-| `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Con `?modo=definitivo` se van los huecos donde es el principal enteros, también con las series que se hicieron en ellos con un comodín, y el 409 las cuenta. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
+| `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, devuelve 409 explicando dónde se usa (rutina y hueco concretos) y cuántas notas se perderían. Con `?modo=definitivo` se van los huecos donde es el principal enteros, también con las series que se hicieron en ellos con un comodín, y las sesiones que se quedan sin ninguna serie (menos la abierta hoy); el 409 cuenta las dos cosas. Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/mostrar` | Deshace un `?modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo. |
 | `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?desde=`, `?hasta=` (fechas inclusivas) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
 

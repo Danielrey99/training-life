@@ -1,6 +1,6 @@
 # Training Life 🏋️
 
-App de entrenamiento de gimnasio para uso personal — pensada para sustituir el bloc de notas donde apunto mis entrenamientos, con web y app móvil sincronizadas a través de un backend propio.
+App de entrenamiento de gimnasio para uso personal — pensada para sustituir el bloc de notas donde apunto mis entrenamientos, con una web y una app móvil que se pasan los datos exportándolos e importándolos en un archivo.
 
 ## Stack
 
@@ -11,11 +11,11 @@ App de entrenamiento de gimnasio para uso personal — pensada para sustituir el
 | Móvil | React Native + Expo |
 | Infraestructura | Docker Compose |
 
-Frontend (web y móvil) siempre habla con el backend a través de API REST — nunca acceden directamente a la base de datos.
+La web habla con el backend a través de su API REST: nunca accede directamente a la base de datos. La app móvil funcionará por su cuenta, sin conectarse al PC; cómo se organiza por dentro se decidirá al empezarla.
 
 ## Estructura del repositorio
 
-Monorepo: backend, web y móvil viven en un único repo porque están acoplados entre sí (un cambio en un endpoint afecta a los dos frontends) y porque un único `docker-compose.yml` levanta todo el entorno de golpe.
+Monorepo: backend, web y móvil viven en un único repo porque comparten el diseño y el formato de los datos, y porque un único `docker-compose.yml` levanta todo el entorno de golpe.
 
 ```
 training-life/
@@ -29,13 +29,13 @@ training-life/
 └── README.md                                # este archivo
 ```
 
-Cómo se conectan: `docker-compose.yml` es el que junta todo en tiempo de ejecución — lee las credenciales de `.env` (la copia real de `.env.example`, sin subir a git) y levanta `backend/` junto a PostgreSQL con un solo comando. `web/` y `mobile/` no acceden a la base de datos ni al `docker-compose.yml` directamente: hablan con el backend ya levantado, por HTTP.
+Cómo se conectan: `docker-compose.yml` es el que junta todo en tiempo de ejecución — lee las credenciales de `.env` (la copia real de `.env.example`, sin subir a git) y levanta `backend/` junto a PostgreSQL con un solo comando. `web/` no accede a la base de datos ni al `docker-compose.yml` directamente: habla con el backend ya levantado, por HTTP.
 
 ## Arquitectura
 
 ![Arquitectura completa de Training Life](docs/arquitectura_completa_training_life.svg)
 
-Diagrama de la arquitectura **completa y final** del proyecto (backend, web y móvil, con el recorrido de una petición de principio a fin). Sirve para entender de un vistazo cómo encajan todas las piezas entre sí — no refleja el estado actual del desarrollo, para eso está el checklist de la siguiente sección.
+Diagrama de la arquitectura **completa y final** del proyecto: el recorrido de una petición de la web de principio a fin, y el móvil por su cuenta, que pasa los datos con un archivo exportado. Sirve para entender de un vistazo cómo encajan todas las piezas entre sí — no refleja el estado actual del desarrollo, para eso está el checklist de la siguiente sección.
 
 ## Modelo de datos
 
@@ -47,7 +47,7 @@ Las 13 tablas de la app, con lo que más condiciona el diseño: qué relaciones 
 
 Antes de construir las pantallas de verdad, la app entera se diseñó en bocetos de móvil (390 px de ancho, pensada para usarse con una mano en el gimnasio). La web y el móvil tendrán las mismas pantallas y funciones; la versión de escritorio es la misma con más aire.
 
-- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 16 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
+- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 17 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
 - **[Mapa de navegación](docs/mapa-navegacion-training-life.png)**: cómo se pasa de una pantalla a otra, agrupado por las cuatro secciones de la barra de pestañas (Entrenar, Historial, Programas y Ejercicios).
 - **[Guía de producto](docs/guia_de_producto.md)**: el texto que acompaña a los bocetos — qué hace cada pantalla, las reglas que siguen todas (confirmaciones, ocultar frente a borrar, qué toca cada día) y lo que el diseño pide al backend.
 
@@ -55,9 +55,9 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Y encima del plan, su seguimiento: qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar, y todo lo que necesita la pantalla de hoy en una sola llamada, además de las estadísticas del resumen (volumen por semana y por mes y constancia del año). La web se está rehaciendo pantalla a pantalla y ya tiene la pantalla de hoy, la sesión de entrenamiento y todo el historial: el calendario, cada día, la progresión de un ejercicio, la planificación el resumen, y los programas con sus rutinas: la semana de cada uno, crear un programa y editar una rutina con sus ejercicios. El móvil, sin empezar.
+🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) y exportar e importar todos los datos en un archivo. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
 
-Antes de seguir construyendo pantallas sueltas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). De ahí salió el trabajo de ahora: completar el backend con lo que pide ese diseño y rehacer la web siguiéndolo.
+Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). Lo siguiente es la app móvil.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -77,11 +77,11 @@ Antes de seguir construyendo pantallas sueltas se definió la app entera —qué
 - [x] Backend: el resumen — volumen por semana y por mes con su desglose, y constancia del año
 - [x] Web: el historial — calendario, cada día, progresión de un ejercicio, planificación y resumen
 - [x] Web: programas y rutinas — la semana de un programa, crear un programa, y una rutina con sus ejercicios y alternativas (también para crear una rutina nueva)
-- [ ] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
+- [x] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
+- [x] Exportar e importar los datos en un archivo, para pasarlos de un dispositivo a otro
 - [ ] Móvil: React Native + Expo
-- [ ] Sincronización offline-first móvil ↔ PC
 
-El orden de desarrollo es intencional: primero el backend, probado de forma aislada (FastAPI genera una documentación interactiva en `/docs` donde se puede probar cada endpoint sin necesidad de frontend), después la web, y al final el móvil, cuando la API ya esté madura y estable.
+El orden de desarrollo es intencional: primero el backend, probado de forma aislada (FastAPI genera una documentación interactiva en `/docs` donde se puede probar cada endpoint sin necesidad de frontend), después la web, y al final el móvil.
 
 ## Cómo levantar el proyecto
 
@@ -113,9 +113,8 @@ Para detener todo: `docker compose down` (los datos de la base de datos persiste
 **Nivel medio**
 - Gráficas de progresión (peso, volumen y 1RM estimado) y resumen de volumen y constancia
 - Calendario de lo entrenado y planificación de los próximos días
+- Exportar e importar los datos, para pasarlos entre la web y el móvil o guardar una copia
 - Autenticación (JWT)
 
 **Nivel avanzado**
 - Sugerencias automáticas de progresión de carga
-- Exportar/backup de datos
-- Sincronización offline-first móvil ↔ PC

@@ -41,8 +41,7 @@ import type {
   UsoEnRutina,
 } from './tipos'
 
-// Configurable por si la web se abre desde otro dispositivo de la red de casa,
-// donde "localhost" ya no es el PC que sirve la API.
+// Configurable por si la API no está en localhost:8000 (otro puerto u otra máquina).
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 /**

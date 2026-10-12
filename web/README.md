@@ -8,9 +8,9 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 
 ## Estado actual
 
-🚧 En construcción, pero ya sirve para lo que se hizo el proyecto: registrar un entrenamiento mientras se entrena.
+Completa: tiene todas las pantallas del diseño de la app.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se está rehaciendo pantalla a pantalla siguiendo ese diseño. Ya están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días, el resumen de volumen y constancia, y los programas con sus rutinas.
+La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se rehízo pantalla a pantalla siguiendo ese diseño. Están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días, el resumen de volumen y constancia, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes: todas las pantallas del diseño.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
@@ -27,7 +27,8 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] La lista de programas y rutinas, con sus ocultos plegados
 - [x] La semana de un programa y crear un programa nuevo
 - [x] Una rutina y cada uno de sus ejercicios, también para crear una rutina nueva
-- [ ] Rehacer el resto siguiendo los [bocetos](../docs/bocetos-movil-training-life.png): la biblioteca de ejercicios
+- [x] La biblioteca de ejercicios: buscador y filtros, la ficha de cada uno (progresión, notas y dónde se usa) y el formulario para crear o editar uno
+- [x] Ajustes: exportar e importar todos los datos en un archivo
 
 ## Cómo ejecutarlo
 
@@ -66,11 +67,17 @@ web/
     │   ├── Interruptor.tsx  # la tarjeta con un interruptor: «Programa activo» y «Activarlo al crearlo»
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
+    │   ├── Ocultos.tsx   # el «Ver N ocultos» plegable del pie de una lista
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
-    ├── utiles/           # fechas y números en formato español, el color de cada día y la flecha de volver
+    ├── utiles/           # fechas y números en formato español, el color de cada día, la flecha de volver y los textos que pasan a párrafo
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
-        ├── Ejercicios.tsx
-        ├── PorHacer.tsx  # lo que enseñaba una sección aún sin construir (ya sin uso)
+        ├── ajustes/      # exportar e importar tus datos
+        ├── ejercicios/   # la pestaña de Ejercicios
+        │   ├── Biblioteca.tsx           # la lista, con buscador, filtros y los ocultos plegados
+        │   ├── Ficha.tsx                # un ejercicio: progresión, notas, dónde se usa, ocultar y borrar
+        │   ├── Formulario.tsx           # crear o editar un ejercicio
+        │   ├── HojaDeGrupos.tsx         # la hoja del filtro por grupo muscular
+        │   └── ejercicios.css
         ├── historial/    # la pestaña de Historial
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
         │   ├── HojaRegistrar.tsx        # apuntar un día pasado
@@ -90,6 +97,7 @@ web/
         │   ├── DiasEditables.tsx        # los siete días de un programa que se está escribiendo
         │   ├── HojaDeRutinas.tsx        # la hoja de elegir la rutina de un día
         │   ├── HojaDeEjercicios.tsx     # la hoja de elegir un ejercicio, con buscador y filtro por grupo
+        │   ├── DesplegableDeGrupo.tsx   # el filtro por grupo de esa hoja, con su lista debajo
         │   ├── ListaDeEjercicios.tsx    # los ejercicios de una rutina, con el asa para reordenarlos
         │   ├── borradores.ts            # lo que sigue ahí al ir a otra pantalla y volver
         │   ├── textos.ts                # frases comunes: «4 × 6-10», «3 días»…
@@ -213,9 +221,27 @@ La rutina (`/programas/rutinas/10`) enseña sus ejercicios en orden, numerados p
 - **Reordenar arrastrando** se hace a mano con eventos de puntero sobre el asa (sin librería): al pasar el dedo por la mitad de la tarjeta vecina se intercambian, y la arrastrada sigue al dedo. El asa va fuera del enlace de la tarjeta, para que arrastrar no abra el ejercicio.
 - **Lo oculto no se edita**: un ejercicio oculto, o cualquiera de una rutina oculta, se ve en solo lectura con *Mostrar*. Borrar cuenta lo que se pierde con las cifras que da la API (series, sesiones que se vaciarían, días de programa) y, si no hay nada que contar, la pregunta basta.
 
+## Ejercicios
+
+La biblioteca (`/ejercicios`) junta los 59 ejercicios predefinidos y los propios, con un buscador (sin tildes ni mayúsculas), un filtro de origen (*Todos · Predefinidos · Míos*) y otro por grupo muscular, que solo ofrece los grupos con algo que enseñar. Cada ejercicio dice su grupo y su origen. El grupo se elige con un campo que abre una hoja con los 17 grupos en dos columnas: en una fila de píldoras no se veían todos, y envueltos ocupaban media pantalla. Lo que se busca y filtra va en la URL, así que volver de una ficha deja la lista como estaba.
+
+- **La ficha** (`/ejercicios/12`) enseña la descripción, la progresión (el peso más alto de la última sesión y cuándo fue, que lleva a la gráfica), las notas y las rutinas donde se usa: *Push · ejercicio 1*, si es el principal o una alternativa y en qué programas está la rutina, con el punto del color de su día. Un bloque sin contenido no sale.
+- **Las notas se escriben en la propia ficha**, cada una con su lápiz y su ✕ y su propio *Guardar*, porque la ficha no tiene un modo editar general. Se puede anotar también un ejercicio predefinido o uno oculto: las notas son tuyas. Su fecha es la del día en que se escribieron en tu hora, no en la del servidor, que la guarda en UTC: si no, una nota de pasada la medianoche saldría del día anterior.
+- **Lo oculto va plegado**, como en Programas: los ejercicios ocultos al pie de la biblioteca, y en la ficha, las rutinas donde el ejercicio está oculto o que lo están ellas. Un ejercicio oculto se ve en solo lectura, con *Mostrar*. Los predefinidos no se pueden editar, ocultar ni borrar, y la ficha lo dice.
+- **Borrar cuenta lo que se pierde** con las cifras que da la API (*Se borrarán también sus series de 11 sesiones, tus 2 notas y su ejercicio 1 en Push, y dejará de ser alternativa en Full body A*) y ofrece ocultarlo en su lugar.
+- **El formulario** (`/ejercicios/nuevo`, `/ejercicios/12/editar`) es el mismo para crear y para editar: nombre, grupo y una descripción opcional. Si falta algo lo dice bajo el campo, antes de llamar a la API.
+
+## Ajustes
+
+Desde el engranaje de *Hoy* (`/ajustes`). **Exportar datos** descarga un archivo con todo lo apuntado, después de confirmar con lo que se va a guardar; **Importar datos** carga uno y sustituye todo lo que hay. La web y la app móvil no se conectan entre sí: los datos pasan de una a otra así.
+
+- **Antes de importar, la API comprueba el archivo sin escribir nada** y la confirmación cuenta qué hay ahora y qué trae (*Ahora tienes 3 rutinas, 1 programa y 12 sesiones… El archivo, exportado el 9 de octubre, tiene…*), para no cargar una copia vieja por error.
+- Si el archivo no vale, se enseña el motivo y la lista de lo que no cuadra, y no cambia nada.
+- Tras importar se tiran los borradores guardados en el navegador: sus ids eran de los datos de antes.
+
 ## Hablar con la API
 
-Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre ya todos los endpoints del backend, agrupados por recurso, aunque todavía no los usen todas las pantallas.
+Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre todos los endpoints del backend, agrupados por recurso. Los errores llegan a la pantalla como una frase para quien usa la app: el motivo que da la API, o, si no se puede conectar con el PC o el servidor falla, qué comprobar.
 
 Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede ofrecer continuarla.
 
@@ -229,4 +255,4 @@ Los tipos de `src/api/tipos.ts` reflejan los esquemas de `backend/app/schemas.py
 |---|---|---|
 | `VITE_API_URL` | Dónde está la API | `http://localhost:8000` |
 
-Solo hace falta tocarla para abrir la web desde otro dispositivo de la red de casa, donde `localhost` ya no es el PC que sirve la API. Se define en un archivo `.env` dentro de `web/` (copia de `.env.example`), que no se sube a git.
+Solo hace falta tocarla si la API no está en `localhost:8000`, por ejemplo con el backend en otro puerto. Se define en un archivo `.env` dentro de `web/` (copia de `.env.example`), que no se sube a git.

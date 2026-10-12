@@ -4,7 +4,7 @@ Qué hace la app, qué pantallas tiene y cómo se comporta cada una. Es la refer
 
 Va acompañada de dos imágenes que conviene tener abiertas al leerla:
 
-- **[Bocetos](bocetos-movil-training-life.png)**: las 16 pantallas en todos sus estados, cada una con una nota. Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
+- **[Bocetos](bocetos-movil-training-life.png)**: las 17 pantallas en todos sus estados, cada una con una nota. Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
 - **[Mapa de navegación](mapa-navegacion-training-life.png)**: qué se toca para ir de una pantalla a otra.
 
 Los datos que aparecen en los bocetos son de ejemplo: enseñan cómo se ve cada función, no tienen por qué cuadrar entre una pantalla y otra.
@@ -12,7 +12,7 @@ Los datos que aparecen en los bocetos son de ejemplo: enseñan cómo se ve cada 
 **Índice:** [Para qué existe](#para-qué-existe) · [Lo que hace el usuario](#lo-que-hace-el-usuario) ·
 [Vocabulario](#vocabulario) · [Principios](#principios) · [Pantallas](#pantallas) ·
 [Entrenar](#entrenar) · [Historial](#historial) · [Programas y rutinas](#programas-y-rutinas) ·
-[Ejercicios](#ejercicios) · [Ocultar y borrar](#ocultar-y-borrar) · [La primera vez](#la-primera-vez) ·
+[Ejercicios](#ejercicios) · [Ajustes](#ajustes) · [Ocultar y borrar](#ocultar-y-borrar) · [La primera vez](#la-primera-vez) ·
 [Flujos](#flujos) · [Lo que necesita del backend](#lo-que-necesita-del-backend) ·
 [Por decidir](#por-decidir)
 
@@ -82,11 +82,12 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 5. **Cada acción tiene su botón visible**, con un nombre que dice lo que hace, y no hay gestos ocultos. Para ver la variante de una ficha de "última vez" basta tocarla; el punto verde avisa de que tiene.
 6. **Todo se guarda al confirmarlo, nunca al salir de una pantalla.** Cada serie se guarda al pulsar su botón; no hay "guardar sesión" ni botones de guardar globales. Salir de una pantalla no pierde nada ni guarda nada que no se haya confirmado.
-7. **Todo lo que empieza, adelanta, recupera, intercambia, activa, desactiva, oculta o borra algo pide confirmación antes**: siempre se puede pulsar sin querer. También la ✕ de una serie. No la piden las acciones que se corrigen con otro toque: guardar una serie o sus cambios, cambiar la rutina de un día, restablecer un día, o *Continuar* una sesión, que no empieza nada.
+7. **Todo lo que empieza, adelanta, recupera, intercambia, activa, desactiva, oculta, borra, exporta o sustituye algo pide confirmación antes**: siempre se puede pulsar sin querer. También la ✕ de una serie. No la piden las acciones que se corrigen con otro toque: guardar una serie o sus cambios, cambiar la rutina de un día, restablecer un día, o *Continuar* una sesión, que no empieza nada.
 8. **Los diálogos llevan *Cancelar* frente al verbo** (*Empezar*, *Ocultar*, *Borrar*…), nunca *Sí / No*: el botón dice lo que hace sin releer la pregunta. En verde si se puede deshacer, en rojo si no. El texto cuenta qué se pierde y qué no, y solo si no lo dice ya la pregunta: *¿Borrar la nota?* no lleva texto, y *¿Borrar la serie 2?* solo enseña la serie. El título va centrado, y el texto también si cabe en una línea; si ocupa más, a la izquierda.
 9. **Editar no abre otra pantalla, la cambia** (patrón *Editar / Guardar*): los campos pasan a ser editables, la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Nada se guarda hasta pulsar *Guardar***, que lo guarda todo de golpe; *Cancelar* lo deshace todo. Por eso los formularios de dentro (una serie, la nota) no dicen *Guardar* sino *Añadir* o *Aplicar*: solo cambian lo que se guardará. Si algo no vale (la fecha), *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué. **Se edita una cosa cada vez**: con un formulario abierto, todo lo demás se queda en gris (incluidos *Cancelar* y *Guardar*) hasta aplicarlo o cancelarlo. Esos formularios llevan *Cancelar* (en rojo) y *Añadir* o *Aplicar* (en verde) en la misma línea. Fuera del modo editar (la sesión, las notas de un ejercicio), cada formulario se guarda con su propio *Guardar*.
 10. **Los valores anteriores ya puestos.** El teclado solo sale para nombres, notas y variantes; para lo demás, lo normal es confirmar lo que ya está o ajustarlo con − / +.
 11. **La flecha de volver lleva a la pantalla de la que se viene**, no a una fija: si se abre un día desde *Hoy*, volver deja en *Hoy*. Tras terminar, cancelar o borrar algo no lleva a lo que acaba de desaparecer.
+12. **Las fechas llevan el año solo si no es el actual**: «Jueves 1 de octubre» este año, «Jueves 1 de octubre de 2025» si no. Así no se confunden ejercicios o días de un año con otro, sin llenar la app de años.
 
 **Aspecto**
 
@@ -97,7 +98,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 **Textos**
 
 14. **Cortos, y nombrando el control de verdad**: "Pulsa › para cambiar la rutina de un día", no "toca un día para…" cuando lo que se pulsa es un icono concreto.
-15. **Frases cortas, una por línea y centradas**, para que nunca quede una palabra suelta colgando. **Frases largas, en un solo párrafo** alineado a la izquierda, en un bloque centrado y más estrecho que la pantalla.
+15. **Frases cortas, una por línea y centradas**, para que nunca quede una palabra suelta colgando; si en una pantalla estrecha alguna no cabe, el texto entero pasa a párrafo alineado a la izquierda. **Frases largas, en un solo párrafo** alineado a la izquierda, en un bloque centrado y más estrecho que la pantalla.
 16. **Las leyendas van al final**, debajo de los botones: se consultan, no se leen antes de actuar. Excepción: la de Planificar va arriba, porque su lista no tiene final.
 17. **Los títulos de tarjeta van centrados**; los rótulos de sección que encabezan una lista, a la izquierda, como la lista. En los diálogos, todo a la izquierda.
 
@@ -120,6 +121,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
 | **X3** | Nuevo / editar ejercicio | Nombre, grupo y descripción | X1, X2 |
+| **A1** | Ajustes | Exportar e importar tus datos | E1 (engranaje) |
 
 **Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un ejercicio de una rutina no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
 
@@ -238,7 +240,7 @@ La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.
 - **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley), **como media de las series** de la sesión, igual que en H2. Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan. Se promedia y no se toma la mejor serie porque las rutinas son de doble progresión (se suben repeticiones hasta llegar al máximo del rango en todas las series y entonces se sube el peso): en esas semanas el progreso está en las series de después, y con la mejor serie la línea se quedaría plana aunque se mejorase cada semana. Por eso el globo dice *16,3 kg de media*.
 
-Arriba, el último valor y cuánto cambió desde la primera sesión del rango. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada ejercicio en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
+Arriba, la medida que se elige, sola y centrada; debajo, a la izquierda el último valor y a la derecha cuánto cambió desde la primera sesión del rango, con el número de sesiones debajo. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada ejercicio en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
 
 **Sin datos**: si el ejercicio no se ha hecho nunca, dice *Aún no has hecho este ejercicio.*; si se hizo pero no en el rango elegido, *No lo has hecho en este tiempo. Prueba con un rango más largo.* En ambos casos las píldoras del rango siguen ahí (en el segundo son la salida).
 
@@ -296,9 +298,9 @@ Los ejercicios de la rutina en orden, cada uno con su objetivo y sus alternativa
 
 ### P4 · Ejercicio de la rutina
 
-Formulario: ejercicio principal, alternativas (varias; las que se pueden hacer en su lugar, por ejemplo si la máquina está ocupada), series objetivo y reps mínimas y máximas, con − / +. Un ejercicio nuevo parte de 3 × 8-12 como referencia, que se cambia antes de guardar. El principal y cada alternativa se eligen en una hoja con buscador y filtro por grupo muscular, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. Estados de la misma pantalla:
+Formulario: ejercicio principal, alternativas (varias; las que se pueden hacer en su lugar, por ejemplo si la máquina está ocupada), series objetivo y reps mínimas y máximas, con − / +. Un ejercicio nuevo parte de 3 × 8-12 como referencia, que se cambia antes de guardar. El principal y cada alternativa se eligen en una hoja con buscador y filtro por grupo muscular, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. El filtro es el mismo campo que en la biblioteca, pero como ya está dentro de una hoja, su lista se despliega justo debajo en vez de abrir otra hoja. Estados de la misma pantalla:
 
-- **Nuevo en una rutina que ya existe**: *Guardar* guarda al momento. Debajo del título, el nombre de la rutina y *será el ejercicio 5*.
+- **Nuevo en una rutina que ya existe**: se titula *Añadir ejercicio*, como el botón que lleva a él (crear un ejercicio para la biblioteca es otra cosa, en la pestaña Ejercicios). *Guardar* guarda al momento. Debajo del título, el nombre de la rutina y *será el ejercicio 5*.
 - **Nuevo o existente en una rutina nueva**: *Guardar* solo cambia el borrador de la rutina; un ejercicio ya añadido ofrece *Quitar de la rutina* en lugar de Ocultar y Borrar.
 - **Existente**: además, *Ocultar ejercicio* y *Borrar ejercicio*, cada uno con su diálogo (borrar cuenta las series y las sesiones que se vaciarían con él).
 - **Oculto**: un aviso arriba, los datos en solo lectura y *Mostrar ejercicio* como acción principal. Lo mismo si lo oculta es la rutina entera: se ve sin poder cambiarlo y dice que primero hay que mostrarla.
@@ -313,17 +315,26 @@ Todo en una pantalla: nombre, *Activarlo al crearlo* (empieza apagado: activarlo
 
 ### X1 · Biblioteca
 
-Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo muscular. Cada ejercicio dice su grupo y su origen, y la etiqueta *nota* marca los que tienen notas del usuario. *Nuevo ejercicio* lleva a X3.
+Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo muscular (solo salen los grupos que tienen algo en el origen elegido). El grupo muscular se elige con un campo (*Todos los grupos musculares*) que abre una hoja con los grupos en dos columnas, todos a la vista; con uno elegido, el campo dice cuál, en verde. Cada ejercicio dice su grupo y su origen (*predefinido* o *mío*). Al pie, *Nuevo ejercicio*, que lleva a X3, y debajo *Ver N ejercicios ocultos*, en el mismo orden que en Programas. Lo que se busca y filtra se conserva al volver de una ficha.
 
 ### X2 · Ficha
 
-Descripción; acceso a la progresión (H3) con el peso actual; las notas personales con su fecha, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el lugar que ocupa en la rutina, la rutina y su programa (lleva a P3). Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie.
+Descripción; la progresión, con el peso más alto de la última sesión y cuándo fue (*Última vez el jueves 1*), que lleva a la gráfica (H3); las notas personales con su fecha, las más recientes arriba, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el lugar que ocupa en la rutina (*Push · ejercicio 1*), si es el principal o una alternativa, y en qué programas está la rutina. Lleva a la rutina (P3). Solo el programa activo lo dice (*Push Pull Leg · programa activo*); los demás salen con su nombre. Si el ejercicio está oculto dentro de una rutina, o la rutina está oculta, esa fila va plegada en *Ver N rutinas ocultas*. Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie. Lo que no tiene contenido no sale: sin descripción, sin sesiones o sin rutinas, esos bloques no aparecen.
 
 **Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app y son compartidos por todos los usuarios. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son del usuario.
 
 ### X3 · Nuevo / editar ejercicio
 
-Nombre, grupo muscular y descripción. Bajo la descripción, una línea aclara la diferencia con las notas: la descripción es información general del ejercicio; lo que sea de uno va en las notas de su ficha.
+Nombre, grupo muscular y descripción (opcional), con *Guardar* arriba. Si falta el nombre o el grupo, lo dice bajo ese campo y no guarda nada. Al crear, se abre la ficha del ejercicio nuevo; al editar, se vuelve a ella.
+
+## Ajustes
+
+### A1 · Ajustes
+
+Se llega con el engranaje de arriba a la derecha de *Hoy*. Por ahora tiene **tus datos**:
+
+- **Exportar datos** guarda en un archivo todo lo apuntado (rutinas, programas, sesiones, notas y ejercicios propios). Antes pregunta, diciendo qué se va a guardar y dónde encontrarlo. La web y la app móvil no se conectan entre sí: así es como los datos pasan de una a otra, y también sirve de copia de seguridad.
+- **Importar datos** carga un archivo exportado y **sustituye todo lo que hay**. Antes de hacer nada pregunta, contando qué hay ahora y qué trae el archivo, con la fecha en que se exportó, para no cargar una copia vieja por error; recuerda que, si se quiere conservar lo de ahora, hay que exportarlo antes. Si el archivo no vale (no es una copia de la app, es de una versión más nueva o algo no cuadra), lo dice y no cambia nada.
 
 ## Ocultar y borrar
 
@@ -334,7 +345,7 @@ Programas, rutinas, ejercicios de una rutina y ejercicios propios se pueden ocul
 - **Ocultar es reversible de verdad.** Una rutina oculta no sale del programa: el día la conserva, en gris, y cuenta como descanso; al mostrarla, vuelve a estar como estaba. Lo mismo un ejercicio oculto dentro de su puesto en la rutina (se ve en gris, y E2 propone la alternativa) o un ejercicio de la rutina oculto dentro de su rutina. Si ocultar quitara la asignación, mostrarla no podría deshacerlo.
 - **Si a ese día se le pone otra rutina**, la nueva sustituye a la oculta, y mostrar la oculta ya no recupera el día: el sitio ya tiene dueño.
 - **Un programa oculto deja de ser el activo** si lo era, y no vuelve a serlo solo al mostrarlo.
-- **Cada lista con algo oculto lleva un *Ver N ocultos* al pie** (P1 una vez por sección, P3 y X1), que despliega los ocultos en gris, con la fecha desde la que lo están. Tocar uno lo abre en su estado oculto: un aviso arriba, *Mostrar* como acción principal y *Borrar* debajo, sin *Editar*: lo oculto no se edita, para cambiarlo primero se muestra (*Mostrar* pregunta antes, como el resto). Se puede *Duplicar* una rutina oculta, y las notas de un ejercicio oculto se siguen pudiendo escribir y cambiar, porque son del usuario.
+- **Cada lista con algo oculto lleva un *Ver N ocultos* al pie** (P1 una vez por sección, P3, X1 y las rutinas donde se usa un ejercicio, en X2), que despliega los ocultos en gris, con la fecha desde la que lo están. Tocar uno lo abre en su estado oculto: un aviso arriba, *Mostrar* como acción principal y *Borrar* debajo, sin *Editar*: lo oculto no se edita, para cambiarlo primero se muestra (*Mostrar* pregunta antes, como el resto). Se puede *Duplicar* una rutina oculta, y las notas de un ejercicio oculto se siguen pudiendo escribir y cambiar, porque son del usuario.
 - **Las listas para elegir no enseñan lo oculto** (la hoja de rutinas de P5, el selector de ejercicio de P4, el de rutina de H4): ocultar significa que deja de ofrecerse. Para volver a usarlo, primero se muestra.
 
 ## La primera vez
@@ -373,9 +384,9 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 ## Lo que necesita del backend
 
-Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, y que borrar una rutina que ya estuvo en el plan pida elegir. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web y el móvil digan siempre lo mismo.
+Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado): cómo hará esos cálculos se decidirá al empezarla.
 
-Lo que queda es construir las pantallas.
+Las pantallas de la web ya están todas; lo siguiente es la app móvil.
 
 ## Por decidir
 
@@ -383,6 +394,7 @@ Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
 - **Objetivo por ejercicio y no por puesto en la rutina.** Hoy las series objetivo y el rango de reps son del puesto, y la alternativa los hereda. Queda por ver si cada alternativa debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
 - **Ocultar predefinidos**: haría falta guardarlo por usuario, porque ocultar la fila compartida la ocultaría para todos.
+- **Más ajustes** en la pantalla de Ajustes, que de momento solo tiene exportar e importar los datos. El primero pensado: elegir cómo se calcula el 1RM estimado (la media de las series, como ahora, o la mejor serie del día).
 - **Temporizador de descanso** entre series, en E2.
 - **Peso corporal**, para comparar con el peso levantado.
 - **Cardio**: la app está pensada para series de peso por repeticiones, y el cardio (cinta, bici, remo) se mide de otra forma, con tiempo, distancia o ritmo. Tendría sentido como grupo aparte, con su propio registro.
