@@ -204,7 +204,8 @@ function HuecoAbierto({
 
       {!elegido && (
         <p className="nota">
-          Este ejercicio y sus alternativas están ocultos: muestra alguno para usarlo.
+          Este ejercicio y sus alternativas están ocultos: muestra alguno desde la pestaña
+          Ejercicios para usarlo.
         </p>
       )}
     </section>
