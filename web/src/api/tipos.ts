@@ -83,6 +83,48 @@ export type RutinaMinima = {
   oculto_desde: string | null
 }
 
+/** Un programa donde está la rutina de un uso. */
+export type ProgramaDeUnUso = {
+  id: number
+  nombre: string
+  // Si es el programa en uso ahora.
+  activo: boolean
+  // Los días vigentes de esa rutina en el programa (1 = lunes), ordenados.
+  dias_semana: number[]
+}
+
+/** Un ejercicio (hueco) de una rutina donde aparece un ejercicio de la biblioteca. */
+export type UsoEnRutina = {
+  rutina: RutinaMinima
+  slot_id: number
+  rol: 'principal' | 'comodin'
+  // Su número entre los ejercicios visibles de la rutina; nulo si está oculto.
+  posicion: number | null
+  hueco_oculto_desde: string | null
+  // El hueco o su rutina están ocultos: va plegado en «Ver N ocultos».
+  oculto: boolean
+  // Los visibles donde la rutina tiene algún día.
+  programas: ProgramaDeUnUso[]
+}
+
+/** Lo que se perdería al borrar un ejercicio, para el diálogo de confirmar. */
+export type AvisoDeBorrarEjercicio = {
+  // Si el DELETE sin modo daría 409. Las notas no cuentan.
+  con_historial: boolean
+  // Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
+  series: number
+  // De esas, las hechas con una alternativa en esos huecos.
+  series_de_comodines: number
+  // Sesiones con alguna de esas series.
+  sesiones: number
+  desde: string | null
+  notas: number
+  // Principal: ese ejercicio de la rutina se borra. Comodín: deja de ser alternativa.
+  huecos: UsoEnRutina[]
+  // Se quedan sin ninguna serie y se borran con él; no incluye la de hoy en curso.
+  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
+}
+
 // --- Entrenamientos y series ---------------------------------------------
 
 export type Serie = {

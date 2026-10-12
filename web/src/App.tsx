@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
-import { Ejercicios } from './paginas/Ejercicios'
+import { Biblioteca } from './paginas/ejercicios/Biblioteca'
+import { Ficha } from './paginas/ejercicios/Ficha'
+import { Formulario } from './paginas/ejercicios/Formulario'
 import { Calendario } from './paginas/historial/Calendario'
 import { Dia } from './paginas/historial/Dia'
 import { Planificar } from './paginas/historial/Planificar'
@@ -46,7 +48,11 @@ export default function App() {
           <Route path="/programas/rutinas/:rutinaId" element={<Rutina />} />
           <Route path="/programas/rutinas/:rutinaId/ejercicios/:huecoId" element={<Ejercicio />} />
           <Route path="/programas/:programaId" element={<Semana />} />
-          <Route path="/ejercicios" element={<Ejercicios />} />
+          <Route path="/ejercicios" element={<Biblioteca />} />
+          {/* "nuevo" antes que el id, o se leería como uno. */}
+          <Route path="/ejercicios/nuevo" element={<Formulario />} />
+          <Route path="/ejercicios/:ejercicioId" element={<Ficha />} />
+          <Route path="/ejercicios/:ejercicioId/editar" element={<Formulario />} />
           <Route path="*" element={<p className="aviso">Esa página no existe.</p>} />
         </Routes>
       </main>

@@ -36,6 +36,15 @@ function aIso(fecha: Date): string {
   return `${fecha.getFullYear()}-${mes}-${dia}`
 }
 
+/**
+ * El día, en ISO y en la hora del dispositivo, de un instante con hora como el
+ * `created_at` de una nota. Cortar sus diez primeros caracteres daría el día en UTC:
+ * una nota escrita a las doce y media de la noche saldría del día anterior.
+ */
+export function diaDe(instante: string): string {
+  return aIso(new Date(instante))
+}
+
 /** El texto ISO como fecha local a mediodía, lejos de cualquier cambio de hora. */
 function aFecha(iso: string): Date {
   const [anio, mes, dia] = iso.split('-').map(Number)

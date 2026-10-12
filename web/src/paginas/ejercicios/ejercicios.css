@@ -1,0 +1,184 @@
+/* X1 · Biblioteca, X2 · Ficha (detalle-*) y X3 · Ejercicio nuevo o editar. Reutilizan
+   la lista y los ocultos de Programas, el buscador y las píldoras de la hoja de elegir
+   ejercicio, el selector de H3, y la cabecera y los campos de la sesión. */
+
+/* --- X1 · Biblioteca ----------------------------------------------------- */
+
+.biblioteca-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.biblioteca-buscador.ejercicio-buscador {
+  margin-bottom: 0;
+}
+
+/* --- La hoja de grupos --------------------------------------------------- */
+
+.grupos-rejilla {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.grupos-todos {
+  grid-column: 1 / -1;
+  display: flex;
+}
+
+.grupos-todos .grupos-opcion {
+  flex-grow: 1;
+}
+
+.grupos-opcion {
+  font: inherit;
+  min-height: 44px;
+  padding: 0 10px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  color: var(--texto);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.grupos-opcion.elegida {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.biblioteca-fila.programas-rutina {
+  min-height: 60px;
+}
+
+/* --- X2 · Ficha ---------------------------------------------------------- */
+
+.detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detalle-bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detalle-bloque .rotulo {
+  margin: 0;
+  font-weight: 400;
+}
+
+.detalle-tarjeta {
+  margin: 0;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.detalle-descripcion {
+  padding: 14px 16px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.detalle-progresion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 14px 16px;
+  color: var(--texto-tenue);
+  text-decoration: none;
+}
+
+.detalle-progresion:hover {
+  border-color: var(--texto-tenue);
+}
+
+.detalle-progresion-texto {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+}
+
+.detalle-peso {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--texto);
+}
+
+.detalle-notas {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 0 16px;
+}
+
+.detalle-nota {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.detalle-nota + .detalle-nota,
+.detalle-nota + .detalle-formulario,
+.detalle-formulario + .detalle-nota {
+  border-top: 1px solid var(--borde);
+}
+
+.detalle-nota-texto {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.detalle-nota-fecha {
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+}
+
+.detalle-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 12px 0;
+}
+
+/* Un campo de varias líneas: el de una línea mide 44 px. */
+.detalle-campo.campo-texto {
+  height: auto;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.detalle-uso.programas-rutina {
+  min-height: 60px;
+}
+
+.detalle-acciones {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- X3 · Ejercicio nuevo o editar --------------------------------------- */
+
+.formulario-ejercicio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Dentro de los filtros el hueco ya lo pone el gap. */
+.biblioteca-filtros .ejercicio-filtro {
+  margin-bottom: 0;
+}

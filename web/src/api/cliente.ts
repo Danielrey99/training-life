@@ -8,6 +8,7 @@
  */
 
 import type {
+  AvisoDeBorrarEjercicio,
   AvisoDeBorrarHueco,
   AvisoDeBorrarRutina,
   CambiosDeHueco,
@@ -35,6 +36,7 @@ import type {
   Serie,
   SerieHistorialHueco,
   SesionHistorial,
+  UsoEnRutina,
 } from './tipos'
 
 // Configurable por si la web se abre desde otro dispositivo de la red de casa,
@@ -130,6 +132,9 @@ export const api = {
     peticion<Ejercicio>('/ejercicios', conCuerpo('POST', datos)),
   actualizarEjercicio: (id: number, datos: NuevoEjercicio) =>
     peticion<Ejercicio>(`/ejercicios/${id}`, conCuerpo('PUT', datos)),
+  dondeSeUsa: (id: number) => peticion<UsoEnRutina[]>(`/ejercicios/${id}/donde-se-usa`),
+  avisoDeBorrarEjercicio: (id: number) =>
+    peticion<AvisoDeBorrarEjercicio>(`/ejercicios/${id}/aviso-de-borrado`),
   borrarEjercicio: (id: number, modo?: ModoBorrado) =>
     peticion<void>(`/ejercicios/${id}${consulta({ modo })}`, BORRAR),
   mostrarEjercicio: (id: number) =>
