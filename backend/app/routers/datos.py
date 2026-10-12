@@ -50,8 +50,9 @@ def resumen_de_datos(
     db: Session = Depends(get_db),
     usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Cuánto hay, para la confirmación de exportar: las mismas cifras que `actual` en
-    la comprobación de importar. (No es `GET /resumen`, el resumen semanal de H5.)
+    """Cuánto hay, para la confirmación de exportar y de borrar: las mismas cifras que
+    `actual` en la comprobación de importar. (No es `GET /resumen`, el resumen semanal
+    de H5.)
     """
     return resumir_actual(db, usuario_id)
 
@@ -109,3 +110,16 @@ def importar_datos(
     # nada a medias.
     db.commit()
     return resumir_actual(db, usuario_id)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def borrar_datos(
+    db: Session = Depends(get_db),
+    usuario_id: int = Depends(get_usuario_actual_id),
+):
+    """**Borra todos tus datos** (rutinas, programas, sesiones, notas y tus ejercicios)
+    para empezar de cero. Los ejercicios de la app no se tocan. No se puede deshacer: lo
+    que cuenta `GET /datos/resumen` es lo que se pierde.
+    """
+    borrar_todo(db, usuario_id)
+    db.commit()

@@ -1,8 +1,9 @@
-"""Exportar e importar todos los datos de un usuario.
+"""Exportar, importar y borrar todos los datos de un usuario.
 
-Sirve para pasar los datos de un dispositivo a otro (la web y el móvil no se conectan
-entre sí) y como copia de seguridad. Importar **sustituye todo**: se borra lo del
-usuario y se carga lo del archivo, en una sola transacción.
+Exportar e importar sirven para pasar los datos de un dispositivo a otro (la web y el
+móvil no se conectan entre sí) y como copia de seguridad. Importar **sustituye todo**:
+se borra lo del usuario y se carga lo del archivo, en una sola transacción. Borrar es
+empezar de cero.
 
 Los ids del archivo solo enlazan cosas dentro del archivo: al importar se asignan otros
 (las secuencias son comunes a todos los usuarios). Los ejercicios predefinidos y los
@@ -439,7 +440,8 @@ def resumir_actual(db: Session, usuario_id: int) -> ResumenDeDatos:
 
 
 def borrar_todo(db: Session, usuario_id: int) -> None:
-    """Borra todo lo del usuario, sin tocar a nadie más ni los predefinidos.
+    """Borra todo lo del usuario, sin tocar a nadie más ni los predefinidos. La usan
+    importar y `DELETE /datos`: un cambio aquí cambia los dos.
 
     Sentencias directas, en el orden que piden las FK: lo que es RESTRICT hacia algo se
     borra antes que ese algo (series → huecos, rutinas y ejercicios; huecos → rutinas

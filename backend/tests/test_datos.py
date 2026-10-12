@@ -1,15 +1,16 @@
-"""Tests de exportar e importar los datos de un usuario (`/datos`).
+"""Tests de exportar, importar y borrar los datos de un usuario (`/datos`).
 
 Importar **sustituye todo** lo del usuario por lo del archivo, así que lo que más
 importa es que la copia sea idéntica (nada se pierde por el camino, ni una fecha de
 creación, ni el orden de los comodines), que un archivo malo no toque nada y que
 nada de esto alcance a los predefinidos ni a otro usuario (eso último, en
-`test_aislamiento_por_usuario.py`).
+`test_aislamiento_por_usuario.py`, salvo lo de borrar, que está al final de este).
 """
 
 import copy
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
@@ -43,7 +44,7 @@ from app.schemas import (
     SerieDeArchivo,
     SlotDeArchivo,
 )
-from tests.ayudas import consultas_de
+from tests.ayudas import consultas_de, entrenar, serie_en
 
 HOY = date(2026, 9, 16)
 
@@ -1524,3 +1525,264 @@ def test_el_formato_de_alto_nivel_tiene_una_lista_por_cada_cosa():
         "excepciones",
         "entrenamientos",
     }
+
+
+# --- 10. Borrar todo (`DELETE /datos`) ----------------------------------------
+#
+# Usa el mismo `borrar_todo` que importar, con sentencias directas y sin ids
+# concretos: un `WHERE` mal puesto borraría lo de otro usuario o dejaría algo
+# colgado. Tras borrar, el usuario tiene que poder empezar de cero sin chocar con
+# nada que quedara (un periodo abierto, la sesión de hoy, un nombre de rutina).
+
+
+def borrar(cliente):
+    respuesta = cliente.delete("/datos")
+    assert respuesta.status_code == 204, respuesta.text
+    assert respuesta.content == b""
+
+
+def _foto_de(sesion_bd, usuario_id) -> dict:
+    """Las filas de ese usuario en cada una de las 11 tablas de datos; los hijos sin
+    `usuario_id`, a través de su padre.
+    """
+    from tests.test_aislamiento_por_usuario import _foto_de
+
+    return _foto_de(sesion_bd, usuario_id)
+
+
+def _nada_de(sesion_bd, usuario_id) -> bool:
+    return all(filas == [] for filas in _foto_de(sesion_bd, usuario_id).values())
+
+
+def test_borrar_sin_datos_da_204_sin_cuerpo_y_el_resumen_sigue_a_cero(cliente, hoy_es):
+    hoy_es(HOY)
+
+    borrar(cliente)
+
+    assert resumen(cliente) == CERO
+
+
+def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
+    predefinidos_visibles = sorted(
+        fila.id for fila in _predefinidos_en_bd(sesion_bd) if fila.oculto_desde is None
+    )
+    assert resumen(cliente) != CERO
+
+    borrar(cliente)
+
+    assert sin_marca(exportado(cliente)) == {
+        "formato": "training-life",
+        "version": 1,
+        "predefinidos": [],
+        "ejercicios": [],
+        "notas": [],
+        "rutinas": [],
+        "programas": [],
+        "excepciones": [],
+        "entrenamientos": [],
+    }
+    assert resumen(cliente) == CERO
+    assert cliente.get("/rutinas").json() == []
+    assert cliente.get("/rutinas", params={"ocultas": True}).json() == []
+    assert cliente.get("/programas").json() == []
+    assert cliente.get("/programas", params={"ocultos": True}).json() == []
+    assert cliente.get("/ejercicios", params={"ocultos": True}).json() == []
+    ejercicios = cliente.get("/ejercicios").json()
+    assert all(e["es_predefinido"] for e in ejercicios)
+    assert sorted(e["id"] for e in ejercicios) == predefinidos_visibles
+    assert cliente.get("/entrenamientos").json() == []
+    rango = {"desde": "2026-09-01", "hasta": "2026-09-30"}
+    assert cliente.get("/plan/excepciones", params=rango).json() == []
+    assert cliente.get(f"/ejercicios/{datos['de_nota'][0]}/notas").json() == []
+
+
+def test_borrar_no_deja_ninguna_fila_del_usuario_ni_hijos_sueltos(cliente, sesion_bd, datos):
+    """Los huecos, comodines, días y series no tienen `usuario_id`: se cuentan por su
+    padre y, como aquí no hay nadie más, también la tabla entera (un hijo que se
+    quedara sin su padre no saldría en el join).
+    """
+    antes = _foto_de(sesion_bd, USUARIO_SEMBRADO_ID)
+    # Que no pase por estar ya vacío: el escenario llena las 11 tablas.
+    assert all(antes.values()), [tabla for tabla, filas in antes.items() if not filas]
+
+    borrar(cliente)
+
+    assert _foto_de(sesion_bd, USUARIO_SEMBRADO_ID) == {tabla: [] for tabla in antes}
+    for modelo in (set(FORMATO_DE) - {Ejercicio}) | {SlotAlternativa}:
+        assert sesion_bd.scalar(select(func.count()).select_from(modelo)) == 0, modelo.__name__
+    propios = select(func.count()).select_from(Ejercicio).where(Ejercicio.usuario_id.is_not(None))
+    assert sesion_bd.scalar(propios) == 0
+
+
+def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
+    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
+):
+    """El resumen puede decir casi nada y aun así haber cosas: sesiones sin series
+    (una cancelada, una sin terminar de otro día, la de hoy en curso y vacía), una
+    sesión sin terminar con series, una excepción de descanso (sin rutina) y una nota
+    de un predefinido (no se iría con ningún ejercicio propio).
+    """
+    hoy_es(HOY)
+    u = USUARIO_SEMBRADO_ID
+    rutina = Rutina(usuario_id=u, nombre="Pierna")
+    sesion_bd.add_all(
+        [
+            rutina,
+            NotaUsuarioEjercicio(
+                usuario_id=u, ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"
+            ),
+            ExcepcionDelPlan(usuario_id=u, fecha=date(2026, 9, 18), rutina_id=None),
+        ]
+    )
+    sesion_bd.flush()
+    hueco = RutinaSlot(
+        rutina_id=rutina.id,
+        ejercicio_principal_id=ejercicio_predefinido_id,
+        orden=1,
+        series_objetivo=3,
+        reps_min=5,
+        reps_max=8,
+    )
+    terminada = instante("2026-09-10T18:00:00+00:00")
+    con_series = Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 15))
+    sesion_bd.add_all(
+        [
+            hueco,
+            con_series,
+            Entrenamiento(
+                usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 10), terminada_en=terminada
+            ),
+            Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 14)),
+            Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=HOY),
+        ]
+    )
+    sesion_bd.flush()
+    sesion_bd.add(
+        Serie(
+            entrenamiento_id=con_series.id,
+            slot_id=hueco.id,
+            ejercicio_id=ejercicio_predefinido_id,
+            numero_serie=1,
+            peso=Decimal("100"),
+            repeticiones=5,
+        )
+    )
+    sesion_bd.commit()
+    assert resumen(cliente)["sesiones"] == 1
+    assert len(cliente.get("/entrenamientos").json()) == 4
+
+    borrar(cliente)
+
+    assert _nada_de(sesion_bd, u)
+    assert cliente.get("/entrenamientos").json() == []
+    assert cliente.get(f"/ejercicios/{ejercicio_predefinido_id}/notas").json() == []
+    rango = {"desde": "2026-09-01", "hasta": "2026-09-30"}
+    assert cliente.get("/plan/excepciones", params=rango).json() == []
+
+
+def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
+    antes = _predefinidos_en_bd(sesion_bd)
+
+    borrar(cliente)
+
+    despues = _predefinidos_en_bd(sesion_bd)
+    assert len(despues) == 59
+    assert despues == antes
+
+
+@pytest.mark.parametrize("yo", ["con mis datos", "sin datos míos"])
+def test_borrar_no_toca_nada_de_otro_usuario(
+    cliente, sesion_bd, hoy_es, otro_usuario_id, ejercicio_predefinido_id, yo
+):
+    """El otro usuario tiene el escenario completo, con los mismos predefinidos que
+    yo: la sentadilla de principal, el mismo comodín y una nota en el mismo
+    predefinido que la mía (las notas se borran por usuario, no por ejercicio), un
+    periodo abierto, excepciones y la sesión de hoy. Sin datos míos es el caso más
+    peligroso: un filtro perdido borraría lo único que hay.
+    """
+    hoy_es(HOY)
+    ajenos = montar_datos(sesion_bd, otro_usuario_id, ejercicio_predefinido_id)
+    if yo == "con mis datos":
+        mios = montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+        assert mios["de_nota"] == ajenos["de_nota"]
+    antes = _foto_de(sesion_bd, otro_usuario_id)
+    assert all(antes.values())
+
+    borrar(cliente)
+
+    assert _foto_de(sesion_bd, otro_usuario_id) == antes
+    assert _nada_de(sesion_bd, USUARIO_SEMBRADO_ID)
+
+
+def test_borrar_dos_veces_da_204_las_dos(cliente, sesion_bd, datos):
+    borrar(cliente)
+    borrar(cliente)
+
+    assert resumen(cliente) == CERO
+    assert _nada_de(sesion_bd, USUARIO_SEMBRADO_ID)
+
+
+def test_tras_borrar_se_puede_empezar_de_cero(cliente, datos, ejercicio_predefinido_id):
+    """El escenario tenía una rutina «Push», un periodo abierto y la sesión de hoy en
+    curso: si algo de eso quedara, crear la rutina, activar un programa o empezar hoy
+    chocaría con sus restricciones.
+    """
+    borrar(cliente)
+
+    rutina = cliente.post("/rutinas", json={"nombre": "Push"})
+    assert rutina.status_code == 201, rutina.text
+    rutina_id = rutina.json()["id"]
+    programa = cliente.post(
+        "/programas",
+        json={
+            "nombre": "PPL",
+            "activar": True,
+            "dias": [{"dia_semana": HOY.isoweekday(), "rutina_id": rutina_id}],
+        },
+    )
+    assert programa.status_code == 201, programa.text
+    hoy = cliente.get("/plan/hoy").json()
+    assert hoy["sesion"] is None
+    assert hoy["situacion"] != "sin_programa"
+
+    sesion = entrenar(cliente, HOY, rutina_id)
+    assert sesion.status_code == 201, sesion.text
+    serie = serie_en(cliente, sesion.json()["id"], ejercicio_predefinido_id)
+    assert serie.status_code == 201, serie.text
+
+    assert resumen(cliente) == {
+        **CERO,
+        "rutinas": 1,
+        "programas": 1,
+        "sesiones": 1,
+        "series": 1,
+        "primera_sesion": HOY.isoformat(),
+        "ultima_sesion": HOY.isoformat(),
+    }
+
+
+def test_borrar_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
+    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
+):
+    """Sentencias directas, una por tabla: si `borrar_todo` pasara a cargar y borrar
+    objeto a objeto, crecería con los datos.
+    """
+    hoy_es(HOY)
+
+    def borrar_y_contar() -> int:
+        def peticion():
+            borrar(cliente)
+            # `consultas_de` espera un 200; el 204 ya lo ha comprobado `borrar`.
+            return SimpleNamespace(status_code=200, text="")
+
+        return consultas_de(peticion)
+
+    sin_datos = borrar_y_contar()
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    con_poco = borrar_y_contar()
+    sesion_bd.expire_all()
+    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id, sesiones_extra=10)
+    con_mucho = borrar_y_contar()
+
+    assert sin_datos == con_poco == con_mucho
+    assert resumen(cliente) == CERO
