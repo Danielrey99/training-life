@@ -69,6 +69,43 @@ def cancelada_sql():
     return and_(~con_series, ~en_curso_sql())
 
 
+def sesiones_que_se_vacian(db: Session, usuario_id: int, se_borran) -> list[Entrenamiento]:
+    """Las sesiones cuyas series son todas de las que cumplen `se_borran` (la
+    condición de lo que se va a borrar: las de un hueco, las de un ejercicio). Al
+    borrarlas se quedarían sin ninguna, que es estar cancelada, así que se borran
+    con ellas (y su día del plan, si lo contaban, vuelve a quedar sin hacer).
+
+    Menos la de hoy en curso: no está cancelada aunque se quede vacía, y puede estar
+    abierta en E2; borrarla daría un error a mitad de entrenamiento. Si se termina
+    sin series, E2 ya la cancela.
+
+    Se calcula **antes** de borrar las series: después ya no se sabría cuáles eran.
+    """
+    en_lo_borrado = exists().where(Serie.entrenamiento_id == Entrenamiento.id, se_borran)
+    en_otra_cosa = exists().where(Serie.entrenamiento_id == Entrenamiento.id, ~se_borran)
+    return db.scalars(
+        select(Entrenamiento)
+        .where(
+            Entrenamiento.usuario_id == usuario_id,
+            en_lo_borrado,
+            ~en_otra_cosa,
+            ~en_curso_sql(),
+        )
+        .order_by(Entrenamiento.fecha)
+    ).all()
+
+
+def aviso_de_sesiones_que_se_borran(cuantas: int, de_que: str) -> str:
+    """La frase del 409 de un borrado sobre las sesiones que se irían con él;
+    `de_que` es lo que se borra («este hueco», «este ejercicio»).
+    """
+    if not cuantas:
+        return ""
+    if cuantas == 1:
+        return f" Además, se borrará 1 sesión que solo tenía series de {de_que}."
+    return f" Además, se borrarán {cuantas} sesiones que solo tenían series de {de_que}."
+
+
 def cuenta(sesion: Entrenamiento, dia: DiaPlan, vacia: bool | None = None) -> bool:
     """Si la sesión cuenta de verdad para `dia`.
 

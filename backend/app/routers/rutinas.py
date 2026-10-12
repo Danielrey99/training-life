@@ -20,7 +20,12 @@ from app.models import (
     SlotAlternativa,
 )
 from app.ocultos import exigir_visible
-from app.seguimiento import cancelada_sql, en_curso_sql
+from app.seguimiento import (
+    aviso_de_sesiones_que_se_borran,
+    cancelada_sql,
+    en_curso_sql,
+    sesiones_que_se_vacian,
+)
 from app.routers.ejercicios import obtener_ejercicio_del_usuario, obtener_ejercicio_visible
 from app.schemas import (
     AvisoDeBorrarHuecoOut,
@@ -648,26 +653,6 @@ def _tiene_historial_slot(db: Session, slot_id: int) -> bool:
     return db.scalar(select(Serie.id).where(Serie.slot_id == slot_id).limit(1)) is not None
 
 
-def _sesiones_que_se_vacian(db: Session, slot_id: int) -> list[Entrenamiento]:
-    """Las sesiones cuyas series están todas en este hueco. Al borrarlo en
-    definitivo se quedarían sin ninguna, que es estar cancelada, así que se borran
-    con él (y su día del plan, si lo contaban, vuelve a quedar sin hacer).
-
-    Menos la de hoy en curso: no está cancelada aunque se quede vacía, y puede estar
-    abierta en E2; borrarla daría un error a mitad de entrenamiento. Si se termina
-    sin series, E2 ya la cancela.
-    """
-    en_el_hueco = exists().where(
-        Serie.entrenamiento_id == Entrenamiento.id, Serie.slot_id == slot_id
-    )
-    en_otro = exists().where(Serie.entrenamiento_id == Entrenamiento.id, Serie.slot_id != slot_id)
-    return db.scalars(
-        select(Entrenamiento)
-        .where(en_el_hueco, ~en_otro, ~en_curso_sql())
-        .order_by(Entrenamiento.fecha)
-    ).all()
-
-
 @router.get("/{rutina_id}/slots/{slot_id}/aviso-de-borrado", response_model=AvisoDeBorrarHuecoOut)
 def aviso_de_borrar_slot(
     rutina_id: int,
@@ -691,18 +676,9 @@ def aviso_de_borrar_slot(
             SesionQueSeVaciaOut(
                 entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
             )
-            for sesion in _sesiones_que_se_vacian(db, slot_id)
+            for sesion in sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)
         ],
     )
-
-
-def _aviso_de_sesiones_que_se_borran(cuantas: int) -> str:
-    """La frase del 409 de borrar un hueco sobre las sesiones que se irían con él."""
-    if not cuantas:
-        return ""
-    if cuantas == 1:
-        return " Además, se borrará 1 sesión que solo tenía series de este hueco."
-    return f" Además, se borrarán {cuantas} sesiones que solo tenían series de este hueco."
 
 
 @router.delete("/{rutina_id}/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -737,12 +713,15 @@ def borrar_slot(
                 "Este hueco tiene series registradas. Repite la petición con "
                 "?modo=ocultar (conserva todo) o ?modo=definitivo (borra "
                 "también esas series, sin poder deshacerlo)."
-                + _aviso_de_sesiones_que_se_borran(len(_sesiones_que_se_vacian(db, slot_id)))
+                + aviso_de_sesiones_que_se_borran(
+                    len(sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)),
+                    "este hueco",
+                )
             ),
         )
 
     # Antes de tocar nada: sin las series del hueco, ya no se sabría cuáles se vacían.
-    vacias = _sesiones_que_se_vacian(db, slot_id)
+    vacias = sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)
     # series.slot_id es RESTRICT: hay que borrar antes las series que lo usan.
     for serie in db.scalars(select(Serie).where(Serie.slot_id == slot_id)).all():
         db.delete(serie)
