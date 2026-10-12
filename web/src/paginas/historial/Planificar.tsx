@@ -5,7 +5,13 @@ import type { DiaSeguimiento, Hoy, Programa, RutinaDeHoy } from '../../api/tipos
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
-import { diaDeLaSemana, fechaLarga, nombreDelDia, sumarDias } from '../../utiles/fechas'
+import {
+  conArticulo,
+  diaDeLaSemana,
+  fechaLarga,
+  nombreDelDia,
+  sumarDias,
+} from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import './planificar.css'
 
@@ -161,7 +167,17 @@ export function Planificar() {
           ? 'El día que cambiaste volverá a lo que dice el programa.'
           : `Los ${cambiados} días que cambiaste volverán a lo que dice el programa.`,
       alConfirmar: async () => {
-        await api.restablecerRango(semana.dias[0].fecha, semana.domingo)
+        try {
+          await api.restablecerRango(semana.dias[0].fecha, semana.domingo)
+        } catch (error) {
+          // El único 409: lo hecho por adelantado se quedaría sin día. El texto del backend
+          // lleva fechas ISO; se cuenta con las palabras del aviso de cambiar un día.
+          const sinDia = error instanceof ErrorDeApi && error.estado === 409
+          const fecha = sinDia ? (error.detalle as { fecha?: string } | null)?.fecha : undefined
+          const dia = semana.dias.find((uno) => uno.cubierto_por?.fecha === fecha && uno.rutina)
+          if (dia?.rutina && fecha) throw new Error(porQueNoSeRestablece(dia.rutina.nombre, fecha))
+          throw error
+        }
         await recargar()
         setConfirmando(null)
       },
@@ -320,6 +336,14 @@ function porQueNoSePuede(rutina: string, fecha: string, hechoEl: string) {
     `El ${rutina} del ${suDia} ya lo hiciste el ${hecho}. Si el ${suDia} deja de tener ` +
     `${rutina} y no lo pones en otro día de esta semana, lo que entrenaste el ${hecho} no ` +
     `contaría para ningún día. Pon antes el ${rutina} en otro día, y después cambia el ${suDia}.`
+  )
+}
+
+/** El porqué del 409 al restablecer una semana: lo hecho se quedaría sin día. */
+function porQueNoSeRestablece(rutina: string, hechoEl: string) {
+  return (
+    `El ${rutina} que hiciste ${conArticulo(hechoEl)} se quedaría sin ningún día de esta ` +
+    `semana en el que contar. Restablece los días uno a uno, dejando algún día con ${rutina}.`
   )
 }
 
