@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
+import { Ajustes } from './paginas/ajustes/Ajustes'
 import { Biblioteca } from './paginas/ejercicios/Biblioteca'
 import { Ficha } from './paginas/ejercicios/Ficha'
 import { Formulario } from './paginas/ejercicios/Formulario'
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/programas/rutinas/:rutinaId" element={<Rutina />} />
           <Route path="/programas/rutinas/:rutinaId/ejercicios/:huecoId" element={<Ejercicio />} />
           <Route path="/programas/:programaId" element={<Semana />} />
+          <Route path="/ajustes" element={<Ajustes />} />
           <Route path="/ejercicios" element={<Biblioteca />} />
           {/* "nuevo" antes que el id, o se leería como uno. */}
           <Route path="/ejercicios/nuevo" element={<Formulario />} />

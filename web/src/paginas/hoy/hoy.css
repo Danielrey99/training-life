@@ -7,8 +7,17 @@
 }
 
 .entrada-cabecera {
+  position: relative;
   text-align: center;
   margin-bottom: -4px;
+}
+
+/* El engranaje de Ajustes, arriba a la derecha sin descentrar el título. */
+.entrada-cabecera .entrada-ajustes {
+  position: absolute;
+  top: 0;
+  right: -6px;
+  color: var(--texto-tenue);
 }
 
 .entrada-cabecera p {

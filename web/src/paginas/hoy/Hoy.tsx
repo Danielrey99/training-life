@@ -196,6 +196,9 @@ export function Hoy() {
       <header className="entrada-cabecera">
         <p>{fechaLarga(hoy)}</p>
         <h1>Hoy</h1>
+        <Link to="/ajustes" className="boton-icono entrada-ajustes" aria-label="Ajustes">
+          <Icono nombre="ajustes" />
+        </Link>
       </header>
 
       <div className="tira">

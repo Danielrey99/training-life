@@ -1,0 +1,51 @@
+/* Ajustes. Reutiliza la cabecera de la sesión y los avisos generales. */
+
+.ajustes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* El hueco de 44 px de la derecha: sin botón, el título no se descentra. */
+.ajustes-hueco {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.ajustes-bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ajustes-bloque .rotulo {
+  margin: 0;
+  font-weight: 400;
+}
+
+.ajustes-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.ajustes-tarjeta p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+.ajustes-tarjeta strong {
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.ajustes-errores {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}

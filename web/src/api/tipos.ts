@@ -125,6 +125,26 @@ export type AvisoDeBorrarEjercicio = {
   sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
 }
 
+/** Cuánto hay, en el archivo o en la app, para el diálogo de importar. */
+export type ResumenDeDatos = {
+  ejercicios: number
+  notas: number
+  rutinas: number
+  programas: number
+  // Las que tienen alguna serie.
+  sesiones: number
+  series: number
+  primera_sesion: string | null
+  ultima_sesion: string | null
+}
+
+/** Lo que dice `POST /datos/importar?comprobar=true`: el archivo vale y esto cambiaría. */
+export type ComprobacionDeImportar = {
+  exportado_en: string
+  archivo: ResumenDeDatos
+  actual: ResumenDeDatos
+}
+
 // --- Entrenamientos y series ---------------------------------------------
 
 export type Serie = {

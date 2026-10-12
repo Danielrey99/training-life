@@ -12,6 +12,7 @@ import type {
   AvisoDeBorrarHueco,
   AvisoDeBorrarRutina,
   CambiosDeHueco,
+  ComprobacionDeImportar,
   DiaPlan,
   DiaSeguimiento,
   DiaSemana,
@@ -32,6 +33,7 @@ import type {
   NuevoPrograma,
   Programa,
   Resumen,
+  ResumenDeDatos,
   Rutina,
   Serie,
   SerieHistorialHueco,
@@ -122,6 +124,21 @@ type Rango = { desde?: string; hasta?: string }
 type RangoConLimite = Rango & { limite?: number }
 
 export const api = {
+  // --- Tus datos: exportar e importar ---
+  /** Cuánto hay, para la confirmación de exportar (no es `resumen`, el de H5). */
+  resumenDeDatos: () => peticion<ResumenDeDatos>('/datos/resumen'),
+  /** Todo, tal cual lo da la API: la pantalla lo guarda en un archivo. */
+  exportarDatos: () => peticion<unknown>('/datos/exportar'),
+  /** Sin escribir nada: si el archivo vale y qué se sustituiría por qué. */
+  comprobarImportar: (archivo: unknown) =>
+    peticion<ComprobacionDeImportar>(
+      `/datos/importar${consulta({ comprobar: true })}`,
+      conCuerpo('POST', archivo),
+    ),
+  /** Sustituye todo por lo del archivo. */
+  importarDatos: (archivo: unknown) =>
+    peticion<ResumenDeDatos>('/datos/importar', conCuerpo('POST', archivo)),
+
   gruposMusculares: () => peticion<GrupoMuscular[]>('/grupos-musculares'),
 
   // --- Ejercicios y sus notas ---

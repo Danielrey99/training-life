@@ -72,6 +72,21 @@ export function guardarBorrador(clave: string, valor: unknown) {
   }
 }
 
+/**
+ * Todos los borradores fuera: tras importar datos, los ids que guardan (de rutinas y
+ * ejercicios) ya no existen.
+ */
+export function tirarTodosLosBorradores() {
+  enMemoria.clear()
+  try {
+    for (const clave of Object.keys(sessionStorage)) {
+      if (clave.startsWith('borrador-')) sessionStorage.removeItem(clave)
+    }
+  } catch {
+    // Sin almacenamiento no había nada guardado.
+  }
+}
+
 export function tirarBorrador(clave: string) {
   enMemoria.delete(clave)
   try {
