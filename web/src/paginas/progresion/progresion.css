@@ -47,11 +47,10 @@
   padding: 14px 16px 12px;
 }
 
+/* La medida, sola y centrada. */
 .progresion-medida {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
 }
 
 .progresion-selector {
@@ -83,11 +82,40 @@
   color: var(--acento);
 }
 
+/* La cifra a la izquierda y el cambio a la derecha, alineados por abajo. Con margen a los
+   lados y una línea encima: pegados al borde de la tarjeta parecían sueltos. */
 .progresion-cifra {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  /* Más de 6 px parte «+2 kg desde el 5 de septiembre de 2025» a 390 px. */
+  padding: 12px 6px 4px;
+  border-top: 1px solid var(--borde);
+}
+
+.progresion-lado {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* La cifra nunca se parte («12 / kg»): el que cede es el texto de la derecha. */
+.progresion-lado:first-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.progresion-lado.derecha {
+  min-width: 0;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.progresion-sesiones-cuenta {
+  font-size: 13px;
+  color: var(--texto-tenue);
 }
 
 .progresion-valor {

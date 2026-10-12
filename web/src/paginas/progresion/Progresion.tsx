@@ -153,8 +153,10 @@ export function Progresion() {
       ) : (
         <>
           <section className="progresion-tarjeta">
+            {/* La medida sola en su fila, centrada; debajo, la cifra a la izquierda y el
+                cambio a la derecha. Con un cambio largo («desde el 5 de septiembre de
+                2025») no cabía en la misma línea que la cifra. */}
             <div className="progresion-medida">
-              <span className="rotulo">Por sesión</span>
               <div className="progresion-selector" role="group" aria-label="Medida">
                 {MEDIDAS.map((opcion) => (
                   <button
@@ -170,12 +172,21 @@ export function Progresion() {
               </div>
             </div>
             <div className="progresion-cifra">
-              <span className="progresion-valor num">{enKilos(ultimo.valor)}</span>
-              <span className="progresion-cambio num">
-                {puntos.length > 1
-                  ? `${conSigno(ultimo.valor - primero.valor)} desde el ${diaYMesConAnio(primero.fecha)} · ${puntos.length} sesiones`
-                  : '1 sesión'}
-              </span>
+              <div className="progresion-lado">
+                <span className="rotulo">Por sesión</span>
+                <span className="progresion-valor num">{enKilos(ultimo.valor)}</span>
+              </div>
+              <div className="progresion-lado derecha">
+                {puntos.length > 1 && (
+                  <span className="progresion-cambio num">
+                    {conSigno(ultimo.valor - primero.valor)} desde el{' '}
+                    {diaYMesConAnio(primero.fecha)}
+                  </span>
+                )}
+                <span className="progresion-sesiones-cuenta num">
+                  {puntos.length === 1 ? '1 sesión' : `${puntos.length} sesiones`}
+                </span>
+              </div>
             </div>
             <Grafica puntos={puntos} elegido={elegido} alElegir={setElegido} />
           </section>
