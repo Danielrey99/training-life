@@ -4,6 +4,9 @@ La idea que más importa es que cada día se resuelve con el programa que estaba
 activo **ese día**: un mes pasado se compara con el plan de entonces, no con el
 de hoy. Los periodos que empiezan antes de hoy se insertan a mano, porque por la
 API todo empieza hoy.
+
+Todo el archivo congela el reloj del backend en `HOY`: calcularlo con `hoy()` al
+importar el módulo fallaría si la tanda cruzara la medianoche.
 """
 
 from datetime import date, timedelta
@@ -11,10 +14,14 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import update
 
-from app.fechas import hoy
+from app.auth import USUARIO_SEMBRADO_ID
 from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
+from tests.semana import HOY
 
-HOY = hoy()
+
+@pytest.fixture(autouse=True)
+def reloj_congelado(hoy_es):
+    hoy_es(HOY)
 
 
 def crear_rutina(cliente, nombre) -> int:
@@ -33,7 +40,7 @@ def crear_programa(cliente, nombre, dias) -> int:
     return respuesta.json()["id"]
 
 
-def periodo(sesion_bd, programa_id, desde, hasta=None, usuario_id=1) -> None:
+def periodo(sesion_bd, programa_id, desde, hasta=None, usuario_id=USUARIO_SEMBRADO_ID) -> None:
     sesion_bd.add(
         ProgramaPeriodo(programa_id=programa_id, usuario_id=usuario_id, desde=desde, hasta=hasta)
     )
@@ -170,7 +177,9 @@ def planificar(cliente, fecha, rutina_id):
 
 def excepcion_a_mano(sesion_bd, fecha, rutina_id) -> None:
     """Para días ya pasados, que por la API no se pueden planificar."""
-    sesion_bd.add(ExcepcionDelPlan(usuario_id=1, fecha=fecha, rutina_id=rutina_id))
+    sesion_bd.add(
+        ExcepcionDelPlan(usuario_id=USUARIO_SEMBRADO_ID, fecha=fecha, rutina_id=rutina_id)
+    )
     sesion_bd.commit()
 
 

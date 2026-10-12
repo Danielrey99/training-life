@@ -14,6 +14,7 @@ from datetime import date
 
 from sqlalchemy import select
 
+from app.auth import USUARIO_SEMBRADO_ID
 from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo, Rutina
 from tests.semana import HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
@@ -268,7 +269,10 @@ def test_editar_otro_programa_no_mira_lo_adelantado_del_activo(
     ).json()["id"]
     sesion_bd.add(
         ProgramaPeriodo(
-            programa_id=otro, usuario_id=1, desde=date(2026, 8, 1), hasta=date(2026, 8, 31)
+            programa_id=otro,
+            usuario_id=USUARIO_SEMBRADO_ID,
+            desde=date(2026, 8, 1),
+            hasta=date(2026, 8, 31),
         )
     )
     sesion_bd.commit()
@@ -314,6 +318,29 @@ def test_una_sesion_cancelada_ni_se_mueve_ni_estorba(cliente, ppl, grupo_muscula
 
     assert cubre(cliente, adelantada) == SABADO_19.isoformat()
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 404
+
+
+def test_una_sesion_de_otra_rutina_que_retenia_el_destino_lo_suelta_y_se_queda(
+    cliente, ppl, grupo_muscular_id, sesion_bd
+):
+    """El Push hecho el lunes dice contar el sábado, pero el sábado es de Leg: no lo
+    cuenta, solo lo retiene. Cuando el Leg adelantado tiene que irse al sábado, el
+    Push lo suelta (se queda sin día) y sigue con sus series, como al crear una
+    sesión. Sin soltarlo, la unicidad de `cubre_fecha` daría un 500.
+    """
+    adelantada = leg_adelantado(cliente, ppl, grupo_muscular_id)
+    push = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"])
+    sesion_bd.get(Entrenamiento, push).cubre_fecha = SABADO_19
+    sesion_bd.commit()
+    assert planificar(cliente, SABADO_19, ppl["Leg"]).status_code == 200
+
+    respuesta = planificar(cliente, VIERNES_18, None)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert cubre(cliente, adelantada) == SABADO_19.isoformat()
+    retenida = cliente.get(f"/entrenamientos/{push}").json()
+    assert retenida["cubre_fecha"] is None
+    assert len(retenida["series"]) == 1
 
 
 # --- Aislamiento ---------------------------------------------------------

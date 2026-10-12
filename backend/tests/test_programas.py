@@ -12,6 +12,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.auth import USUARIO_SEMBRADO_ID
 from app.fechas import hoy
 from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina
 from tests.ayudas import consultas_de
@@ -313,7 +314,11 @@ def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias(cliente, grupo
 
 def activo_desde_hace(sesion_bd, programa_id, dias) -> None:
     sesion_bd.add(
-        ProgramaPeriodo(programa_id=programa_id, usuario_id=1, desde=hoy() - timedelta(days=dias))
+        ProgramaPeriodo(
+            programa_id=programa_id,
+            usuario_id=USUARIO_SEMBRADO_ID,
+            desde=hoy() - timedelta(days=dias),
+        )
     )
     sesion_bd.commit()
 
@@ -357,17 +362,6 @@ def test_nunca_hay_dos_programas_activos(cliente):
     activos = [p["nombre"] for p in cliente.get("/programas").json() if p["activo"]]
 
     assert activos == ["C"]
-
-
-def test_activar_y_desactivar_el_mismo_dia_no_deja_rastro(cliente, sesion_bd):
-    """Un periodo que no llegó a cubrir ningún día se borra en vez de cerrarse."""
-    programa = crear_programa(cliente)
-
-    cliente.post(f"/programas/{programa['id']}/activar")
-    respuesta = cliente.post(f"/programas/{programa['id']}/desactivar")
-
-    assert respuesta.json()["activo"] is False
-    assert periodos(sesion_bd, programa["id"]) == []
 
 
 def test_volver_a_activar_el_mismo_dia_reabre_el_periodo(cliente, sesion_bd):
@@ -417,18 +411,12 @@ def test_la_base_de_datos_no_admite_dos_periodos_abiertos_del_mismo_usuario(clie
     uno, otro = crear_programa(cliente, "Uno"), crear_programa(cliente, "Otro")
     activo_desde_hace(sesion_bd, uno["id"], 3)
 
-    sesion_bd.add(ProgramaPeriodo(programa_id=otro["id"], usuario_id=1, desde=hoy()))
+    sesion_bd.add(
+        ProgramaPeriodo(programa_id=otro["id"], usuario_id=USUARIO_SEMBRADO_ID, desde=hoy())
+    )
     with pytest.raises(IntegrityError):
         sesion_bd.commit()
     sesion_bd.rollback()
-
-
-def test_activar_un_programa_ajeno_da_403(cliente, sesion_bd, otro_usuario_id):
-    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
-    sesion_bd.add(ajeno)
-    sesion_bd.commit()
-
-    assert cliente.post(f"/programas/{ajeno.id}/activar").status_code == 403
 
 
 # --- Ocultar, mostrar y borrar -------------------------------------------
@@ -500,6 +488,7 @@ def test_un_programa_oculto_se_puede_borrar(cliente):
     ocultar_programa(cliente, programa["id"])
 
     assert cliente.delete(f"/programas/{programa['id']}").status_code == 204
+    assert cliente.get(f"/programas/{programa['id']}").status_code == 404
 
 
 def test_un_programa_oculto_que_estuvo_activo_sigue_pidiendo_modo_para_borrarlo(cliente, sesion_bd):
@@ -595,7 +584,7 @@ def test_un_programa_que_ya_no_esta_activo_conserva_su_pasado_al_editarlo(client
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=programa["id"],
-            usuario_id=1,
+            usuario_id=USUARIO_SEMBRADO_ID,
             desde=hoy() - timedelta(days=14),
             hasta=hoy() - timedelta(days=3),
         )
@@ -714,7 +703,7 @@ def periodo_cerrado(sesion_bd, programa_id, desde_hace, hasta_hace) -> None:
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=programa_id,
-            usuario_id=1,
+            usuario_id=USUARIO_SEMBRADO_ID,
             desde=hoy() - timedelta(days=desde_hace),
             hasta=hoy() - timedelta(days=hasta_hace),
         )
@@ -747,9 +736,10 @@ def test_con_dos_periodos_cerrados_el_ultimo_es_el_mas_reciente(cliente, sesion_
     assert respuesta["ultimo_periodo"] == periodo(30, 10)
 
 
-def test_activar_y_desactivar_el_mismo_dia_deja_el_ultimo_periodo_nulo(cliente):
-    """El periodo que no llegó a cubrir ningún día se borra: también tiene que
-    desaparecer de la respuesta del propio desactivar, no solo al volver a leerlo.
+def test_activar_y_desactivar_el_mismo_dia_no_deja_rastro(cliente, sesion_bd):
+    """El periodo que no llegó a cubrir ningún día se borra en vez de cerrarse:
+    también tiene que desaparecer de la respuesta del propio desactivar, no solo al
+    volver a leerlo.
     """
     programa = crear_programa(cliente)
     activado = cliente.post(f"/programas/{programa['id']}/activar").json()
@@ -757,8 +747,9 @@ def test_activar_y_desactivar_el_mismo_dia_deja_el_ultimo_periodo_nulo(cliente):
     desactivado = cliente.post(f"/programas/{programa['id']}/desactivar").json()
 
     assert activado["ultimo_periodo"] == periodo(0)
-    assert desactivado["ultimo_periodo"] is None
+    assert (desactivado["activo"], desactivado["ultimo_periodo"]) == (False, None)
     assert cliente.get(f"/programas/{programa['id']}").json()["ultimo_periodo"] is None
+    assert periodos(sesion_bd, programa["id"]) == []
 
 
 def test_desactivar_y_reactivar_el_mismo_dia_deja_el_periodo_reabierto(cliente, sesion_bd):

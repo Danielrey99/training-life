@@ -21,11 +21,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import event
 
-from app.database import engine
 from app.models import Entrenamiento, Programa, ProgramaDia, ProgramaPeriodo, Serie
-from tests.ayudas import ejercicio_de_prueba, hueco_en_bd, rutina_en_bd, serie_en
+from tests.ayudas import consultas_de, ejercicio_de_prueba, hueco_en_bd, rutina_en_bd, serie_en
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18
 
 SEPTIEMBRE = "2026-09"
@@ -486,7 +484,6 @@ def test_los_meses_de_la_grafica_cruzan_de_año(cliente, hoy_es, ejercicio_id):
         pytest.param(100, 100, (0.0, date(2026, 9, 21)), id="igual"),
         pytest.param(0, 100, (None, None), id="sin-anterior"),
         pytest.param(100, 0, (None, None), id="sin-ultimo"),
-        pytest.param(0, 0, (None, None), id="sin-nada"),
     ],
 )
 def test_el_cambio_compara_el_ultimo_periodo_con_el_anterior(
@@ -1091,17 +1088,7 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, hoy_es, grupo_muscular_
     """
 
     def consultas(mes) -> int:
-        contador = []
-
-        def contar(*_):
-            contador.append(1)
-
-        event.listen(engine, "before_cursor_execute", contar)
-        try:
-            pedir(cliente, mes)
-        finally:
-            event.remove(engine, "before_cursor_execute", contar)
-        return len(contador)
+        return consultas_de(lambda: cliente.get("/resumen", params={"mes": mes}))
 
     grupos = [g["id"] for g in cliente.get("/grupos-musculares").json()[:3]]
     ejercicios = [

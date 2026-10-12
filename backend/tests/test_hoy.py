@@ -152,6 +152,22 @@ def test_un_dia_hecho_por_adelantado_se_comporta_como_un_descanso(
     ]
 
 
+def test_una_rutina_que_toca_dos_dias_se_ofrece_una_vez_el_primero(cliente, ppl, hoy_es):
+    """El sábado también es Leg (planificado a mano): ofrecer dos veces la misma
+    rutina no aporta nada, ni al adelantar ni al intercambiar.
+    """
+    hoy_es(MARTES_15)
+    respuesta = cliente.put("/plan/excepciones/2026-09-19", json={"rutina_id": ppl["Leg"]})
+    assert respuesta.status_code == 200, respuesta.text
+
+    adelantar = ofrecidas(hoy(cliente))
+    hoy_es(HOY)
+    intercambiar = ofrecidas(hoy(cliente))
+
+    assert adelantar == [("adelantar", "Pull", "2026-09-16"), ("adelantar", "Leg", "2026-09-18")]
+    assert intercambiar == [("intercambiar", "Leg", "2026-09-18")]
+
+
 def test_la_primera_vez_sin_rutinas(cliente, hoy_es):
     hoy_es(HOY)
 

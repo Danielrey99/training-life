@@ -11,10 +11,9 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import event
 
-from app.database import engine
 from app.models import Entrenamiento, Rutina
+from tests.ayudas import consultas_de
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
 MARTES_8 = date(2026, 9, 8)
@@ -206,17 +205,8 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
     """
 
     def consultas(desde, hasta) -> int:
-        contador = []
-
-        def contar(*_):
-            contador.append(1)
-
-        event.listen(engine, "before_cursor_execute", contar)
-        try:
-            seguimiento(cliente, desde, hasta)
-        finally:
-            event.remove(engine, "before_cursor_execute", contar)
-        return len(contador)
+        params = {"desde": desde.isoformat(), "hasta": hasta.isoformat()}
+        return consultas_de(lambda: cliente.get("/plan/seguimiento", params=params))
 
     hecha(cliente, grupo_muscular_id, LUNES_7, ppl["Push"], cubre_fecha=LUNES_7)
     con_pocas = consultas(LUNES_7, LUNES_7)

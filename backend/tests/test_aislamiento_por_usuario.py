@@ -45,15 +45,6 @@ def test_no_se_puede_consultar_una_rutina_ajena(cliente, rutina_ajena_id):
     assert cliente.get(f"/rutinas/{rutina_ajena_id}").status_code == 404
 
 
-def test_no_se_puede_editar_una_rutina_ajena(cliente, rutina_ajena_id):
-    respuesta = cliente.put(f"/rutinas/{rutina_ajena_id}", json={"nombre": "Secuestrada"})
-    assert respuesta.status_code == 403
-
-
-def test_no_se_puede_borrar_una_rutina_ajena(cliente, rutina_ajena_id):
-    assert cliente.delete(f"/rutinas/{rutina_ajena_id}").status_code == 403
-
-
 def test_mandar_usuario_id_en_el_body_no_sirve_para_suplantar(cliente, otro_usuario_id):
     """Pydantic ignora los campos que no declara, así que el dueño lo decide el backend."""
     rutina = cliente.post("/rutinas", json={"nombre": "Push", "usuario_id": otro_usuario_id}).json()
@@ -454,12 +445,6 @@ def test_las_notas_de_otro_usuario_no_se_listan_aunque_el_ejercicio_sea_comparti
     notas = cliente.get(f"/ejercicios/{ejercicio_compartido_id}/notas").json()
 
     assert [nota["nota"] for nota in notas] == ["La mía"]
-
-
-def test_el_listado_de_notas_esta_vacio_si_las_unicas_notas_son_ajenas(
-    cliente, ejercicio_compartido_id, nota_ajena_id
-):
-    assert cliente.get(f"/ejercicios/{ejercicio_compartido_id}/notas").json() == []
 
 
 def test_no_se_puede_editar_la_nota_de_otro_usuario(

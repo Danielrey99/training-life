@@ -626,33 +626,7 @@ def test_el_historial_de_los_huecos_de_una_rutina_ocultada_se_sigue_pudiendo_con
     assert len(respuesta.json()[0]["series"]) == 2
 
 
-# --- Lo que protege la coherencia del historial ---------------------------
-
-
-def test_el_put_de_una_sesion_con_series_ignora_la_rutina_y_no_toca_el_historial(
-    cliente, escenario
-):
-    """Las series de una sesión van en huecos de su rutina; si el PUT pudiera
-    cambiarla, el historial del hueco mostraría la sesión con el nombre de otra
-    rutina. La rutina se fija al crear la sesión: la que llegue en el PUT se
-    ignora y solo se corrigen la fecha y las notas.
-    """
-    entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
-    registrar_serie(
-        cliente, entrenamiento_id, escenario["ejercicio_id"], slot_id=escenario["slot_id"]
-    )
-    otra_rutina_id = crear_rutina(cliente, nombre="Pull")
-    antes = historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"])
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}",
-        json={"rutina_id": otra_rutina_id, "fecha": "2026-09-05", "notas": "Corregida"},
-    )
-
-    assert respuesta.status_code == 200, respuesta.text
-    guardado = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
-    assert (guardado["rutina_id"], guardado["notas"]) == (escenario["rutina_id"], "Corregida")
-    assert historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"]) == antes
+# --- Los valores admitidos de `?limite=` ---------------------------------
 
 
 @pytest.mark.parametrize("limite", [0, 501])

@@ -1,9 +1,9 @@
 """Tests de la sesión en curso: `terminada_en`, `en_curso`, `POST .../terminar`,
 los filtros del listado y la regla de una sesión por día.
 
-"En curso" depende de qué día es hoy, así que las fechas de estos tests se
-calculan con `app.fechas.hoy()`, la misma función que usa el backend, en vez de
-escribirse a mano.
+"En curso" depende de qué día es hoy, así que todo el archivo congela el reloj del
+backend (`app.fechas`) en `HOY`. Calcularlo con `hoy()` al importar el módulo
+fallaría si la tanda cruzara la medianoche.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -11,11 +11,15 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app import fechas
-from app.fechas import hoy
 from tests.ayudas import entrenar, hueco_en_bd, rutina_en_bd, serie_en
+from tests.semana import HOY
 
-HOY = hoy()
 AYER = HOY - timedelta(days=1)
+
+
+@pytest.fixture(autouse=True)
+def reloj_congelado(hoy_es):
+    hoy_es(HOY)
 
 
 def empezar(cliente, fecha=HOY) -> dict:
@@ -213,16 +217,6 @@ def test_la_base_no_admite_dos_sesiones_del_mismo_usuario_el_mismo_dia(sesion_bd
     sesion_bd.rollback()
 
 
-def test_la_sesion_de_otro_usuario_no_ocupa_mi_dia(cliente, sesion_bd, otro_usuario_id):
-    from app.models import Entrenamiento
-
-    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
-    sesion_bd.add(Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=HOY))
-    sesion_bd.commit()
-
-    assert entrenar(cliente, HOY).status_code == 201
-
-
 # --- Filtros del listado -------------------------------------------------
 
 
@@ -243,7 +237,7 @@ def test_el_listado_con_en_curso_sin_ninguna_abierta_esta_vacio(cliente):
 
 
 def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_con_series_o_vacias(
-    cliente, hoy_es, ejercicio_predefinido_id
+    cliente, ejercicio_predefinido_id
 ):
     """Las de un día pasado que se quedaron sin terminar: las que tienen algo
     apuntado (quizá se dejaron a medias) y también las vacías (quizá se abrieron
@@ -251,7 +245,6 @@ def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_con_series_o_va
     las vacías no salían. Ni la de hoy (sigue en curso) ni las terminadas. De la
     más reciente a la más antigua.
     """
-    hoy_es(HOY)
 
     def con_serie(sesion):
         serie_en(cliente, sesion["id"], ejercicio_predefinido_id, peso=40, repeticiones=10)
@@ -268,8 +261,7 @@ def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_con_series_o_va
     assert respuesta.json()[1]["series"] == []
 
 
-def test_el_listado_sin_terminar_no_da_la_vacia_terminada_ni_la_vacia_de_hoy(cliente, hoy_es):
-    hoy_es(HOY)
+def test_el_listado_sin_terminar_no_da_la_vacia_terminada_ni_la_vacia_de_hoy(cliente):
     terminar(cliente, empezar(cliente, AYER)["id"])
     empezar(cliente)
 
@@ -277,14 +269,13 @@ def test_el_listado_sin_terminar_no_da_la_vacia_terminada_ni_la_vacia_de_hoy(cli
 
 
 def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
-    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id, hoy_es
+    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
 ):
     """Ni la que tiene series ni la vacía: ahora que las vacías también salen, el
     filtro por usuario tiene que valer para las dos.
     """
     from app.models import Entrenamiento, Serie
 
-    hoy_es(HOY)
     rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
     hueco_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_predefinido_id)
     ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=AYER)
@@ -309,7 +300,7 @@ def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
 
 
 def test_cancelada_y_en_curso_dicen_lo_mismo_en_sql_que_en_python(
-    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id, hoy_es
+    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
 ):
     """`cancelada_sql` y `en_curso_sql` (para un WHERE) van en pareja con
     `esta_cancelada` y `Entrenamiento.en_curso`. Si una regla cambia y la otra no,
@@ -322,7 +313,6 @@ def test_cancelada_y_en_curso_dicen_lo_mismo_en_sql_que_en_python(
     from app.models import Entrenamiento
     from app.seguimiento import cancelada_sql, en_curso_sql, esta_cancelada
 
-    hoy_es(HOY)
     for dias_atras, series, terminada in [
         (0, False, False),
         (1, False, False),

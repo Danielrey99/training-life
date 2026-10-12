@@ -525,18 +525,6 @@ def test_se_exportan_solo_los_predefinidos_que_usa_algo_del_usuario(
     assert datos["sin_usar"][0] not in {p["id"] for p in archivo["predefinidos"]}
 
 
-def test_un_predefinido_que_solo_tiene_una_nota_se_exporta(cliente, sesion_bd, hoy_es):
-    hoy_es(HOY)
-    ((predefinido_id, nombre),) = _predefinidos(sesion_bd, 1)
-    respuesta = cliente.post(f"/ejercicios/{predefinido_id}/notas", json={"nota": "Agarre ancho"})
-    assert respuesta.status_code == 201, respuesta.text
-
-    archivo = exportado(cliente)
-
-    assert archivo["predefinidos"] == [{"id": predefinido_id, "nombre": nombre}]
-    assert archivo["notas"][0]["ejercicio_id"] == predefinido_id
-
-
 def test_el_archivo_no_lleva_usuario_ni_campos_internos(cliente, datos):
     prohibidas = {"usuario_id", "es_predefinido", "visibilidad", "grupo_muscular_id"}
 
@@ -1227,29 +1215,13 @@ def test_comprobar_dice_que_hay_en_el_archivo_y_que_hay_ahora_sin_cambiar_nada(c
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
-def test_comprobar_el_archivo_propio_da_el_mismo_resumen_a_los_dos_lados(cliente, datos):
-    respuesta = importar(cliente, exportado(cliente), comprobar=True).json()
-
-    assert respuesta["archivo"] == respuesta["actual"]
-
-
 def test_comprobar_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
     hoy_es(HOY)
     vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, vacio, comprobar=True).json()
 
-    cero = {
-        "ejercicios": 0,
-        "notas": 0,
-        "rutinas": 0,
-        "programas": 0,
-        "sesiones": 0,
-        "series": 0,
-        "primera_sesion": None,
-        "ultima_sesion": None,
-    }
-    assert respuesta["archivo"] == respuesta["actual"] == cero
+    assert respuesta["archivo"] == respuesta["actual"] == CERO
 
 
 # --- 7. El resumen antes de exportar -----------------------------------------

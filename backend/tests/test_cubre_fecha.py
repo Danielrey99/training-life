@@ -15,6 +15,7 @@ from datetime import date
 import pytest
 from sqlalchemy import select
 
+from app.auth import USUARIO_SEMBRADO_ID
 from app.models import Entrenamiento, Rutina
 
 from tests.semana import (
@@ -42,7 +43,7 @@ def test_empezar_lo_que_toca_hoy_cuenta_hoy(cliente, ppl):
 
 
 def test_sin_cubre_fecha_la_sesion_no_cuenta_para_ningun_dia(cliente, ppl):
-    """Lo que hace hoy la web provisional: la sesión se guarda igual."""
+    """Es entrenar una rutina «sin contar»: la sesión se guarda igual."""
     respuesta = sesion(cliente, HOY, ppl["Pull"])
 
     assert respuesta.status_code == 201
@@ -208,7 +209,12 @@ def test_la_base_de_datos_impide_que_dos_sesiones_cuenten_el_mismo_dia(cliente, 
 
     for fecha in (MARTES_15, HOY):
         sesion_bd.add(
-            Entrenamiento(usuario_id=1, rutina_id=ppl["Push"], fecha=fecha, cubre_fecha=LUNES_14)
+            Entrenamiento(
+                usuario_id=USUARIO_SEMBRADO_ID,
+                rutina_id=ppl["Push"],
+                fecha=fecha,
+                cubre_fecha=LUNES_14,
+            )
         )
     with pytest.raises(IntegrityError):
         sesion_bd.commit()

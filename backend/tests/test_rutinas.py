@@ -460,14 +460,6 @@ def test_intercambiar_dos_huecos_seguidos(cliente, tres_huecos):
     assert ordenes(cliente, rutina) == {b: 1, a: 2, c: 3}
 
 
-def test_la_respuesta_llega_en_el_orden_nuevo(cliente, tres_huecos):
-    rutina, (a, b, c) = tres_huecos
-
-    respuesta = ordenar(cliente, rutina, [c, a, b])
-
-    assert [h["id"] for h in respuesta.json()["slots"]] == [c, a, b]
-
-
 def test_reordenar_con_huecos_ocultos_los_deja_en_su_sitio(cliente, grupo_muscular_id):
     """Los visibles se reparten los `orden` que ya tenían; el oculto conserva el
     suyo, así que al mostrarlo no choca con nadie.

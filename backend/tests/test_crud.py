@@ -14,7 +14,7 @@ from tests.ayudas import entrenar, serie_en
 FECHA = "2026-09-04"
 
 
-def test_crear_editar_y_listar_un_ejercicio(cliente, grupo_muscular_id):
+def test_crear_y_editar_un_ejercicio(cliente, grupo_muscular_id):
     creado = cliente.post(
         "/ejercicios",
         json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
@@ -23,13 +23,14 @@ def test_crear_editar_y_listar_un_ejercicio(cliente, grupo_muscular_id):
     assert creado["es_predefinido"] is False  # lo decide el backend, no el cliente
     assert creado["oculto_desde"] is None
 
-    cliente.put(
+    editado = cliente.put(
         f"/ejercicios/{creado['id']}",
         json={
             "nombre": "Press banca con barra",
             "grupo_muscular_id": grupo_muscular_id,
         },
     )
+    assert editado.status_code == 200, editado.text
     assert cliente.get(f"/ejercicios/{creado['id']}").json()["nombre"] == "Press banca con barra"
 
 
@@ -153,35 +154,46 @@ def test_un_entrenamiento_no_se_admite_sin_rutina(cliente, sin_rutina):
     assert cliente.get("/entrenamientos").json() == []
 
 
-@pytest.mark.parametrize("sin_rutina", [{}, {"rutina_id": None}], ids=["ausente", "nula"])
-def test_el_put_no_necesita_ni_toca_la_rutina(cliente, sin_rutina):
-    """El PUT solo corrige la fecha y las notas: sin `rutina_id`, o con él nulo,
-    se acepta y la sesión sigue en su rutina. Nulo no la deja sin rutina (lo que
-    hace tiempo la convertía en un entrenamiento libre).
+@pytest.mark.parametrize(
+    "rutina_del_put, con_series",
+    [
+        pytest.param("ausente", False, id="ausente"),
+        pytest.param("nula", False, id="nula"),
+        pytest.param("otra", False, id="otra-en-una-sesion-vacia"),
+        pytest.param("otra", True, id="otra-en-una-sesion-con-series"),
+        pytest.param("oculta", False, id="oculta"),
+    ],
+)
+def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(
+    cliente, grupo_muscular_id, rutina_del_put, con_series
+):
+    """La rutina se fija al crear la sesión, como `cubre_fecha`: el PUT solo corrige
+    la fecha y las notas, y la `rutina_id` que traiga se ignora sin dar error.
+
+    - Nula no la deja sin rutina (hace tiempo la convertía en un entrenamiento libre).
+    - Otra no la cambia ni en una sesión vacía: antes, sin series ni `cubre_fecha`,
+      el PUT sí la cambiaba. Con series, el historial de su hueco sigue igual (si
+      cambiara, enseñaría la sesión con el nombre de otra rutina).
+    - Una oculta tampoco da 404: no es "elegir algo oculto", porque no se elige.
     """
     entrenamiento = entrenar(cliente, FECHA).json()
+    if con_series:
+        serie = serie_en(
+            cliente, entrenamiento["id"], _ejercicio(cliente, grupo_muscular_id, "Remo")
+        )
+        assert serie.status_code == 201, serie.text
+        historial = (
+            f"/rutinas/{entrenamiento['rutina_id']}/slots/{serie.json()['slot_id']}/historial"
+        )
+        historial_antes = cliente.get(historial).json()
+    otra = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    if rutina_del_put == "oculta":
+        assert cliente.delete(f"/rutinas/{otra}?modo=ocultar").status_code == 204
+    rutina = {"ausente": {}, "nula": {"rutina_id": None}}.get(rutina_del_put, {"rutina_id": otra})
 
     respuesta = cliente.put(
         f"/entrenamientos/{entrenamiento['id']}",
-        json={"fecha": FECHA, "notas": "Corregida", **sin_rutina},
-    )
-
-    assert respuesta.status_code == 200, respuesta.text
-    guardado = cliente.get(f"/entrenamientos/{entrenamiento['id']}").json()
-    assert (guardado["rutina_id"], guardado["notas"]) == (entrenamiento["rutina_id"], "Corregida")
-
-
-def test_el_put_no_cambia_la_rutina_ni_de_una_sesion_vacia(cliente):
-    """La rutina se fija al crear la sesión, como `cubre_fecha`: si el PUT trae
-    otra, se ignora y se aplica lo demás. Antes, con la sesión vacía y sin
-    `cubre_fecha`, el PUT sí la cambiaba.
-    """
-    entrenamiento = entrenar(cliente, FECHA).json()
-    otra_rutina = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento['id']}",
-        json={"rutina_id": otra_rutina, "fecha": "2026-09-03", "notas": "Corregida"},
+        json={"fecha": "2026-09-03", "notas": "Corregida", **rutina},
     )
 
     assert respuesta.status_code == 200, respuesta.text
@@ -192,6 +204,10 @@ def test_el_put_no_cambia_la_rutina_ni_de_una_sesion_vacia(cliente):
         "2026-09-03",
         "Corregida",
     )
+    if con_series:
+        # Lo único que cambia en el historial es la fecha corregida.
+        [dia] = cliente.get(historial).json()
+        assert {**dia, "fecha": FECHA} == historial_antes[0]
 
 
 @pytest.mark.parametrize("sin_hueco", [{}, {"slot_id": None}], ids=["ausente", "nulo"])
@@ -749,3 +765,81 @@ def test_los_textos_opcionales_en_blanco_se_guardan_como_nulos(cliente, grupo_mu
     assert con_texto["descripcion"] == "Con barra"
     assert entrenamiento["notas"] is None
     assert serie["variante"] is None
+
+
+# --- Lo que no existe ----------------------------------------------------
+#
+# Escribir sobre un id que no existe da 404 (y no 403, que es para lo ajeno). Se
+# mira también el texto: un 404 de una ruta mal escrita diría "Not Found".
+
+INEXISTENTE = 999_999
+
+
+@pytest.mark.parametrize(
+    "metodo, ruta, cuerpo, detalle",
+    [
+        pytest.param(
+            "put", "/ejercicios/{id}", "ejercicio", "Ejercicio no encontrado", id="ejercicio-put"
+        ),
+        pytest.param(
+            "delete", "/ejercicios/{id}", None, "Ejercicio no encontrado", id="ejercicio-delete"
+        ),
+        pytest.param(
+            "post",
+            "/ejercicios/{id}/mostrar",
+            None,
+            "Ejercicio no encontrado",
+            id="ejercicio-mostrar",
+        ),
+        pytest.param(
+            "put", "/programas/{id}", "programa", "Programa no encontrado", id="programa-put"
+        ),
+        pytest.param(
+            "delete", "/programas/{id}", None, "Programa no encontrado", id="programa-delete"
+        ),
+        pytest.param(
+            "post", "/programas/{id}/activar", None, "Programa no encontrado", id="programa-activar"
+        ),
+        pytest.param(
+            "post",
+            "/programas/{id}/desactivar",
+            None,
+            "Programa no encontrado",
+            id="programa-desactivar",
+        ),
+        pytest.param(
+            "post", "/programas/{id}/mostrar", None, "Programa no encontrado", id="programa-mostrar"
+        ),
+        pytest.param(
+            "put",
+            "/programas/{id}/dias/1",
+            "dia",
+            "Programa no encontrado",
+            id="programa-poner-dia",
+        ),
+        pytest.param(
+            "delete",
+            "/programas/{id}/dias/1",
+            None,
+            "Programa no encontrado",
+            id="programa-quitar-dia",
+        ),
+    ],
+)
+def test_modificar_un_ejercicio_o_un_programa_que_no_existe_da_404(
+    cliente, grupo_muscular_id, metodo, ruta, cuerpo, detalle
+):
+    cuerpos = {
+        "ejercicio": lambda: {"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
+        "programa": lambda: {"nombre": "PPL"},
+        # Una rutina que sí existe: el 404 tiene que ser por el programa.
+        "dia": lambda: {
+            "rutina_id": cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+        },
+    }
+    argumentos = {} if cuerpo is None else {"json": cuerpos[cuerpo]()}
+
+    respuesta = getattr(cliente, metodo)(ruta.format(id=INEXISTENTE), **argumentos)
+
+    assert respuesta.status_code == 404, respuesta.text
+    assert respuesta.json()["detail"] == detalle

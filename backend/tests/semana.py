@@ -42,8 +42,8 @@ def con_una_serie(cliente, grupo_muscular_id, entrenamiento_id) -> None:
     if visibles:
         ejercicio = visibles[0]["ejercicio_principal"]["id"]
     else:
-        # Reutilizado si ya existe: con dos rutinas sin huecos en el mismo test, crearlo
-        # otra vez chocaría con el nombre repetido.
+        # Reutilizado si ya existe: con dos rutinas sin huecos en el mismo test, las dos
+        # usan el mismo ejercicio en vez de crear otro igual.
         ejercicio = ejercicio_de_prueba(cliente, grupo_muscular_id, "Press banca")
     respuesta = serie_en(cliente, entrenamiento_id, ejercicio, repeticiones=10)
     assert respuesta.status_code == 201, respuesta.text
