@@ -82,19 +82,33 @@ function motivoDelFallo(detail: unknown): string | null {
   return null
 }
 
+// Lo que se enseña cuando no hay un motivo que contar: qué pasa y qué hacer, sin jerga.
+const SIN_CONEXION =
+  'No se puede conectar con el servidor de la app. Comprueba que está en marcha e inténtalo de nuevo.'
+const FALLO_DEL_SERVIDOR = 'Algo ha fallado en el servidor. Inténtalo de nuevo.'
+
 /**
  * Falla con un `ErrorDeApi` en vez de dejar que la pantalla se encuentre un
  * JSON inesperado: `fetch` solo lanza si la red se cae, no si la API responde
- * 404 o 500.
+ * 404 o 500. En los dos casos el mensaje es una frase para quien usa la app
+ * («Failed to fetch» o «La API respondió 500» no le dicen qué hacer).
  */
 async function peticion<T>(ruta: string, opciones?: RequestInit): Promise<T> {
-  const respuesta = await fetch(`${BASE}${ruta}`, opciones)
+  let respuesta: Response
+  try {
+    respuesta = await fetch(`${BASE}${ruta}`, opciones)
+  } catch {
+    // Estado 0: no hubo respuesta.
+    throw new ErrorDeApi(SIN_CONEXION, 0, undefined)
+  }
   if (!respuesta.ok) {
     const detalle = await respuesta
       .json()
       .then((cuerpo: { detail?: unknown }) => cuerpo.detail)
       .catch(() => undefined) // la respuesta no traía JSON
-    const mensaje = motivoDelFallo(detalle) ?? `La API respondió ${respuesta.status}`
+    // Un 500 no trae un motivo para el usuario, aunque traiga texto.
+    const mensaje =
+      respuesta.status >= 500 ? FALLO_DEL_SERVIDOR : (motivoDelFallo(detalle) ?? FALLO_DEL_SERVIDOR)
     throw new ErrorDeApi(mensaje, respuesta.status, detalle)
   }
   // Los DELETE contestan 204, sin cuerpo: pedirles el JSON reventaría.
