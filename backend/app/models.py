@@ -296,7 +296,7 @@ class Entrenamiento(Base):
 
 class Serie(Base):
     """Una serie real dentro de un entrenamiento: el ejercicio que de verdad
-    se hizo, con su peso, repeticiones y RPE — lo que llena el historial de
+    se hizo, con su peso, repeticiones y variante — lo que llena el historial de
     progresión.
     """
 
@@ -314,7 +314,6 @@ class Serie(Base):
     numero_serie: Mapped[int] = mapped_column()
     peso: Mapped[Decimal] = mapped_column(Numeric(6, 2))
     repeticiones: Mapped[int] = mapped_column()
-    rpe: Mapped[Decimal | None] = mapped_column(Numeric(3, 1), default=None)
     variante: Mapped[str | None] = mapped_column(String(100), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(

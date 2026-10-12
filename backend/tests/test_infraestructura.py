@@ -53,6 +53,18 @@ def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert len(cliente.get("/ejercicios").json()) == 59
 
 
+def test_las_series_ya_no_tienen_columna_rpe():
+    """El RPE se quitó de la app: la migración borra la columna, no la deja huérfana."""
+    from sqlalchemy import inspect
+
+    from app.database import engine
+
+    columnas = {columna["name"] for columna in inspect(engine).get_columns("series")}
+
+    assert "peso" in columnas  # la tabla es la que se cree
+    assert "rpe" not in columnas
+
+
 # --- La migración que quitó el entrenamiento libre ------------------------
 
 

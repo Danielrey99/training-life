@@ -270,7 +270,7 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
         date(2026, 9, 7),
         push,
         [
-            (h1, press, 1, "60", 8, {"rpe": Decimal("8.5"), "variante": "agarre cerrado"}),
+            (h1, press, 1, "60", 8, {"variante": "agarre cerrado"}),
             (h1, remo, 2, "50", 10),
             (h2, sentadilla_id, 1, "100", 5),
             (h1, de_serie[0], 3, "40", 12),
@@ -851,6 +851,52 @@ def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio
     propios = cliente.get("/ejercicios").json()
     con_ese_nombre = [e for e in propios if e["nombre"] == "Sentadilla con barra"]
     assert sorted(e["es_predefinido"] for e in con_ese_nombre) == [False, True]
+
+
+# --- El RPE de los archivos viejos -------------------------------------------
+#
+# Las series tenían RPE y se quitó sin subir la versión del formato: un archivo
+# exportado antes sigue siendo de la versión 1 y trae `rpe` en cada serie.
+
+
+def test_un_archivo_viejo_con_rpe_se_importa_sin_perder_nada_mas(cliente, datos):
+    """Un archivo de antes de quitar el RPE se carga igual (y se comprueba igual):
+    el `rpe` se descarta, incluso uno que ya entonces estaba fuera de rango (11) o
+    nulo, y el resto de cada serie queda tal cual. Lo que se exporta después ya no
+    lo lleva.
+    """
+    archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
+    marca = {"created_at": _AHORA, "updated_at": _AHORA}
+    serie = {"ejercicio_id": 500, "slot_id": 10, **marca}
+    archivo["entrenamientos"][0]["series"] = [
+        {
+            **serie,
+            "numero_serie": 1,
+            "peso": "20.50",
+            "repeticiones": 8,
+            "rpe": 8.5,
+            "variante": "agarre cerrado",
+        },
+        {**serie, "numero_serie": 2, "peso": "22.50", "repeticiones": 6, "rpe": None},
+        {**serie, "numero_serie": 3, "peso": "25.00", "repeticiones": 4, "rpe": 11},
+    ]
+
+    comprobado = importar(cliente, archivo, comprobar=True)
+    assert comprobado.status_code == 200, comprobado.text
+    assert comprobado.json()["archivo"]["series"] == 3
+
+    respuesta = importar(cliente, archivo)
+    assert respuesta.status_code == 200, respuesta.text
+
+    series = [s for sesion in exportado(cliente)["entrenamientos"] for s in sesion["series"]]
+    assert [
+        (s["numero_serie"], Decimal(s["peso"]), s["repeticiones"], s["variante"]) for s in series
+    ] == [
+        (1, Decimal("20.50"), 8, "agarre cerrado"),
+        (2, Decimal("22.50"), 6, None),
+        (3, Decimal("25.00"), 4, None),
+    ]
+    assert not any("rpe" in s for s in series)
 
 
 # --- 5. Un archivo malo no toca nada -----------------------------------------

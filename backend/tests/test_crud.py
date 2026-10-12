@@ -77,9 +77,7 @@ def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
     entrenamiento_id = entrenar(cliente, FECHA, notas="Buen día").json()["id"]
 
     for numero in (1, 2):
-        respuesta = serie_en(
-            cliente, entrenamiento_id, ejercicio_id, numero=numero, peso=60.5, rpe=7.5
-        )
+        respuesta = serie_en(cliente, entrenamiento_id, ejercicio_id, numero=numero, peso=60.5)
         assert respuesta.status_code == 201
 
     entrenamiento = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
@@ -87,20 +85,56 @@ def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
     assert entrenamiento["series"][0]["ejercicio"]["nombre"] == "Sentadilla"
 
 
-def test_el_peso_y_el_rpe_conservan_los_decimales_exactos(cliente, grupo_muscular_id):
-    """Son Numeric (Decimal), no float: 60.5 debe volver como 60.5 exacto."""
+def test_el_peso_conserva_los_decimales_exactos(cliente, grupo_muscular_id):
+    """Es Numeric (Decimal), no float: 100.25 debe volver como 100.25 exacto."""
     ejercicio_id = cliente.post(
         "/ejercicios",
         json={"nombre": "Peso muerto", "grupo_muscular_id": grupo_muscular_id},
     ).json()["id"]
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
-    serie = serie_en(
-        cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5, rpe=8.5
-    ).json()
+    serie = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5).json()
 
     assert Decimal(str(serie["peso"])) == Decimal("100.25")
-    assert Decimal(str(serie["rpe"])) == Decimal("8.5")
+
+
+def test_una_serie_con_rpe_se_acepta_y_el_rpe_no_vuelve_en_ninguna_respuesta(
+    cliente, grupo_muscular_id
+):
+    """El RPE se quitó: si un cliente viejo lo sigue mandando (la web enviaba
+    `rpe: null` en cada serie), se ignora en vez de dar 422, y no sale ni en la
+    serie, ni en la sesión, ni en los dos historiales.
+    """
+    ejercicio_id = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Press militar", "grupo_muscular_id": grupo_muscular_id},
+    ).json()["id"]
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
+
+    creada = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=40, rpe=8)
+    assert creada.status_code == 201, creada.text
+    serie = creada.json()
+    assert "rpe" not in serie
+
+    editada = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}",
+        json={**_serie(cliente, entrenamiento_id, ejercicio_id, peso=42.5), "rpe": 8},
+    )
+    assert editada.status_code == 200, editada.text
+    assert "rpe" not in editada.json()
+    assert Decimal(str(editada.json()["peso"])) == Decimal("42.5")
+
+    sesion = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
+    assert [s["id"] for s in sesion["series"]] == [serie["id"]]
+    assert "rpe" not in sesion["series"][0]
+
+    del_ejercicio = cliente.get(f"/ejercicios/{ejercicio_id}/historial").json()
+    rutina_id = sesion["rutina_id"]
+    del_hueco = cliente.get(f"/rutinas/{rutina_id}/slots/{serie['slot_id']}/historial").json()
+    for historial in (del_ejercicio, del_hueco):
+        series = [s for dia in historial for s in dia["series"]]
+        assert [s["id"] for s in series] == [serie["id"]]
+        assert "rpe" not in series[0]
 
 
 def _falta_o_es_nulo(respuesta, campo) -> bool:
@@ -604,7 +638,7 @@ def test_el_peso_puede_ser_cero_para_los_ejercicios_con_el_propio_cuerpo(
 
 @pytest.mark.parametrize(
     "campo, valor",
-    [("peso", -1), ("repeticiones", 0), ("numero_serie", 0), ("rpe", 11), ("rpe", -1)],
+    [("peso", -1), ("repeticiones", 0), ("numero_serie", 0)],
 )
 def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, campo, valor):
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")

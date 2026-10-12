@@ -307,7 +307,6 @@ class SerieBase(BaseModel):
     # mayor llegaba a la base de datos y la respuesta era un 500.
     peso: Decimal = Field(ge=0, le=Decimal("9999.99"))
     repeticiones: int = Field(gt=0, le=1000)
-    rpe: Decimal | None = Field(default=None, ge=0, le=10)
     variante: TextoOpcional = Field(default=None, max_length=100)
 
 
@@ -360,7 +359,6 @@ class SerieHistorial(BaseModel):
     numero_serie: int
     peso: Decimal
     repeticiones: int
-    rpe: Decimal | None
     variante: str | None
 
 
@@ -915,6 +913,9 @@ class ExcepcionDeArchivo(BaseModel):
 
 
 class SerieDeArchivo(SerieBase):
+    # Los archivos exportados antes de quitar el RPE traen `rpe` en cada serie: Pydantic
+    # ignora los campos que no declara, así que se siguen importando y la versión del
+    # formato sigue siendo 1. Por eso ningún modelo del formato lleva `extra="forbid"`.
     created_at: AwareDatetime
     updated_at: AwareDatetime
 
