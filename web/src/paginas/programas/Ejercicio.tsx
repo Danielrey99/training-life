@@ -199,7 +199,7 @@ export function Ejercicio() {
   } else if (origen.tipo === 'existente') {
     titulo = origen.posicion === null ? 'Ejercicio oculto' : `Ejercicio ${origen.posicion}`
   } else {
-    titulo = 'Nuevo ejercicio'
+    titulo = 'Añadir ejercicio'
     const cuantos =
       origen.tipo === 'borrador'
         ? origen.borrador.ejercicios.length
