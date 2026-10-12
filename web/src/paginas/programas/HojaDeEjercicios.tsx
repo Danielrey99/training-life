@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { Ejercicio, GrupoMuscular } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import '../historial/historial.css'
+import { DesplegableDeGrupo } from './DesplegableDeGrupo'
 import './ejercicio.css'
 import { deDonde } from './textos'
 
@@ -25,8 +26,8 @@ function normalizar(texto: string) {
 }
 
 /**
- * La hoja de elegir ejercicio de P4: un buscador, el filtro por grupo muscular (solo
- * los grupos que tienen algo que elegir) y la lista, por nombre. Elegir no guarda
+ * La hoja de elegir ejercicio de P4: un buscador, el filtro por grupo muscular (un
+ * desplegable con solo los grupos que tienen algo que elegir) y la lista, por nombre. Elegir no guarda
  * nada: rellena el formulario.
  */
 export function HojaDeEjercicios({
@@ -87,25 +88,8 @@ export function HojaDeEjercicios({
           />
         </label>
 
-        <div className="ejercicio-grupos">
-          <button
-            type="button"
-            className={grupo === null ? 'ejercicio-pildora elegida' : 'ejercicio-pildora'}
-            onClick={() => setGrupo(null)}
-          >
-            Todos los grupos
-          </button>
-          {conEjercicios.map((uno) => (
-            <button
-              key={uno.id}
-              type="button"
-              className={grupo === uno.id ? 'ejercicio-pildora elegida' : 'ejercicio-pildora'}
-              onClick={() => setGrupo(grupo === uno.id ? null : uno.id)}
-            >
-              {uno.nombre}
-            </button>
-          ))}
-        </div>
+        {/* Un desplegable y no otra hoja: esta ya es una hoja. */}
+        <DesplegableDeGrupo grupos={conEjercicios} elegido={grupo} alElegir={setGrupo} />
 
         {lista.length === 0 && (
           <p className="hoja-vacia">

@@ -105,6 +105,9 @@ button.ejercicio-caja .icono {
 
 .ejercicio-hoja {
   gap: 0;
+  /* Siempre a su altura máxima: al buscar o filtrar no se encoge, así el campo del
+     grupo no cambia de sitio y su lista cabe debajo. */
+  height: 85vh;
 }
 
 .ejercicio-buscador {
@@ -135,33 +138,85 @@ button.ejercicio-caja .icono {
   outline: none;
 }
 
-/* Una sola fila que se desplaza de lado: con todos los grupos, envueltas ocupaban media hoja. */
-.ejercicio-grupos {
+/* El filtro por grupo muscular, igual en la hoja (con su lista debajo) y en la biblioteca
+   (un botón que abre su propia hoja): el valor a la izquierda y ▾ a la derecha.
+   Son 17 grupos: en una fila de píldoras no se veían, y envueltas ocupaban media hoja. */
+.ejercicio-filtro {
+  position: relative;
   display: flex;
-  gap: 6px;
-  margin: 0 -20px;
-  padding: 0 20px 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  margin-bottom: 10px;
 }
 
-.ejercicio-pildora {
+.ejercicio-filtro-campo {
   font: inherit;
-  flex-shrink: 0;
-  white-space: nowrap;
-  min-height: 32px;
-  padding: 0 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 40px 0 12px;
+  appearance: none;
+  background: var(--fondo);
   border: 1px solid var(--borde);
-  border-radius: 999px;
-  background: none;
-  color: var(--texto-tenue);
-  font-size: 13px;
+  border-radius: var(--radio-pequeno);
+  color: var(--texto);
+  font-size: 15px;
+  text-align: left;
   cursor: pointer;
 }
 
-.ejercicio-pildora.elegida {
+.ejercicio-filtro-campo.elegido {
   border-color: var(--acento);
   color: var(--acento);
+}
+
+/* La lista del desplegable: justo debajo del campo y de su mismo ancho, siempre hacia
+   abajo, y con barra de desplazamiento si no caben todos los grupos. */
+.desplegable-lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  max-height: min(320px, 45vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde) transparent;
+}
+
+.desplegable-opcion {
+  font: inherit;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--texto);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.desplegable-opcion:hover {
+  background: var(--superficie);
+}
+
+.desplegable-opcion.elegida {
+  color: var(--acento);
+}
+
+.ejercicio-filtro > .icono {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--texto-tenue);
+  pointer-events: none;
 }
 
 .ejercicio-hoja-pie {
