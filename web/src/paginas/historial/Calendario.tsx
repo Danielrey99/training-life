@@ -241,8 +241,9 @@ function Flecha({ haciaAtras = false }) {
 
 /** Qué significa cada marca y cada color. Plegada por defecto: se consulta poco. */
 function Leyenda({ programa }: { programa: Programa | null }) {
-  const verde = colorDelDia(1)
-  const azul = colorDelDia(3)
+  // Dos días cualquiera, para enseñar un día movido con los colores de los dos.
+  const lunes = colorDelDia(1)
+  const miercoles = colorDelDia(3)
   const filas = [
     { marca: <Punto lleno />, texto: 'Hecho ese día' },
     { marca: <Punto />, texto: 'Sin hacer' },
@@ -267,7 +268,7 @@ function Leyenda({ programa }: { programa: Programa | null }) {
     {
       marca: (
         <>
-          <Punto lleno color={verde} />
+          <Punto lleno color={lunes} />
           <Flecha />
         </>
       ),
@@ -276,8 +277,8 @@ function Leyenda({ programa }: { programa: Programa | null }) {
     {
       marca: (
         <>
-          <Punto lleno color={verde} />
-          <Punto color={azul} />
+          <Punto lleno color={lunes} />
+          <Punto color={miercoles} />
         </>
       ),
       texto: 'Ese día se hizo otra rutina; la suya, sin hacer',

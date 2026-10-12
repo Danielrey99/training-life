@@ -2,8 +2,8 @@ import type { SesionHistorial } from '../api/tipos'
 import { unoRM } from './numeros'
 
 /**
- * Lo que vale una sesión en cada medida: el peso más alto, el volumen total o el 1RM
- * medio (el mismo de las insignias de H2, para que un día dé igual en las dos
+ * Lo que vale una sesión en cada medida, en kg: el peso más alto, el volumen total o
+ * el 1RM (el mismo de las insignias de H2, para que un día dé igual en las dos
  * pantallas). Lo usan la gráfica de H3 y la ficha del ejercicio, que tienen que dar
  * el mismo peso para la misma sesión.
  */

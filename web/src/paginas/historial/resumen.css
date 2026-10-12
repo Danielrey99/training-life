@@ -147,7 +147,7 @@ button.resumen-columna {
 
 .resumen-barra {
   width: 100%;
-  background: #2f7d54;
+  background: var(--barra);
   border-radius: 4px 4px 0 0;
 }
 
@@ -158,11 +158,11 @@ button.resumen-columna {
 /* Rayas en diagonal y sin borde: la barra en curso está a medias, también elegida.
    Cada una alterna su verde con uno más oscuro del mismo tono. */
 .resumen-barra.en-curso {
-  background: repeating-linear-gradient(135deg, #2f7d54 0 6px, #1f4d36 6px 10px);
+  background: repeating-linear-gradient(135deg, var(--barra) 0 6px, var(--barra-raya) 6px 10px);
 }
 
 .resumen-barra.en-curso.elegida {
-  background: repeating-linear-gradient(135deg, var(--acento) 0 6px, #27985a 6px 10px);
+  background: repeating-linear-gradient(135deg, var(--acento) 0 6px, var(--acento-raya) 6px 10px);
 }
 
 .resumen-eje {
@@ -182,7 +182,7 @@ button.resumen-columna {
   width: 100%;
   display: flex;
   align-items: flex-end;
-  background: #3a4150;
+  background: var(--barra-vacia);
   border-radius: 3px 3px 0 0;
 }
 
@@ -211,7 +211,7 @@ button.resumen-columna {
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: #3a4150;
+  background: var(--barra-vacia);
 }
 
 .resumen-muestra.entrenado {

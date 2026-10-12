@@ -9,6 +9,18 @@
   --error: #f87171;
   /* Lo que flota sobre una superficie: desplegables y globos. */
   --superficie-alta: #22262e;
+  /* El texto de un botón verde o rojo. */
+  --sobre-acento: #14161a;
+  /* El texto tenue del globo de la gráfica, que va en colores invertidos. */
+  --globo-tenue: #5b6270;
+  /* Lo que caduca hoy. */
+  --ambar: #ecb432;
+  /* Las barras del resumen: la que no está elegida, la raya oscura de la en curso
+     (sin elegir y elegida) y lo planificado que no se hizo. */
+  --barra: #2f7d54;
+  --barra-raya: #1f4d36;
+  --acento-raya: #27985a;
+  --barra-vacia: #3a4150;
 
   --radio: 8px;
   --radio-pequeno: 6px;
@@ -17,9 +29,31 @@
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
-  color-scheme: dark light;
+  color-scheme: dark;
   color: var(--texto);
   background-color: var(--fondo);
+}
+
+/* El tema claro (Ajustes): los mismos papeles con otros colores. Los verdes y el ámbar
+   son más oscuros, porque los del tema oscuro apenas se ven sobre blanco. */
+:root[data-tema='claro'] {
+  --fondo: #f4f5f7;
+  --superficie: #ffffff;
+  --borde: #d8dbe0;
+  --texto: #1a1d23;
+  --texto-tenue: #5f6672;
+  --acento: #16a34a;
+  --acento-suave: #15803d;
+  --error: #dc2626;
+  --superficie-alta: #ffffff;
+  --sobre-acento: #ffffff;
+  --globo-tenue: #aab0bb;
+  --ambar: #b45309;
+  --barra: #86cfa3;
+  --barra-raya: #b9e4c9;
+  --acento-raya: #12813b;
+  --barra-vacia: #d5d9e0;
+  color-scheme: light;
 }
 
 * {
@@ -100,13 +134,13 @@ code {
   font-size: 16px;
   border-color: var(--acento);
   background: var(--acento);
-  color: var(--fondo);
+  color: var(--sobre-acento);
 }
 
 .boton-peligro {
   border-color: var(--error);
   background: var(--error);
-  color: var(--fondo);
+  color: var(--sobre-acento);
 }
 
 .boton-texto {

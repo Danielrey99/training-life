@@ -356,8 +356,9 @@
   cursor: default;
 }
 
+/* El calendario del navegador, en el tema de la app (sin esto salía claro). */
 .dia-fecha input {
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .dia-hueco {

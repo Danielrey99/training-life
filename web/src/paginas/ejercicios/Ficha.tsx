@@ -16,7 +16,7 @@ import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
 import { colorDelDia } from '../../utiles/colores'
 import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
-import { pesoLegible } from '../../utiles/numeros'
+import { pesoLegible, unidad } from '../../utiles/numeros'
 import { valorDe } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { enumerar } from '../programas/textos'
@@ -256,7 +256,9 @@ export function Ficha() {
           <h2 className="rotulo">Progresión</h2>
           <Link to={`/progresion/${id}`} className="detalle-tarjeta detalle-progresion">
             <span className="detalle-progresion-texto">
-              <span className="detalle-peso num">{pesoLegible(valorDe(ultima, 'peso'))} kg</span>
+              <span className="detalle-peso num">
+                {pesoLegible(valorDe(ultima, 'peso'))} {unidad()}
+              </span>
               <span>Última vez {conArticulo(ultima.fecha)}</span>
             </span>
             <Icono nombre="abrir" pequeno />

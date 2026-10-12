@@ -7,7 +7,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
 import { diaDeLaSemana, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
-import { pesoLegible, unoRM } from '../../utiles/numeros'
+import { enUnidad, numeroLegible, pesoLegible, unidad, unoRM } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Bloque, type Insignia, type Mejora } from './BloqueDelDia'
@@ -16,9 +16,9 @@ import './historial.css'
 
 type ConCarga = { peso: string | number; repeticiones: number }
 
-/** "56,7": el 1RM con un decimal como mucho. */
-function kilos(valor: number) {
-  return (Math.round(valor * 10) / 10).toLocaleString('es-ES', { maximumFractionDigits: 1 })
+/** "56,7": un 1RM en kg, en la unidad elegida y con un decimal como mucho. */
+function conDecimal(kilos: number) {
+  return numeroLegible(Math.round(enUnidad(kilos) * 10) / 10, 1)
 }
 
 /** "+2,5 kg" en verde si sube, "−3 reps" en gris si baja. */
@@ -34,9 +34,10 @@ function cambioDe(diferencia: number, texto: string): Insignia {
  *
  * Una insignia por cosa que cambió: el peso más alto y el total de repeticiones (que ya
  * refleja si se hicieron más o menos series). Si
- * mejoró o empeoró lo decide el 1RM estimado medio de las series, que va en su propia
- * insignia con la flecha: así subir peso y bajar reps (o al revés) se compensa con una
- * sola medida, y cuenta cualquier serie que mejore, no solo la mejor.
+ * mejoró o empeoró lo decide el 1RM estimado (por defecto, el medio de las series), que va en su
+ * propia insignia con la flecha: así subir peso y bajar reps (o al revés) se compensa
+ * con una sola medida. Con la media cuenta cualquier serie que mejore, no solo la mejor;
+ * en Ajustes se puede elegir la mejor serie (`unoRM`).
  */
 function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null {
   if (series.length === 0) return null
@@ -46,7 +47,7 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
       clase: 'igual',
       insignias: [
         { texto: 'nuevo', clase: 'igual' },
-        { texto: `1RM ${kilos(rmHoy)} kg`, clase: 'igual' },
+        { texto: `1RM ${conDecimal(rmHoy)} ${unidad()}`, clase: 'igual' },
       ],
     }
   }
@@ -55,8 +56,8 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
   const pesoHoy = Math.max(...series.map((serie) => Number(serie.peso)))
   const pesoAntes = Math.max(...ultima.series.map((serie) => Number(serie.peso)))
   if (pesoHoy !== pesoAntes) {
-    const kg = `${pesoLegible(Math.abs(pesoHoy - pesoAntes))} kg`
-    insignias.push(cambioDe(pesoHoy - pesoAntes, kg))
+    const peso = `${pesoLegible(Math.abs(pesoHoy - pesoAntes))} ${unidad()}`
+    insignias.push(cambioDe(pesoHoy - pesoAntes, peso))
   }
   const reps = (lista: ConCarga[]) => lista.reduce((total, serie) => total + serie.repeticiones, 0)
   const diferencia = reps(series) - reps(ultima.series)
@@ -66,13 +67,17 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
   }
   if (insignias.length === 0) insignias.push({ texto: 'igual', clase: 'igual' })
 
-  // Con un decimal: lo que no se ve en el número no puede decidir si mejoró.
-  const cambio = Math.round((rmHoy - unoRM(ultima.series)) * 10) / 10
+  // Con un decimal y en la unidad elegida: lo que no se ve en el número no puede
+  // decidir si mejoró.
+  const cambio = Math.round(enUnidad(rmHoy - unoRM(ultima.series)) * 10) / 10
   const clase = cambio > 0 ? 'mejor' : cambio < 0 ? 'peor' : 'igual'
   const flecha = clase === 'mejor' ? '↑ ' : clase === 'peor' ? '↓ ' : ''
   const diferenciaRM =
-    cambio === 0 ? 'igual' : `${cambio > 0 ? '+' : '−'}${kilos(Math.abs(cambio))}`
-  insignias.push({ texto: `${flecha}1RM ${kilos(rmHoy)} kg (${diferenciaRM})`, clase })
+    cambio === 0 ? 'igual' : `${cambio > 0 ? '+' : '−'}${numeroLegible(Math.abs(cambio), 1)}`
+  insignias.push({
+    texto: `${flecha}1RM ${conDecimal(rmHoy)} ${unidad()} (${diferenciaRM})`,
+    clase,
+  })
   return { clase, insignias }
 }
 
@@ -85,9 +90,9 @@ function contar(cuantos: number, singular: string, plural: string) {
   return `${cuantos} ${cuantos === 1 ? singular : plural}`
 }
 
-/** "20 kg × 9 reps · sentado". */
+/** "20 kg × 9 reps · sentado" (o en lb). */
 function carga(serie: Serie) {
-  const texto = `${pesoLegible(serie.peso)} kg × ${serie.repeticiones} reps`
+  const texto = `${pesoLegible(serie.peso)} ${unidad()} × ${serie.repeticiones} reps`
   return serie.variante ? `${texto} · ${serie.variante}` : texto
 }
 
@@ -228,10 +233,10 @@ export function Dia() {
   const objetivo = huecosVisibles.reduce((total, hueco) => total + hueco.series_objetivo, 0)
   // Editando, todo se pinta desde el borrador: las cifras y los bloques ya con los cambios.
   const series = editando ? seriesNuevas : dia.series
-  const volumen = volumenDe(series)
+  const volumen = enUnidad(volumenDe(series))
   // Frente a la sesión anterior de la rutina: un dato de cuánto trabajo, no de fuerza
   // (eso lo dice el 1RM de cada ejercicio), así que se salta un ejercicio y baja.
-  const cambioVolumen = anterior ? Math.round(volumen - volumenDe(anterior.series)) : null
+  const cambioVolumen = anterior ? Math.round(volumen - enUnidad(volumenDe(anterior.series))) : null
   const actuales = bloques.map((bloque) => {
     const suyas = series.filter((serie) => serie.slot_id === bloque.hueco.id)
     return { ...bloque, series: suyas, ejercicio: suyas[0]?.ejercicio ?? bloque.ejercicio }
@@ -445,7 +450,7 @@ export function Dia() {
         <div className="cifra">
           <span className="num cifra-valor">
             {volumen.toLocaleString('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' })}
-            <small> kg</small>
+            <small> {unidad()}</small>
           </span>
           <span>volumen</span>
           {cambioVolumen !== null && (
@@ -455,7 +460,7 @@ export function Dia() {
               {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
               {cambioVolumen === 0
                 ? 'igual'
-                : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} kg`}
+                : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} ${unidad()}`}
             </span>
           )}
         </div>

@@ -232,7 +232,7 @@ a.entrada-fila:hover {
 }
 
 .recuperable .caduca {
-  color: #ecb432;
+  color: var(--ambar);
 }
 
 .recuperable .boton-recuperar {

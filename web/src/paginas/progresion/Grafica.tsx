@@ -218,7 +218,7 @@ export function Grafica({ puntos, elegido, alElegir }: Props) {
           rx="6"
           fill="var(--texto)"
         />
-        <text x={globoX + 10} y={globoY + 16} fontSize="11" fill="#5b6270">
+        <text x={globoX + 10} y={globoY + 16} fontSize="11" fill="var(--globo-tenue)">
           {titulo.length > 22 ? `${titulo.slice(0, 21)}…` : titulo}
         </text>
         <text x={globoX + 10} y={globoY + 32} fontSize="12.5" fontWeight="600" fill="var(--fondo)">

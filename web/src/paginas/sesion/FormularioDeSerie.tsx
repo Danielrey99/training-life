@@ -2,13 +2,11 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { Icono } from '../../componentes/Icono'
-import { leerNumero, pesoLegible } from '../../utiles/numeros'
-
-// Lo que sube o baja el peso con − / +. Un peso con decimales (17,5) se teclea en
-// el propio campo, y a partir de ahí − / + lo mueven de uno en uno (16,5, 18,5).
-const PASO_PESO = 1
+import { ajustes } from '../../utiles/ajustes'
+import { aKilos, leerNumero, numeroLegible, pesoLegible, unidad } from '../../utiles/numeros'
 
 export type DatosDeSerie = {
+  // En kg, como lo guarda la API, aunque se apunte en lb.
   peso: number
   repeticiones: number
   variante: string | null
@@ -60,9 +58,9 @@ export function FormularioDeSerie({
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault()
-    const kilos = leerNumero(peso)
+    const valor = leerNumero(peso)
     const reps = leerNumero(repeticiones)
-    if (kilos === null || kilos < 0 || reps === null || reps < 1 || !Number.isInteger(reps)) {
+    if (valor === null || valor < 0 || reps === null || reps < 1 || !Number.isInteger(reps)) {
       setFallo('Pon el peso y las repeticiones.')
       return
     }
@@ -70,7 +68,7 @@ export function FormularioDeSerie({
     setFallo(null)
     try {
       await alGuardar({
-        peso: kilos,
+        peso: aKilos(valor),
         repeticiones: reps,
         variante: variante.trim() === '' ? null : variante.trim(),
       })
@@ -86,10 +84,13 @@ export function FormularioDeSerie({
       {editando && <p className="editando-aviso">Editando la serie {numero}</p>}
       <div className="campos-serie">
         <CampoConPasos
-          etiqueta="Peso (kg)"
+          etiqueta={`Peso (${unidad()})`}
           valor={peso}
           cambiar={setPeso}
-          paso={PASO_PESO}
+          // Lo que sube o baja con − / +, en Ajustes (por defecto, 1). Un peso que no
+          // cae en el paso (17,5 con paso 1) se teclea en el propio campo, y a partir de
+          // ahí − / + lo mueven de paso en paso (16,5, 18,5).
+          paso={ajustes().pasoPeso}
           minimo={0}
           decimales
         />
@@ -156,7 +157,7 @@ export function CampoConPasos({
     // Redondeado a centésimas solo para quitar el ruido de los decimales en coma
     // flotante (17,5 + 1 no debe quedar en 18,499999).
     const nuevo = Math.max(minimo, Math.round((actual + cuanto) * 100) / 100)
-    cambiar(decimales ? pesoLegible(nuevo) : String(nuevo))
+    cambiar(decimales ? numeroLegible(nuevo) : String(nuevo))
   }
 
   return (

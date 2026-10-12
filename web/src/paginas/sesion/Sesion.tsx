@@ -7,7 +7,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { fechaEnFrase, fechaTitulo, hoy } from '../../utiles/fechas'
-import { pesoLegible } from '../../utiles/numeros'
+import { pesoLegible, unidad } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
 import './sesion.css'
@@ -271,7 +271,7 @@ export function Sesion() {
       {aBorrar && (
         <Dialogo
           titulo={`¿Borrar la serie ${aBorrar.numero_serie}?`}
-          cuerpo={`${pesoLegible(aBorrar.peso)} kg × ${aBorrar.repeticiones} reps${
+          cuerpo={`${pesoLegible(aBorrar.peso)} ${unidad()} × ${aBorrar.repeticiones} reps${
             aBorrar.variante ? ` · ${aBorrar.variante}` : ''
           }`}
           confirmar="Borrar"

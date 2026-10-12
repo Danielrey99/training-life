@@ -49,3 +49,196 @@
   padding-left: 18px;
   font-size: 13px;
 }
+
+.ajustes-tarjeta h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Unas pocas opciones, una al lado de otra (como el de la gráfica de progresión, con
+   su propia clase: las de otra pantalla se pisan). Las columnas las pone el componente. */
+.ajustes-selector {
+  display: grid;
+  gap: 3px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+  padding: 2px;
+}
+
+.ajustes-selector button {
+  min-height: 40px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  font-size: 13.5px;
+  color: var(--texto-tenue);
+}
+
+.ajustes-selector button.activa {
+  background: var(--superficie);
+  border-color: var(--borde);
+  color: var(--acento);
+}
+
+/* «Suben o bajan [1] kg cada vez.»: el campo dentro de la frase. */
+.ajustes-paso label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--texto-tenue);
+}
+
+.ajustes-paso .campo-texto {
+  width: 72px;
+  text-align: center;
+}
+
+.ajustes-paso .campo-texto[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.ajustes-paso .fallo {
+  margin-top: 8px;
+}
+
+/* Reps mínimas y máximas, una al lado de otra, como en el formulario de la rutina. */
+.ajustes-reps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ajustes-dias {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ajustes-dias li + li {
+  border-top: 1px solid var(--borde);
+}
+
+.ajustes-dias button {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-weight: 400;
+  color: var(--texto);
+  text-align: left;
+}
+
+.ajustes-dias .icono {
+  margin-left: auto;
+  color: var(--texto-tenue);
+}
+
+/* Un círculo de color: en la lista de días y en la hoja. */
+.color-muestra {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--sobre-acento);
+}
+
+/* La hoja del color de un día: los 24 de la paleta en cuatro columnas (en tres no
+   cabían en la pantalla). */
+.color-rejilla {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.color-opcion {
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 2px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--texto);
+}
+
+.color-opcion .color-muestra {
+  width: 26px;
+  height: 26px;
+}
+
+.color-opcion.elegida {
+  border-color: var(--acento);
+}
+
+/* Un color que ya tiene otro día: apagado y con el nombre del día. */
+.color-opcion:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.color-dueno {
+  font-size: 11px;
+  color: var(--texto-tenue);
+}
+
+.color-otro {
+  position: relative;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 0 14px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.color-otro.elegido {
+  border-color: var(--acento);
+}
+
+/* Sin color libre elegido, el círculo es un aro. */
+.color-otro .color-muestra {
+  border: 1.5px dashed var(--texto-tenue);
+}
+
+.color-otro.elegido .color-muestra {
+  border: none;
+}
+
+/* El selector del sistema, invisible pero en su sitio (abajo a la izquierda de la fila,
+   para que se abra junto a ella): lo abre pulsar la fila. */
+.color-otro input {
+  position: absolute;
+  left: 14px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.color-volver {
+  margin-top: 4px;
+}

@@ -9,6 +9,7 @@ import { diaDe, diaYMesConAnio, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import { tirarTodosLosBorradores } from '../programas/borradores'
 import { enumerar } from '../programas/textos'
+import { Preferencias } from './Preferencias'
 import '../sesion/sesion.css'
 import './ajustes.css'
 
@@ -38,11 +39,12 @@ function describir(resumen: ResumenDeDatos) {
 }
 
 /**
- * Ajustes: por ahora, tus datos. *Exportar* los guarda todos en un archivo (tras confirmar,
- * con lo que se va a guardar), para pasarlos
- * a otro dispositivo (la web y el móvil no se conectan entre sí) o tener una copia.
- * *Importar* carga uno y **sustituye todo** lo que hay: antes de hacerlo, el diálogo dice
- * qué se sustituye por qué, con lo que cuenta la API sin escribir nada.
+ * Ajustes: cómo se entrena y cómo se ve la app (`Preferencias`, que se guardan en el
+ * dispositivo) y tus datos. *Exportar* los guarda todos en un archivo (tras confirmar,
+ * con lo que se va a guardar), para pasarlos a otro dispositivo (la web y el móvil no
+ * se conectan entre sí) o tener una copia; los ajustes no van en él. *Importar* carga
+ * uno y **sustituye todo** lo que hay: antes de hacerlo, el diálogo dice qué se
+ * sustituye por qué, con lo que cuenta la API sin escribir nada.
  */
 export function Ajustes() {
   const volver = useVolver()
@@ -65,12 +67,12 @@ export function Ajustes() {
   }
 
   /** Antes de exportar, cuánto hay: el diálogo dice qué se va a guardar. */
-  async function preguntarExportar() {
+  async function preguntar(abrir: (resumen: ResumenDeDatos) => void) {
     setOcupado(true)
     setFallo(null)
     setHecho(null)
     try {
-      setPorExportar(await api.resumenDeDatos())
+      abrir(await api.resumenDeDatos())
     } catch (error) {
       fallar(error)
     } finally {
@@ -132,17 +134,20 @@ export function Ajustes() {
         <span className="ajustes-hueco" />
       </header>
 
+      <Preferencias />
+
       <section className="ajustes-bloque">
         <h2 className="rotulo">Tus datos</h2>
         <div className="ajustes-tarjeta">
           <p>
             Guarda en un archivo todo lo que has apuntado: rutinas, programas, sesiones y notas.
-            Sirve para pasarlo a otro dispositivo o para tener una copia.
+            Sirve para pasarlo a otro dispositivo o para tener una copia. Los ajustes de esta
+            pantalla no van en el archivo.
           </p>
           <button
             type="button"
             className="boton"
-            onClick={() => void preguntarExportar()}
+            onClick={() => void preguntar(setPorExportar)}
             disabled={ocupado}
           >
             Exportar datos
@@ -192,7 +197,7 @@ export function Ajustes() {
             describir(porExportar) === 'nada'
               ? 'Todavía no tienes nada apuntado: el archivo se guardará vacío.'
               : `Se guardarán en un archivo ${describir(porExportar)}. ` +
-                'Lo encontrarás en la carpeta de descargas.'
+                'Lo encontrarás en la carpeta de descargas. Los ajustes no van en el archivo.'
           }
           confirmar="Exportar"
           alConfirmar={exportar}

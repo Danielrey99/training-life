@@ -5,6 +5,8 @@ import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { diaYMesConAnio, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
+import { ajustes } from '../../utiles/ajustes'
+import { enUnidad, unidad } from '../../utiles/numeros'
 import { valorDe } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
@@ -29,9 +31,10 @@ const MEDIDAS = [
 // Las sesiones que se enseñan antes de "Ver N sesiones más".
 const VISIBLES = 4
 
-/** "26,7 kg": el valor con un decimal como mucho. */
+/** "26,7 kg": el valor, ya en la unidad elegida, con un decimal como mucho. */
 function enKilos(valor: number): string {
-  return `${(Math.round(valor * 10) / 10).toLocaleString('es-ES', { maximumFractionDigits: 1 })} kg`
+  const redondeado = Math.round(valor * 10) / 10
+  return `${redondeado.toLocaleString('es-ES', { maximumFractionDigits: 1 })} ${unidad()}`
 }
 
 function conSigno(diferencia: number): string {
@@ -92,7 +95,9 @@ export function Progresion() {
   const desde = rango.dias === null ? null : sumarDias(hoy(), -rango.dias)
   const enRango = sesiones.filter((sesion) => desde === null || sesion.fecha >= desde)
   const puntos: Punto[] = [...enRango].reverse().map((sesion) => {
-    const valor = valorDe(sesion, medida)
+    // En la unidad elegida: la gráfica y los textos ya no convierten.
+    const valor = enUnidad(valorDe(sesion, medida))
+    // «de media» solo con la media: «en la mejor serie» no cabe en el globo.
     return {
       id: sesion.entrenamiento_id,
       fecha: sesion.fecha,
@@ -101,7 +106,7 @@ export function Progresion() {
         medida === 'volumen'
           ? `${enKilos(valor)} en ${sesion.series.length} ${sesion.series.length === 1 ? 'serie' : 'series'}`
           : medida === 'rm'
-            ? `${enKilos(valor)} de media`
+            ? `${enKilos(valor)}${ajustes().unoRM === 'media' ? ' de media' : ''}`
             : enKilos(valor),
       rutina: sesion.rutina,
     }

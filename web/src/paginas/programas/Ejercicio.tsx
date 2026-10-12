@@ -11,6 +11,7 @@ import type {
 } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
+import { ajustes } from '../../utiles/ajustes'
 import { diaYMesConAnio } from '../../utiles/fechas'
 import { leerNumero } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
@@ -52,12 +53,16 @@ type Datos = { origen: Origen; ejercicios: DatosEjercicio[]; grupos: GrupoMuscul
 type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | 'quitar'
 
 // Lo habitual en doble progresión: 3 series de 8 a 12.
-const VACIO: Formulario = {
-  principal: null,
-  alternativas: [],
-  series: '3',
-  repsMin: '8',
-  repsMax: '12',
+/** Un ejercicio nuevo: sin elegir, con las series y reps por defecto de Ajustes. */
+function vacio(): Formulario {
+  const { series, repsMin, repsMax } = ajustes().objetivo
+  return {
+    principal: null,
+    alternativas: [],
+    series: String(series),
+    repsMin: String(repsMin),
+    repsMax: String(repsMax),
+  }
 }
 
 function desdeBorrador(ejercicio: EjercicioDelBorrador): Formulario {
@@ -136,7 +141,7 @@ export function Ejercicio() {
   const padre = enBorrador ? '/programas/rutinas/nueva' : `/programas/rutinas/${rutinaId}`
 
   const [datos, setDatos] = useState<Datos | null>(null)
-  const [formulario, setFormulario] = useState<Formulario>(VACIO)
+  const [formulario, setFormulario] = useState<Formulario>(vacio)
   const [error, setError] = useState<string | null>(null)
   const [hoja, setHoja] = useState<'principal' | 'alternativa' | null>(null)
   const [pregunta, setPregunta] = useState<Pregunta | null>(null)

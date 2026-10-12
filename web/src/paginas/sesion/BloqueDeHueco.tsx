@@ -1,7 +1,7 @@
 import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
-import { pesoLegible } from '../../utiles/numeros'
+import { pesoLegible, unidad } from '../../utiles/numeros'
 import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
@@ -159,7 +159,7 @@ function HuecoAbierto({
                 <span className="serie-numero num">{serie.numero_serie}</span>
                 <span className="serie-texto">
                   <span className="serie-carga num">
-                    {pesoLegible(serie.peso)} kg × {serie.repeticiones} reps
+                    {pesoLegible(serie.peso)} {unidad()} × {serie.repeticiones} reps
                   </span>
                   {serie.variante && <span className="serie-variante">{serie.variante}</span>}
                   {/* Con un comodín por medio, un mismo hueco mezcla ejercicios: se dice cuál. */}

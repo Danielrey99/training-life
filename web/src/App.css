@@ -141,7 +141,7 @@ select:focus {
 button {
   font: inherit;
   font-weight: 600;
-  color: var(--fondo);
+  color: var(--sobre-acento);
   background: var(--acento);
   border: 1px solid var(--acento);
   border-radius: 6px;

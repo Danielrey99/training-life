@@ -19,6 +19,7 @@ import {
   sumarMeses,
   tituloDeMes,
 } from '../../utiles/fechas'
+import { enUnidad, unidad } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import '../sesion/sesion.css'
 import '../progresion/progresion.css'
@@ -32,13 +33,14 @@ const ALTO_CONSTANCIA = 70
 
 // En español los números de cuatro cifras no llevan punto por defecto ("4520"); el
 // boceto los agrupa ("4.520 kg") para leerlos de un vistazo junto a los de cinco.
+// El volumen llega en kg y se enseña en la unidad elegida.
 const KILOS = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 0,
   useGrouping: 'always',
 } as Intl.NumberFormatOptions)
 
 function enKilos(volumen: string | number): string {
-  return `${KILOS.format(Number(volumen))} kg`
+  return `${KILOS.format(enUnidad(volumen))} ${unidad()}`
 }
 
 /** "+7 %", "−12,5 %". */
