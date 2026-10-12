@@ -63,7 +63,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, creables de una vez con la rutina; mismo patrón de borrado)
-- [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso/repeticiones/RPE, base del historial de progresión)
+- [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso, repeticiones y variante, base del historial de progresión)
 - [x] Backend: notas personales por ejercicio (privadas de cada usuario, también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, aislamiento por usuario, CRUD)

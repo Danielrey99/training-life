@@ -12,7 +12,7 @@ La web nunca accede directamente a la base de datos: siempre pasa por esta API.
 
 ## Estado actual
 
-🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana. Y todos los datos de un usuario se pueden **exportar e importar** en un archivo, o borrar para empezar de cero (ver más abajo).
+🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y variante— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana. Y todos los datos de un usuario se pueden **exportar e importar** en un archivo, o borrar para empezar de cero (ver más abajo).
 
 El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados reales:
 
@@ -374,6 +374,6 @@ El volumen va por la fecha real de cada sesión y cuenta también las abiertas, 
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
 | `PUT` | `/entrenamientos/{id}` | Corrige la fecha y las notas de un entrenamiento propio. La rutina y el día que cuenta se fijan al crearlo y no cambian (si se manda `rutina_id`, se ignora): para apuntar otra rutina se borra la sesión y se registra de nuevo. Moverlo a un día que ya tiene sesión da el mismo 409 que al crearlo, y como el día que cuenta no cambia, la fecha solo se mueve dentro de su plazo (422 si no). |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |
-| `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, RPE opcional y el `slot_id` del hueco, que es obligatorio). El hueco tiene que ser de la rutina de ese entrenamiento y estar visible (404 si no), y el ejercicio tiene que ser su principal o uno de sus comodines (422 si no). La variante en blanco se guarda como nula. Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
+| `POST` | `/entrenamientos/{id}/series` | Registra una serie real (ejercicio, peso, repeticiones, variante opcional y el `slot_id` del hueco, que es obligatorio). El hueco tiene que ser de la rutina de ese entrenamiento y estar visible (404 si no), y el ejercicio tiene que ser su principal o uno de sus comodines (422 si no). La variante en blanco se guarda como nula. Los números tienen tope (peso hasta 9999,99; repeticiones hasta 1000): fuera de él, 422. |
 | `PUT` | `/entrenamientos/{id}/series/{serie_id}` | Edita una serie, con las mismas reglas. Corregir lo ya apuntado sin cambiar de ejercicio ni de hueco vale aunque el hueco se ocultara o el ejercicio dejara de ser comodín. |
 | `DELETE` | `/entrenamientos/{id}/series/{serie_id}` | Borra una serie. |
