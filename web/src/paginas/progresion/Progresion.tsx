@@ -5,7 +5,7 @@ import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { diaYMes, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
-import { unoRM } from '../../utiles/numeros'
+import { valorDe } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { Grafica, type Punto } from './Grafica'
@@ -26,23 +26,8 @@ const MEDIDAS = [
   { clave: 'rm', texto: '1RM' },
 ] as const
 
-type Medida = (typeof MEDIDAS)[number]['clave']
-
 // Las sesiones que se enseñan antes de "Ver N sesiones más".
 const VISIBLES = 4
-
-/**
- * Lo que vale una sesión en cada medida: el peso más alto, el volumen total o el 1RM
- * medio (el mismo de las insignias de H2, para que un día dé igual en las dos pantallas).
- */
-function valorDe(sesion: SesionHistorial, medida: Medida): number {
-  const { series } = sesion
-  if (medida === 'peso') return Math.max(...series.map((serie) => Number(serie.peso)))
-  if (medida === 'volumen') {
-    return series.reduce((total, serie) => total + Number(serie.peso) * serie.repeticiones, 0)
-  }
-  return unoRM(series)
-}
 
 /** "26,7 kg": el valor con un decimal como mucho. */
 function enKilos(valor: number): string {

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { Programa, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { Ocultos } from '../../componentes/Ocultos'
 import { colorDeRutina } from '../../utiles/colores'
 import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
 import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from './textos'
@@ -237,30 +238,5 @@ function FilaDeRutina({ rutina, color }: { rutina: Rutina; color?: string }) {
       </span>
       <Icono nombre="abrir" pequeno />
     </Link>
-  )
-}
-
-type PropsDeOcultos = {
-  cuantos: number
-  singular: string
-  plural: string
-  abierto: boolean
-  alAlternar: () => void
-}
-
-/** "Ver 2 rutinas ocultas ⌄" / "Esconder…": solo si hay alguno. */
-function Ocultos({ cuantos, singular, plural, abierto, alAlternar }: PropsDeOcultos) {
-  if (cuantos === 0) return null
-  const que = cuantos === 1 ? `1 ${singular}` : `${cuantos} ${plural}`
-  return (
-    <button
-      type="button"
-      className="boton boton-texto programas-ver-ocultos"
-      aria-expanded={abierto}
-      onClick={alAlternar}
-    >
-      {abierto ? 'Esconder' : 'Ver'} {que}
-      <Icono nombre={abierto ? 'arriba' : 'abajo'} pequeno />
-    </button>
   )
 }
