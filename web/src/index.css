@@ -170,3 +170,20 @@ code {
   outline: 2px solid var(--acento);
   outline-offset: 2px;
 }
+
+/* Un texto explicativo centrado en el que alguna frase no cabe en una línea: pasa a
+   párrafo alineado a la izquierda (lo decide `utiles/centrado.ts`). Suelto, en un
+   bloque más estrecho y centrado; dentro de una caja, a su ancho. `p.` para ganar a
+   los que se definen como `.tarjeta-hoy p`. */
+.en-parrafo,
+p.en-parrafo {
+  text-align: left;
+  align-items: flex-start;
+}
+
+.en-parrafo.estrecho,
+p.en-parrafo.estrecho {
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}

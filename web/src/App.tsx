@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
@@ -18,10 +19,14 @@ import { RutinaNueva } from './paginas/programas/RutinaNueva'
 import { Semana } from './paginas/programas/Semana'
 import { Progresion } from './paginas/progresion/Progresion'
 import { Sesion } from './paginas/sesion/Sesion'
+import { vigilarTextosCentrados } from './utiles/centrado'
 import './App.css'
 
 /** El armazón: las pestañas de las cuatro secciones y el hueco donde se pinta cada pantalla. */
 export default function App() {
+  // Los textos explicativos centrados pasan a párrafo si alguna frase no cabe en una línea.
+  useEffect(() => vigilarTextosCentrados(document.body), [])
+
   return (
     <div className="armazon">
       <Pestanas />
