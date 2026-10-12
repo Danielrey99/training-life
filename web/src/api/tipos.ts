@@ -4,7 +4,7 @@
  *
  * Las fechas llegan como texto (`"2026-09-05"`, ISO), no como Date: es lo que
  * viaja en el JSON, y convertirlas es cosa de quien las pinte. Los decimales
- * (peso, RPE) también llegan como texto, porque Pydantic serializa así los
+ * (el peso) también llegan como texto, porque Pydantic serializa así los
  * `Decimal` para no perder precisión.
  */
 
@@ -155,7 +155,6 @@ export type Serie = {
   numero_serie: number
   peso: string
   repeticiones: number
-  rpe: string | null
   variante: string | null
   created_at: string
   updated_at: string
@@ -193,7 +192,6 @@ export type SerieHistorial = {
   numero_serie: number
   peso: string
   repeticiones: number
-  rpe: string | null
   variante: string | null
 }
 
@@ -465,7 +463,6 @@ export type NuevaSerie = {
   numero_serie: number
   peso: number
   repeticiones: number
-  rpe: number | null
   variante: string | null
 }
 

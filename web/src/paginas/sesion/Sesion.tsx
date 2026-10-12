@@ -135,7 +135,7 @@ export function Sesion() {
   const cifras = `${contarSeries(activa.series.length)} · ${completos} de ${visibles.length} ejercicios`
 
   async function guardar(huecoId: number, datos: SerieAGuardar, serieId?: number) {
-    const cuerpo = { ...datos, slot_id: huecoId, rpe: null }
+    const cuerpo = { ...datos, slot_id: huecoId }
     const guardada = serieId
       ? await api.actualizarSerie(activa.id, serieId, cuerpo)
       : await api.crearSerie(activa.id, cuerpo)

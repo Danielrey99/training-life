@@ -304,7 +304,6 @@ export function Dia() {
           peso: Number(serie.peso),
           repeticiones: serie.repeticiones,
           variante: serie.variante,
-          rpe: null,
         }
         const antes = dia.series.find((otra) => otra.id === serie.id)
         if (!antes) await api.crearSerie(dia.id, datos)
@@ -373,7 +372,6 @@ export function Dia() {
         peso: String(datos.peso),
         repeticiones: datos.repeticiones,
         variante: datos.variante,
-        rpe: null,
         created_at: '',
         updated_at: '',
       },
