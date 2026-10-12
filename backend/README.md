@@ -12,7 +12,7 @@ La web nunca accede directamente a la base de datos: siempre pasa por esta API.
 
 ## Estado actual
 
-🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana. Y todos los datos de un usuario se pueden **exportar e importar** en un archivo (ver más abajo).
+🚧 **Backend del MVP completo.** Están implementados el CRUD de `Ejercicio`, el de `Rutina` (con sus huecos y comodines), el de `Entrenamiento`/`Serie` —el registro real, con peso, repeticiones y RPE— y las notas personales por ejercicio. Encima de las rutinas están los **programas**, que dicen qué rutina toca cada día de la semana. Y todos los datos de un usuario se pueden **exportar e importar** en un archivo, o borrar para empezar de cero (ver más abajo).
 
 El borrado con historial (`?modo=ocultar` / `?modo=definitivo`) cubre ya todos los usos cruzados reales:
 
@@ -56,9 +56,11 @@ Lo hecho por adelantado se respeta al cambiar el plan:
 
 La pantalla de hoy tiene su propio endpoint (`/plan/hoy`), que junta en una sola respuesta todo lo que necesita: la situación del día, la semana, lo que se puede recuperar, lo que se ofrece entrenar, el próximo entrenamiento y la última sesión. El resumen (`/resumen`) hace lo mismo con las estadísticas: el volumen por semana y por mes, su desglose por rutina y por grupo muscular, y la constancia del año, calculados en el servidor para que la web solo tenga que pintarlos.
 
-### Exportar e importar
+### Exportar, importar y borrar
 
 La web y la app móvil no se conectan entre sí: los datos pasan de una a otra en un archivo JSON con versión, que también sirve de copia. **Importar sustituye todo** lo del usuario, en una sola transacción. Antes, la propia API comprueba el archivo sin escribir nada (formato, versión, referencias internas y las restricciones de la base) y, si algo no vale, lo dice en español y no toca nada. Los ids del archivo solo enlazan cosas dentro de él (al importar se asignan otros), y los ejercicios predefinidos y los grupos musculares van por nombre, porque su id cambia de una instalación a otra.
+
+**Borrar todos los datos** reutiliza el mismo borrado que importar (una sola función, `borrar_todo`), así que las dos operaciones no pueden separarse: un cambio en qué se borra cambia las dos, y los tests de aislamiento entre usuarios cubren ambas.
 
 ## Estructura
 
@@ -77,7 +79,7 @@ backend/
 │   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
 │   ├── seguimiento.py      # qué se hizo con cada día del plan, y lo que necesita la pantalla de hoy
 │   ├── resumen.py          # las estadísticas: volumen, series por grupo y constancia
-│   ├── datos.py            # exportar e importar todos los datos de un usuario
+│   ├── datos.py            # exportar, importar y borrar todos los datos de un usuario
 │   └── routers/            # los endpoints en sí, un archivo por entidad
 │       ├── ejercicios.py          # CRUD de ejercicios, y las notas de cada uno
 │       ├── grupos_musculares.py   # solo lectura: listar el catálogo de grupos musculares
@@ -86,7 +88,7 @@ backend/
 │       ├── programas.py           # programas y qué rutina toca cada día de la semana
 │       ├── plan.py                # el plan, su seguimiento, la pantalla de hoy y Planificar
 │       ├── resumen.py             # el resumen de volumen y constancia
-│       └── datos.py               # exportar e importar, y lo que hay para confirmarlo
+│       └── datos.py               # exportar, importar y borrar, y lo que hay para confirmarlo
 ├── alembic/
 │   ├── env.py              # configuración de Alembic (a qué BD conectarse, qué modelos vigilar)
 │   └── versions/           # historial de migraciones, una por cambio de esquema
@@ -110,7 +112,7 @@ backend/
 │   ├── test_hoy.py          # lo que necesita la pantalla de hoy
 │   ├── test_replanificar.py # qué pasa con lo hecho por adelantado al cambiar el plan
 │   ├── test_resumen.py      # el volumen por semana y por mes, su desglose y la constancia
-│   ├── test_datos.py        # exportar e importar los datos de un usuario
+│   ├── test_datos.py        # exportar, importar y borrar los datos de un usuario
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -229,7 +231,7 @@ No hay ningún paso previo que recordar:
 | `test_hoy.py` | La pantalla de hoy en cada situación (día de entrenamiento, descanso, sesión en curso, ya entrenado, día hecho por adelantado, primera vez y sin programa), lo que se puede recuperar y hasta cuándo, lo que se ofrece, y la hoja de registrar un día pasado |
 | `test_replanificar.py` | Lo hecho por adelantado al cambiar el plan: que siga a su rutina en Planificar (o que el cambio no se guarde si la deja sin día), y que editar el programa lo respete |
 | `test_resumen.py` | El resumen: qué semanas y meses salen según el mes pedido y el día de hoy (también la barra en curso y las que cruzan de mes o de año), el volumen y su cambio frente al último periodo con entrenamiento aunque quede fuera de la gráfica, el desglose de cada barra por rutina y por grupo muscular (el del ejercicio que se hizo), la constancia mes a mes, el aislamiento entre usuarios y que las consultas no crezcan con los datos |
-| `test_datos.py` | Exportar e importar: qué sale en el archivo (también lo oculto, lo cancelado y lo cerrado, y solo los predefinidos que se usan), que exportar, importar y volver a exportar da lo mismo y deja igual el plan, el seguimiento y el resumen, que importar sustituye todo, un caso por cada archivo que no vale (sin tocar nada), la comprobación previa, que los predefinidos no cambian y que ninguna columna nueva se quede sin exportar |
+| `test_datos.py` | Exportar e importar: qué sale en el archivo (también lo oculto, lo cancelado y lo cerrado, y solo los predefinidos que se usan), que exportar, importar y volver a exportar da lo mismo y deja igual el plan, el seguimiento y el resumen, que importar sustituye todo, un caso por cada archivo que no vale (sin tocar nada), la comprobación previa, que los predefinidos no cambian que ninguna columna nueva se quede sin exportar, y que borrar todo no deja nada del usuario (tampoco lo que el resumen no cuenta) ni toca a otro usuario ni los predefinidos |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona, y que las migraciones sembraron los grupos musculares y los ejercicios predefinidos |
 
 ## Convenciones de código
@@ -262,13 +264,14 @@ Todavía no hay JWT. Todos los endpoints trabajan con un único usuario fijo (`a
 | `GET` | `/docs` | Documentación interactiva (Swagger UI), autogenerada por FastAPI. |
 | `GET` | `/grupos-musculares` | Lista el catálogo de grupos musculares (sembrado por migración, sin CRUD propio). |
 
-### Tus datos: exportar e importar
+### Tus datos: exportar, importar y borrar
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/datos/exportar` | Todos los datos del usuario actual en un archivo JSON con versión (`training-life-<fecha>.json`), para pasarlos a otro dispositivo o guardarlos como copia. Los ejercicios predefinidos y los grupos van por nombre, porque su id cambia de una instalación a otra. |
-| `GET` | `/datos/resumen` | Cuánto hay (rutinas, programas, ejercicios propios, notas, sesiones con series y entre qué fechas), para que la confirmación de exportar diga qué se va a guardar. Son las mismas cifras que la comprobación de importar da como «lo que tienes ahora». |
+| `GET` | `/datos/resumen` | Cuánto hay (rutinas, programas, ejercicios propios, notas, sesiones con series y entre qué fechas), para que la confirmación de exportar diga qué se va a guardar y la de borrar, qué se pierde. Son las mismas cifras que la comprobación de importar da como «lo que tienes ahora». |
 | `POST` | `/datos/importar` | **Sustituye todos los datos** del usuario por los del archivo, en una sola transacción: si algo no vale (no es una copia, es de una versión más nueva, está dañado, un id repetido, una referencia que no está, un predefinido que no existe aquí, dos sesiones el mismo día…), responde 422 con la lista en español y no toca nada. Con `?comprobar=true` no escribe: dice qué hay en el archivo y qué hay ahora, para la confirmación. |
+| `DELETE` | `/datos` | **Borra todos los datos** del usuario para empezar de cero: rutinas, programas, sesiones, notas y ejercicios propios. Los predefinidos no se tocan. 204, también si no había nada. |
 
 ### Ejercicios
 

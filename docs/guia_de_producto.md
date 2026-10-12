@@ -91,8 +91,8 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 **Aspecto**
 
-11. **Tema oscuro**, con contraste alto: luz de gimnasio, pantalla con reflejos. Fondo `#14161a`, superficie `#1c1f26`, borde `#2c313b`, texto `#e8eaed` y `#9aa1ac`, acento verde `#4ade80`.
-12. **Jerarquía de botones**: verde relleno para la acción principal (una por pantalla); con recuadro para las normales; solo texto para las secundarias o peligrosas. Al menos 44 px de alto. Única excepción: los *Recuperar* de *Por recuperar* van siempre en verde, también junto a *Empezar* en un día de entrenamiento.
+11. **Tema oscuro**, con contraste alto: luz de gimnasio, pantalla con reflejos. Fondo `#14161a`, superficie `#1c1f26`, borde `#2c313b`, texto `#e8eaed` y `#9aa1ac`, acento verde `#4ade80`. También hay **tema claro**, y por defecto la app sigue al del móvil u ordenador (se elige en Ajustes).
+12. **Jerarquía de botones**: verde relleno para la acción principal (una por pantalla); con recuadro para las normales; solo texto para las secundarias o peligrosas; una peligrosa que va sola (*Borrar este día*, *Borrar todos tus datos*) lleva además recuadro rojo, para que se vea que es un botón. Al menos 44 px de alto. Única excepción: los *Recuperar* de *Por recuperar* van siempre en verde, también junto a *Empezar* en un día de entrenamiento.
 13. **Si un bloque está vacío, no se enseña**: sin descripción no hay rótulo ni recuadro de descripción.
 
 **Textos**
@@ -121,7 +121,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
 | **X3** | Nuevo / editar ejercicio | Nombre, grupo y descripción | X1, X2 |
-| **A1** | Ajustes | Exportar e importar tus datos | E1 (engranaje) |
+| **A1** | Ajustes | Unidad, botones del peso, 1RM, tema, colores de los días y tus datos (exportar, importar, borrar) | E1 (engranaje) |
 
 **Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un ejercicio de una rutina no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
 
@@ -168,7 +168,7 @@ La pantalla importante. Un bloque por ejercicio de la rutina, en orden; el que s
 - **El objetivo** del ejercicio (4 × 6-10).
 - **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio en esa rutina**, no la última sesión sin más.
 - **Las series de hoy**, con un lápiz y una ✕ cada una.
-- **El formulario**: peso y reps con − / +, y variante opcional.
+- **El formulario**: peso y reps con − / +, y variante opcional. El peso va en la unidad elegida (kg o lb), y − / + lo mueven lo que diga Ajustes (por defecto, 1).
 
 Comportamiento:
 
@@ -219,7 +219,7 @@ Cada mes se compara con **el programa que estaba activo entonces**, no con el de
 
 La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por ejercicio de la rutina: cuál se hizo (y si fue una alternativa) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en esa rutina, y por eso lleva su fecha. La flecha de cada ejercicio lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del miércoles 16*.
 
-**Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. Mejora con `↑` en verde y empeora con `↓` en gris; en la primera vez sale `nuevo`.
+**Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: por defecto, la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. En Ajustes se puede elegir la mejor serie del día. Mejora con `↑` en verde y empeora con `↓` en gris; en la primera vez sale `nuevo`.
 
 El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó una alternativa más ligera. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
 
@@ -238,7 +238,7 @@ La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 
 
 - **Peso**: el mejor peso de cada sesión.
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.
-- **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley), **como media de las series** de la sesión, igual que en H2. Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan. Se promedia y no se toma la mejor serie porque las rutinas son de doble progresión (se suben repeticiones hasta llegar al máximo del rango en todas las series y entonces se sube el peso): en esas semanas el progreso está en las series de después, y con la mejor serie la línea se quedaría plana aunque se mejorase cada semana. Por eso el globo dice *16,3 kg de media*.
+- **1RM estimado**: el peso que se levantaría una sola vez, `peso × (1 + reps / 30)` (Epley), **por defecto, como media de las series** de la sesión, igual que en H2 (en Ajustes se puede elegir la mejor serie, y cambian las dos pantallas a la vez). Sirve para comparar series de rangos distintos (60 × 10 frente a 65 × 6). Sale de datos que ya se guardan. Se promedia y no se toma la mejor serie porque las rutinas son de doble progresión (se suben repeticiones hasta llegar al máximo del rango en todas las series y entonces se sube el peso): en esas semanas el progreso está en las series de después, y con la mejor serie la línea se quedaría plana aunque se mejorase cada semana. Por eso el globo dice *16,3 kg de media*; con la mejor serie dice solo el valor.
 
 Arriba, la medida que se elige, sola y centrada; debajo, a la izquierda el último valor y a la derecha cuánto cambió desde la primera sesión del rango, con el número de sesiones debajo. Los puntos se reparten **según la fecha**. Tocar un punto enseña la sesión en un globo (por defecto, la última) que se recoloca para no tapar la línea. Debajo, la lista de sesiones con sus series, que lleva a cada día en H2. Se llega desde la flecha de cada ejercicio en H2 (y desde la ficha del ejercicio, X2). Se descartó un selector "este ejercicio / este hueco": pintar la barra y la máquina en la misma línea no significa nada.
 
@@ -331,10 +331,25 @@ Nombre, grupo muscular y descripción (opcional), con *Guardar* arriba. Si falta
 
 ### A1 · Ajustes
 
-Se llega con el engranaje de arriba a la derecha de *Hoy*. Por ahora tiene **tus datos**:
+Se llega con el engranaje de arriba a la derecha de *Hoy*. Tiene tres apartados. Los dos primeros se aplican al momento, sin botón de guardar, y son de cada dispositivo: no van en el archivo de exportación.
 
-- **Exportar datos** guarda en un archivo todo lo apuntado (rutinas, programas, sesiones, notas y ejercicios propios). Antes pregunta, diciendo qué se va a guardar y dónde encontrarlo. La web y la app móvil no se conectan entre sí: así es como los datos pasan de una a otra, y también sirve de copia de seguridad.
+**Entrenamiento**
+
+- **Unidad de peso**: kilos o libras. Lo apuntado se guarda igual; solo cambia cómo se ve y en qué unidad se escribe.
+- **Botones − y + del peso**: cuánto suben o bajan cada vez. El número lo escribe el usuario (por defecto, 1).
+- **Ejercicio nuevo en una rutina**: las series objetivo y las reps mínimas y máximas con las que empieza cada ejercicio que se añade a una rutina (por defecto, 3 × 8-12). Luego se cambian en cada uno.
+- **1RM estimado**: la **media de las series** (por defecto) o la **mejor serie** del día. Es lo que dice si un ejercicio ha mejorado, en el día del historial y en la gráfica de progresión, que cambian a la vez. La media cuenta el progreso de las series de después, que es donde está en las rutinas de doble progresión; la mejor serie es lo habitual en el entrenamiento de fuerza máxima.
+
+**Apariencia**
+
+- **Tema**: oscuro, claro o automático (el del móvil u ordenador), que es el de por defecto. En el claro, los colores de los días y el verde son más oscuros, porque los vivos apenas se ven sobre blanco.
+- **Colores de los días**: por defecto, el arcoíris de lunes (rojo) a domingo (rosa). Cada día abre una hoja con veinticuatro colores ordenados por tono —los de toda la vida y variaciones de ellos, como granate, coral o azul marino—, cada uno con su versión para los dos temas, y *Otro color…*, que abre el selector del sistema. Un color que ya tiene otro día no se puede elegir, para que no haya dos días iguales. Se puede volver a los colores de la app.
+
+**Tus datos**
+
+- **Exportar datos** guarda en un archivo todo lo apuntado (rutinas, programas, sesiones, notas y ejercicios propios). Antes pregunta, diciendo qué se va a guardar, dónde encontrarlo y que los ajustes no van en el archivo. La web y la app móvil no se conectan entre sí: así es como los datos pasan de una a otra, y también sirve de copia de seguridad.
 - **Importar datos** carga un archivo exportado y **sustituye todo lo que hay**. Antes de hacer nada pregunta, contando qué hay ahora y qué trae el archivo, con la fecha en que se exportó, para no cargar una copia vieja por error; recuerda que, si se quiere conservar lo de ahora, hay que exportarlo antes. Si el archivo no vale (no es una copia de la app, es de una versión más nueva o algo no cuadra), lo dice y no cambia nada.
+- **Borrar todos tus datos**, para empezar de cero: rutinas, programas, sesiones, notas y ejercicios propios. Los ejercicios que trae la app y los ajustes se quedan. Pregunta antes, en rojo, contando lo que se pierde y recomendando exportar antes.
 
 ## Ocultar y borrar
 
@@ -394,7 +409,6 @@ Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
 - **Objetivo por ejercicio y no por puesto en la rutina.** Hoy las series objetivo y el rango de reps son del puesto, y la alternativa los hereda. Queda por ver si cada alternativa debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
 - **Ocultar predefinidos**: haría falta guardarlo por usuario, porque ocultar la fila compartida la ocultaría para todos.
-- **Más ajustes** en la pantalla de Ajustes, que de momento solo tiene exportar e importar los datos. El primero pensado: elegir cómo se calcula el 1RM estimado (la media de las series, como ahora, o la mejor serie del día).
-- **Temporizador de descanso** entre series, en E2.
+- **Temporizador de descanso** entre series, en E2, con el tiempo por defecto en Ajustes.
 - **Peso corporal**, para comparar con el peso levantado.
 - **Cardio**: la app está pensada para series de peso por repeticiones, y el cardio (cinta, bici, remo) se mide de otra forma, con tiempo, distancia o ritmo. Tendría sentido como grupo aparte, con su propio registro.

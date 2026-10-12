@@ -28,7 +28,7 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] La semana de un programa y crear un programa nuevo
 - [x] Una rutina y cada uno de sus ejercicios, también para crear una rutina nueva
 - [x] La biblioteca de ejercicios: buscador y filtros, la ficha de cada uno (progresión, notas y dónde se usa) y el formulario para crear o editar uno
-- [x] Ajustes: exportar e importar todos los datos en un archivo
+- [x] Ajustes: kilos o libras, el paso de los botones del peso, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día, y exportar, importar o borrar todos los datos
 
 ## Cómo ejecutarlo
 
@@ -69,9 +69,9 @@ web/
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
     │   ├── Ocultos.tsx   # el «Ver N ocultos» plegable del pie de una lista
     │   └── Pestanas.tsx  # la barra de las cuatro secciones
-    ├── utiles/           # fechas y números en formato español, el color de cada día, la flecha de volver y los textos que pasan a párrafo
+    ├── utiles/           # los ajustes, fechas y pesos en formato español (en kg o lb), el color de cada día, la flecha de volver y los textos que pasan a párrafo
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
-        ├── ajustes/      # exportar e importar tus datos
+        ├── ajustes/      # los ajustes del dispositivo y tus datos (exportar, importar, borrar)
         ├── ejercicios/   # la pestaña de Ejercicios
         │   ├── Biblioteca.tsx           # la lista, con buscador, filtros y los ocultos plegados
         │   ├── Ficha.tsx                # un ejercicio: progresión, notas, dónde se usa, ocultar y borrar
@@ -156,7 +156,7 @@ Lo que se hizo sin contar para ningún día lleva el color del día de su rutina
 
 La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por ejercicio de la rutina con el que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio en esa rutina**, en fichas, mirando siempre hacia atrás desde ese día.
 
-- **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar. Si es la primera vez, *nuevo*.
+- **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Por defecto es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar; en Ajustes se puede elegir la mejor serie. Si es la primera vez, *nuevo*.
 - **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó una alternativa más ligera. La leyenda del final dice con qué se compara cada cosa.
 - **Mientras una sesión de un día pasado no está terminada**, el día ofrece *Seguir apuntando*, que vuelve a la sesión.
 - **Si se hizo con una alternativa, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
@@ -188,8 +188,8 @@ La progresión general, no por ejercicio (`/historial/resumen?mes=2026-09`), a l
 
 La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cinco rangos (1 mes, 3, 6, 1 año y todo). El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
 
-- **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`).
-- **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve.
+- **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), o la mejor serie si se elige en Ajustes.
+- **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Por defecto se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve. Para quien entrena fuerza máxima, Ajustes deja elegir la mejor serie, y las dos pantallas cambian a la vez.
 - **La gráfica es SVG hecho a mano**, sin librería: la cuadrícula busca valores redondos (pasos de 1, 2, 2,5 o 5), y se dibuja al ancho real de la tarjeta, medido con `ResizeObserver`, para que las letras no cambien de tamaño entre el móvil y el escritorio. Cada punto lleva una zona táctil mayor que él y se maneja también con el teclado; tocar uno cambia el globo con su día, su rutina y su valor.
 - Si el ejercicio no se ha hecho nunca, o no en el rango elegido, la pantalla lo dice en vez de enseñar una gráfica vacía.
 
@@ -233,11 +233,17 @@ La biblioteca (`/ejercicios`) junta los 59 ejercicios predefinidos y los propios
 
 ## Ajustes
 
-Desde el engranaje de *Hoy* (`/ajustes`). **Exportar datos** descarga un archivo con todo lo apuntado, después de confirmar con lo que se va a guardar; **Importar datos** carga uno y sustituye todo lo que hay. La web y la app móvil no se conectan entre sí: los datos pasan de una a otra así.
+Desde el engranaje de *Hoy* (`/ajustes`). Arriba, los ajustes de la app: **unidad de peso** (kg o lb), cuánto suben o bajan los **botones − y + del peso**, con qué **series y reps** empieza un ejercicio nuevo de una rutina, cómo se calcula el **1RM** (media de las series o mejor serie), el **tema** (oscuro, claro o automático) y el **color de cada día**. Debajo, tus datos: **Exportar datos** descarga un archivo con todo lo apuntado, después de confirmar con lo que se va a guardar; **Importar datos** carga uno y sustituye todo lo que hay; **Borrar todos tus datos** deja la app vacía para empezar de cero. La web y la app móvil no se conectan entre sí: los datos pasan de una a otra en ese archivo.
+
+- **Los ajustes son de cada dispositivo**: se guardan en el navegador (`utiles/ajustes.ts`), se aplican al momento, sin botón de guardar, y no van en el archivo de exportación (el diálogo de exportar lo avisa). Si el navegador no deja guardar, valen los de por defecto.
+- **La base de datos guarda siempre kilos**: en libras se convierte al enseñar y al apuntar, en un solo sitio (`utiles/numeros.ts`), y se redondea a una décima para que 135 lb no vuelva como 134,99. Lo mismo el volumen y el 1RM.
+- **El tema claro cambia solo las variables de color** de `index.css` (`<html data-tema="claro">`): casi todo el CSS ya las usaba. Con *Automático* sigue al sistema, también si cambia con la app abierta.
+- **Los colores de los días son 24**, ordenados por tono: los de toda la vida (los del sistema de iOS) y variaciones de ellos, y por defecto el arcoíris de lunes a domingo. **Cada uno tiene dos versiones**, una por tema: los oscuros, como el granate o el azul marino, se aclaran en el tema oscuro para no perderse en el fondo. En la hoja de un día, un color de la paleta que ya tiene otro sale apagado, para que no haya dos iguales; *Otro color…* abre el selector del sistema y ese color es el mismo en los dos temas.
 
 - **Antes de importar, la API comprueba el archivo sin escribir nada** y la confirmación cuenta qué hay ahora y qué trae (*Ahora tienes 3 rutinas, 1 programa y 12 sesiones… El archivo, exportado el 9 de octubre, tiene…*), para no cargar una copia vieja por error.
 - Si el archivo no vale, se enseña el motivo y la lista de lo que no cuadra, y no cambia nada.
-- Tras importar se tiran los borradores guardados en el navegador: sus ids eran de los datos de antes.
+- **Borrar todos tus datos** pregunta en rojo contando lo que se pierde (los ejercicios de la app y los ajustes se quedan), y deja borrar aunque no haya nada que contar: puede quedar algo, como un descanso planificado.
+- Tras importar o borrar se tiran los borradores guardados en el navegador: sus ids eran de los datos de antes.
 
 ## Hablar con la API
 

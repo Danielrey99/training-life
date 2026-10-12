@@ -55,7 +55,7 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) y exportar e importar todos los datos en un archivo. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
+🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 59 predefinidos en 17 grupos musculares), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) exportar, importar y borrar todos los datos. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)). Lo siguiente es la app móvil.
 
@@ -79,6 +79,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Web: programas y rutinas — la semana de un programa, crear un programa, y una rutina con sus ejercicios y alternativas (también para crear una rutina nueva)
 - [x] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
 - [x] Exportar e importar los datos en un archivo, para pasarlos de un dispositivo a otro
+- [x] Ajustes: kilos o libras, el paso de los botones del peso, las series y reps por defecto de un ejercicio nuevo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
 - [ ] Móvil: React Native + Expo
 
 El orden de desarrollo es intencional: primero el backend, probado de forma aislada (FastAPI genera una documentación interactiva en `/docs` donde se puede probar cada endpoint sin necesidad de frontend), después la web, y al final el móvil.
@@ -114,6 +115,7 @@ Para detener todo: `docker compose down` (los datos de la base de datos persiste
 - Gráficas de progresión (peso, volumen y 1RM estimado) y resumen de volumen y constancia
 - Calendario de lo entrenado y planificación de los próximos días
 - Exportar e importar los datos, para pasarlos entre la web y el móvil o guardar una copia
+- Ajustes de cada dispositivo: kilos o libras, tema claro u oscuro, el color de cada día y cómo se calcula el 1RM
 - Autenticación (JWT)
 
 **Nivel avanzado**
