@@ -137,8 +137,8 @@ type Rango = { desde?: string; hasta?: string }
 type RangoConLimite = Rango & { limite?: number }
 
 export const api = {
-  // --- Tus datos: exportar e importar ---
-  /** Cuánto hay, para la confirmación de exportar (no es `resumen`, el de H5). */
+  // --- Tus datos: exportar, importar y borrar ---
+  /** Cuánto hay, para la confirmación de exportar y de borrar (no es `resumen`, el de H5). */
   resumenDeDatos: () => peticion<ResumenDeDatos>('/datos/resumen'),
   /** Todo, tal cual lo da la API: la pantalla lo guarda en un archivo. */
   exportarDatos: () => peticion<unknown>('/datos/exportar'),
@@ -151,6 +151,8 @@ export const api = {
   /** Sustituye todo por lo del archivo. */
   importarDatos: (archivo: unknown) =>
     peticion<ResumenDeDatos>('/datos/importar', conCuerpo('POST', archivo)),
+  /** Borra todo lo tuyo para empezar de cero (los ejercicios de la app se quedan). */
+  borrarDatos: () => peticion<void>('/datos', BORRAR),
 
   gruposMusculares: () => peticion<GrupoMuscular[]>('/grupos-musculares'),
 

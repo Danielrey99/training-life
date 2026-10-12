@@ -44,7 +44,8 @@ function describir(resumen: ResumenDeDatos) {
  * con lo que se va a guardar), para pasarlos a otro dispositivo (la web y el móvil no
  * se conectan entre sí) o tener una copia; los ajustes no van en él. *Importar* carga
  * uno y **sustituye todo** lo que hay: antes de hacerlo, el diálogo dice qué se
- * sustituye por qué, con lo que cuenta la API sin escribir nada.
+ * sustituye por qué, con lo que cuenta la API sin escribir nada. *Borrar todos tus
+ * datos* deja la app vacía para empezar de cero; los ajustes se quedan.
  */
 export function Ajustes() {
   const volver = useVolver()
@@ -54,6 +55,7 @@ export function Ajustes() {
   const [hecho, setHecho] = useState<string | null>(null)
   const [pendiente, setPendiente] = useState<Pendiente | null>(null)
   const [porExportar, setPorExportar] = useState<ResumenDeDatos | null>(null)
+  const [porBorrar, setPorBorrar] = useState<ResumenDeDatos | null>(null)
 
   function fallar(error: unknown) {
     if (error instanceof ErrorDeApi) {
@@ -66,7 +68,7 @@ export function Ajustes() {
     }
   }
 
-  /** Antes de exportar, cuánto hay: el diálogo dice qué se va a guardar. */
+  /** Antes de exportar o borrar, cuánto hay: el diálogo dice qué se guarda o se pierde. */
   async function preguntar(abrir: (resumen: ResumenDeDatos) => void) {
     setOcupado(true)
     setFallo(null)
@@ -174,6 +176,22 @@ export function Ajustes() {
             onChange={(evento) => void alElegirArchivo(evento)}
           />
         </div>
+        <div className="ajustes-tarjeta">
+          <p>
+            Borra todo lo que has apuntado para empezar de cero. Los ejercicios que trae la app y
+            los ajustes se quedan.
+          </p>
+          {/* Sin mirar si hay algo: aunque no quede nada que contar, puede quedar algo
+              que borrar (una sesión vacía, un descanso planificado). */}
+          <button
+            type="button"
+            className="boton boton-texto peligro aislado"
+            onClick={() => void preguntar(setPorBorrar)}
+            disabled={ocupado}
+          >
+            Borrar todos tus datos
+          </button>
+        </div>
       </section>
 
       {hecho && <p className="aviso">{hecho}</p>}
@@ -202,6 +220,28 @@ export function Ajustes() {
           confirmar="Exportar"
           alConfirmar={exportar}
           alCancelar={() => setPorExportar(null)}
+        />
+      )}
+      {porBorrar && (
+        <Dialogo
+          titulo="¿Borrar todos tus datos?"
+          cuerpo={
+            (describir(porBorrar) === 'nada'
+              ? 'No tienes nada apuntado; se borrará lo poco que quede, como los descansos planificados. '
+              : `Se borrarán ${describir(porBorrar)}. `) +
+            'Los ejercicios que trae la app y los ajustes se quedan. ' +
+            'No se puede deshacer. Si quieres conservarlo, expórtalo antes.'
+          }
+          confirmar="Borrar todo"
+          peligro
+          alConfirmar={async () => {
+            await api.borrarDatos()
+            // Los ids de los borradores eran de los datos de antes.
+            tirarTodosLosBorradores()
+            setPorBorrar(null)
+            setHecho('Se han borrado todos tus datos. Puedes empezar de cero.')
+          }}
+          alCancelar={() => setPorBorrar(null)}
         />
       )}
       {pendiente && (
