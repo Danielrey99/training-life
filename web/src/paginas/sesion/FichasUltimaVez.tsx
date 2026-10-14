@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { SerieHistorial } from '../../api/tipos'
 import { pesoLegible } from '../../utiles/numeros'
@@ -16,6 +16,21 @@ import { pesoLegible } from '../../utiles/numeros'
 export function FichasUltimaVez({ series }: { series: SerieHistorial[] }) {
   const [abierta, setAbierta] = useState<number | null>(null)
   const fichas = useRef<HTMLDivElement>(null)
+  const globo = useRef<HTMLSpanElement>(null)
+
+  // El globo va centrado sobre su ficha; si así se sale por un lado (una ficha cerca del
+  // borde con una variante larga), se mueve hacia dentro y la flecha sigue en la ficha.
+  useLayoutEffect(() => {
+    const elemento = globo.current
+    if (!elemento) return
+    elemento.style.setProperty('--mover', '0px')
+    const { left, right } = elemento.getBoundingClientRect()
+    const margen = 8
+    let mover = 0
+    if (left < margen) mover = margen - left
+    else if (right > window.innerWidth - margen) mover = window.innerWidth - margen - right
+    elemento.style.setProperty('--mover', `${mover}px`)
+  }, [abierta])
 
   // Con un globo abierto, tocar fuera de las fichas lo cierra.
   useEffect(() => {
@@ -60,7 +75,11 @@ export function FichasUltimaVez({ series }: { series: SerieHistorial[] }) {
             <span className="ficha-numero">{serie.numero_serie}</span>
             {pesoLegible(serie.peso)} × {serie.repeticiones}
             {serie.variante && <span className="ficha-punto" aria-label={serie.variante} />}
-            {abierta === serie.id && <span className="globo">{serie.variante}</span>}
+            {abierta === serie.id && (
+              <span className="globo" ref={globo}>
+                {serie.variante}
+              </span>
+            )}
           </span>
         )
       })}

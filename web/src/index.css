@@ -63,6 +63,10 @@
 body {
   margin: 0;
   min-height: 100vh;
+  /* Un texto del usuario nunca se corta ni se sale: pasa a la línea siguiente, y una palabra
+     sin espacios que no cabe se parte donde haga falta. Sin esto, un nombre largo ensanchaba
+     la pantalla y se podía deslizar de lado. */
+  overflow-wrap: anywhere;
 }
 
 h1,

@@ -115,6 +115,12 @@ button.semana-dia:disabled {
   white-space: nowrap;
 }
 
+.semana-dia-rutina > span:not(.programas-punto) {
+  /* Una etiqueta corta junto a un nombre: no se encoge ni se parte por mucho que mida el nombre. */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .semana-dia-rutina strong.oculta {
   color: var(--texto-tenue);
 }

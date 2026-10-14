@@ -95,6 +95,11 @@
 }
 
 .planificar-dia strong {
+  /* Una fila por día, de una sola línea, para leer la semana de un vistazo: un nombre que
+     no cabe se corta con «…» (como en la semana de un programa). */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 15px;
   font-weight: 600;
   color: var(--texto);
@@ -102,6 +107,7 @@
 }
 
 .planificar-detalle {
+  flex-shrink: 0;
   font-size: 13px;
   white-space: nowrap;
 }
@@ -151,6 +157,9 @@
 }
 
 .planificar-oculta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 15px;
   font-weight: 600;
   color: var(--texto-tenue);

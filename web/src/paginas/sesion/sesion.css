@@ -103,6 +103,9 @@
 }
 
 .hueco-cuenta {
+  /* Una etiqueta corta junto a un nombre: no se encoge ni se parte por mucho que mida el nombre. */
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 13px;
 }
 
@@ -304,7 +307,8 @@
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%;
-  transform: translateX(-50%);
+  /* --mover lo pone FichasUltimaVez si centrado se saldría de la pantalla. */
+  transform: translateX(calc(-50% + var(--mover, 0px)));
   z-index: 5;
   padding: 6px 12px;
   background: var(--texto);
@@ -313,7 +317,10 @@
   font-size: 13px;
   font-weight: 600;
   font-style: italic;
-  white-space: nowrap;
+  /* Una variante larga pasa a otra línea dentro del globo, sin salirse de la pantalla. */
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  text-align: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   pointer-events: none;
 }
@@ -322,7 +329,7 @@
   content: '';
   position: absolute;
   top: 100%;
-  left: 50%;
+  left: calc(50% - var(--mover, 0px));
   transform: translateX(-50%);
   border: 6px solid transparent;
   border-top-color: var(--texto);
