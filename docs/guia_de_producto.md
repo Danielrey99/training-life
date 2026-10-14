@@ -137,10 +137,10 @@ Qué enseña la tarjeta según el día:
 |---|---|
 | Día de entrenamiento | *Hoy toca Push*, con *Empezar Push* |
 | Con una sesión empezada y sin terminar | *Continuar Push*, que vuelve a E2 sin preguntar |
-| Hoy ya se entrenó | *Hoy · Pull · Hecho*, sin botón y sin lista de otras rutinas: se entrena una rutina al día |
+| Hoy ya se entrenó | *Hoy · Pull · Hecho*, sin botón: se entrena una rutina al día. *Lo que queda esta semana* sale igual, como recordatorio, sin poder pulsarla |
 | Lo de hoy ya se hizo por adelantado | *Hoy tocaba Pull · Hecho por adelantado el martes*. El día se comporta como un descanso |
 | Día de descanso | *Descanso* y qué toca mañana, sin botón grande |
-| Descanso con la semana ya hecha | *Descanso* y qué toca el próximo día, sin lista: *Esta semana ya está hecha* |
+| Descanso con la semana ya hecha | *Descanso* y qué toca el próximo día, sin lista |
 | Sin programa activo | *Sin programa*, con *Elegir un programa* (lleva a P1) |
 | Primera vez | Una bienvenida (ver [La primera vez](#la-primera-vez)) |
 
@@ -149,17 +149,17 @@ Qué enseña la tarjeta según el día:
 **Por recuperar.** Lo que se quedó sin hacer se puede recuperar **hasta el día antes del mismo día de la semana siguiente** (el Push del lunes, hasta el domingo). Mientras tanto, E1 lo enseña todo en una lista, cada entrenamiento con su plazo; el que caduca hoy lo dice en ámbar (*hoy es el último día*). Cada uno lleva su *Recuperar*, que pregunta antes y abre E2; esa sesión cuenta como la del día que se recupera.
 
 - **En un día de descanso**, recuperar no cuesta nada: el plan no cambia.
-- **En un día de entrenamiento también se puede**, sin pasar por Planificar. Como se entrena una rutina al día, lo que tocaba hoy queda por recuperar, y la confirmación lo dice: *Solo se hace una rutina al día: el Pull de hoy quedará pendiente, y podrás recuperarlo hasta el martes 22*.
+- **En un día de entrenamiento también se puede**, sin pasar por Planificar. Como se entrena una rutina al día, lo que tocaba hoy queda por recuperar, y la confirmación lo dice: *Solo se hace una rutina al día. El Pull de hoy quedará pendiente, y podrás recuperarlo hasta el martes 22*.
 - **Si hoy ya se entrenó o hay una sesión a medias**, la lista sigue saliendo, como recordatorio, pero sin botón: *Recupéralo otro día, hasta el domingo 20*.
 - **Solo se recupera lo del programa activo.** Al activar otro programa, o al quedarse sin ninguno, lo que se faltó con el anterior sigue en el calendario como no hecho, pero deja de ofrecerse: del programa antiguo queda solo lo hecho.
 
-**Qué ofrece la lista de abajo**, y qué pregunta al elegir:
+**Qué ofrece la lista de abajo**, *Lo que queda esta semana*, y qué pregunta al elegir:
 
-- **En un día de entrenamiento** se llama *Otra rutina del programa* y solo ofrece rutinas de días posteriores de esta semana, hasta el domingo, como adelantar, y nunca la misma que toca hoy (intercambiarla no cambiaría nada). Elegir una pregunta *¿Intercambiar con el miércoles?*: *Intercambiar* cambia el plan de los dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *Cancelar* lo deja todo como estaba. No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
-- **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, se llama *Entrenar hoy de todas formas* y ofrece adelantar lo que queda de esta semana, preguntando antes (*¿Adelantar el Pull del miércoles?*). Adelantar no cambia el plan. Lo que ya está hecho no sale, y lo que se recupera va en *Por recuperar*.
+- **En un día de entrenamiento** solo ofrece rutinas de días posteriores de esta semana, hasta el domingo, como adelantar, y nunca la misma que toca hoy (intercambiarla no cambiaría nada). Elegir una pregunta *¿Intercambiar con el miércoles?*: *Intercambiar* cambia el plan de los dos días (hoy esa, el miércoles la de hoy) y empieza la sesión; *Cancelar* lo deja todo como estaba. No hay opción de hacerla sin intercambiar: acabaría la misma rutina dos veces en la semana.
+- **En un día de descanso**, o en uno cuya rutina ya se hizo por adelantado, ofrece adelantar lo que queda de esta semana, preguntando antes (*¿Adelantar el Pull del miércoles?*). Adelantar no cambia el plan. Lo que ya está hecho no sale, y lo que se recupera va en *Por recuperar*.
 - **Una rutina se puede hacer tantas veces como aparezca en la semana del programa, ni una más.** Para entrenar más, se cambia el programa.
 - **Sin programa activo** salen todas las rutinas, sin límite de veces: sin plan no hay nada que contar, intercambiar ni adelantar. Empezar una sigue pidiendo confirmación.
-- **Con una sesión abierta, o si hoy ya se entrenó,** la lista no sale.
+- **Con una sesión abierta, o si hoy ya se entrenó,** la lista sale igual, como recordatorio de lo que falta de la semana, pero sin flecha y sin poder pulsarla: hoy ya no se puede entrenar otra rutina. Sin programa activo, no sale.
 
 ### E2 · Sesión en curso
 
