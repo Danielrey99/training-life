@@ -275,6 +275,9 @@ class Ofrecida:
     accion: Accion
     rutina: Rutina
     fecha: date | None
+    # Falso si ese día ya hay sesión: la lista se enseña como recordatorio de lo que
+    # queda de la semana, pero sin botón.
+    se_puede_hoy: bool
 
 
 @dataclass
@@ -315,14 +318,18 @@ class ResumenDeHoy:
     rutinas: list[RutinaDeHoy]
 
 
+def _sin_programa(dia: DiaSeguimiento) -> bool:
+    # Sin programa activo, un descanso que venga de una excepción (se planificó con
+    # el programa anterior y se desactivó sin quitarla) sigue siendo "sin programa":
+    # no hay semana que seguir. Una excepción con rutina sí es un día que entrenar.
+    return dia.origen == "sin_programa" or (dia.programa_id is None and dia.descanso)
+
+
 def _situacion(dia: DiaSeguimiento, hay_rutinas: bool) -> Situacion:
     """La primera que encaje, en este orden."""
     if dia.sesion is not None:
         return "en_curso" if dia.sesion.en_curso else "hecho"
-    # Sin programa activo, un descanso que venga de una excepción (se planificó con
-    # el programa anterior y se desactivó sin quitarla) sigue siendo "sin programa":
-    # no hay semana que seguir. Una excepción con rutina sí es un día que entrenar.
-    if dia.origen == "sin_programa" or (dia.programa_id is None and dia.descanso):
+    if _sin_programa(dia):
         return "sin_programa" if hay_rutinas else "primera_vez"
     if dia.estado == "movido":
         # Lo de hoy ya se hizo otro día: se comporta como un descanso.
@@ -351,6 +358,7 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
     - *Adelantar*: la rutina, con `cubre_fecha` = el día ofrecido.
     - *Intercambiar*: primero `POST /plan/intercambiar` y después *Empezar*.
     - Una rutina `sin_contar`: sin `cubre_fecha`.
+    - Una ofrecida o un recuperable con `se_puede_hoy` falso: nada (es un recordatorio).
     """
     lunes = fecha - timedelta(days=fecha.weekday())
     domingo = lunes + timedelta(days=6)
@@ -389,17 +397,18 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
     ]
 
     ofrecidas: list[Ofrecida] = []
+    esta_semana = [d for d in siguientes if d.fecha <= domingo and sin_contar(d)]
     if dia.sesion is None:
-        esta_semana = [d for d in siguientes if d.fecha <= domingo and sin_contar(d)]
         if situacion == "entrenamiento" and fecha == hoy():
             ofrecidas = [
-                Ofrecida("intercambiar", d.rutina, d.fecha)
+                Ofrecida("intercambiar", d.rutina, d.fecha, se_puede_hoy=True)
                 for d in _una_por_rutina(esta_semana)
                 if d.rutina.id != dia.rutina.id
             ]
         elif situacion in ("descanso", "movido"):
             ofrecidas = [
-                Ofrecida("adelantar", d.rutina, d.fecha) for d in _una_por_rutina(esta_semana)
+                Ofrecida("adelantar", d.rutina, d.fecha, se_puede_hoy=True)
+                for d in _una_por_rutina(esta_semana)
             ]
         # Sin programa se puede entrenar cualquier rutina, y un día pasado admite
         # apuntar la que se hizo aunque no cuente para ninguno.
@@ -408,10 +417,18 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
             if situacion == "entrenamiento":
                 ya_ofrecidas.add(dia.rutina.id)
             ofrecidas += [
-                Ofrecida("sin_contar", rutina, None)
+                Ofrecida("sin_contar", rutina, None, se_puede_hoy=True)
                 for rutina in rutinas
                 if rutina.id not in ya_ofrecidas
             ]
+    elif fecha == hoy() and not _sin_programa(dia):
+        # Hoy ya se entrenó: lo que queda de la semana sale como recordatorio, sin botón.
+        # Siempre como adelantar (intercambiar cambiaría el plan de hoy, que ya está
+        # ocupado) y sin quitar la rutina de hoy: si vuelve a tocar, sigue pendiente.
+        ofrecidas = [
+            Ofrecida("adelantar", d.rutina, d.fecha, se_puede_hoy=False)
+            for d in _una_por_rutina(esta_semana)
+        ]
 
     tiene_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
     # La de ese mismo día cuenta si ya está terminada (la pantalla de "ya entrenado"

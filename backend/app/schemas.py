@@ -643,7 +643,8 @@ class RecuperableOut(BaseModel):
 class OfrecidaOut(BaseModel):
     """Una rutina de la lista de abajo de la pantalla de hoy: intercambiarla con el
     día `fecha`, adelantar lo de ese día, o entrenarla sin que cuente para ninguno
-    (`fecha` nula).
+    (`fecha` nula). `se_puede_hoy` es falso si ese día ya hay sesión: la lista se
+    enseña, pero sin botón.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -651,6 +652,7 @@ class OfrecidaOut(BaseModel):
     accion: Literal["intercambiar", "adelantar", "sin_contar"]
     rutina: RutinaMinima
     fecha: date | None
+    se_puede_hoy: bool
 
 
 class UltimaSesionOut(BaseModel):
