@@ -178,7 +178,7 @@ Comportamiento:
 - **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, con *Cancelar* y *Guardar cambios* en la misma línea; mientras tanto, el resto de la sesión se queda en gris. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la app no lo apunta.
-- **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha: *Recuperando el Push del lunes 14*.
+- **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha: *Recuperado el Push del lunes 14*, o *Adelantado el Push del jueves 17*.
 - **Cada serie se guarda al pulsar su botón**, así que se puede salir de E2 a otras pantallas y volver: la sesión queda abierta.
 - **La nota de la sesión se escribe en cualquier momento**, no solo al terminar: si hay que esperar al final, se olvida lo que se quería apuntar. Encima de *Terminar sesión* sale *Añadir nota*, que abre el campo con *Cancelar* y *Guardar*; una vez escrita, se ve con su lápiz y su ✕, como las series.
 - **Al pie**, *Terminar sesión* y, en rojo, *Cancelar sesión*. Terminar pregunta (y dice cuánto se lleva, para darse cuenta de si se termina antes de tiempo) y lleva a H2. Si no se ha apuntado ninguna serie, terminar no deja un día vacío en el historial: la sesión se cancela, y el diálogo lo avisa. Cancelar deja el día como si no se hubiera empezado: borra la sesión y sus series, y pregunta con *Seguir entrenando* como salida.
