@@ -7,15 +7,15 @@ import '../historial/historial.css'
 
 type Props = {
   diaSemana: number
-  // Un id de la paleta o un color libre; `null` vuelve al de la app.
+  // Un id de la paleta; `null` vuelve al de la app.
   alElegir: (eleccion: string | null) => void
   alCerrar: () => void
 }
 
 /**
- * La hoja del color de un día: los 24 de la paleta y, al final, *Otro color…* con el
- * selector del sistema. Un color de la paleta que ya tiene otro día no se puede elegir,
- * para que no haya dos días iguales; uno libre es cosa de quien lo elige.
+ * La hoja del color de un día: los 24 de la paleta. Un color que ya tiene otro día no
+ * se puede elegir, para que no haya dos días iguales. No hay color libre (decisión del
+ * autor): la paleta basta, y así cada color tiene su versión para el tema claro.
  */
 export function HojaDeColor({ diaSemana, alElegir, alCerrar }: Props) {
   useEffect(() => {
@@ -33,7 +33,6 @@ export function HojaDeColor({ diaSemana, alElegir, alCerrar }: Props) {
     if (dia !== diaSemana) duenos.set(eleccionDelDia(dia), dia)
   }
   const nombre = NOMBRES_DE_LOS_DIAS[diaSemana - 1]
-  const libre = elegido.startsWith('#')
 
   return (
     <div className="hoja-fondo" onClick={alCerrar}>
@@ -73,20 +72,6 @@ export function HojaDeColor({ diaSemana, alElegir, alCerrar }: Props) {
             )
           })}
         </div>
-        {/* Un `label` que envuelve el selector: pulsarlo en cualquier sitio lo abre. */}
-        <label className={libre ? 'color-otro elegido' : 'color-otro'}>
-          <span
-            className="color-muestra"
-            style={libre ? { background: elegido } : { background: 'none' }}
-          />
-          Otro color…
-          <input
-            type="color"
-            // El selector del sistema solo acepta hexadecimal, y `resolverColor` siempre lo da.
-            value={resolverColor(elegido)}
-            onChange={(evento) => alElegir(evento.target.value)}
-          />
-        </label>
         {elegido !== POR_DIA[diaSemana] && (
           <button
             type="button"

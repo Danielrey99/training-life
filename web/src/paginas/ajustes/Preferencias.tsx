@@ -165,9 +165,7 @@ export function Preferencias() {
     if (eleccion === null) delete colores[dia]
     else colores[dia] = eleccion
     cambiarAjustes({ colores })
-    // Un color libre se elige en el selector del sistema, que avisa a cada cambio:
-    // cerrar la hoja ahí cerraría también el selector.
-    if (eleccion === null || !eleccion.startsWith('#')) setDiaAbierto(null)
+    setDiaAbierto(null)
   }
 
   return (

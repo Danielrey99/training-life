@@ -50,25 +50,20 @@ export const POR_DIA: Record<number, string> = {
   7: 'rosa',
 }
 
-/**
- * Lo que hay guardado para un día (un id de la paleta o un color libre, "#a1b2c3")
- * hecho color, en el tema que se ve. Un color libre es el mismo en los dos temas.
- */
+/** Un color de la paleta (su id) hecho color, en el tema que se ve. */
 export function resolverColor(elegido: string): string {
-  if (elegido.startsWith('#')) return elegido
   const color = PALETA.find((opcion) => opcion.id === elegido) ?? PALETA[0]
   return color[temaVisible()]
 }
 
 /**
- * Lo elegido para un día: lo de Ajustes o, si no, el de la app. Un color que ya no está
- * en la paleta (guardado con una versión anterior) vuelve al de la app.
+ * Lo elegido para un día: lo de Ajustes o, si no, el de la app. Lo que no está en la
+ * paleta (un color que se quitó, o un color libre de cuando se podía elegir cualquiera)
+ * vuelve al de la app.
  */
 export function eleccionDelDia(diaSemana: number): string {
   const elegido = ajustes().colores[diaSemana]
-  const vale =
-    elegido !== undefined &&
-    (elegido.startsWith('#') || PALETA.some((opcion) => opcion.id === elegido))
+  const vale = elegido !== undefined && PALETA.some((opcion) => opcion.id === elegido)
   return vale ? elegido : POR_DIA[diaSemana]
 }
 

@@ -200,45 +200,6 @@
   color: var(--texto-tenue);
 }
 
-.color-otro {
-  position: relative;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 0 14px;
-  background: var(--fondo);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.color-otro.elegido {
-  border-color: var(--acento);
-}
-
-/* Sin color libre elegido, el círculo es un aro. */
-.color-otro .color-muestra {
-  border: 1.5px dashed var(--texto-tenue);
-}
-
-.color-otro.elegido .color-muestra {
-  border: none;
-}
-
-/* El selector del sistema, invisible pero en su sitio (abajo a la izquierda de la fila,
-   para que se abra junto a ella): lo abre pulsar la fila. */
-.color-otro input {
-  position: absolute;
-  left: 14px;
-  bottom: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
 .color-volver {
-  margin-top: 4px;
+  margin-top: 8px;
 }

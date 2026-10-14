@@ -15,7 +15,7 @@ export type Ajustes = {
   objetivo: { series: number; repsMin: number; repsMax: number }
   tema: 'sistema' | 'oscuro' | 'claro'
   // Los días con un color que no es el de la app (1 = lunes … 7 = domingo): el id
-  // de un color de la paleta o un color libre ("#a1b2c3").
+  // de un color de la paleta.
   colores: Partial<Record<number, string>>
 }
 
