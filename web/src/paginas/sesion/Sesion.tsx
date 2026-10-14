@@ -217,7 +217,7 @@ export function Sesion() {
           {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy. */}
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
-              {activa.cubre_fecha < activa.fecha ? 'Recuperando' : 'Adelantando'} el {rutina.nombre}{' '}
+              {activa.cubre_fecha < activa.fecha ? 'Recuperado' : 'Adelantado'} el {rutina.nombre}{' '}
               del {fechaEnFrase(activa.cubre_fecha, false)}
             </span>
           )}
