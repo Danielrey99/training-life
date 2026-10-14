@@ -27,6 +27,7 @@ from tests.semana import (
 MIERCOLES_9 = date(2026, 9, 9)
 JUEVES_10 = date(2026, 9, 10)
 VIERNES_11 = date(2026, 9, 11)
+SABADO_19 = date(2026, 9, 19)
 DOMINGO_20 = date(2026, 9, 20)
 
 
@@ -45,7 +46,15 @@ def recuperables(resumen) -> list[tuple]:
 
 
 def ofrecidas(resumen) -> list[tuple]:
-    return [(o["accion"], o["rutina"]["nombre"], o["fecha"]) for o in resumen["ofrecidas"]]
+    return [
+        (o["accion"], o["rutina"]["nombre"], o["fecha"], o["se_puede_hoy"])
+        for o in resumen["ofrecidas"]
+    ]
+
+
+def terminada(cliente, entrenamiento_id) -> None:
+    respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/terminar")
+    assert respuesta.status_code == 200, respuesta.text
 
 
 # --- Situaciones ---------------------------------------------------------
@@ -66,19 +75,20 @@ def test_un_dia_de_entrenamiento(cliente, ppl):
         ("2026-09-14", "Push", "2026-09-20", True),
     ]
     # Intercambiar solo hasta el domingo: el Push del lunes 21 ya es otra semana.
-    assert ofrecidas(resumen) == [("intercambiar", "Leg", "2026-09-18")]
+    assert ofrecidas(resumen) == [("intercambiar", "Leg", "2026-09-18", True)]
     assert resumen["proximo"]["fecha"] == VIERNES_18.isoformat()
     assert resumen["sesion"] is None
 
 
-def test_con_la_sesion_en_curso_no_se_ofrece_nada(cliente, ppl):
+def test_con_la_sesion_en_curso_lo_que_queda_de_semana_sale_sin_boton(cliente, ppl):
     empezada = sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY).json()["id"]
 
     resumen = hoy(cliente)
 
     assert resumen["situacion"] == "en_curso"
     assert resumen["sesion"]["entrenamiento_id"] == empezada
-    assert resumen["ofrecidas"] == []
+    # Como recordatorio: siempre adelantar (intercambiar tocaría el plan de hoy).
+    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
     # La lista de lo pendiente se enseña, pero sin botón.
     assert recuperables(resumen) == [
         ("2026-09-11", "Leg", "2026-09-17", False),
@@ -99,7 +109,7 @@ def test_ya_entrenado_hoy_con_otra_rutina_lo_de_hoy_queda_por_recuperar(
         ("2026-09-11", "Leg", "2026-09-17", False),
         ("2026-09-16", "Pull", "2026-09-22", False),
     ]
-    assert resumen["ofrecidas"] == []
+    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
 
 
 def test_un_dia_de_descanso_ofrece_adelantar_lo_que_queda_de_semana(cliente, ppl, hoy_es):
@@ -109,8 +119,8 @@ def test_un_dia_de_descanso_ofrece_adelantar_lo_que_queda_de_semana(cliente, ppl
 
     assert resumen["situacion"] == "descanso"
     assert ofrecidas(resumen) == [
-        ("adelantar", "Pull", "2026-09-16"),
-        ("adelantar", "Leg", "2026-09-18"),
+        ("adelantar", "Pull", "2026-09-16", True),
+        ("adelantar", "Leg", "2026-09-18", True),
     ]
     # El Pull del miércoles 9 se recupera hasta hoy mismo.
     assert recuperables(resumen) == [
@@ -126,7 +136,7 @@ def test_lo_ya_hecho_esta_semana_no_se_ofrece(cliente, ppl, grupo_muscular_id, h
     hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Leg"], cubre_fecha=VIERNES_18)
     hoy_es(MARTES_15)
 
-    assert ofrecidas(hoy(cliente)) == [("adelantar", "Pull", "2026-09-16")]
+    assert ofrecidas(hoy(cliente)) == [("adelantar", "Pull", "2026-09-16", True)]
 
 
 def test_un_dia_hecho_por_adelantado_se_comporta_como_un_descanso(
@@ -164,8 +174,11 @@ def test_una_rutina_que_toca_dos_dias_se_ofrece_una_vez_el_primero(cliente, ppl,
     hoy_es(HOY)
     intercambiar = ofrecidas(hoy(cliente))
 
-    assert adelantar == [("adelantar", "Pull", "2026-09-16"), ("adelantar", "Leg", "2026-09-18")]
-    assert intercambiar == [("intercambiar", "Leg", "2026-09-18")]
+    assert adelantar == [
+        ("adelantar", "Pull", "2026-09-16", True),
+        ("adelantar", "Leg", "2026-09-18", True),
+    ]
+    assert intercambiar == [("intercambiar", "Leg", "2026-09-18", True)]
 
 
 def test_la_primera_vez_sin_rutinas(cliente, hoy_es):
@@ -187,7 +200,10 @@ def test_sin_programa_se_ofrecen_todas_las_rutinas_sin_contar(cliente, hoy_es):
     resumen = hoy(cliente)
 
     assert resumen["situacion"] == "sin_programa"
-    assert ofrecidas(resumen) == [("sin_contar", "Leg", None), ("sin_contar", "Push", None)]
+    assert ofrecidas(resumen) == [
+        ("sin_contar", "Leg", None, True),
+        ("sin_contar", "Push", None, True),
+    ]
 
 
 def test_sin_programa_un_descanso_planificado_a_mano_no_cuenta_como_descanso(cliente, ppl):
@@ -213,6 +229,110 @@ def test_sin_programa_una_rutina_planificada_a_mano_si_se_entrena(cliente, ppl):
 
     assert resumen["situacion"] == "entrenamiento"
     assert sesion(cliente, HOY, ppl["Leg"], cubre_fecha=HOY).status_code == 201
+
+
+# --- Lo que queda de semana, con sesión hoy ------------------------------
+
+
+def test_hecho_hoy_lo_que_queda_de_semana_sale_sin_boton(cliente, ppl, grupo_muscular_id):
+    """Hecho el Pull de hoy: queda el Leg del viernes, como recordatorio. El Push del
+    lunes 21 ya es otra semana.
+    """
+    terminada(cliente, hecha(cliente, grupo_muscular_id, HOY, ppl["Pull"], cubre_fecha=HOY))
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "hecho"
+    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
+
+
+def test_un_descanso_en_que_se_adelanto_solo_recuerda_lo_que_falta(
+    cliente, ppl, grupo_muscular_id, hoy_es
+):
+    """El martes se adelantó el Pull del miércoles: el propio Pull ya no sale."""
+    hoy_es(MARTES_15)
+    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Pull"], cubre_fecha=HOY)
+    terminada(cliente, adelantada)
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "hecho"
+    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
+
+
+def test_la_rutina_de_hoy_sigue_pendiente_si_vuelve_a_tocar_esta_semana(
+    cliente, ppl, grupo_muscular_id
+):
+    """El sábado también es Pull (planificado a mano). Sin sesión, intercambiar quita
+    la rutina de hoy; el recordatorio no, porque el Pull del sábado sigue sin hacer.
+    """
+    respuesta = cliente.put(
+        f"/plan/excepciones/{SABADO_19.isoformat()}", json={"rutina_id": ppl["Pull"]}
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    terminada(cliente, hecha(cliente, grupo_muscular_id, HOY, ppl["Pull"], cubre_fecha=HOY))
+
+    assert ofrecidas(hoy(cliente)) == [
+        ("adelantar", "Leg", "2026-09-18", False),
+        ("adelantar", "Pull", "2026-09-19", False),
+    ]
+
+
+def test_un_dia_movido_en_que_se_entreno_recuerda_lo_que_queda(
+    cliente, ppl, grupo_muscular_id, hoy_es
+):
+    """El Pull de hoy se adelantó al martes, y hoy se recupera el Push del lunes."""
+    hoy_es(MARTES_15)
+    terminada(cliente, hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Pull"], cubre_fecha=HOY))
+    hoy_es(HOY)
+    assert hoy(cliente)["situacion"] == "movido"
+    hecha(cliente, grupo_muscular_id, HOY, ppl["Push"], cubre_fecha=LUNES_14)
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "en_curso"
+    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
+
+
+def test_el_domingo_con_sesion_no_queda_nada_de_semana(cliente, ppl, grupo_muscular_id, hoy_es):
+    hoy_es(DOMINGO_20)
+    hecha(cliente, grupo_muscular_id, DOMINGO_20, ppl["Push"], cubre_fecha=LUNES_14)
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "en_curso"
+    assert resumen["ofrecidas"] == []
+
+
+def test_sin_programa_con_sesion_hoy_no_se_recuerda_nada(cliente, ppl, grupo_muscular_id):
+    """Sin programa no hay semana que seguir, aunque quede una rutina planificada a
+    mano el viernes (que sin sesión tampoco se ofrecería para adelantar).
+    """
+    respuesta = cliente.put(
+        f"/plan/excepciones/{VIERNES_18.isoformat()}", json={"rutina_id": ppl["Leg"]}
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    programa = cliente.get("/programas").json()[0]["id"]
+    assert cliente.post(f"/programas/{programa}/desactivar").status_code == 200
+    hecha(cliente, grupo_muscular_id, HOY, ppl["Push"])
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "en_curso"
+    assert resumen["ofrecidas"] == []
+
+
+def test_la_sesion_de_hoy_cancelada_no_cuenta_y_se_puede_intercambiar(cliente, ppl):
+    """Terminada sin series es una sesión cancelada: el día vuelve a estar por hacer
+    y la lista vuelve a tener botón.
+    """
+    cancelada = sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY).json()["id"]
+    terminada(cliente, cancelada)
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "entrenamiento"
+    assert ofrecidas(resumen) == [("intercambiar", "Leg", "2026-09-18", True)]
 
 
 # --- Por recuperar -------------------------------------------------------
@@ -357,9 +477,9 @@ def test_un_descanso_pasado_ofrece_lo_de_aquel_dia_y_el_resto_sin_contar(cliente
         ("2026-09-14", "Push"),
     ]
     assert ofrecidas(resumen) == [
-        ("adelantar", "Pull", "2026-09-16"),
-        ("adelantar", "Leg", "2026-09-18"),
-        ("sin_contar", "Brazos", None),
+        ("adelantar", "Pull", "2026-09-16", True),
+        ("adelantar", "Leg", "2026-09-18", True),
+        ("sin_contar", "Brazos", None, True),
     ]
 
 
@@ -374,7 +494,7 @@ def test_un_dia_de_entrenamiento_pasado_no_ofrece_intercambiar(cliente, ppl):
         ("2026-09-09", "Pull"),
         ("2026-09-11", "Leg"),
     ]
-    assert ofrecidas(resumen) == [("sin_contar", "Brazos", None)]
+    assert ofrecidas(resumen) == [("sin_contar", "Brazos", None, True)]
 
 
 def test_un_dia_pasado_con_sesion(cliente, ppl, grupo_muscular_id):
@@ -428,5 +548,5 @@ def test_lo_de_otro_usuario_ni_se_ofrece_ni_es_la_ultima_sesion(
 
     resumen = hoy(cliente)
 
-    assert ofrecidas(resumen) == [("sin_contar", "Push", None)]
+    assert ofrecidas(resumen) == [("sin_contar", "Push", None, True)]
     assert resumen["ultima_sesion"] is None
