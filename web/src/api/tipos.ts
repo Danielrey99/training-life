@@ -294,6 +294,8 @@ export type Ofrecida = {
   accion: 'intercambiar' | 'adelantar' | 'sin_contar'
   rutina: RutinaMinima
   fecha: string | null
+  /** Falso si hoy ya hay sesión: la lista se enseña como recordatorio, pero sin botón. */
+  se_puede_hoy: boolean
 }
 
 /** La última sesión con algo apuntado, sin contar la que está a medias. */

@@ -19,10 +19,11 @@ import './hoy.css'
 
 const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
-// Los rótulos de la lista de abajo, según qué ofrece.
+// Los rótulos de la lista de abajo, según qué ofrece. Intercambiar y adelantar ofrecen lo mismo
+// (los días de esta semana que aún no se han hecho) y se llaman igual.
 const TITULO_DE_LA_LISTA: Record<Ofrecida['accion'], string> = {
-  intercambiar: 'Otra rutina del programa',
-  adelantar: 'Entrenar hoy de todas formas',
+  intercambiar: 'Lo que queda esta semana',
+  adelantar: 'Lo que queda esta semana',
   sin_contar: 'Entrenar una rutina',
 }
 
@@ -145,14 +146,14 @@ export function Hoy() {
         ? {
             titulo: `¿Recuperar hoy el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
             cuerpo:
-              `Solo se hace una rutina al día: el ${rutinaDeHoy.nombre} de hoy quedará pendiente, ` +
+              `Solo se hace una rutina al día. El ${rutinaDeHoy.nombre} de hoy quedará pendiente, ` +
               `y podrás recuperarlo hasta ${conArticulo(sumarDias(hoy, 6))}.`,
             confirmar: 'Recuperar',
             alConfirmar: () => empezar(rutina.id, fecha),
           }
         : {
-            titulo: `¿Recuperar el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
-            cuerpo: `Lo entrenas hoy y contará como el del ${fechaEnFrase(fecha, false)}.`,
+            titulo: `¿Recuperar hoy el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
+            cuerpo: `Entrenas hoy la rutina del ${fechaEnFrase(fecha, false)}.`,
             confirmar: 'Recuperar',
             alConfirmar: () => empezar(rutina.id, fecha),
           },
@@ -166,7 +167,7 @@ export function Hoy() {
     } else if (ofrecida.accion === 'adelantar') {
       setConfirmando({
         titulo: `¿Adelantar el ${rutina.nombre} del ${nombreDelDia(fecha)}?`,
-        cuerpo: `Lo entrenas hoy y el ${nombreDelDia(fecha)} queda libre.`,
+        cuerpo: `Entrenas hoy la rutina del ${fechaEnFrase(fecha, false)}, y ese día queda libre.`,
         confirmar: 'Adelantar',
         alConfirmar: () => empezar(rutina.id, fecha),
       })
@@ -186,10 +187,6 @@ export function Hoy() {
   }
 
   const listaDeAbajo = resumen.ofrecidas
-  const semanaHecha =
-    ['descanso', 'movido'].includes(resumen.situacion) &&
-    listaDeAbajo.length === 0 &&
-    resumen.por_recuperar.length === 0
 
   return (
     <div className="entrada">
@@ -274,27 +271,42 @@ export function Hoy() {
       {listaDeAbajo.length > 0 && (
         <section className="entrada-seccion">
           <h2 className="entrada-rotulo">{TITULO_DE_LA_LISTA[listaDeAbajo[0].accion]}</h2>
-          {listaDeAbajo.map((ofrecida) => (
-            <button
-              key={`${ofrecida.rutina.id}-${ofrecida.fecha}`}
-              type="button"
-              className="entrada-fila"
-              onClick={() => pedirOfrecida(ofrecida)}
-            >
-              <span className="entrada-fila-texto">
-                <strong>{ofrecida.rutina.nombre}</strong>
-                <span>{detalle(ofrecida.rutina)}</span>
-              </span>
-              {ofrecida.fecha && (
-                <span className="entrada-fila-dia">{mayuscula(nombreDelDia(ofrecida.fecha))}</span>
-              )}
-              <Icono nombre="abrir" pequeno />
-            </button>
-          ))}
+          {listaDeAbajo.map((ofrecida) => {
+            const contenido = (
+              <>
+                <span className="entrada-fila-texto">
+                  <strong>{ofrecida.rutina.nombre}</strong>
+                  <span>{detalle(ofrecida.rutina)}</span>
+                </span>
+                {ofrecida.fecha && (
+                  <span className="entrada-fila-dia">
+                    {mayuscula(nombreDelDia(ofrecida.fecha))}
+                  </span>
+                )}
+              </>
+            )
+            // Hoy ya se entrenó: la fila es solo un recordatorio, sin flecha ni nada que
+            // pulsar (como los recuperables sin botón).
+            return ofrecida.se_puede_hoy ? (
+              <button
+                key={`${ofrecida.rutina.id}-${ofrecida.fecha}`}
+                type="button"
+                className="entrada-fila"
+                onClick={() => pedirOfrecida(ofrecida)}
+              >
+                {contenido}
+                <Icono nombre="abrir" pequeno />
+              </button>
+            ) : (
+              <div key={`${ofrecida.rutina.id}-${ofrecida.fecha}`} className="entrada-fila">
+                {contenido}
+              </div>
+            )
+          })}
         </section>
       )}
 
-      <Pie resumen={resumen} semanaHecha={semanaHecha} />
+      <Pie resumen={resumen} />
 
       {confirmando && (
         <Dialogo
@@ -417,7 +429,10 @@ function Tarjeta({
       return (
         <div className="tarjeta-hoy">
           {chip}
-          <p className="tarjeta-antes con-chip">Hoy</p>
+          {/* Si hoy tocaba una rutina y se hizo otra cosa, lo de hoy queda pendiente. */}
+          <p className="tarjeta-antes con-chip">
+            {rutina && hecho !== 'Hecho' ? 'Hoy tocaba' : 'Hoy'}
+          </p>
           <p className="tarjeta-grande">{rutina?.nombre ?? 'Descanso'}</p>
           <p className="tarjeta-despues tarjeta-hecho">
             <Icono nombre="hecho" pequeno />
@@ -538,44 +553,16 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
   )
 }
 
-/** El texto del final, cuando no queda nada más que hacer hoy. */
-function Pie({ resumen, semanaHecha }: { resumen: ResumenDeHoy; semanaHecha: boolean }) {
+/**
+ * El texto del final, solo la primera vez. Con el día hecho o la semana completa no se dice
+ * nada (decisión del autor): la tarjeta y las listas ya cuentan qué hay y qué falta.
+ */
+function Pie({ resumen }: { resumen: ResumenDeHoy }) {
   if (resumen.situacion === 'primera_vez') {
     return (
       <p className="entrada-pie parrafo">
         También puedes entrenar sin programa: en cuanto tengas una rutina, podrás empezarla desde
         aquí, las veces que quieras.
-      </p>
-    )
-  }
-  if (resumen.situacion === 'hecho') {
-    const proximo = resumen.proximo
-    let siguiente = ''
-    if (proximo?.rutina) {
-      const manana = sumarDias(resumen.fecha, 1)
-      siguiente =
-        proximo.fecha === manana
-          ? `Mañana toca ${proximo.rutina.nombre}.`
-          : `Mañana descansas; ${cuandoToca(proximo.fecha, resumen.fecha)} toca ${proximo.rutina.nombre}.`
-    }
-    return (
-      <p className="entrada-pie">
-        Por hoy ya está.
-        {siguiente && (
-          <>
-            <br />
-            {siguiente}
-          </>
-        )}
-      </p>
-    )
-  }
-  if (semanaHecha) {
-    return (
-      <p className="entrada-pie">
-        Esta semana ya está hecha.
-        <br />
-        No queda nada por adelantar ni por recuperar.
       </p>
     )
   }
