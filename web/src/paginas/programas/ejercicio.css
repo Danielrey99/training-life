@@ -107,7 +107,7 @@ button.ejercicio-caja .icono {
   gap: 0;
   /* Siempre a su altura máxima: al buscar o filtrar no se encoge, así el campo del
      grupo no cambia de sitio y su lista cabe debajo. */
-  height: 85vh;
+  height: 85dvh;
 }
 
 .ejercicio-buscador {
