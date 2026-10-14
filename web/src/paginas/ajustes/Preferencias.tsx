@@ -185,7 +185,6 @@ export function Preferencias() {
             valor={ajustes.unidad}
             alCambiar={(unidad) => cambiarAjustes({ unidad })}
           />
-          <p>Lo que ya tienes apuntado se verá en la unidad que elijas.</p>
         </div>
         <div className="ajustes-tarjeta">
           <h3>Botones − y + del peso</h3>
@@ -212,9 +211,9 @@ export function Preferencias() {
           />
           <p>
             {ajustes.unoRM === 'media'
-              ? 'Cuenta todas las series del día: si mejoras en las últimas, también lo verás.'
-              : 'Cuenta solo la serie más fuerte del día.'}{' '}
-            Es lo que dice si un ejercicio ha mejorado, en el historial y en su gráfica.
+              ? 'Hace la media de todas las series del día: si te cansas en las últimas, baja.'
+              : 'Usa solo la serie más fuerte del día: las demás no cuentan.'}{' '}
+            Con él se ve si un ejercicio ha mejorado, en el historial y en su gráfica.
           </p>
         </div>
       </section>
