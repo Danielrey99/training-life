@@ -343,7 +343,7 @@ Se llega con el engranaje de arriba a la derecha de *Hoy*. Tiene tres apartados.
 **Apariencia**
 
 - **Tema**: oscuro, claro o automático (el del móvil u ordenador), que es el de por defecto. En el claro, los colores de los días y el verde son más oscuros, porque los vivos apenas se ven sobre blanco.
-- **Colores de los días**: por defecto, el arcoíris de lunes (rojo) a domingo (rosa). Cada día abre una hoja con veinticuatro colores ordenados por tono —los de toda la vida y variaciones de ellos, como granate, coral o azul marino—, cada uno con su versión para los dos temas, y *Otro color…*, que abre el selector del sistema. Un color que ya tiene otro día no se puede elegir, para que no haya dos días iguales. Se puede volver a los colores de la app.
+- **Colores de los días**: por defecto, el arcoíris de lunes (rojo) a domingo (rosa). Cada día abre una hoja con veinticuatro colores ordenados por tono —los de toda la vida y variaciones de ellos, como granate, coral o azul marino—, cada uno con su versión para los dos temas. No hay color libre: la paleta basta. Un color que ya tiene otro día no se puede elegir, para que no haya dos días iguales. Se puede volver a los colores de la app.
 
 **Tus datos**
 
