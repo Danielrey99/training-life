@@ -193,7 +193,7 @@ export function Planificar() {
         <span className="planificar-hueco" />
       </header>
 
-      <p className="planificar-ayuda">Cambia qué toca cada día.</p>
+      <p className="planificar-ayuda">Toca un día para cambiar qué rutina toca.</p>
 
       {semanas.map((semana) => {
         const esta = semana.lunes === lunesDe(hoy)
@@ -466,6 +466,10 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
 
         {fallo && <p className="aviso error">{fallo}</p>}
 
+        {/* Con rótulo, como las de abajo: así se entiende por qué hay dos grupos. */}
+        {programa && delProgramaEnOrden.length > 0 && (
+          <p className="hoja-rotulo">Rutinas del programa</p>
+        )}
         {delProgramaEnOrden.map((rutina) => (
           <FilaDeRutina key={rutina.id} rutina={rutina} />
         ))}
