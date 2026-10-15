@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { diaYMesConAnio, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
+import { diaYMesConAnio, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
 import { ajustes } from '../../utiles/ajustes'
 import { enUnidad, unidad } from '../../utiles/numeros'
 import { valorDe } from '../../utiles/progresion'
@@ -47,6 +47,21 @@ function fechaFila(iso: string): string {
 }
 
 /**
+ * El rango con el que se abre, si no se ha elegido otro: el más corto en el que cabe todo
+ * el historial del ejercicio, desde la primera sesión (decisión del autor, 15-10-2026,
+ * para revisar más adelante). Así nunca abre con una gráfica casi vacía, y con mucho
+ * historial abre en Todo, que se ve como 6 meses pero deja deslizar hacia atrás. Sin
+ * sesiones, el más corto, con su aviso.
+ */
+function rangoPorDefecto(sesiones: SesionHistorial[]) {
+  // De la más reciente a la más antigua: la primera de todas es la última.
+  const primera = sesiones.at(-1)
+  if (!primera) return RANGOS[0]
+  const dias = diasEntre(primera.fecha, hoy())
+  return RANGOS.find((r) => r.dias !== null && dias <= r.dias) ?? RANGOS[RANGOS.length - 1]
+}
+
+/**
  * La progresión de un ejercicio: una gráfica con un punto por sesión (peso más alto,
  * volumen o 1RM estimado) y debajo las sesiones con sus series. El rango y la medida
  * van en la URL, para que recargar no los pierda.
@@ -62,7 +77,7 @@ export function Progresion() {
   const [elegido, setElegido] = useState<number | null>(null)
   const [todas, setTodas] = useState(false)
 
-  const rango = RANGOS.find((r) => r.clave === parametros.get('rango')) ?? RANGOS[1]
+  const rangoElegido = RANGOS.find((r) => r.clave === parametros.get('rango'))
   const medida = MEDIDAS.find((m) => m.clave === parametros.get('medida'))?.clave ?? 'peso'
 
   useEffect(() => {
@@ -91,6 +106,7 @@ export function Progresion() {
   if (error) return <p className="aviso error">{error}</p>
   if (!ejercicio || !sesiones) return <p className="aviso">Cargando…</p>
 
+  const rango = rangoElegido ?? rangoPorDefecto(sesiones)
   const desde = rango.dias === null ? null : sumarDias(hoy(), -rango.dias)
   const enRango = sesiones.filter((sesion) => desde === null || sesion.fecha >= desde)
   const puntos: Punto[] = [...enRango].reverse().map((sesion) => {
