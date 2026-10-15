@@ -5,13 +5,7 @@ import { api } from '../../api/cliente'
 import type { Hoy, Programa, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { colorDelDia, colorDeRutina } from '../../utiles/colores'
-import {
-  conArticulo,
-  diaDeLaSemana,
-  fechaEnFrase,
-  fechaLarga,
-  nombreDelDia,
-} from '../../utiles/fechas'
+import { conArticulo, diaDeLaSemana, fechaEnFrase, fechaLarga } from '../../utiles/fechas'
 
 type Props = {
   fecha: string
@@ -29,7 +23,7 @@ type Opcion = {
   color: string
 }
 
-type Eleccion = { opcion: Opcion; cuerpo: string }
+type Eleccion = { opcion: Opcion; cuerpo: string | undefined }
 
 function contarEjercicios(cuantos: number) {
   return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
@@ -83,7 +77,7 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         clave: 'propia',
         rutina: dia.rutina,
         titulo: `${dia.rutina.nombre}, lo que tocaba`,
-        detalle: 'Contará como la de ese día',
+        detalle: null,
         cubre: fecha,
         color: colorDelDia(diaDeLaSemana(fecha)),
       })
@@ -93,7 +87,7 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         clave: `recuperar-${recuperable.fecha}`,
         rutina: recuperable.rutina,
         titulo: `Recuperar el ${recuperable.rutina.nombre} del ${fechaEnFrase(recuperable.fecha, false)}`,
-        detalle: `Contará como el del ${nombreDelDia(recuperable.fecha)}`,
+        detalle: null,
         cubre: recuperable.fecha,
         color: colorDelDia(diaDeLaSemana(recuperable.fecha)),
       })
@@ -104,7 +98,7 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
           clave: `adelantar-${ofrecida.fecha}`,
           rutina: ofrecida.rutina,
           titulo: `Adelantar el ${ofrecida.rutina.nombre} del ${fechaEnFrase(ofrecida.fecha, false)}`,
-          detalle: `Contará como el del ${nombreDelDia(ofrecida.fecha)}`,
+          detalle: null,
           cubre: ofrecida.fecha,
           color: colorDelDia(diaDeLaSemana(ofrecida.fecha)),
         })
@@ -122,7 +116,9 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
   }
 
   function elegir(opcion: Opcion) {
-    const cuerpo = opcion.cubre ? `${opcion.detalle}.` : 'No contará para ningún día del programa.'
+    // Las que cuentan para un día no llevan texto (decisión del autor): «Contará como el del
+    // lunes» confundía, y el título ya dice qué día recupera o adelanta.
+    const cuerpo = opcion.cubre ? undefined : 'No contará para ningún día del programa.'
     setEleccion({ opcion, cuerpo })
   }
 
