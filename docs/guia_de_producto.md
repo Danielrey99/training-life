@@ -178,7 +178,7 @@ Comportamiento:
 - **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, con *Cancelar* y *Guardar cambios* en la misma línea; mientras tanto, el resto de la sesión se queda en gris. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la app no lo apunta.
-- **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha: *Recuperado el Push del lunes 14*, o *Adelantado el Push del jueves 17*.
+- **Si la sesión recupera o adelanta otro día**, la cabecera lo recuerda bajo la fecha: *Recuperado del lunes 14*, o *Adelantado del jueves 17*.
 - **Cada serie se guarda al pulsar su botón**, así que se puede salir de E2 a otras pantallas y volver: la sesión queda abierta.
 - **La nota de la sesión se escribe en cualquier momento**, no solo al terminar: si hay que esperar al final, se olvida lo que se quería apuntar. Encima de *Terminar sesión* sale *Añadir nota*, que abre el campo con *Cancelar* y *Guardar*; una vez escrita, se ve con su lápiz y su ✕, como las series.
 - **Al pie**, *Terminar sesión* y, en rojo, *Cancelar sesión*. Terminar pregunta (y dice cuánto se lleva, para darse cuenta de si se termina antes de tiempo) y lleva a H2. Si no se ha apuntado ninguna serie, terminar no deja un día vacío en el historial: la sesión se cancela, y el diálogo lo avisa. Cancelar deja el día como si no se hubiera empezado: borra la sesión y sus series, y pregunta con *Seguir entrenando* como salida.
@@ -202,7 +202,7 @@ El mes, con un **color por día de la semana** (no por rutina; más adelante pod
 | Punto lleno y aro | Ese día se hizo otra rutina, y la suya sigue sin hacer |
 | Apagado | Próximo |
 
-**El punto lleno lleva el color de lo que se hizo; el aro y la flecha, el de lo que tocaba.** Así, si el martes se adelantó el Pull del miércoles, el martes lleva el punto del Pull y el miércoles el aro con la flecha hacia atrás. La leyenda va plegada bajo las cifras (*Ver leyenda*), porque se consulta poco.
+**El punto lleno lleva el color de lo que se hizo; el aro y la flecha, el de lo que tocaba.** Así, si el martes se adelantó el Pull del miércoles, el martes lleva el punto del Pull y el miércoles el aro con la flecha hacia atrás. La leyenda va plegada bajo las cifras (*Ver leyenda*), porque se consulta poco, y sus ejemplos llevan los colores de los dos primeros días de tu programa, como el calendario.
 
 Debajo, las cifras del mes (entrenados, movidos, no hechos) y dos botones: *Planificar los próximos días* (H4) y *Ver resumen* (H5), que no sale en un mes que aún no ha empezado.
 
@@ -227,14 +227,18 @@ Si la sesión es de un día pasado y no está terminada, el día ofrece **Seguir
 
 **Editar**: la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*, que guarda de golpe todo lo cambiado (fecha, series y nota); *Cancelar* lo deshace todo. Lápiz y ✕ en cada serie: el lápiz despliega el formulario bajo la serie, con *Aplicar*, y la ✕ pregunta antes. Con un formulario abierto (una serie, una serie nueva o la nota), el resto se queda en gris. Además:
 
-- **La fecha pasa a ser un campo**, por si la sesión se apuntó en otro día. Sigue contando para el mismo día del plan, así que solo puede ir donde se habría podido hacer: hacia delante, hasta el día antes del mismo día de la semana siguiente; hacia atrás, dentro de la misma semana. Un día que ya tiene sesión tampoco vale. Si no vale, *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué (y, si el día está ocupado, que la otra sesión se mueve desde su propio día).
+- **La fecha pasa a ser un campo**, por si la sesión se apuntó en otro día. Al tocarlo sube una hoja con el mes del calendario, con sus marcas, para ver qué días ya tienen sesión; tocar un día lo elige. Sigue contando para el mismo día del plan, así que solo puede ir donde se habría podido hacer: hacia delante, hasta el día antes del mismo día de la semana siguiente; hacia atrás, dentro de la misma semana. Un día que ya tiene sesión tampoco vale. Si no vale, *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué (y, si el día está ocupado, que la otra sesión se mueve desde su propio día).
 - **Cada ejercicio lleva *+ Añadir serie***, para la serie que se olvidó apuntar: abre ahí mismo el formulario de la sesión, con la siguiente serie y los datos de la anterior. Los ejercicios que ese día se quedaron sin series también salen al editar, con borde discontinuo, para poder añadírselas; si tienen alternativas, llevan la misma flecha que en la sesión para elegir con cuál. Un ejercicio oculto no admite series nuevas.
 - **La nota gana su lápiz y su ✕**, como las series, o *Añadir nota* si no tiene. Sin editar, la nota solo se lee.
 - **Al pie, *Borrar este día*** en rojo: quita la sesión entera con sus series, para arreglar un día o una rutina apuntados por error. Pregunta antes. El día que contaba vuelve a quedar sin hacer, y se puede recuperar si sigue en plazo.
 
 ### H3 · Progresión
 
-La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 3 meses, 6 meses, 1 año, todo) y un conmutador de qué se pinta sobre los mismos puntos:
+La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 3 meses, 6 meses y todo) y un conmutador de qué se pinta sobre los mismos puntos:
+
+**Al abrir, el rango es el más corto en el que cabe todo tu historial del ejercicio**: si empezaste hace menos de un mes, 1 mes; hasta tres, 3 meses; hasta seis, 6 meses; y si no, todo. Así nunca abre con la gráfica casi vacía. El que elijas se respeta.
+
+**Todo** se dibuja a la escala de 6 meses para que los puntos y los meses no se apilen: si hay más, la gráfica se desliza de lado, abre en lo más reciente y los valores de la izquierda se quedan fijos. No hay rango de un año: ahí ya no cabían.
 
 - **Peso**: el mejor peso de cada sesión.
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.

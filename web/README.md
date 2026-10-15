@@ -80,8 +80,10 @@ web/
         │   └── ejercicios.css
         ├── historial/    # la pestaña de Historial
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
+        │   ├── MesConMarcas.tsx         # la cuadrícula del mes, que comparten el calendario y la hoja de la fecha
         │   ├── HojaRegistrar.tsx        # apuntar un día pasado
         │   ├── Dia.tsx                  # ver un día y corregirlo
+        │   ├── HojaDeFecha.tsx          # cambiar la fecha de una sesión, con el mes y sus marcas
         │   ├── Planificar.tsx           # qué toca cada día de hoy en adelante, por semanas
         │   ├── Resumen.tsx              # el volumen por semana o por mes, su desglose y la constancia
         │   └── BloqueDelDia.tsx         # un hueco del día, con sus series y + Añadir serie
@@ -131,7 +133,7 @@ Decisiones que se notan al usarla:
 - **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
 - **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
 
-Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperando el Push del lunes 28*.
+Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperado del lunes 28* (o *Adelantado del jueves 1*), sin repetir el nombre de la rutina, que ya está en el título.
 
 ## Hoy
 
@@ -160,7 +162,7 @@ La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega d
 - **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó una alternativa más ligera. La leyenda del final dice con qué se compara cada cosa.
 - **Mientras una sesión de un día pasado no está terminada**, el día ofrece *Seguir apuntando*, que vuelve a la sesión.
 - **Si se hizo con una alternativa, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28*).
-- **Con *Editar*** la fecha pasa a ser un campo, cada serie gana su lápiz (que abre el mismo formulario de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador** (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y *Guardar*.
+- **Con *Editar*** la fecha pasa a ser un campo que abre una hoja con el mes del calendario y sus marcas (`HojaDeFecha`, que comparte la cuadrícula con el calendario en `MesConMarcas`), no el selector del sistema, que cada navegador dibuja a su manera; cada serie gana su lápiz (que abre el mismo formulario de la sesión) y su ✕, la nota también (o *Añadir nota* si no tiene), y al pie sale *Borrar este día*. La flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Todo va a un borrador** (fecha, nota y series; las nuevas, con id negativo) y *Guardar* lo envía de golpe; *Cancelar* lo descarta. Por eso los formularios de dentro dicen *Añadir* o *Aplicar*. Se envía primero la fecha y la nota, que son lo que puede no valer: si falla, no se toca nada más y el modo editar sigue abierto; después, las series borradas, cambiadas y nuevas. Igual que en la sesión, se edita una cosa cada vez: con un formulario abierto, el resto se desactiva, incluidos *Cancelar* y *Guardar*.
 - **Las series que se olvidó apuntar se añaden ahí mismo**: con *Editar*, cada ejercicio lleva *+ Añadir serie*, que abre el formulario de la sesión con la siguiente serie. Los ejercicios que ese día se quedaron sin series también salen al editar, con borde discontinuo, y si tienen alternativas llevan la misma flecha que en la sesión para elegir con cuál.
 - **La fecha solo se mueve dentro del plazo del día que cuenta** la sesión, y nunca a un día que ya tiene otra. Si no se puede, el campo explica por qué con palabras de la app, no con las de la API.
 - **Al terminar una sesión** se llega a su día. La flecha de volver, aquí y en el resto de pantallas, lleva a la pantalla de la que se vino (de *Hoy* a un día, vuelve a *Hoy*), y tras terminar, cancelar o borrar no lleva a algo que ya no existe. Si la pantalla se abrió directamente (un enlace o una recarga), lleva a la pantalla de la que cuelga; para saberlo mira la posición en el historial del navegador, que no cambia cuando la pantalla reescribe su URL al elegir una opción.
@@ -186,7 +188,7 @@ La progresión general, no por ejercicio (`/historial/resumen?mes=2026-09`), a l
 
 ## Progresión
 
-La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cinco rangos (1 mes, 3, 6, 1 año y todo). El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
+La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cuatro rangos (1 mes, 3, 6 y todo). Abre en el rango más corto que cubre todo el historial del ejercicio (`rangoPorDefecto`). *Todo* va a la escala de 6 meses y, si hay más, la gráfica se desliza de lado con los valores fijos a la izquierda, abriendo en lo más reciente. El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
 
 - **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), o la mejor serie si se elige en Ajustes.
 - **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Por defecto se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve. Para quien entrena fuerza máxima, Ajustes deja elegir la mejor serie, y las dos pantallas cambian a la vez.
