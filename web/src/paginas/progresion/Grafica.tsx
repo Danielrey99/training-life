@@ -96,19 +96,23 @@ export function Grafica({ puntos, elegido, alElegir }: Props) {
   const trazado = puntos.map((p) => `${x(p.fecha).toFixed(1)},${y(p.valor).toFixed(1)}`)
 
   // El eje de abajo, como en el boceto: el mes bajo el primer punto de cada mes, salvo
-  // que quede demasiado cerca del anterior y se pisen. Lleva el año cuando cambia, y en
-  // el primero si no es el actual: con el rango de un año o todo, "sep" sería ambiguo.
-  // Si todo cae en un mismo mes, un solo "sep" no dice nada: el primer día y el último.
+  // que pise al anterior. Lleva el año cuando cambia, y en el primero si no es el actual:
+  // con el rango de un año o todo, "sep" sería ambiguo. Si todo cae en un mismo mes, un
+  // solo "sep" no dice nada: el primer día y el último.
   const anioActual = hoy().slice(0, 4)
   const meses: { mes: string; texto: string; x: number }[] = []
+  // Cada etiqueta va centrada en su punto: se pisan si la mitad de una más la mitad de la
+  // otra no caben entre los dos. Se mide la anterior también, porque con el año es más
+  // ancha («nov 2025» se comía a «dic»); a 11 px, unos 6,2 px por letra.
+  const mitad = (texto: string) => (texto.length * 6.2) / 2
   for (const punto of puntos) {
     const anterior = meses.at(-1)
     const mes = punto.fecha.slice(0, 7)
     const anio = punto.fecha.slice(0, 4)
     const conAnio = anterior ? anterior.mes.slice(0, 4) !== anio : anio !== anioActual
     const texto = `${mesCorto(punto.fecha)}${conAnio ? ` ${anio}` : ''}`
-    // Con el año la etiqueta es más ancha: hace falta más hueco.
-    if (!anterior || (mes !== anterior.mes && x(punto.fecha) - anterior.x > (conAnio ? 48 : 30))) {
+    const cabe = !anterior || x(punto.fecha) - anterior.x > mitad(anterior.texto) + mitad(texto) + 6
+    if (!anterior || (mes !== anterior.mes && cabe)) {
       meses.push({ mes, texto, x: x(punto.fecha) })
     }
   }
