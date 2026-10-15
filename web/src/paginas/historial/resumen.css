@@ -112,7 +112,9 @@
 
 .resumen-barras {
   display: flex;
-  align-items: flex-end;
+  /* Por arriba, no por abajo: todas las pistas miden lo mismo, así que las barras empiezan
+     al mismo nivel aunque la fecha de debajo de una ocupe más líneas que la de otra. */
+  align-items: flex-start;
   gap: 6px;
 }
 
