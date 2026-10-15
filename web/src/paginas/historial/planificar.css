@@ -138,14 +138,8 @@
   white-space: nowrap;
 }
 
-.planificar-final {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--texto-tenue);
+.planificar-mas {
+  align-self: stretch;
 }
 
 /* En la hoja del día: *Restablecer este día*, al pie y sin recuadro. */

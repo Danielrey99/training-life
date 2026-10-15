@@ -78,7 +78,7 @@ export function Planificar() {
   const [abierto, setAbierto] = useState<DiaSeguimiento | null>(null)
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
   const cargandoMas = useRef(false)
-  const final = useRef<HTMLDivElement>(null)
+  const [cargando, setCargando] = useState(false)
   const ultimo = dias.length > 0 ? dias[dias.length - 1].fecha : null
 
   useEffect(() => {
@@ -115,6 +115,7 @@ export function Planificar() {
   const cargarMas = useCallback(async () => {
     if (cargandoMas.current || !ultimo) return
     cargandoMas.current = true
+    setCargando(true)
     try {
       const mas = await leerDias(sumarDias(ultimo, 1), sumarDias(ultimo, 7 * SEMANAS_POR_TANDA))
       setDias((antes) => [...antes, ...mas])
@@ -122,20 +123,9 @@ export function Planificar() {
       setError((fallo as Error).message)
     } finally {
       cargandoMas.current = false
+      setCargando(false)
     }
   }, [ultimo])
-
-  // Al llegar al final de la lista se piden más semanas.
-  useEffect(() => {
-    const elemento = final.current
-    if (!elemento) return
-    const vigilante = new IntersectionObserver(
-      (entradas) => entradas.some((una) => una.isIntersecting) && void cargarMas(),
-      { rootMargin: '200px' },
-    )
-    vigilante.observe(elemento)
-    return () => vigilante.disconnect()
-  }, [cargarMas, resumen])
 
   if (error) return <p className="aviso error">{error}</p>
   if (!resumen) return <p className="aviso">Cargando…</p>
@@ -240,9 +230,16 @@ export function Planificar() {
         )
       })}
 
-      <div ref={final} className="planificar-final">
-        Sigue bajando para más semanas
-      </div>
+      {/* Con un botón y no al bajar (decisión del autor): la lista tiene final y no se acaba
+          meses adelante sin querer; planificar más allá de unas semanas es raro. */}
+      <button
+        type="button"
+        className="boton planificar-mas"
+        disabled={cargando}
+        onClick={() => void cargarMas()}
+      >
+        {cargando ? 'Cargando…' : `Ver ${SEMANAS_POR_TANDA} semanas más`}
+      </button>
 
       {abierto && (
         <HojaDelDia
