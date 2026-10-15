@@ -17,6 +17,9 @@ type Props = {
   // Qué punto tiene el globo; sin elegir, el último.
   elegido: number | null
   alElegir: (id: number) => void
+  // Cuántos días caben a lo ancho. Con más, la gráfica se desplaza de lado (con «Todo»:
+  // la misma escala que 6 meses, para que los puntos y los meses no se apilen).
+  diasVisibles?: number
 }
 
 // En píxeles. El ancho no es fijo: es el de la tarjeta, medido (ver `useAncho`).
@@ -33,7 +36,7 @@ const GLOBO = { ancho: 132, alto: 40 }
  * escritorio salían casi al triple.
  */
 function useAncho() {
-  const lienzo = useRef<SVGSVGElement>(null)
+  const lienzo = useRef<HTMLDivElement>(null)
   const [ancho, setAncho] = useState(ANCHO_INICIAL)
   useLayoutEffect(() => {
     const elemento = lienzo.current
@@ -73,9 +76,9 @@ function escala(minimo: number, maximo: number): number[] {
  * en el tiempo (dos sesiones muy separadas se ven separadas). El punto elegido lleva
  * un globo con su día y su valor; se elige tocando un punto.
  */
-export function Grafica({ puntos, elegido, alElegir }: Props) {
-  const [lienzo, ancho] = useAncho()
-  const derecha = ancho - 8
+export function Grafica({ puntos, elegido, alElegir, diasVisibles }: Props) {
+  const [lienzo, visible] = useAncho()
+  const desplazable = useRef<HTMLDivElement>(null)
   const marcas = escala(
     Math.min(...puntos.map((p) => p.valor)),
     Math.max(...puntos.map((p) => p.valor)),
@@ -85,6 +88,19 @@ export function Grafica({ puntos, elegido, alElegir }: Props) {
   const primero = puntos[0].fecha
   const ultimo = puntos[puntos.length - 1].fecha
   const total = diasEntre(primero, ultimo)
+  // Con más días de los que caben, el dibujo se alarga a la misma escala: lo que se ve
+  // de una vez son `diasVisibles` días.
+  const seDesplaza = diasVisibles !== undefined && total > diasVisibles
+  const ancho = seDesplaza
+    ? Math.round(IZQUIERDA + ((visible - 8 - IZQUIERDA) * total) / diasVisibles + 8)
+    : visible
+  const derecha = ancho - 8
+
+  // Al abrir (y al cambiar de rango), lo más reciente: el final.
+  useLayoutEffect(() => {
+    const elemento = desplazable.current
+    if (elemento) elemento.scrollLeft = elemento.scrollWidth
+  }, [ancho, puntos.length])
 
   const x = (fecha: string) =>
     total === 0
@@ -138,97 +154,111 @@ export function Grafica({ puntos, elegido, alElegir }: Props) {
   const titulo = `${fechaAbreviada(activo.fecha)}${activo.rutina ? ` · ${activo.rutina}` : ''}`
 
   return (
-    <svg
-      ref={lienzo}
-      className="progresion-grafica"
-      viewBox={`0 0 ${ancho} ${ALTO}`}
-      role="group"
-      aria-label="Gráfica de progresión"
-    >
-      <g stroke="var(--borde)" strokeWidth="1">
-        {marcas.map((marca) => (
-          <line key={marca} x1={IZQUIERDA} y1={y(marca)} x2={ancho} y2={y(marca)} />
-        ))}
-      </g>
-      <g fill="var(--texto-tenue)" fontSize="11" textAnchor="end">
-        {marcas.map((marca) => (
-          <text key={marca} x={IZQUIERDA - 8} y={y(marca) + 4}>
-            {marca.toLocaleString('es-ES')}
-          </text>
-        ))}
-      </g>
-      <g fill="var(--texto-tenue)" fontSize="11" textAnchor="middle">
-        {etiquetas.map((etiqueta) => (
-          // Por la posición: con más de un año, "sep" puede salir dos veces.
-          <text key={etiqueta.x} x={etiqueta.x} y={ALTO - 6}>
-            {etiqueta.texto}
-          </text>
-        ))}
-      </g>
+    <div ref={lienzo} className="progresion-grafica">
+      <div ref={desplazable} className={seDesplaza ? 'progresion-desplazable' : undefined}>
+        <svg
+          width={ancho}
+          height={ALTO}
+          viewBox={`0 0 ${ancho} ${ALTO}`}
+          role="group"
+          aria-label="Gráfica de progresión"
+        >
+          <g stroke="var(--borde)" strokeWidth="1">
+            {marcas.map((marca) => (
+              <line key={marca} x1={IZQUIERDA} y1={y(marca)} x2={ancho} y2={y(marca)} />
+            ))}
+          </g>
+          <g fill="var(--texto-tenue)" fontSize="11" textAnchor="middle">
+            {etiquetas.map((etiqueta) => (
+              // Por la posición: con más de un año, "sep" puede salir dos veces.
+              <text key={etiqueta.x} x={etiqueta.x} y={ALTO - 6}>
+                {etiqueta.texto}
+              </text>
+            ))}
+          </g>
 
-      <line
-        x1={x(activo.fecha)}
-        y1={ARRIBA}
-        x2={x(activo.fecha)}
-        y2={ABAJO}
-        stroke="var(--texto-tenue)"
-        strokeDasharray="3 3"
-      />
-      <polyline
-        points={trazado.join(' ')}
-        fill="none"
-        stroke="var(--acento)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      {puntos.map((punto) => (
-        <g key={punto.id}>
-          <circle
-            cx={x(punto.fecha)}
-            cy={y(punto.valor)}
-            r={punto.id === activo.id ? 6 : 4}
-            fill="var(--acento)"
-            stroke="var(--superficie)"
+          <line
+            x1={x(activo.fecha)}
+            y1={ARRIBA}
+            x2={x(activo.fecha)}
+            y2={ABAJO}
+            stroke="var(--texto-tenue)"
+            strokeDasharray="3 3"
+          />
+          <polyline
+            points={trazado.join(' ')}
+            fill="none"
+            stroke="var(--acento)"
             strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
           />
-          {/* Más grande que el punto, para poder acertar con el dedo. */}
-          <circle
-            className="progresion-toque"
-            cx={x(punto.fecha)}
-            cy={y(punto.valor)}
-            r="14"
-            fill="transparent"
-            role="button"
-            tabIndex={0}
-            aria-label={`${fechaAbreviada(punto.fecha)}: ${punto.detalle}`}
-            onClick={() => alElegir(punto.id)}
-            onKeyDown={(evento) => {
-              if (evento.key === 'Enter' || evento.key === ' ') {
-                evento.preventDefault()
-                alElegir(punto.id)
-              }
-            }}
-          />
-        </g>
-      ))}
+          {puntos.map((punto) => (
+            <g key={punto.id}>
+              <circle
+                cx={x(punto.fecha)}
+                cy={y(punto.valor)}
+                r={punto.id === activo.id ? 6 : 4}
+                fill="var(--acento)"
+                stroke="var(--superficie)"
+                strokeWidth="2"
+              />
+              {/* Más grande que el punto, para poder acertar con el dedo. */}
+              <circle
+                className="progresion-toque"
+                cx={x(punto.fecha)}
+                cy={y(punto.valor)}
+                r="14"
+                fill="transparent"
+                role="button"
+                tabIndex={0}
+                aria-label={`${fechaAbreviada(punto.fecha)}: ${punto.detalle}`}
+                onClick={() => alElegir(punto.id)}
+                onKeyDown={(evento) => {
+                  if (evento.key === 'Enter' || evento.key === ' ') {
+                    evento.preventDefault()
+                    alElegir(punto.id)
+                  }
+                }}
+              />
+            </g>
+          ))}
 
-      <g pointerEvents="none">
-        <rect
-          x={globoX}
-          y={globoY}
-          width={GLOBO.ancho}
-          height={GLOBO.alto}
-          rx="6"
-          fill="var(--texto)"
-        />
-        <text x={globoX + 10} y={globoY + 16} fontSize="11" fill="var(--globo-tenue)">
-          {titulo.length > 22 ? `${titulo.slice(0, 21)}…` : titulo}
-        </text>
-        <text x={globoX + 10} y={globoY + 32} fontSize="12.5" fontWeight="600" fill="var(--fondo)">
-          {activo.detalle}
-        </text>
-      </g>
-    </svg>
+          <g pointerEvents="none">
+            <rect
+              x={globoX}
+              y={globoY}
+              width={GLOBO.ancho}
+              height={GLOBO.alto}
+              rx="6"
+              fill="var(--texto)"
+            />
+            <text x={globoX + 10} y={globoY + 16} fontSize="11" fill="var(--globo-tenue)">
+              {titulo.length > 22 ? `${titulo.slice(0, 21)}…` : titulo}
+            </text>
+            <text
+              x={globoX + 10}
+              y={globoY + 32}
+              fontSize="12.5"
+              fontWeight="600"
+              fill="var(--fondo)"
+            >
+              {activo.detalle}
+            </text>
+          </g>
+        </svg>
+      </div>
+      {/* Los valores, fijos a la izquierda: al desplazar la gráfica no se van. Solo hasta la
+          línea de abajo, para no tapar los meses. */}
+      <svg className="progresion-valores" width={IZQUIERDA} height={ABAJO + 8} aria-hidden>
+        <g fill="var(--texto-tenue)" fontSize="11" textAnchor="end">
+          {marcas.map((marca) => (
+            <text key={marca} x={IZQUIERDA - 8} y={y(marca) + 4}>
+              {marca.toLocaleString('es-ES')}
+            </text>
+          ))}
+        </g>
+      </svg>
+    </div>
   )
 }

@@ -130,10 +130,29 @@
 }
 
 .progresion-grafica {
+  position: relative;
+}
+
+.progresion-grafica svg {
   display: block;
-  width: 100%;
-  height: auto;
   overflow: visible;
+}
+
+/* Con «Todo» y más de seis meses: se desliza de lado, con su barra. */
+.progresion-desplazable {
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde) transparent;
+}
+
+/* Los valores, encima del dibujo y con el fondo de la tarjeta: lo que pasa por debajo
+   al desplazar no se ve. */
+.progresion-valores {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--superficie);
 }
 
 .progresion-toque {

@@ -18,7 +18,6 @@ const RANGOS = [
   { clave: '1m', texto: '1 mes', dias: 30 },
   { clave: '3m', texto: '3 meses', dias: 91 },
   { clave: '6m', texto: '6 meses', dias: 182 },
-  { clave: '1a', texto: '1 año', dias: 365 },
   { clave: 'todo', texto: 'Todo', dias: null },
 ] as const
 
@@ -193,7 +192,13 @@ export function Progresion() {
                 </span>
               </div>
             </div>
-            <Grafica puntos={puntos} elegido={elegido} alElegir={setElegido} />
+            <Grafica
+              puntos={puntos}
+              elegido={elegido}
+              alElegir={setElegido}
+              // Todo, a la escala de 6 meses: con más, se desliza de lado.
+              diasVisibles={rango.dias === null ? 182 : undefined}
+            />
           </section>
 
           <section className="progresion-sesiones">
