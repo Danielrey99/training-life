@@ -23,6 +23,8 @@ import { enUnidad, unidad } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import '../sesion/sesion.css'
 import '../progresion/progresion.css'
+// `.mes` (el selector de mes) es el del calendario.
+import './historial.css'
 import './resumen.css'
 
 const INICIALES_MES = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
@@ -175,10 +177,37 @@ export function Resumen() {
     </header>
   )
 
+  // El mes del resumen, con flechas como el calendario (decisión del autor): las barras
+  // acaban en ese mes. No se pasa del mes actual: uno sin empezar no tiene nada.
+  const siguiente = sumarMeses(mes, 1)
+  const selectorDeMes = (
+    <div className="mes">
+      <button
+        type="button"
+        className="boton-icono"
+        aria-label="Mes anterior"
+        onClick={() => cambiar({ mes: sumarMeses(mes, -1).slice(0, 7), barra: null })}
+      >
+        <Icono nombre="volver" />
+      </button>
+      <h2>{tituloDeMes(mes)}</h2>
+      <button
+        type="button"
+        className="boton-icono"
+        aria-label="Mes siguiente"
+        disabled={siguiente > hoy}
+        onClick={() => cambiar({ mes: siguiente.slice(0, 7), barra: null })}
+      >
+        <Icono nombre="abrir" />
+      </button>
+    </div>
+  )
+
   if (error) {
     return (
       <div className="resumen">
         {cabecera}
+        {selectorDeMes}
         <p className="aviso error">{error}</p>
       </div>
     )
@@ -187,6 +216,7 @@ export function Resumen() {
     return (
       <div className="resumen">
         {cabecera}
+        {selectorDeMes}
         <p className="aviso">Cargando…</p>
       </div>
     )
@@ -207,6 +237,7 @@ export function Resumen() {
   return (
     <div className="resumen">
       {cabecera}
+      {selectorDeMes}
 
       <div className="resumen-vista" role="group" aria-label="Vista">
         {[
