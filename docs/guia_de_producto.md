@@ -209,7 +209,7 @@ Debajo, las cifras del mes (entrenados, movidos, no hechos) y dos botones: *Plan
 **Tocar un día enseña siempre lo que se hizo ese día**, nunca lo de otro:
 
 - Si ese día hubo sesión, lleva a H2.
-- Si no, se comporta como un descanso, aunque su rutina se hiciera otro día. Si es un día pasado, abre una hoja para apuntar lo que se hizo: ofrece lo mismo que habría ofrecido Hoy aquel día (*Recuperar el Pull del miércoles 9*, si seguía en plazo), salvo intercambiar, porque el pasado no se planifica; y las demás rutinas, que se apuntan sin contar para ningún día del programa. Elegir pregunta antes y abre E2 con esa fecha. Sirve para pasar la libreta de meses anteriores o para el día que se entrenó y se olvidó apuntar. No cambia lo planificado: registra lo que pasó.
+- Si no, se comporta como un descanso, aunque su rutina se hiciera otro día. Si es un día pasado, abre una hoja para apuntar lo que se hizo: ofrece lo mismo que habría ofrecido Hoy aquel día (*Recuperar el Pull del miércoles 9*, si seguía en plazo), salvo intercambiar, porque el pasado no se planifica; y las demás rutinas, que se apuntan sin contar para ningún día del programa. Las que cuentan no llevan más explicación, porque su nombre ya dice de qué día son (*Pull, lo que tocaba*); solo avisan las que no cuentan. Elegir pregunta antes y abre E2 con esa fecha. Sirve para pasar la libreta de meses anteriores o para el día que se entrenó y se olvidó apuntar. No cambia lo planificado: registra lo que pasó.
 
 **Cómo se decide si un día está hecho, movido o sin hacer**, sin que el usuario marque nada: cada sesión cuenta para un día (ver [Vocabulario](#vocabulario)). Un día planificado está **hecho** si lo cuenta una sesión de ese mismo día, **movido** si lo cuenta una de otro día, y **sin hacer** si no lo cuenta ninguna y ya pasó.
 
@@ -250,26 +250,26 @@ Arriba, la medida que se elige, sola y centrada; debajo, a la izquierda el últi
 
 ### H4 · Planificar
 
-Los días **de hoy en adelante**, agrupados por semanas, sin límite (al bajar aparecen más). Tocar un día abre una hoja con lo que toca según el programa y las rutinas para sustituirlo: primero las del programa, en el orden de la semana, y *Descanso*; debajo, *Otras rutinas* (las que no están en el programa, por orden alfabético). Sin programa activo salen todas por orden alfabético. Poner una rutina de fuera en un día lo cambia solo ese día, y cuenta como cualquier otro: *Hoy* lo propone y el calendario lo marca hecho o sin hacer. Se guarda al tocar, sin botón de guardar. **Sustituye, no intercambia.** Los días cambiados llevan su marca.
+Los días **de hoy en adelante**, agrupados por semanas: salen cuatro, y al final, *Ver 4 semanas más* añade otras cuatro, sin límite. Con un botón y no al bajar, para que la lista tenga final. Tocar un día abre una hoja con lo que toca según el programa y las rutinas para sustituirlo: primero, bajo *Rutinas del programa*, las del programa en el orden de la semana, y *Descanso*; debajo, *Otras rutinas* (las que no están en el programa, por orden alfabético). Sin programa activo salen todas por orden alfabético. Poner una rutina de fuera en un día lo cambia solo ese día, y cuenta como cualquier otro: *Hoy* lo propone y el calendario lo marca hecho o sin hacer. Se guarda al tocar, sin botón de guardar. **Sustituye, no intercambia.** Los días cambiados llevan su marca.
 
 - *Restablecer este día* devuelve un día a lo que dice el programa. No es lo mismo que elegir a mano la rutina del programa, que dejaría el día marcado como cambiado.
 - *Restablecer la semana* devuelve los siete días, y pregunta antes.
 - El pasado no se planifica: lo que pasó se registra (desde H1), no se cambia.
 - **Lo pendiente de recuperar no sale aquí**: H4 solo enseña hoy y los días que vienen, y recuperar se hace desde Hoy.
 - **Una rutina oculta** sigue en su día, en gris y con *oculta*, porque ocultar no la quita del programa; ese día cuenta como descanso. Se puede dejar en *Descanso* a propósito, y elegir otra rutina la sustituye solo en esa fecha.
-- **Un día ya hecho por adelantado** lleva *hecho el martes*. Si su rutina se pasa a otro día de la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
+- **Un día ya hecho por adelantado** lleva en verde *✓ Hecho por adelantado*, como la tarjeta de Entrenar pero sin el día, para que quepa en la línea. Si su rutina se pasa a otro día de la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
 - Al activar otro programa, la app avisa de los días planificados y ofrece quitarlos.
 
 ### H5 · Resumen
 
-Progresión general, no por ejercicio. Un solo control arriba, *Por semana* o *Por mes*, y nada de filtros por rutina: se probaron y no se entendía qué filtraba cada cosa.
+Progresión general, no por ejercicio. Arriba, el mes con sus flechas, como en el calendario (*‹ Septiembre 2026 ›*): las barras acaban en ese mes, y así se puede ir hacia atrás sin volver al calendario. La flecha de adelante se apaga en el mes de hoy, porque uno sin empezar no tiene nada. Debajo, un solo control, *Por semana* o *Por mes*, y nada de filtros por rutina: se probaron y no se entendía qué filtraba cada cosa.
 
 - **Volumen por semana** (o por mes): una barra por cada una de las últimas ocho semanas (o meses) ya terminadas, con el peso por repeticiones de todo lo entrenado. Si la semana (o el mes) de hoy cae en la gráfica, va una barra más, **rayada**, con lo que va de ella; las rayas siguen aunque se elija, para que se vea que no ha terminado.
 - **Tocar una barra la elige**: se pinta en verde vivo y arriba salen su periodo (*Semana del 15 sep*), su volumen y cuánto cambió. Al entrar, y al cambiar de semanas a meses, queda elegida la última terminada.
 - **El cambio se compara con el último periodo en que se entrenó**, aunque quede fuera de la gráfica: tras una semana de vacaciones, la siguiente dice *+5,7 % sobre la semana del 11 ago*. Si es la de justo antes, *sobre la semana anterior*. Una semana sin series dice *Sin series esta semana*.
-- **Volumen por rutina** y **Series por grupo muscular** son de la barra elegida: la gráfica enseña la evolución, y estos dos recuadros, el desglose de lo que se toca. Las series cuentan en el grupo del ejercicio que se hizo (una alternativa de otro grupo cuenta en el suyo). Cada rutina lleva el color de su día en el programa, el mismo del calendario; las series por grupo van en gris, porque un color por grupo serían siete u ocho colores que no dicen nada y se confundirían con los de los días.
+- **Volumen por rutina** y **Series por grupo muscular** son de la barra elegida, y salen siempre: si esa barra no tiene series, cada uno lo dice (*Sin series esta semana*), para que la pantalla tenga siempre la misma forma: la gráfica enseña la evolución, y estos dos recuadros, el desglose de lo que se toca. Las series cuentan en el grupo del ejercicio que se hizo (una alternativa de otro grupo cuenta en el suyo). Cada rutina lleva el color de su día en el programa, el mismo del calendario; las series por grupo van en gris, porque un color por grupo serían siete u ocho colores que no dicen nada y se confundirían con los de los días.
 - **Constancia** del año, fija, sin seguir a la barra elegida: dos alturas por mes, en gris lo planificado (también los días que aún no han llegado) y en verde lo entrenado, que lo va llenando. En los meses ya pasados el hueco es lo que se faltó. La cifra (*91 / 101 días entrenados, hasta hoy*) cuenta solo hasta hoy. Lo recuperado y lo adelantado cuentan como entrenado, en el mes del día que tocaba.
-- Al pie, la leyenda: *Toca una barra para ver esa semana. La rayada es la semana en curso, aún sin terminar.*
+- Dentro de la tarjeta del volumen, bajo las barras, cómo se usan: *Toca una barra para ver esa semana. La rayada es la semana en curso, aún sin terminar.* Al final de la pantalla no se veía a qué se refería.
 
 ## Programas y rutinas
 
