@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { api } from '../../api/cliente'
-import type { DiaSeguimiento, Programa } from '../../api/tipos'
+import type { DiaSemana, DiaSeguimiento, Programa } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { MarcaDelDia } from '../../componentes/MarcaDelDia'
 import { colorDelDia, SIN_DIA } from '../../utiles/colores'
@@ -221,7 +221,7 @@ export function Calendario() {
   )
 }
 
-/** Una marca de ejemplo, en gris: la leyenda explica la forma, no el color. */
+/** Una marca de ejemplo, con el color de un día. */
 function Punto({ lleno = false, color = SIN_DIA, apagado = false }) {
   return (
     <span
@@ -231,9 +231,9 @@ function Punto({ lleno = false, color = SIN_DIA, apagado = false }) {
   )
 }
 
-function Flecha({ haciaAtras = false }) {
+function Flecha({ haciaAtras = false, color = SIN_DIA }) {
   return (
-    <svg className="marca-flecha" viewBox="0 0 24 24" style={{ stroke: SIN_DIA }} aria-hidden>
+    <svg className="marca-flecha" viewBox="0 0 24 24" style={{ stroke: color }} aria-hidden>
       <path d={haciaAtras ? 'M19 12H5M11 6l-6 6 6 6' : 'M5 12h14M13 6l6 6-6 6'} />
     </svg>
   )
@@ -241,17 +241,22 @@ function Flecha({ haciaAtras = false }) {
 
 /** Qué significa cada marca y cada color. Plegada por defecto: se consulta poco. */
 function Leyenda({ programa }: { programa: Programa | null }) {
-  // Dos días cualquiera, para enseñar un día movido con los colores de los dos.
-  const lunes = colorDelDia(1)
-  const miercoles = colorDelDia(3)
+  // Los colores de los ejemplos: los de los dos primeros días del programa, para que se
+  // parezcan al calendario; si no llega a dos (o no hay programa), se completan con el
+  // lunes y el miércoles. Siempre colores de la paleta, nunca el gris.
+  const dias = (programa?.dias ?? []).map((dia) => dia.dia_semana).sort((a, b) => a - b)
+  for (const relleno of [1, 3, 2] as DiaSemana[]) {
+    if (dias.length < 2 && !dias.includes(relleno)) dias.push(relleno)
+  }
+  const [uno, otro] = dias.map(colorDelDia)
   const filas = [
-    { marca: <Punto lleno />, texto: 'Hecho ese día' },
-    { marca: <Punto />, texto: 'Sin hacer' },
+    { marca: <Punto lleno color={uno} />, texto: 'Hecho ese día' },
+    { marca: <Punto color={uno} />, texto: 'Sin hacer' },
     {
       marca: (
         <>
-          <Punto />
-          <Flecha />
+          <Punto color={uno} />
+          <Flecha color={uno} />
         </>
       ),
       texto: 'Hecho otro día, más tarde (recuperado)',
@@ -259,8 +264,8 @@ function Leyenda({ programa }: { programa: Programa | null }) {
     {
       marca: (
         <>
-          <Flecha haciaAtras />
-          <Punto />
+          <Flecha haciaAtras color={uno} />
+          <Punto color={uno} />
         </>
       ),
       texto: 'Hecho otro día, antes (adelantado)',
@@ -268,8 +273,8 @@ function Leyenda({ programa }: { programa: Programa | null }) {
     {
       marca: (
         <>
-          <Punto lleno color={lunes} />
-          <Flecha />
+          <Punto lleno color={uno} />
+          <Flecha color={otro} />
         </>
       ),
       texto: 'Ese día se hizo otra rutina; la suya, otro día',
@@ -277,13 +282,13 @@ function Leyenda({ programa }: { programa: Programa | null }) {
     {
       marca: (
         <>
-          <Punto lleno color={lunes} />
-          <Punto color={miercoles} />
+          <Punto lleno color={uno} />
+          <Punto color={otro} />
         </>
       ),
       texto: 'Ese día se hizo otra rutina; la suya, sin hacer',
     },
-    { marca: <Punto lleno apagado />, texto: 'Próximo' },
+    { marca: <Punto lleno apagado color={uno} />, texto: 'Próximo' },
   ]
 
   return (
@@ -306,10 +311,6 @@ function Leyenda({ programa }: { programa: Programa | null }) {
           </div>
         ))}
       </div>
-      <p>
-        El punto lleno lleva el color de lo que se hizo; el aro y la flecha, el de lo que tocaba ese
-        día.
-      </p>
     </div>
   )
 }
