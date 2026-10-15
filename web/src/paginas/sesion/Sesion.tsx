@@ -214,11 +214,12 @@ export function Sesion() {
               {fechaTitulo(activa.fecha)} · {cifras}
             </p>
           )}
-          {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy. */}
+          {/* Si la sesión cuenta otro día, que se note: es "el Push del lunes", no el de hoy.
+              Sin el nombre de la rutina, que ya va en el título (como en el día del historial). */}
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
-              {activa.cubre_fecha < activa.fecha ? 'Recuperado' : 'Adelantado'} el {rutina.nombre}{' '}
-              del {fechaEnFrase(activa.cubre_fecha, false)}
+              {activa.cubre_fecha < activa.fecha ? 'Recuperado' : 'Adelantado'} del{' '}
+              {fechaEnFrase(activa.cubre_fecha, false)}
             </span>
           )}
         </div>

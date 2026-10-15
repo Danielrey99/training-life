@@ -402,7 +402,7 @@ function Tarjeta({
           </p>
           {sesion?.cubre_fecha && sesion.cubre_fecha !== resumen.fecha && (
             <p className="tarjeta-despues">
-              {sesion.cubre_fecha < resumen.fecha ? 'Recuperado' : 'Adelantado'} el {nombre} del{' '}
+              {sesion.cubre_fecha < resumen.fecha ? 'Recuperado' : 'Adelantado'} del{' '}
               {nombreDelDia(sesion.cubre_fecha)}
             </p>
           )}
