@@ -309,9 +309,12 @@ function FilaDelDia({ dia, hoy, programa, ejercicios, alTocar }: PropsFila) {
         </>
       )}
       <span className="planificar-relleno" />
+      {/* Ya hecho, en verde y en la misma línea (como la tarjeta de Entrenar, pero sin el día:
+          con «el martes» no cabía). Si no cabe, el que se corta con «…» es el nombre. */}
       {hecho && (
-        <span className="etiqueta-chica planificar-hecho">
-          {adelantado ? `hecho el ${nombreDelDia(hecho.fecha)}` : 'hecho'}
+        <span className="planificar-hecho">
+          <Icono nombre="hecho" pequeno />
+          {adelantado ? 'Hecho por adelantado' : 'Hecho'}
         </span>
       )}
       {oculta && <span className="etiqueta-chica">oculta</span>}
