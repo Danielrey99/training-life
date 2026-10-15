@@ -316,18 +316,6 @@ export function Resumen() {
         anio={mes.slice(0, 4)}
         esteAnio={mes.slice(0, 4) === hoy.slice(0, 4)}
       />
-
-      {barras.some((barra) => Number(barra.volumen) > 0) && (
-        <p className="resumen-pie">
-          {vista.leyenda}
-          {evolucion.en_curso && (
-            <>
-              <br />
-              {vista.enCurso}
-            </>
-          )}
-        </p>
-      )}
     </div>
   )
 }
@@ -415,6 +403,19 @@ function Volumen({
             })}
           </div>
         </>
+      )}
+      {/* Dentro de la tarjeta y bajo las barras (decisión del autor): al final de la pantalla
+          no se veía a qué se refería. */}
+      {barras.some((barra) => Number(barra.volumen) > 0) && (
+        <p className="resumen-pie">
+          {vista.leyenda}
+          {evolucion.en_curso && (
+            <>
+              <br />
+              {vista.enCurso}
+            </>
+          )}
+        </p>
       )}
     </section>
   )
