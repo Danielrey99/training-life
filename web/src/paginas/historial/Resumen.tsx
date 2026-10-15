@@ -268,12 +268,16 @@ export function Resumen() {
         alElegir={(desde) => cambiar({ barra: desde })}
       />
 
-      {conSeries && (
-        <>
-          <section className="resumen-tarjeta">
-            <h2 className="rotulo resumen-titulo">
-              Volumen por rutina · {vista.enUnaFrase(elegida, hoy)}
-            </h2>
+      {/* El desglose sale siempre, también sin series (decisión del autor): así la pantalla
+          tiene siempre la misma forma, y cada recuadro dice que no hay nada. */}
+      <>
+        <section className="resumen-tarjeta">
+          <h2 className="rotulo resumen-titulo">
+            Volumen por rutina · {vista.enUnaFrase(elegida, hoy)}
+          </h2>
+          {!conSeries ? (
+            <p className="resumen-vacio">{vista.sinSeries}</p>
+          ) : (
             <Reparto
               filas={elegida.volumen_por_rutina.map(({ rutina, volumen }) => ({
                 clave: rutina.id,
@@ -284,12 +288,16 @@ export function Resumen() {
                 color: colorDe(rutina),
               }))}
             />
-          </section>
+          )}
+        </section>
 
-          <section className="resumen-tarjeta">
-            <h2 className="rotulo resumen-titulo">
-              Series por grupo muscular · {vista.enUnaFrase(elegida, hoy)}
-            </h2>
+        <section className="resumen-tarjeta">
+          <h2 className="rotulo resumen-titulo">
+            Series por grupo muscular · {vista.enUnaFrase(elegida, hoy)}
+          </h2>
+          {!conSeries ? (
+            <p className="resumen-vacio">{vista.sinSeries}</p>
+          ) : (
             <Reparto
               filas={elegida.series_por_grupo.map(({ grupo_muscular, series }) => ({
                 clave: grupo_muscular.id,
@@ -299,9 +307,9 @@ export function Resumen() {
                 color: null,
               }))}
             />
-          </section>
-        </>
-      )}
+          )}
+        </section>
+      </>
 
       <Constancia
         constancia={datos.constancia}
