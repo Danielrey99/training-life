@@ -11,6 +11,7 @@ import { enUnidad, numeroLegible, pesoLegible, unidad, unoRM } from '../../utile
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Bloque, type Insignia, type Mejora } from './BloqueDelDia'
+import { HojaDeFecha } from './HojaDeFecha'
 import '../sesion/sesion.css'
 import './historial.css'
 
@@ -163,6 +164,7 @@ export function Dia() {
   // El borrador del modo editar: nada llega a la API hasta pulsar Guardar. Las series
   // nuevas llevan un id negativo hasta crearse.
   const [fechaNueva, setFechaNueva] = useState(fecha)
+  const [eligiendoFecha, setEligiendoFecha] = useState(false)
   const [notasNuevas, setNotasNuevas] = useState<string | null>(null)
   const [seriesNuevas, setSeriesNuevas] = useState<Serie[]>([])
   const [guardando, setGuardando] = useState(false)
@@ -418,21 +420,35 @@ export function Dia() {
       </header>
 
       {editando && (
-        <label className="campo dia-fecha">
-          <span className="campo-etiqueta">Fecha</span>
-          <input
-            className="campo-texto"
-            type="date"
-            value={fechaNueva}
-            max={hoy()}
+        <div className="campo dia-fecha">
+          <span className="campo-etiqueta" id="dia-fecha-etiqueta">
+            Fecha
+          </span>
+          {/* No el selector del sistema: la hoja enseña el mes con sus marcas. */}
+          <button
+            type="button"
+            className="campo-texto dia-fecha-boton"
+            aria-labelledby="dia-fecha-etiqueta"
             disabled={hayAbierta}
-            onChange={(evento) => {
-              setFechaNueva(evento.target.value)
-              setFalloFecha(null)
-            }}
-          />
+            onClick={() => setEligiendoFecha(true)}
+          >
+            {fechaLarga(fechaNueva)}
+            <Icono nombre="historial" pequeno />
+          </button>
           {falloFecha && <span className="fallo">{falloFecha}</span>}
-        </label>
+        </div>
+      )}
+
+      {eligiendoFecha && (
+        <HojaDeFecha
+          fecha={fechaNueva}
+          alElegir={(elegida) => {
+            setFechaNueva(elegida)
+            setFalloFecha(null)
+            setEligiendoFecha(false)
+          }}
+          alCerrar={() => setEligiendoFecha(false)}
+        />
       )}
 
       {falloGuardar && <p className="aviso error">{falloGuardar}</p>}

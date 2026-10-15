@@ -4,10 +4,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { DiaSemana, DiaSeguimiento, Programa } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { MarcaDelDia } from '../../componentes/MarcaDelDia'
 import { colorDelDia, SIN_DIA } from '../../utiles/colores'
 import {
-  diaDeLaSemana,
   diaYMes,
   finDeMes,
   hoy as hoyLocal,
@@ -16,9 +14,9 @@ import {
   tituloDeMes,
 } from '../../utiles/fechas'
 import { HojaRegistrar } from './HojaRegistrar'
+import { MesConMarcas } from './MesConMarcas'
 import './historial.css'
 
-const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
 type Cifras = { entrenados: number; planificados: number; movidos: number; noHechos: number }
@@ -106,8 +104,6 @@ export function Calendario() {
 
   if (error) return <p className="aviso error">{error}</p>
 
-  // Huecos antes del día 1, para que cada columna sea un día de la semana.
-  const vacios = diaDeLaSemana(mes) - 1
   const dias = cargado?.mes === mes ? cargado.dias : null
   const series = cargado?.series ?? 0
   const resumen = dias && cifras(dias)
@@ -139,34 +135,7 @@ export function Calendario() {
         </button>
       </div>
 
-      <div className="calendario">
-        {INICIALES.map((inicial) => (
-          <span key={inicial} className="calendario-cabecera">
-            {inicial}
-          </span>
-        ))}
-        {Array.from({ length: vacios }, (_, indice) => (
-          <span key={`vacio-${indice}`} />
-        ))}
-        {dias?.map((dia) => {
-          const clases = ['calendario-dia']
-          if (dia.fecha === hoy) clases.push('es-hoy')
-          else if (dia.fecha > hoy) clases.push('futuro')
-          const tocable = Boolean(dia.sesion) || dia.fecha <= hoy
-          return (
-            <button
-              key={dia.fecha}
-              type="button"
-              className={clases.join(' ')}
-              onClick={() => tocar(dia)}
-              disabled={!tocable}
-            >
-              <span className="num">{Number(dia.fecha.slice(8))}</span>
-              <MarcaDelDia dia={dia} diasDelPrograma={programa?.dias} />
-            </button>
-          )
-        })}
-      </div>
+      <MesConMarcas mes={mes} dias={dias} hoy={hoy} programa={programa} alTocar={tocar} />
 
       {resumen && mes <= hoy && (
         <>

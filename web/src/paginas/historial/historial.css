@@ -74,6 +74,14 @@
   font-weight: 700;
 }
 
+/* La fecha elegida, en la hoja de cambiar la fecha de una sesión: con fondo, para que se
+   distinga del recuadro verde de hoy y no tape el color de las marcas. */
+.calendario-dia.elegida {
+  background: var(--superficie-alta);
+  border-color: var(--texto);
+  font-weight: 700;
+}
+
 /* --- Las cifras del mes -------------------------------------------------- */
 
 .cifras {
@@ -353,8 +361,17 @@
 }
 
 /* El calendario del navegador, en el tema de la app (sin esto salía claro). */
-.dia-fecha input {
-  color-scheme: inherit;
+.dia-fecha-boton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dia-fecha-boton svg {
+  color: var(--texto-tenue);
 }
 
 .dia-hueco {
