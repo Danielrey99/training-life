@@ -365,11 +365,6 @@ export function Ejercicio() {
 
       <div className="campo">
         <span className="campo-etiqueta">Alternativas</span>
-        {!soloLectura && (
-          <span className="ejercicio-ayuda">
-            Las que puedes hacer en su lugar, por ejemplo si la máquina está ocupada.
-          </span>
-        )}
         <div className="ejercicio-chips">
           {formulario.alternativas.map((ejercicio) => (
             <span key={ejercicio.id} className="ejercicio-chip">
