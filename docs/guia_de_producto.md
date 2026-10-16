@@ -258,7 +258,7 @@ Los días **de hoy en adelante**, agrupados por semanas: salen cuatro, y al fina
 - El pasado no se planifica: lo que pasó se registra (desde H1), no se cambia.
 - **Lo pendiente de recuperar no sale aquí**: H4 solo enseña hoy y los días que vienen, y recuperar se hace desde Hoy.
 - **Una rutina oculta** sigue en su día, en gris y con *oculta*, porque ocultar no la quita del programa; ese día cuenta como descanso. Se puede dejar en *Descanso* a propósito, y elegir otra rutina la sustituye solo en esa fecha.
-- **Un día ya hecho por adelantado** lleva en verde *✓ Hecho por adelantado*, como la tarjeta de Entrenar pero sin el día, para que quepa en la línea. Si su rutina se pasa a otro día de la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
+- **Un día ya hecho** lleva un ✓ verde, y uno cambiado a mano, un lápiz; los dos sin texto, para que el nombre de la rutina tenga sitio, y explicados en una leyenda bajo la ayuda de arriba (*✓ Ya hecho · ✎ Cambiado por ti*). Si su rutina se pasa a otro día de la semana, el adelanto pasa a contar para ese día. Lo que no se puede es dejar ese entrenamiento sin ningún día: la app lo explica y pide poner antes la rutina en otro día.
 - Al activar otro programa, la app avisa de los días planificados y ofrece quitarlos.
 
 ### H5 · Resumen
@@ -320,7 +320,7 @@ Todo en una pantalla: nombre, *Activarlo al crearlo* (empieza apagado: activarlo
 
 ### X1 · Biblioteca
 
-Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo muscular (solo salen los grupos que tienen algo en el origen elegido). El grupo muscular se elige con un campo (*Todos los grupos musculares*) que abre una hoja con los grupos en dos columnas, todos a la vista; con uno elegido, el campo dice cuál, en verde. Cada ejercicio dice su grupo y su origen (*predefinido* o *mío*). Al pie, *Nuevo ejercicio*, que lleva a X3, y debajo *Ver N ejercicios ocultos*, en el mismo orden que en Programas. Lo que se busca y filtra se conserva al volver de una ficha.
+Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo muscular (solo salen los grupos que tienen algo en el origen elegido). El grupo muscular se elige con un campo (*Todos los grupos musculares*) que abre una hoja con los grupos en dos columnas, todos a la vista; con uno elegido, el campo dice cuál, en verde. Cada ejercicio dice su grupo y su origen (*predefinido* o *mío*). Al pie, *Nuevo ejercicio*, que lleva a X3, con cualquier filtro (también con *Predefinidos*: es de la pantalla, no del filtro, y quien no encuentra su ejercicio lo crea ahí mismo), y debajo *Ver N ejercicios ocultos*, en el mismo orden que en Programas; con *Predefinidos* no sale, porque un predefinido no se oculta. Desde la pestaña, la biblioteca abre siempre en *Todos* y todos los grupos; lo que se busca y filtra se conserva al volver de una ficha.
 
 ### X2 · Ficha
 
@@ -374,7 +374,7 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 - **E1** da la bienvenida y explica los dos pasos diciendo qué es cada cosa: una rutina son los ejercicios de cada día de entreno, y un programa, tus rutinas repartidas en la semana. Debajo, *Ir a Programas*. Debajo, que también se puede entrenar sin programa. En cuanto hay una rutina, la bienvenida deja paso a *Sin programa*, con la lista de rutinas.
 - **P1** dice que cada sección está vacía, y *Nueva rutina* pasa a ser la acción principal, porque es el primer paso.
-- **X1** solo puede estar vacío en *Míos*: lo dice, recuerda dónde están los predefinidos, y *Nuevo ejercicio* pasa a ser la acción principal.
+- **X1** solo puede estar vacío en *Míos*: lo dice en una frase (*Todavía no has creado ningún ejercicio.*), y *Nuevo ejercicio* pasa a ser la acción principal.
 
 ## Flujos
 
