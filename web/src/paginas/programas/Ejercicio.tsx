@@ -28,7 +28,6 @@ import {
 import './ejercicio.css'
 import { HojaDeEjercicios } from './HojaDeEjercicios'
 import './semana.css'
-import { deDonde } from './textos'
 
 /**
  * De dónde sale lo que se edita: un ejercicio del borrador de la rutina nueva (nada
@@ -188,7 +187,11 @@ export function Ejercicio() {
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { origen, ejercicios, grupos } = datos
-  const nombreDeGrupo = new Map(grupos.map((uno) => [uno.id, uno.nombre]))
+  // El grupo del principal, a la derecha de su etiqueta (decisión del autor): suelto debajo
+  // se confundía con la etiqueta de un campo, y dentro del recuadro no convencía. Que sea
+  // predefinido o tuyo no se dice: aquí no cambia nada; se ve al elegirlo.
+  const suGrupo = grupos.find((uno) => uno.id === formulario.principal?.grupo_muscular_id)
+  const grupo = suGrupo && <span className="ejercicio-grupo">{suGrupo.nombre}</span>
   const huecoOculto = origen.tipo === 'existente' && origen.hueco.oculto_desde !== null
   const rutinaOculta = origen.tipo !== 'borrador' && origen.rutina.oculto_desde !== null
   const soloLectura = huecoOculto || rutinaOculta
@@ -341,7 +344,10 @@ export function Ejercicio() {
       {fallo && <p className="aviso error">{fallo}</p>}
 
       <div className="campo">
-        <span className="campo-etiqueta">Ejercicio principal</span>
+        <div className="ejercicio-cabecera-campo">
+          <span className="campo-etiqueta">Ejercicio principal</span>
+          {grupo}
+        </div>
         {soloLectura ? (
           <div className="ejercicio-caja">{formulario.principal?.nombre}</div>
         ) : (
@@ -357,9 +363,6 @@ export function Ejercicio() {
             {formulario.principal?.oculto_desde && <span className="etiqueta-chica">oculto</span>}
             <Icono nombre="abajo" pequeno />
           </button>
-        )}
-        {formulario.principal && (
-          <span className="ejercicio-ayuda">{deDonde(formulario.principal, nombreDeGrupo)}</span>
         )}
       </div>
 

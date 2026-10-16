@@ -37,6 +37,22 @@ button.ejercicio-caja .icono {
   color: var(--texto-tenue);
 }
 
+/* La etiqueta del principal y, a la derecha, su grupo: un dato del ejercicio elegido, no el
+   nombre de un campo (por eso no va suelto debajo, como las etiquetas). */
+.ejercicio-cabecera-campo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ejercicio-grupo {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--texto-tenue);
+  white-space: nowrap;
+}
+
 .ejercicio-sin-elegir {
   color: var(--texto-tenue);
 }
