@@ -23,7 +23,23 @@ export const TODOS_LOS_GRUPOS = 'Todos los grupos musculares'
  */
 export function DesplegableDeGrupo({ grupos, elegido, alElegir }: Props) {
   const [abierto, setAbierto] = useState(false)
+  // Lo que mide la lista: hasta el pie de la hoja (decisión del autor: con muchos grupos,
+  // cuanto más se vea, mejor; lo que no quepa, con la barra de desplazamiento).
+  const [alto, setAlto] = useState<number>()
   const caja = useRef<HTMLDivElement>(null)
+
+  function abrir() {
+    const campo = caja.current
+    const hoja = campo?.closest('.hoja')
+    if (campo && hoja) {
+      const relleno = parseFloat(getComputedStyle(hoja).paddingBottom)
+      // 4 px: el hueco entre el campo y la lista (`top` en `.desplegable-lista`).
+      setAlto(
+        hoja.getBoundingClientRect().bottom - relleno - campo.getBoundingClientRect().bottom - 4,
+      )
+    }
+    setAbierto(true)
+  }
 
   useEffect(() => {
     if (!abierto) return
@@ -72,13 +88,18 @@ export function DesplegableDeGrupo({ grupos, elegido, alElegir }: Props) {
         aria-label="Grupo muscular"
         aria-haspopup="listbox"
         aria-expanded={abierto}
-        onClick={() => setAbierto(!abierto)}
+        onClick={() => (abierto ? setAbierto(false) : abrir())}
       >
         {nombre}
       </button>
       <Icono nombre={abierto ? 'arriba' : 'abajo'} pequeno />
       {abierto && (
-        <div className="desplegable-lista" role="listbox" aria-label="Grupo muscular">
+        <div
+          className="desplegable-lista"
+          role="listbox"
+          aria-label="Grupo muscular"
+          style={alto ? { maxHeight: alto } : undefined}
+        >
           {opcion(null, TODOS_LOS_GRUPOS)}
           {grupos.map((uno) => opcion(uno.id, uno.nombre))}
         </div>
