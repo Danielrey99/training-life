@@ -232,7 +232,7 @@ export function Ficha() {
       {oculto && (
         <div className="semana-oculto">
           <strong>Oculto desde el {diaYMesConAnio(ejercicio.oculto_desde!)}</strong>
-          <span>No sale en la pestaña Ejercicios ni al elegir ejercicio.</span>
+          <span>No sale en las listas de ejercicios.</span>
           <span>Las rutinas que lo usan lo conservan, en gris.</span>
         </div>
       )}
@@ -386,7 +386,7 @@ export function Ficha() {
       {pregunta === 'ocultar' && (
         <Dialogo
           titulo={`¿Ocultar ${ejercicio.nombre}?`}
-          cuerpo="Dejará de salir en la pestaña Ejercicios y al elegir ejercicio. Las rutinas que lo usan lo conservan en gris, y su historial y tus notas siguen intactos."
+          cuerpo="Dejará de salir en las listas de ejercicios. Las rutinas que lo usan lo conservan en gris, y su historial y tus notas siguen intactos."
           confirmar="Ocultar"
           alConfirmar={async () => {
             await api.borrarEjercicio(id, 'ocultar')
@@ -399,7 +399,7 @@ export function Ficha() {
       {pregunta === 'mostrar' && (
         <Dialogo
           titulo={`¿Mostrar ${ejercicio.nombre}?`}
-          cuerpo="Volverá a salir en la pestaña Ejercicios y al elegir ejercicio."
+          cuerpo="Volverá a salir en las listas de ejercicios."
           confirmar="Mostrar"
           alConfirmar={async () => {
             await api.mostrarEjercicio(id)
