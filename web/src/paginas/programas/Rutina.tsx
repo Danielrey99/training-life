@@ -25,7 +25,7 @@ function visiblesEnOrden(rutina: DatosRutina) {
 }
 
 function fila(hueco: HuecoDeRutina, enlace?: string, oculto = false): FilaDeEjercicio {
-  const alternativas = lineaDeAlternativas(hueco.alternativas.map((ejercicio) => ejercicio.nombre))
+  const alternativas = lineaDeAlternativas(hueco.alternativas.length)
   const desde = oculto ? `oculto desde el ${diaYMesConAnio(hueco.oculto_desde!)}` : null
   return {
     clave: hueco.id,

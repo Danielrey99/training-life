@@ -139,7 +139,7 @@ export function RutinaNueva() {
       reps_min: ejercicio.repsMin,
       reps_max: ejercicio.repsMax,
     }),
-    detalle: lineaDeAlternativas(ejercicio.alternativas.map((otro) => otro.nombre)),
+    detalle: lineaDeAlternativas(ejercicio.alternativas.length),
     enlace: `/programas/rutinas/nueva/ejercicios/${indice}`,
   }))
 

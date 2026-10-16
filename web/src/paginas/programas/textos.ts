@@ -43,10 +43,12 @@ export function objetivo(hueco: { series_objetivo: number; reps_min: number; rep
   return `${hueco.series_objetivo} × ${reps}`
 }
 
-/** "Alternativa: Press banca en máquina"; sin ninguna, nada. */
-export function lineaDeAlternativas(nombres: string[]) {
-  if (nombres.length === 0) return null
-  return `${nombres.length === 1 ? 'Alternativa' : 'Alternativas'}: ${nombres.join(', ')}`
+/** "1 alternativa" o "3 alternativas", bajo el ejercicio en P3; sin ninguna, nada. */
+export function lineaDeAlternativas(cuantas: number) {
+  // Solo cuántas, no sus nombres (decisión del autor): con varias, la lista ocupaba tres
+  // líneas y deformaba la rutina. Los nombres se ven al abrir el ejercicio.
+  if (cuantas === 0) return null
+  return cuantas === 1 ? '1 alternativa' : `${cuantas} alternativas`
 }
 
 /** "Pecho · predefinido" o "Pecho · tuyo": de qué grupo es y quién lo creó. */
