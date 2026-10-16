@@ -128,14 +128,29 @@
   flex-grow: 1;
 }
 
-.planificar-hecho {
+/* El ✓ de hecho y el lápiz de cambiado, en la fila y en la leyenda. */
+.planificar-marca {
   flex-shrink: 0;
+  display: inline-flex;
+  color: var(--texto-tenue);
+}
+
+.planificar-marca.hecho {
+  color: var(--acento);
+}
+
+.planificar-leyenda {
+  margin: 0;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: var(--acento);
-  white-space: nowrap;
+  color: var(--texto-tenue);
+}
+
+.planificar-leyenda .planificar-marca:not(:first-child) {
+  margin-left: 12px;
 }
 
 .planificar-mas {

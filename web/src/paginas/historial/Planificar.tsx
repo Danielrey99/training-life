@@ -194,6 +194,17 @@ export function Planificar() {
       </header>
 
       <p className="planificar-ayuda">Toca un día para cambiar qué rutina toca.</p>
+      {/* Lo que quieren decir los iconos de las filas, con el icono real. */}
+      <p className="planificar-leyenda">
+        <span className="planificar-marca hecho">
+          <Icono nombre="hecho" pequeno />
+        </span>
+        Ya hecho
+        <span className="planificar-marca">
+          <Icono nombre="editar" pequeno />
+        </span>
+        Cambiado por ti
+      </p>
 
       {semanas.map((semana) => {
         const esta = semana.lunes === lunesDe(hoy)
@@ -277,7 +288,6 @@ function FilaDelDia({ dia, hoy, ejercicios, alTocar }: PropsFila) {
   // Una rutina oculta sigue en su día, en gris, pero cuenta como descanso.
   const oculta = dia.rutina?.oculto_desde ? dia.rutina : null
   const hecho = dia.cubierto_por
-  const adelantado = hecho && hecho.fecha !== dia.fecha
   return (
     <button type="button" className="planificar-dia" onClick={alTocar}>
       <span className={dia.fecha === hoy ? 'planificar-fecha es-hoy' : 'planificar-fecha'}>
@@ -306,16 +316,24 @@ function FilaDelDia({ dia, hoy, ejercicios, alTocar }: PropsFila) {
         </>
       )}
       <span className="planificar-relleno" />
-      {/* Ya hecho, en verde y en la misma línea (como la tarjeta de Entrenar, pero sin el día:
-          con «el martes» no cabía). Si no cabe, el que se corta con «…» es el nombre. */}
+      {/* Hecho y cambiado, solo con su icono (decisión del autor): con texto, «Hecho» y
+          «cambiado» juntos no dejaban sitio al nombre. Los explica la leyenda de arriba. */}
       {hecho && (
-        <span className="planificar-hecho">
+        <span className="planificar-marca hecho" role="img" aria-label="Hecho" title="Hecho">
           <Icono nombre="hecho" pequeno />
-          {adelantado ? 'Hecho por adelantado' : 'Hecho'}
         </span>
       )}
       {oculta && <span className="etiqueta-chica">oculta</span>}
-      {dia.origen === 'excepcion' && <span className="etiqueta-chica">cambiado</span>}
+      {dia.origen === 'excepcion' && (
+        <span
+          className="planificar-marca"
+          role="img"
+          aria-label="Cambiado por ti"
+          title="Cambiado por ti"
+        >
+          <Icono nombre="editar" pequeno />
+        </span>
+      )}
       <Icono nombre="abrir" pequeno />
     </button>
   )
