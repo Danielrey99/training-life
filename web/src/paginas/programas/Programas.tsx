@@ -5,7 +5,6 @@ import { api } from '../../api/cliente'
 import type { Programa, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
-import { colorDeRutina } from '../../utiles/colores'
 import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
 import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from './textos'
 import './programas.css'
@@ -96,7 +95,6 @@ export function Programas() {
 
   // El activo primero; el resto, por nombre (ya vienen así de la API).
   const programas = [...datos.programas].sort((a, b) => Number(b.activo) - Number(a.activo))
-  const diasDelActivo = programas.find((programa) => programa.activo)?.dias
   const sinRutinas = datos.rutinas.length === 0
 
   return (
@@ -140,11 +138,7 @@ export function Programas() {
         ) : (
           <div className="programas-rutinas">
             {datos.rutinas.map((rutina) => (
-              <FilaDeRutina
-                key={rutina.id}
-                rutina={rutina}
-                color={colorDeRutina(diasDelActivo, rutina.id)}
-              />
+              <FilaDeRutina key={rutina.id} rutina={rutina} />
             ))}
           </div>
         )}
@@ -222,11 +216,13 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
   )
 }
 
-/** Sin `color`, la rutina está oculta: punto apagado y "oculta desde…". */
-function FilaDeRutina({ rutina, color }: { rutina: Rutina; color?: string }) {
+/**
+ * Sin punto de color (decisión del autor): una rutina solo tiene color puesta en un día
+ * de un programa, y es el de ese día. Una oculta dice "oculta desde…".
+ */
+function FilaDeRutina({ rutina }: { rutina: Rutina }) {
   return (
     <Link to={`/programas/rutinas/${rutina.id}`} className="programas-rutina">
-      <span className="programas-punto" style={color ? { background: color } : undefined} />
       <span className="programas-rutina-texto">
         <strong>{rutina.nombre}</strong>
         <span>

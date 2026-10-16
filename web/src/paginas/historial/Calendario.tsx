@@ -182,7 +182,6 @@ export function Calendario() {
       {registrando && (
         <HojaRegistrar
           fecha={registrando}
-          programa={programa}
           alCerrar={() => setRegistrando(null)}
         />
       )}

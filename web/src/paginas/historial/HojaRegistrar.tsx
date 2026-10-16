@@ -2,25 +2,27 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { api } from '../../api/cliente'
-import type { Hoy, Programa, RutinaMinima } from '../../api/tipos'
+import type { Hoy, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
-import { colorDelDia, colorDeRutina } from '../../utiles/colores'
+import { colorDelDia } from '../../utiles/colores'
 import { conArticulo, diaDeLaSemana, fechaEnFrase, fechaLarga } from '../../utiles/fechas'
 
 type Props = {
   fecha: string
-  programa: Programa | null
   alCerrar: () => void
 }
 
-/** Una opción de la hoja: qué rutina, qué día cuenta y cómo se dice. */
+/**
+ * Una opción de la hoja: qué rutina, qué día cuenta y cómo se dice. Las que cuentan para
+ * un día del programa llevan el color de ese día; las que no, sin punto, porque no tienen
+ * que ver con el programa (decisión del autor).
+ */
 type Opcion = {
   clave: string
   rutina: RutinaMinima
   titulo: string
   detalle: string | null
   cubre: string | null
-  color: string
 }
 
 type Eleccion = { opcion: Opcion; cuerpo: string | undefined }
@@ -38,7 +40,7 @@ function contarEjercicios(cuantos: number) {
  * adelantar. Cualquier otra rutina se apunta igual, pero sin contar para ningún
  * día del programa. No cambia lo planificado: registra lo que pasó.
  */
-export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
+export function HojaRegistrar({ fecha, alCerrar }: Props) {
   const navegar = useNavigate()
   const [resumen, setResumen] = useState<Hoy | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -79,7 +81,6 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         titulo: `${dia.rutina.nombre}, lo que tocaba`,
         detalle: null,
         cubre: fecha,
-        color: colorDelDia(diaDeLaSemana(fecha)),
       })
     }
     for (const recuperable of resumen.por_recuperar.filter((r) => r.se_puede_hoy)) {
@@ -89,7 +90,6 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
         titulo: `Recuperar el ${recuperable.rutina.nombre} del ${fechaEnFrase(recuperable.fecha, false)}`,
         detalle: null,
         cubre: recuperable.fecha,
-        color: colorDelDia(diaDeLaSemana(recuperable.fecha)),
       })
     }
     for (const ofrecida of resumen.ofrecidas) {
@@ -100,7 +100,6 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
           titulo: `Adelantar el ${ofrecida.rutina.nombre} del ${fechaEnFrase(ofrecida.fecha, false)}`,
           detalle: null,
           cubre: ofrecida.fecha,
-          color: colorDelDia(diaDeLaSemana(ofrecida.fecha)),
         })
       } else if (ofrecida.accion === 'sin_contar') {
         otras.push({
@@ -109,7 +108,6 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
           titulo: ofrecida.rutina.nombre,
           detalle: null,
           cubre: null,
-          color: colorDeRutina(programa?.dias, ofrecida.rutina.id),
         })
       }
     }
@@ -135,7 +133,12 @@ export function HojaRegistrar({ fecha, programa, alCerrar }: Props) {
   function Fila({ opcion }: { opcion: Opcion }) {
     return (
       <button type="button" className="hoja-fila" onClick={() => elegir(opcion)}>
-        <span className="marca-punto" style={{ background: opcion.color }} />
+        {opcion.cubre && (
+          <span
+            className="marca-punto"
+            style={{ background: colorDelDia(diaDeLaSemana(opcion.cubre)) }}
+          />
+        )}
         <span className="hoja-fila-texto">
           <strong>{opcion.titulo}</strong>
           {opcion.detalle && <span>{opcion.detalle}</span>}

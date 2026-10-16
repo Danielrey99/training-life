@@ -14,7 +14,6 @@ import type {
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
-import { colorDelDia } from '../../utiles/colores'
 import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
 import { pesoLegible, unidad } from '../../utiles/numeros'
 import { valorDe } from '../../utiles/progresion'
@@ -63,12 +62,6 @@ function dondeEsta(uso: UsoEnRutina) {
     return `Rutina oculta desde el ${diaYMesConAnio(uso.rutina.oculto_desde)} · ${programas}`
   }
   return programas
-}
-
-/** El punto con el color de su día en el programa activo, como en Programas. */
-function colorDelUso(uso: UsoEnRutina) {
-  const dia = uso.programas.find((programa) => programa.activo)?.dias_semana[0]
-  return dia === undefined ? undefined : colorDelDia(dia)
 }
 
 /**
@@ -447,11 +440,10 @@ export function Ficha() {
   )
 }
 
+/** Sin punto de color, como en Programas: una rutina solo lo tiene puesta en un día. */
 function FilaDeUso({ uso }: { uso: UsoEnRutina }) {
-  const color = uso.oculto ? undefined : colorDelUso(uso)
   return (
     <Link to={`/programas/rutinas/${uso.rutina.id}`} className="programas-rutina detalle-uso">
-      <span className="programas-punto" style={color ? { background: color } : undefined} />
       <span className="programas-rutina-texto">
         <strong>{queEjercicio(uso)}</strong>
         <span>{dondeEsta(uso)}</span>

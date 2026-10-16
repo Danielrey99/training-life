@@ -4,7 +4,7 @@ import { api, ErrorDeApi } from '../../api/cliente'
 import type { DiaSeguimiento, Hoy, Programa, RutinaDeHoy } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
-import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
+import { colorDelDia, colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
   conArticulo,
   diaDeLaSemana,
@@ -220,7 +220,6 @@ export function Planificar() {
                   key={dia.fecha}
                   dia={dia}
                   hoy={hoy}
-                  programa={programa}
                   ejercicios={ejercicios}
                   alTocar={() => setAbierto(dia)}
                 />
@@ -268,13 +267,12 @@ export function Planificar() {
 type PropsFila = {
   dia: DiaSeguimiento
   hoy: string
-  programa: Programa | null
   ejercicios: (rutinaId: number) => string
   alTocar: () => void
 }
 
 /** Un día de la lista: qué toca, y si ya se hizo por adelantado o se cambió a mano. */
-function FilaDelDia({ dia, hoy, programa, ejercicios, alTocar }: PropsFila) {
+function FilaDelDia({ dia, hoy, ejercicios, alTocar }: PropsFila) {
   const rutina = dia.descanso ? null : dia.rutina
   // Una rutina oculta sigue en su día, en gris, pero cuenta como descanso.
   const oculta = dia.rutina?.oculto_desde ? dia.rutina : null
@@ -287,9 +285,11 @@ function FilaDelDia({ dia, hoy, programa, ejercicios, alTocar }: PropsFila) {
       </span>
       {rutina ? (
         <>
+          {/* El color del día, también para una rutina de fuera del programa (decisión del
+              autor): una rutina solo tiene color puesta en un día, y es el de ese día. */}
           <span
             className="marca-punto"
-            style={{ background: colorDeRutina(programa?.dias, rutina.id) }}
+            style={{ background: colorDelDia(diaDeLaSemana(dia.fecha)) }}
           />
           <strong>{rutina.nombre}</strong>
           {!hecho && <span className="planificar-detalle">{ejercicios(rutina.id)}</span>}
@@ -414,7 +414,9 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
     }
   }
 
-  function FilaDeRutina({ rutina }: { rutina: RutinaDeHoy }) {
+  // `color`, solo las del programa: el de su día en él, que dice de qué día es (decisión del
+  // autor). Las otras van sin punto: no están puestas en ningún día.
+  function FilaDeRutina({ rutina, color }: { rutina: RutinaDeHoy; color?: string }) {
     return (
       <button
         type="button"
@@ -422,10 +424,7 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
         onClick={() => elegir(rutina.id)}
         disabled={guardando}
       >
-        <span
-          className="marca-punto"
-          style={{ background: colorDeRutina(programa?.dias, rutina.id) }}
-        />
+        {color && <span className="marca-punto" style={{ background: color }} />}
         <span className="hoja-fila-texto">
           <strong>{rutina.nombre}</strong>
         </span>
@@ -471,7 +470,11 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           <p className="hoja-rotulo">Rutinas del programa</p>
         )}
         {delProgramaEnOrden.map((rutina) => (
-          <FilaDeRutina key={rutina.id} rutina={rutina} />
+          <FilaDeRutina
+            key={rutina.id}
+            rutina={rutina}
+            color={colorDeRutina(programa?.dias, rutina.id)}
+          />
         ))}
         {/* Sin programa no hay "otras": todas lo son, y van sin rótulo. */}
         {!programa && otras.map((rutina) => <FilaDeRutina key={rutina.id} rutina={rutina} />)}
@@ -481,7 +484,8 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           onClick={() => elegir(null)}
           disabled={guardando}
         >
-          <span className="planificar-espacio" />
+          {/* Con programa va con las suyas, que llevan punto: el hueco lo alinea con ellas. */}
+          {programa && <span className="planificar-espacio" />}
           <span className="hoja-fila-texto">
             <strong className="planificar-descanso">Descanso</strong>
           </span>

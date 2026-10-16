@@ -171,7 +171,6 @@ export function ProgramaNuevo() {
       <h2 className="semana-rotulo">Días</h2>
       <DiasEditables
         dias={borrador.dias}
-        diasDelActivo={activo?.dias}
         alAbrir={setHojaDe}
         alQuitar={(dia) => cambiar({ dias: { ...borrador.dias, [dia]: null } })}
         desactivado={guardando}

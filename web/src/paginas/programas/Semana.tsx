@@ -6,7 +6,7 @@ import type { DiaSemana, Programa, Rutina, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
-import { colorDeRutina } from '../../utiles/colores'
+import { colorDelDia } from '../../utiles/colores'
 import { diaYMesConAnio } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -34,7 +34,8 @@ import './semana.css'
 
 type Datos = {
   programa: Programa
-  // El activo, sea este u otro: su nombre sale en el interruptor y sus días dan el color.
+  // El activo, sea este u otro: su nombre sale en el interruptor y sus días ordenan la hoja
+  // de elegir rutina.
   activo: Programa | undefined
   // Las visibles, para el número de ejercicios de cada día y para la hoja de elegir.
   rutinas: Rutina[]
@@ -300,7 +301,6 @@ export function Semana() {
       {editando && dias ? (
         <DiasEditables
           dias={dias}
-          diasDelActivo={activo?.dias}
           alAbrir={setHojaDe}
           alQuitar={(dia) => elegir(dia, null)}
           desactivado={guardando}
@@ -321,7 +321,9 @@ export function Semana() {
               )
             }
             const oculta = rutina.oculto_desde !== null
-            const color = oculta ? undefined : colorDeRutina(activo?.dias, rutina.id)
+            // El color del día, esté activo o no el programa (decisión del autor: una rutina
+            // solo tiene color puesta en un día, y es el de ese día).
+            const color = oculta ? undefined : colorDelDia(dia)
             return (
               <Link key={dia} to={`/programas/rutinas/${rutina.id}`} className="semana-dia">
                 {nombreDelDia}

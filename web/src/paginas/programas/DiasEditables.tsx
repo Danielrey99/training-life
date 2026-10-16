@@ -1,6 +1,6 @@
-import type { DiaSemana, ProgramaDia } from '../../api/tipos'
+import type { DiaSemana } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { colorDeRutina } from '../../utiles/colores'
+import { colorDelDia } from '../../utiles/colores'
 import { DIAS, type DiasDelBorrador } from './borradores'
 import './programas.css'
 import './semana.css'
@@ -8,8 +8,6 @@ import { NOMBRES_DE_LOS_DIAS, nombreDelDiaSemana } from './textos'
 
 type Props = {
   dias: DiasDelBorrador
-  // Los días del programa activo, para el color de cada rutina.
-  diasDelActivo: ProgramaDia[] | undefined
   alAbrir: (dia: DiaSemana) => void
   alQuitar: (dia: DiaSemana) => void
   desactivado?: boolean
@@ -20,7 +18,7 @@ type Props = {
  * Un día con rutina lleva ✕ (descanso) y › (cambiarla); uno de descanso, *Añadir
  * rutina*. Nada se guarda aquí: cada toque cambia el borrador de quien la usa.
  */
-export function DiasEditables({ dias, diasDelActivo, alAbrir, alQuitar, desactivado }: Props) {
+export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
   return (
     <div className="semana-dias">
       {DIAS.map((dia) => {
@@ -42,7 +40,9 @@ export function DiasEditables({ dias, diasDelActivo, alAbrir, alQuitar, desactiv
           )
         }
         const oculta = rutina.oculto_desde !== null
-        const color = oculta ? undefined : colorDeRutina(diasDelActivo, rutina.id)
+        // El color del día, no de la rutina (decisión del autor): una rutina solo tiene
+        // color puesta en un día, y es el de ese día.
+        const color = oculta ? undefined : colorDelDia(dia)
         return (
           <div key={dia} className="semana-dia">
             {nombreDelDia}

@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 
 import type { ProgramaDia, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { colorDeRutina } from '../../utiles/colores'
 import '../historial/historial.css'
 import './programas.css'
 import { ejercicios, nombreDelDiaSemana } from './textos'
@@ -11,7 +10,7 @@ type Props = {
   diaSemana: number
   // Las visibles: lo oculto deja de ofrecerse.
   rutinas: Rutina[]
-  // Los días del programa activo, para el color y el orden.
+  // Los días del programa activo, para el orden.
   diasDelActivo: ProgramaDia[] | undefined
   // La que ya tiene el día, con su marca; nula si es descanso.
   elegida: number | null
@@ -27,7 +26,8 @@ type Props = {
  * de quien la abre, que lo guarda con *Guardar* o *Crear*.
  *
  * Primero las del programa activo, en el orden de su semana (cada una una vez), y
- * luego las demás por orden alfabético: así las de siempre salen arriba y con su color.
+ * luego las demás por orden alfabético: así las de siempre salen arriba. Sin color:
+ * una rutina solo lo tiene puesta en un día, y es el de ese día (decisión del autor).
  */
 export function HojaDeRutinas({
   diaSemana,
@@ -78,10 +78,6 @@ export function HojaDeRutinas({
             className="hoja-fila"
             onClick={() => alElegir(rutina)}
           >
-            <span
-              className="programas-punto"
-              style={{ background: colorDeRutina(diasDelActivo, rutina.id) }}
-            />
             <span className="hoja-fila-texto">
               <strong>{rutina.nombre}</strong>
             </span>
