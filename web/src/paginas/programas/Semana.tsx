@@ -467,7 +467,7 @@ export function Semana() {
       {pregunta === 'mostrar' && (
         <Dialogo
           titulo={`¿Mostrar ${programa.nombre}?`}
-          cuerpo="Volverá a salir en tu lista de programas, pero no se activará solo: para usarlo, actívalo después."
+          cuerpo="Volverá a tu lista de programas, sin activar."
           confirmar="Mostrar"
           alConfirmar={async () => {
             await api.mostrarPrograma(id)
