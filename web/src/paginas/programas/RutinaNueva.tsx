@@ -176,7 +176,7 @@ export function RutinaNueva() {
           className="campo-texto"
           value={borrador.nombre}
           maxLength={100}
-          placeholder="Ej. Pull pesado"
+          placeholder="Ej. Pierna"
           onChange={(evento) => {
             setBorrador({ ...borrador, nombre: evento.target.value })
             setFalloNombre(null)
