@@ -285,7 +285,7 @@ export function Semana() {
               programa.activo
                 ? 'Marca qué rutina toca cada día'
                 : activo
-                  ? `Al activarlo, ${activo.nombre} deja de estarlo`
+                  ? `Al activarlo, ${activo.nombre} dejará de estar activo`
                   : 'Ningún programa marca ahora qué rutina toca cada día'
             }
             encendido={programa.activo}
