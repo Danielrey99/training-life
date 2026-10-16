@@ -429,7 +429,11 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           <strong>{rutina.nombre}</strong>
         </span>
         <span className="hoja-fila-extra">{ejercicios(rutina.id)}</span>
-        {actual === rutina.id && <Icono nombre="elegido" pequeno />}
+        {actual === rutina.id ? (
+          <Icono nombre="elegido" pequeno />
+        ) : (
+          <span className="hoja-fila-marca" />
+        )}
       </button>
     )
   }
@@ -489,7 +493,11 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           <span className="hoja-fila-texto">
             <strong className="planificar-descanso">Descanso</strong>
           </span>
-          {actual === null && <Icono nombre="elegido" pequeno />}
+          {actual === null ? (
+            <Icono nombre="elegido" pequeno />
+          ) : (
+            <span className="hoja-fila-marca" />
+          )}
         </button>
         {/* Elegida aquí, también cuenta para ese día: es lo que toca, aunque no esté en el
             programa. Por eso el rótulo no dice que no contará, como en la hoja de H1b. */}

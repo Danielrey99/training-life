@@ -281,6 +281,13 @@
   cursor: pointer;
 }
 
+/* El hueco del tick en las filas sin él (decisión del autor): así las cifras de la derecha
+   quedan alineadas y el tick de la elegida no las empuja. */
+.hoja-fila-marca {
+  width: 18px;
+  flex-shrink: 0;
+}
+
 .hoja-fila-texto {
   flex-grow: 1;
   display: flex;

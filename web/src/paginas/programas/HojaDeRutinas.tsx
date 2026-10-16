@@ -82,7 +82,11 @@ export function HojaDeRutinas({
               <strong>{rutina.nombre}</strong>
             </span>
             <span className="hoja-fila-extra">{ejercicios(rutina)}</span>
-            {elegida === rutina.id && <Icono nombre="elegido" pequeno />}
+            {elegida === rutina.id ? (
+              <Icono nombre="elegido" pequeno />
+            ) : (
+              <span className="hoja-fila-marca" />
+            )}
           </button>
         ))}
         {alCrearNueva && (
