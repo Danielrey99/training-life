@@ -77,26 +77,26 @@ function loQueSePierde(aviso: AvisoDeBorrarEjercicio, oculto: boolean) {
     )
   }
   if (aviso.notas > 0) seBorra.push(aviso.notas === 1 ? 'tu nota' : `tus ${aviso.notas} notas`)
-  for (const uso of aviso.huecos.filter((uno) => uno.rol === 'principal')) {
-    seBorra.push(
-      uso.posicion === null
-        ? `su ejercicio oculto en ${uso.rutina.nombre}`
-        : `su ejercicio ${uso.posicion} en ${uso.rutina.nombre}`,
-    )
-  }
-  const alternativaEn = [
-    ...new Set(aviso.huecos.filter((uso) => uso.rol === 'comodin').map((uso) => uso.rutina.nombre)),
-  ]
+  // Las rutinas, sin decir en qué puesto ni si es principal o alternativa (decisión del
+  // autor: «su ejercicio 1 en Push» sonaba raro); eso ya lo enseña la ficha, en «Rutinas
+  // donde se usa».
+  // Donde es el principal, el ejercicio de la rutina se va entero, con sus alternativas.
+  const rutinas = new Set(aviso.huecos.map((uso) => uso.rutina.id)).size
+  const conAlternativas = aviso.huecos.some((uso) => uso.rol === 'principal')
+    ? ', con sus alternativas donde es el principal'
+    : ''
+  const deLasRutinas =
+    rutinas === 0
+      ? null
+      : `se quitará de ${rutinas === 1 ? 'la rutina' : 'las rutinas'} donde se usa${conAlternativas}`
 
   const frases: string[] = []
-  if (seBorra.length > 0 && alternativaEn.length > 0) {
-    frases.push(
-      `Se borrarán también ${enumerar(seBorra)}, y dejará de ser alternativa en ${enumerar(alternativaEn)}.`,
-    )
+  if (seBorra.length > 0 && deLasRutinas) {
+    frases.push(`Se borrarán también ${enumerar(seBorra)}, y ${deLasRutinas}.`)
   } else if (seBorra.length > 0) {
     frases.push(`Se borrarán también ${enumerar(seBorra)}.`)
-  } else if (alternativaEn.length > 0) {
-    frases.push(`Dejará de ser alternativa en ${enumerar(alternativaEn)}.`)
+  } else if (deLasRutinas) {
+    frases.push(`${deLasRutinas[0].toUpperCase()}${deLasRutinas.slice(1)}.`)
   }
   const vacias = aviso.sesiones_que_se_vacian.length
   if (vacias === 1) frases.push('Una sesión se quedará sin series y desaparecerá entera.')
