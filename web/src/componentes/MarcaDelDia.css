@@ -11,6 +11,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
+  /* Junto a un nombre largo no se aplasta: el que se corta es el nombre. */
+  flex-shrink: 0;
 }
 
 /* Un día que aún no ha llegado. */
