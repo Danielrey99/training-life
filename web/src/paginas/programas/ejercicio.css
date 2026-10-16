@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px;
+  padding: 8px 10px;
   background: var(--fondo);
   border: 1px solid var(--borde);
   border-radius: var(--radio-pequeno);
