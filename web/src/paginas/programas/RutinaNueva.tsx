@@ -208,8 +208,6 @@ export function RutinaNueva() {
             </>
           )}
           Pulsa un ejercicio para cambiarlo o quitarlo.
-          <br />
-          La rutina no existe hasta que pulses <em>Guardar</em> en esta pantalla.
         </p>
       )}
     </div>
