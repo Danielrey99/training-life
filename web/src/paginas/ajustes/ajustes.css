@@ -73,13 +73,15 @@
   padding: 2px;
 }
 
+/* Un selector dentro de una tarjeta: 36 px y letra de 13,5, como la medida de la gráfica. */
 .ajustes-selector button {
-  min-height: 40px;
+  min-height: 36px;
   padding: 0 6px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: none;
   font-size: 13.5px;
+  font-weight: 600;
   color: var(--texto-tenue);
 }
 

@@ -119,7 +119,7 @@ export function Biblioteca() {
           />
         </label>
 
-        <div className="progresion-selector" role="group" aria-label="Origen">
+        <div className="progresion-selector ejercicios-origen" role="group" aria-label="Origen">
           {ORIGENES.map((opcion) => (
             <button
               key={opcion.clave}

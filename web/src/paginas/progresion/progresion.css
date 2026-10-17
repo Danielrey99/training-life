@@ -13,20 +13,29 @@
   flex-shrink: 0;
 }
 
+/* Los selectores tienen dos tamaños (decisión del autor): los filtros de arriba de una pantalla
+   (este, el origen de la biblioteca y el de semanas o meses del resumen), una barra de 38 px
+   con letra de 14; los de dentro de una tarjeta (la medida, los de Ajustes), de 36 y 13,5.
+   Los rangos eran pastillas sueltas, el único selector con otro aspecto. */
 .progresion-rangos {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 3px;
 }
 
 .progresion-pildora {
-  flex: 1 1 0;
-  min-height: 44px;
+  min-height: 38px;
   padding: 0 6px;
-  border: 1px solid var(--borde);
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: var(--radio-pequeno);
   background: none;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--texto-tenue);
   white-space: nowrap;
   cursor: pointer;
@@ -35,6 +44,7 @@
 .progresion-pildora.activa {
   color: var(--acento);
   background: var(--superficie);
+  border-color: var(--borde);
 }
 
 .progresion-tarjeta {
@@ -64,13 +74,13 @@
 }
 
 .progresion-selector button {
-  min-height: 32px;
+  min-height: 36px;
   padding: 0 8px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: none;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--texto-tenue);
   cursor: pointer;

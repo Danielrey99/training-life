@@ -182,3 +182,16 @@
 .biblioteca-filtros .ejercicio-filtro {
   margin-bottom: 0;
 }
+
+/* El origen es un filtro de la pantalla, no de una tarjeta: el tamaño grande (38 px, letra de
+   14), como el de semanas o meses del resumen. Reutiliza el selector de la gráfica. */
+.progresion-selector.ejercicios-origen {
+  border-radius: var(--radio);
+  padding: 3px;
+}
+
+.progresion-selector.ejercicios-origen button {
+  min-height: 38px;
+  font-size: 14px;
+  border-radius: var(--radio-pequeno);
+}
