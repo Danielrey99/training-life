@@ -209,7 +209,7 @@ export function Preferencias() {
           />
           <p>
             {ajustes.unoRM === 'media'
-              ? 'Hace la media de todas las series del día: si te cansas en las últimas, baja.'
+              ? 'Hace la media de todas las series del día.'
               : 'Usa solo la serie más fuerte del día: las demás no cuentan.'}{' '}
             Con él se ve si un ejercicio ha mejorado, en el historial y en su gráfica.
           </p>
