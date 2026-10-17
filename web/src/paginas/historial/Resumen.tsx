@@ -11,7 +11,7 @@ import type {
 import { Icono } from '../../componentes/Icono'
 import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
-  diaYMesCorto,
+  diaYMes,
   hoy as hoyLocal,
   inicioDeMes,
   mesCorto,
@@ -51,9 +51,12 @@ function porcentaje(cambio: number): string {
   return `${cambio > 0 ? '+' : cambio < 0 ? '−' : ''}${texto} %`
 }
 
-/** "15 sep", o "29 dic de 2025" si no es del año de `referencia`. */
+/**
+ * "15 de septiembre", o "29 de diciembre de 2025" si no es del año de `referencia`. El mes
+ * entero y no "15 sep" (decisión del autor); el corto queda para el eje de la gráfica.
+ */
 function diaConAnio(iso: string, referencia: string): string {
-  const texto = diaYMesCorto(iso)
+  const texto = diaYMes(iso)
   return iso.slice(0, 4) === referencia.slice(0, 4) ? texto : `${texto} de ${iso.slice(0, 4)}`
 }
 
@@ -67,7 +70,8 @@ function mesConAnio(iso: string, referencia: string): string {
 const VISTAS = {
   semana: {
     titulo: 'Volumen por semana',
-    periodo: (p: PeriodoDeVolumen, hoy: string) => `Semana del ${diaConAnio(p.desde, hoy)}`,
+    // Sin «Semana del»: ya lo dice el título de la tarjeta, «Volumen por semana» (decisión del autor).
+    periodo: (p: PeriodoDeVolumen, hoy: string) => diaConAnio(p.desde, hoy),
     enUnaFrase: (p: PeriodoDeVolumen, hoy: string) => `semana del ${diaConAnio(p.desde, hoy)}`,
     comparadoCon: (p: PeriodoDeVolumen, con: string) =>
       con === sumarDias(p.desde, -7)
