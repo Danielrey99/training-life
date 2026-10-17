@@ -18,9 +18,13 @@
   gap: 10px;
 }
 
+/* Entrenamiento, Apariencia, Tus datos: centrados y más grandes que el rótulo de una lista
+   (decisión del autor: a 12,5 px se veían muy pequeños para separar los apartados). */
 .ajustes-bloque .rotulo {
-  margin: 0;
-  font-weight: 400;
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .ajustes-tarjeta {
@@ -50,10 +54,12 @@
   font-size: 13px;
 }
 
+/* El título de cada tarjeta, centrado (decisión del autor). */
 .ajustes-tarjeta h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  text-align: center;
 }
 
 /* Unas pocas opciones, una al lado de otra (como el de la gráfica de progresión, con
@@ -84,8 +90,10 @@
 }
 
 /* «Suben o bajan [1] kg cada vez.»: el campo dentro de la frase. */
+/* Centrado, como el título de su tarjeta (decisión del autor). */
 .ajustes-paso label {
   display: flex;
+  justify-content: center;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
@@ -104,6 +112,12 @@
 
 .ajustes-paso .fallo {
   margin-top: 8px;
+  text-align: center;
+}
+
+/* Una frase corta bajo un control, centrada como el título de su tarjeta (el tema). */
+.ajustes-tarjeta p.ajustes-centrado {
+  text-align: center;
 }
 
 /* Reps mínimas y máximas, una al lado de otra, como en el formulario de la rutina. */
