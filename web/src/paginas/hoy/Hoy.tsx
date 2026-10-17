@@ -226,8 +226,10 @@ export function Hoy() {
           {sinTerminar.map((sesion) => (
             <Link key={sesion.id} to={`/sesion/${sesion.id}`} className="entrada-fila">
               <span className="entrada-fila-texto">
+                {/* «Rutina · día», como las demás listas de esta pantalla, y el día siempre escrito,
+                    nunca «hoy» ni «ayer» (decisión del autor). */}
                 <strong>
-                  {nombreDeRutina(sesion.rutina_id)} del {fechaEnFrase(sesion.fecha, false)}
+                  {nombreDeRutina(sesion.rutina_id)} · {fechaEnFrase(sesion.fecha, false)}
                   {sesion.series.length === 0 && <span className="etiqueta-chica">vacía</span>}
                 </strong>
                 {/* Una vacía no se hizo: se apunta lo que falte o se cancela (Terminar sin
@@ -274,15 +276,15 @@ export function Hoy() {
           {listaDeAbajo.map((ofrecida) => {
             const contenido = (
               <>
+                {/* El día junto al nombre, no a la derecha: «Rutina · día», como las demás
+                    listas de esta pantalla (decisión del autor). */}
                 <span className="entrada-fila-texto">
-                  <strong>{ofrecida.rutina.nombre}</strong>
+                  <strong>
+                    {ofrecida.rutina.nombre}
+                    {ofrecida.fecha && ` · ${fechaEnFrase(ofrecida.fecha, false)}`}
+                  </strong>
                   <span>{detalle(ofrecida.rutina)}</span>
                 </span>
-                {ofrecida.fecha && (
-                  <span className="entrada-fila-dia">
-                    {mayuscula(nombreDelDia(ofrecida.fecha))}
-                  </span>
-                )}
               </>
             )
             // Hoy ya se entrenó: la fila es solo un recordatorio, sin flecha ni nada que
@@ -511,7 +513,7 @@ function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRec
     <div className="recuperable">
       <div className="entrada-fila-texto">
         <strong>
-          {rutina.nombre} del {fechaEnFrase(fecha, false)}
+          {rutina.nombre} · {fechaEnFrase(fecha, false)}
         </strong>
         <span className={caducaHoy && se_puede_hoy ? 'caduca' : undefined}>{texto}</span>
       </div>
@@ -542,7 +544,7 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
       <span className="entrada-fila-texto">
         <span className="ultima-titulo">
           <strong>
-            {nombre} · {fechaEnFrase(ultima.fecha)}
+            {nombre} · {fechaEnFrase(ultima.fecha, false)}
           </strong>
           <Icono nombre="hecho" pequeno />
         </span>

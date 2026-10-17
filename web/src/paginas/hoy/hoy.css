@@ -193,13 +193,6 @@ a.entrada-fila:hover {
   font-size: 13px;
 }
 
-.entrada-fila-dia {
-  /* Una etiqueta corta junto a un nombre: no se encoge ni se parte por mucho que mida el nombre. */
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
 .ultima-titulo {
   display: flex;
   align-items: center;
