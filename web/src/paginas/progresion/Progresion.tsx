@@ -41,6 +41,21 @@ function conSigno(diferencia: number): string {
   return `${diferencia > 0 ? '+' : diferencia < 0 ? '−' : ''}${texto}`
 }
 
+/**
+ * «10 reps»: las de la serie más pesada del día, la del punto de la gráfica de peso; con
+ * varias de ese mismo peso, la de más repeticiones (decisión del autor: el globo dice qué se
+ * consiguió con ese peso, y así se ve si se subió peso o se hicieron más reps con el mismo).
+ */
+function repsDeLaMasPesada(sesion: SesionHistorial): string {
+  const masPesada = sesion.series.reduce((mejor, serie) =>
+    Number(serie.peso) > Number(mejor.peso) ||
+    (Number(serie.peso) === Number(mejor.peso) && serie.repeticiones > mejor.repeticiones)
+      ? serie
+      : mejor,
+  )
+  return masPesada.repeticiones === 1 ? '1 rep' : `${masPesada.repeticiones} reps`
+}
+
 function fechaFila(iso: string): string {
   const texto = fechaAbreviada(iso)
   return texto.charAt(0).toUpperCase() + texto.slice(1)
@@ -122,7 +137,7 @@ export function Progresion() {
           ? `${enKilos(valor)} en ${sesion.series.length} ${sesion.series.length === 1 ? 'serie' : 'series'}`
           : medida === 'rm'
             ? `${enKilos(valor)}${ajustes().unoRM === 'media' ? ' de media' : ''}`
-            : enKilos(valor),
+            : `${enKilos(valor)} × ${repsDeLaMasPesada(sesion)}`,
       rutina: sesion.rutina,
     }
   })
