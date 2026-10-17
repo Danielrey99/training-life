@@ -30,6 +30,11 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] La biblioteca de ejercicios: buscador y filtros, la ficha de cada uno (progresión, notas y dónde se usa) y el formulario para crear o editar uno
 - [x] Ajustes: kilos o libras, el paso de los botones del peso, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día, y exportar, importar o borrar todos los datos
 
+## Aspecto
+
+- **Tres tipos de botón, y se distinguen de un vistazo**: verde relleno para la acción principal de la pantalla (una sola), con recuadro y fondo para las normales, y con recuadro sin fondo para las secundarias (en gris: *Duplicar rutina*, *Ocultar programa*) y las peligrosas (en rojo: *Borrar*, *Cancelar sesión*). Solo van como texto los atajos que se entienden por su forma: el desplegable de los ocultos, con su flecha, y *+ Añadir serie*. Un botón de solo texto se leía como un rótulo.
+- **Los selectores de opciones son todos una barra**, con la opción elegida resaltada dentro, en dos tamaños: los filtros de arriba de una pantalla (el rango de la gráfica, el origen de la biblioteca, semanas o meses del resumen) más grandes, y los de dentro de una tarjeta (la medida de la gráfica, los de Ajustes) algo más pequeños, para que no compitan.
+
 ## Cómo ejecutarlo
 
 Hace falta el backend levantado (`docker compose up -d` en la raíz del repo).
@@ -141,6 +146,7 @@ La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendr�
 
 - **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre lo mismo, y la pantalla solo pinta.
 - **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy, *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan de los dos días y después empieza la de hoy.
+- **Todas las listas de la pantalla dicen igual qué rutina y qué día** (*Pull · miércoles 9*, *Leg · viernes 18*), con el día siempre escrito y el detalle debajo: lo que queda sin terminar, lo que está por recuperar, la última sesión y lo que queda de la semana.
 - **Las sesiones de un día pasado que se dejaron sin terminar se avisan** en una sección *Sin terminar* bajo la tarjeta, con sus series y un enlace para terminarlas o cancelarlas. Cuentan como hechas desde la primera serie, así que sin el aviso se podrían olvidar a medias. Una sesión que se abrió para apuntar un día pasado y se quedó sin ninguna serie también sale, con la etiqueta *vacía*, para completarla o cancelarla; no cuenta como hecha y nada la borra por su cuenta.
 - **Todo lo que empieza algo pregunta antes**, con un botón que dice lo que hace (*Empezar*, *Recuperar*, *Adelantar*, *Intercambiar*). Recuperar en un día de entrenamiento avisa de que lo de hoy quedará pendiente, y hasta cuándo se podrá recuperar.
 - **Las marcas de la semana juntan lo que se hizo y lo que tocaba**: el punto lleno es lo que se hizo ese día, del color del día que contó; el aro, lo que tocaba y sigue sin hacer; la flecha, que se hizo otro día (→ después, ← antes). Cada día de la semana tiene su color, no cada rutina, para que un día movido diga de dónde viene.
@@ -181,7 +187,7 @@ Los días de hoy en adelante (`/historial/planificar`), por semanas y sin límit
 La progresión general, no por ejercicio (`/historial/resumen?mes=2026-09`), a la que se llega con *Ver resumen* desde el calendario. Arriba, el mes con flechas para ir atrás o adelante, como en el calendario (la de adelante se apaga en el mes de hoy), y *Por semana* o *Por mes*; debajo, una gráfica de barras con el volumen (peso por repeticiones) de las últimas ocho semanas o meses terminados y, si el periodo de hoy cae en ella, una barra más, rayada, con lo que va de él.
 
 - **Tocar una barra la elige** (toda la columna es un botón, barra y fecha): arriba salen su periodo, su volumen y cuánto cambió, y los dos recuadros de abajo pasan a ser de esa barra: el **volumen por rutina** y las **series por grupo muscular**. Así la gráfica enseña la evolución y los recuadros el desglose de lo que se toca, sin más controles. Al entrar, o al cambiar de semanas a meses, queda elegida la última barra terminada.
-- **El cambio se compara con el último periodo en que se entrenó**, aunque quede fuera de la gráfica: tras una semana de vacaciones, la siguiente dice *+5,7 % sobre la semana del 11 ago* en lugar de quedarse sin porcentaje. Si es la semana justo anterior, dice *sobre la semana anterior*.
+- **El cambio se compara con el último periodo en que se entrenó**, aunque quede fuera de la gráfica: tras una semana de vacaciones, la siguiente dice *+5,7 % sobre la semana del 11 de agosto* en lugar de quedarse sin porcentaje. Si es la semana justo anterior, dice *sobre la semana anterior*.
 - **El color se usa solo cuando dice algo**: cada rutina lleva el color de su día en el programa (el mismo del calendario), y las series por grupo van en gris, porque un color por grupo serían siete u ocho que no significan nada y se confundirían con los de los días. El verde queda para el volumen y la constancia.
 - **La constancia del año** va en su propio recuadro, fija: por mes, en gris lo planificado (también lo que aún no ha llegado) y en verde lo entrenado, que lo va llenando. Lo recuperado y lo adelantado cuentan en el mes del día que tocaba.
 - **Todo llega en una sola llamada** (`GET /resumen`), con el desglose de cada barra ya calculado: elegir otra barra o cambiar de vista no espera a la red. El mes, la vista y la barra elegida van en la URL, para que recargar no los pierda.
