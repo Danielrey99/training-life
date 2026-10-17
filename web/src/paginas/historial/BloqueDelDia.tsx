@@ -204,7 +204,7 @@ export function BloqueDelDia({
         ) : (
           <button
             type="button"
-            className="boton boton-texto dia-anadir-serie"
+            className="boton boton-texto atajo dia-anadir-serie"
             onClick={() => alAbrir({ tipo: 'anadir', clave: bloque.clave })}
             disabled={bloqueado}
           >

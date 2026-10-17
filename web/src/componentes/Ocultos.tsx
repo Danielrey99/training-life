@@ -19,7 +19,7 @@ export function Ocultos({ cuantos, singular, plural, abierto, alAlternar }: Prop
   return (
     <button
       type="button"
-      className="boton boton-texto programas-ver-ocultos"
+      className="boton boton-texto atajo programas-ver-ocultos"
       aria-expanded={abierto}
       onClick={alAlternar}
     >

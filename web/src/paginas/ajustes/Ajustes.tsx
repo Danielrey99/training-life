@@ -185,7 +185,7 @@ export function Ajustes() {
               que borrar (una sesión vacía, un descanso planificado). */}
           <button
             type="button"
-            className="boton boton-texto peligro aislado"
+            className="boton boton-texto peligro"
             onClick={() => void preguntar(setPorBorrar)}
             disabled={ocupado}
           >

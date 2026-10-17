@@ -332,7 +332,7 @@ export function Rutina() {
         <>
           <button
             type="button"
-            className="boton boton-texto programas-ver-ocultos"
+            className="boton boton-texto atajo programas-ver-ocultos"
             aria-expanded={verOcultos}
             onClick={alternarOcultos}
           >

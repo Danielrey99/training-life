@@ -147,23 +147,34 @@ code {
   color: var(--sobre-acento);
 }
 
+/* Las acciones secundarias (Duplicar, Ocultar, Volver a los colores…): con recuadro, porque
+   solo el texto se leía como un rótulo (decisión del autor), pero sin fondo, para que se
+   distingan de un botón normal (con fondo) y del principal (verde). */
 .boton-texto {
   min-height: 44px;
   font-size: 14px;
-  border-color: transparent;
+  border-color: var(--borde);
   background: none;
   color: var(--texto-tenue);
 }
 
+/* Las peligrosas (Borrar, Cancelar sesión), en rojo también el recuadro. La confirmación de
+   verdad es el botón rojo del diálogo. */
 .boton-texto.peligro {
+  border-color: var(--error);
   color: var(--error);
 }
 
-/* Uno peligroso que va solo, sin Ocultar ni Mostrar al lado (decisión del autor): con
-   recuadro, porque solo el texto se leía como un rótulo, pero sin fondo, para no invitar
-   a pulsarlo. La confirmación de verdad es el botón rojo del diálogo. */
-.boton-texto.peligro.aislado {
-  border-color: var(--error);
+/* Dos seguidas (Ocultar y Borrar al pie), separadas: con recuadro, pegadas se confundían. */
+.boton-texto:not(.atajo) + .boton-texto:not(.atajo) {
+  margin-top: 8px;
+}
+
+/* Los atajos que se entienden por su forma (el desplegable de ocultos con su flecha, «+ Añadir
+   serie» dentro de cada ejercicio) siguen siendo solo texto. «Añadir nota» no: va suelto entre
+   los botones del pie y como texto parecía un rótulo (decisión del autor). */
+.boton-texto.atajo {
+  border-color: transparent;
 }
 
 /* Cancelar en un formulario pequeño (una nota, editar una serie): en rojo y al lado de

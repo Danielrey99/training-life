@@ -536,7 +536,7 @@ export function Dia() {
       {editando && (
         <button
           type="button"
-          className="boton boton-texto peligro aislado"
+          className="boton boton-texto peligro"
           onClick={() => setBorrandoDia(true)}
           disabled={hayAbierta}
         >
