@@ -37,6 +37,12 @@ button.ejercicio-caja .icono {
   color: var(--texto-tenue);
 }
 
+/* Las series y las reps de un ejercicio oculto, de solo lectura: centradas, como el número entre
+   − y + de la versión que se edita (decisión del autor). */
+.ejercicio-caja.num {
+  justify-content: center;
+}
+
 /* La etiqueta del principal y, a la derecha, su grupo: un dato del ejercicio elegido, no el
    nombre de un campo (por eso no va suelto debajo, como las etiquetas). */
 .ejercicio-cabecera-campo {
