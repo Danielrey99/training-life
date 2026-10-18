@@ -168,6 +168,8 @@
 .detalle-acciones {
   display: flex;
   flex-direction: column;
+  /* 12 px entre los botones apilados del pie, el mismo en todas las pantallas (decisión del autor). */
+  gap: 12px;
 }
 
 /* --- X3 · Ejercicio nuevo o editar --------------------------------------- */

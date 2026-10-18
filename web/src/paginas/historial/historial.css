@@ -339,6 +339,18 @@
   gap: 10px;
 }
 
+/* Editando una serie, el formulario va dentro de la lista: 12 px hasta la serie siguiente, o sus
+   botones casi tocaban la raya de esa serie (decisión del autor). */
+.dia li > .formulario-serie {
+  margin-bottom: 12px;
+}
+
+/* Bajo «Añadir nota», a 12 px como los botones apilados del resto de pies (decisión del autor):
+   los 10 de la página más estos 2. */
+.dia-borrar {
+  margin-top: 2px;
+}
+
 .dia-cuenta {
   color: var(--acento) !important;
 }

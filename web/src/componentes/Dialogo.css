@@ -49,10 +49,11 @@
   color: var(--error);
 }
 
+/* 12 px entre los dos botones, como entre dos apilados. */
 .dialogo-botones {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
   margin-top: 6px;
 }
 

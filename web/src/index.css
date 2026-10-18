@@ -165,11 +165,6 @@ code {
   color: var(--error);
 }
 
-/* Dos seguidas (Ocultar y Borrar al pie), separadas: con recuadro, pegadas se confundían. */
-.boton-texto:not(.atajo) + .boton-texto:not(.atajo) {
-  margin-top: 8px;
-}
-
 /* Los atajos que se entienden por su forma (el desplegable de ocultos con su flecha, «+ Añadir
    serie» dentro de cada ejercicio) siguen siendo solo texto. «Añadir nota» no: va suelto entre
    los botones del pie y como texto parecía un rótulo (decisión del autor). */
@@ -185,10 +180,11 @@ code {
 }
 
 /* Guardar y Cancelar en la misma línea, a partes iguales. */
+/* 12 px entre los dos botones, como entre dos apilados. */
 .botones-en-linea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
 }
 
 .botones-en-linea .boton {

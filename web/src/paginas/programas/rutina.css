@@ -135,6 +135,8 @@
 .rutina-acciones {
   display: flex;
   flex-direction: column;
+  /* 12 px entre los botones apilados del pie, el mismo en todas las pantallas (decisión del autor). */
+  gap: 12px;
 }
 
 .rutina-leyenda {
