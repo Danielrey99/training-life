@@ -218,7 +218,7 @@ Tocar un programa abre su semana (`/programas/7`): qué rutina toca cada día, o
 - **Guardar no es atómico**, porque no hay un endpoint para todo a la vez: se envía primero el nombre, que es lo único que puede no valer, y después cada día cambiado; si algo falla a medias, lo dice y vuelve a leer el programa para enseñar lo que quedó guardado.
 - **Una rutina oculta sigue en su día, en gris**, y ese día cuenta como descanso. Un programa oculto es de solo lectura, con *Mostrar* y *Borrar*, y mostrarlo no lo reactiva.
 - **La hoja de elegir rutina ofrece *+ Nueva rutina*.** En un programa que ya existe, el borrador de la edición espera mientras se crea la rutina, y al guardarla se vuelve a la semana, todavía editando, con la rutina puesta en ese día.
-- **Crear un programa** (`/programas/nuevo`) es la misma lista de días, sobre un borrador que sobrevive a ir a crear una rutina y volver. *Activarlo al crearlo* empieza apagado: activarlo es algo que se elige a propósito.
+- **Crear un programa** (`/programas/nuevo`) es la misma lista de días, sobre un borrador que sobrevive a ir a crear una rutina y volver. *Activarlo al crearlo* hace que *Crear* pregunte antes (*¿Crear y activar…?*), como activar un programa desde su semana, y empieza apagado: activarlo es algo que se elige a propósito.
 
 ### Una rutina y sus ejercicios
 

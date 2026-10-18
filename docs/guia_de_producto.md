@@ -316,7 +316,7 @@ Bajo *Ejercicio 1* va el nombre de su rutina.
 
 ### P5 · Programa nuevo
 
-Todo en una pantalla: nombre, *Activarlo al crearlo* (empieza apagado: activarlo es algo que se elige a propósito) y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a la pantalla de una rutina nueva (P3); al guardarla se vuelve aquí con la rutina puesta en ese día, y lo escrito en el programa sigue ahí. Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
+Todo en una pantalla: nombre, *Activarlo al crearlo* (empieza apagado: activarlo es algo que se elige a propósito; encendido, *Crear* pregunta antes, *¿Crear y activar PPL de 5 días?*, porque el programa nuevo pasa a ser el que marca qué toca cada día, en lugar del que hubiera) y los siete días. El + de un día abre una hoja con las rutinas del usuario para reutilizarlas, y un *+ Nueva rutina* que lleva a la pantalla de una rutina nueva (P3); al guardarla se vuelve aquí con la rutina puesta en ese día, y lo escrito en el programa sigue ahí. Los días vacíos son descanso. **Nada se guarda hasta pulsar *Crear*.**
 
 ## Ejercicios
 
