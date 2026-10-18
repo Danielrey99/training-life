@@ -20,8 +20,10 @@ function Flecha({ color, haciaAtras }: { color: string; haciaAtras: boolean }) {
  * lleno del color del día que contó (el del lunes si ese día se recuperó el
  * lunes); y **lo que tocaba**, del color de su propio día: un aro si sigue sin
  * hacer, una flecha si se hizo otro día (→ después, ← antes) y un punto apagado
- * si aún no ha llegado. Por eso salen combinadas: "●○" es que se hizo otra cosa y
- * lo suyo sigue sin hacer, y "←●" que lo suyo se hizo antes y ese día, otra cosa.
+ * si aún no ha llegado. Si se hizo otro día y ese día no se hizo nada, la flecha
+ * va con el aro de lo que tocaba ("○→", "←○"), como en la leyenda. Por eso salen
+ * combinadas: "●○" es que se hizo otra cosa y lo suyo sigue sin hacer, y "←●" que
+ * lo suyo se hizo antes y ese día, otra cosa.
  */
 export function MarcaDelDia({
   dia,
@@ -45,21 +47,30 @@ export function MarcaDelDia({
   }
 
   // Lo que tocaba, si no es lo mismo que el punto de lo hecho.
+  const aro = <span className="marca-punto" style={{ border: `1.5px solid ${propio}` }} />
   let tocaba = null
   if (dia.estado === 'movido' && dia.cubierto_por) {
     const antes = dia.cubierto_por.fecha < dia.fecha
-    tocaba = <Flecha color={propio} haciaAtras={antes} />
-    // Adelantado: la flecha va delante del punto de lo que se hizo ese día.
+    const flecha = <Flecha color={propio} haciaAtras={antes} />
+    // Adelantado: la flecha va delante (del punto de lo hecho ese día, o del aro).
     if (antes) {
       return (
         <span className="marca">
-          {tocaba}
-          {hecho && <span className="marca-punto" style={{ background: hecho }} />}
+          {flecha}
+          {hecho ? <span className="marca-punto" style={{ background: hecho }} /> : aro}
         </span>
       )
     }
+    tocaba = hecho ? (
+      flecha
+    ) : (
+      <>
+        {aro}
+        {flecha}
+      </>
+    )
   } else if (dia.estado === 'sin_hacer' || dia.estado === 'pendiente') {
-    tocaba = <span className="marca-punto" style={{ border: `1.5px solid ${propio}` }} />
+    tocaba = aro
   } else if (dia.estado === 'proximo') {
     tocaba = <span className="marca-punto apagado" style={{ background: propio }} />
   }
