@@ -454,7 +454,7 @@ function Tarjeta({
           <p className="tarjeta-grande">{dia.rutina?.nombre}</p>
           <p className="tarjeta-despues tarjeta-hecho">
             <Icono nombre="hecho" pequeno />
-            {como} {conArticulo(cuando)}
+            {como} el {fechaEnFrase(cuando, false)}
           </p>
         </div>
       )

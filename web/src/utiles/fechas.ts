@@ -78,14 +78,14 @@ export function fechaTitulo(iso: string): string {
 /**
  * Para una referencia dentro de una frase ("Última vez · martes 8"): el día de la
  * semana si fue en los últimos seis días, que es como se piensa en una semana de
- * gimnasio; si no, el día y el mes ("26 de agosto").
+ * gimnasio; si no, el día y el mes ("26 de agosto"). Nunca "hoy" ni "ayer"
+ * (decisión del autor): el día con su número se entiende igual y no cambia de un
+ * día para otro.
  */
 export function fechaCorta(iso: string): string {
   const fecha = aFecha(iso)
   const dias = diasEntre(iso, hoy())
-  if (dias === 0) return 'hoy'
-  if (dias === 1) return 'ayer'
-  if (dias > 0 && dias < 7) return `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
+  if (dias >= 0 && dias < 7) return `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
   let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
   if (fecha.getFullYear() !== aFecha(hoy()).getFullYear()) texto += ` de ${fecha.getFullYear()}`
   return texto
@@ -158,10 +158,12 @@ export function fechaEnFrase(iso: string, relativa = true): string {
   return texto
 }
 
-/** "el miércoles 2", "el 26 de junio"; sin artículo para hoy, ayer y mañana. */
+/**
+ * "el miércoles 2", "el 26 de junio": nunca "hoy", "ayer" ni "mañana" (decisión del
+ * autor). La única excepción, «Mañana toca…» en Hoy, no pasa por aquí.
+ */
 export function conArticulo(iso: string): string {
-  const texto = fechaEnFrase(iso)
-  return ['hoy', 'ayer', 'mañana'].includes(texto) ? texto : `el ${texto}`
+  return `el ${fechaEnFrase(iso, false)}`
 }
 
 /** El primer día del mes de esa fecha. */
