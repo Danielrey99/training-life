@@ -6,7 +6,14 @@ import type { Ejercicio, Entrenamiento, Rutina, Serie, SesionHistorial } from '.
 import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
-import { diaDeLaSemana, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
+import {
+  diaDeLaSemana,
+  fechaCompleta,
+  fechaEnFrase,
+  fechaLarga,
+  hoy,
+  sumarDias,
+} from '../../utiles/fechas'
 import { enUnidad, numeroLegible, pesoLegible, unidad, unoRM } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
@@ -250,7 +257,7 @@ export function Dia() {
 
   let cuenta: string | null = null
   if (dia.cubre_fecha && dia.cubre_fecha !== dia.fecha) {
-    cuenta = `${dia.cubre_fecha < dia.fecha ? 'Recuperado' : 'Adelantado'} del ${fechaEnFrase(dia.cubre_fecha, false)}`
+    cuenta = `${dia.cubre_fecha < dia.fecha ? 'Recuperado' : 'Adelantado'} del ${fechaCompleta(dia.cubre_fecha)}`
   }
 
   function empezarAEditar() {

@@ -6,7 +6,7 @@ import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
-import { fechaEnFrase, fechaTitulo, hoy } from '../../utiles/fechas'
+import { fechaCompleta, fechaTitulo, hoy } from '../../utiles/fechas'
 import { pesoLegible, unidad } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
@@ -219,7 +219,7 @@ export function Sesion() {
           {activa.cubre_fecha && activa.cubre_fecha !== activa.fecha && (
             <span className="sesion-cuenta">
               {activa.cubre_fecha < activa.fecha ? 'Recuperado' : 'Adelantado'} del{' '}
-              {fechaEnFrase(activa.cubre_fecha, false)}
+              {fechaCompleta(activa.cubre_fecha)}
             </span>
           )}
         </div>

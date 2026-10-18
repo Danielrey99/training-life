@@ -405,7 +405,7 @@ function Tarjeta({
           {sesion?.cubre_fecha && sesion.cubre_fecha !== resumen.fecha && (
             <p className="tarjeta-despues">
               {sesion.cubre_fecha < resumen.fecha ? 'Recuperado' : 'Adelantado'} del{' '}
-              {nombreDelDia(sesion.cubre_fecha)}
+              {fechaEnFrase(sesion.cubre_fecha, false)}
             </p>
           )}
           <button
@@ -424,7 +424,7 @@ function Tarjeta({
       let hecho = 'Hecho'
       if (sesion && sesion.cubre_fecha && sesion.cubre_fecha !== resumen.fecha && sesion.cuenta) {
         const verbo = sesion.cubre_fecha < resumen.fecha ? 'Recuperaste' : 'Adelantaste'
-        hecho = `${verbo} el ${sesion.rutina.nombre} del ${nombreDelDia(sesion.cubre_fecha)}`
+        hecho = `${verbo} el ${sesion.rutina.nombre} del ${fechaEnFrase(sesion.cubre_fecha, false)}`
       } else if (sesion && !sesion.cuenta) {
         hecho = `Entrenaste ${sesion.rutina.nombre}`
       }
@@ -537,7 +537,7 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
   let cifras = `${contar(ultima.series, 'serie', 'series')} · ${contar(ultima.ejercicios, 'ejercicio', 'ejercicios')}`
   if (ultima.cubre_fecha && ultima.cubre_fecha !== ultima.fecha) {
     const como = ultima.cubre_fecha < ultima.fecha ? 'Recuperado' : 'Adelantado'
-    cifras = `${como} del ${nombreDelDia(ultima.cubre_fecha)} · ${contar(ultima.series, 'serie', 'series')}`
+    cifras = `${como} del ${fechaEnFrase(ultima.cubre_fecha, false)} · ${contar(ultima.series, 'serie', 'series')}`
   }
   return (
     <Link to={`/historial/${ultima.fecha}`} className="entrada-fila">

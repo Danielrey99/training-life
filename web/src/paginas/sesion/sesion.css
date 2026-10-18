@@ -32,14 +32,11 @@
   color: var(--texto-tenue);
 }
 
+/* Texto verde suelto, sin recuadro, igual que en el día del historial (decisión del autor). */
 .sesion-cuenta {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 12px;
+  display: block;
+  font-size: 13px;
   color: var(--acento);
-  border: 1px solid var(--borde);
-  border-radius: 999px;
-  padding: 1px 9px;
 }
 
 .sesion-hueco-derecho {

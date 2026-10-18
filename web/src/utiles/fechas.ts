@@ -113,8 +113,17 @@ export function nombreDelDia(iso: string): string {
  * es el actual ("Jueves 1 de octubre de 2025"): un día de otro año no se confunde.
  */
 export function fechaLarga(iso: string): string {
+  return mayuscula(fechaCompleta(iso))
+}
+
+/**
+ * Dentro de una frase, la fecha entera: "martes 8 de septiembre", con el año si no es
+ * el actual. En el día del historial (decisión del autor): ahí se mira el pasado, y
+ * "martes 8" a secas no dice de qué mes.
+ */
+export function fechaCompleta(iso: string): string {
   const fecha = aFecha(iso)
-  return `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}${deOtroAnio(fecha)}`
+  return `${DIAS[fecha.getDay()]} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}${deOtroAnio(fecha)}`
 }
 
 /** " de 2025" si la fecha no es de este año; nada si lo es. */

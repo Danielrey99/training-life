@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 import type { Ejercicio, HuecoDeRutina, Serie, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
-import { fechaEnFrase } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { pesoLegible, unidad } from '../../utiles/numeros'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSerie'
@@ -216,9 +216,7 @@ export function BloqueDelDia({
         <div className="dia-vez">
           {bloque.ultima ? (
             <>
-              <span className="rotulo">
-                Última vez · {fechaEnFrase(bloque.ultima.fecha, false)}
-              </span>
+              <span className="rotulo">Última vez · {fechaCompleta(bloque.ultima.fecha)}</span>
               <FichasUltimaVez series={bloque.ultima.series} />
             </>
           ) : (
