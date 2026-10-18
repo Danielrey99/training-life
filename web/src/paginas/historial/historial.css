@@ -305,6 +305,12 @@
   font-size: 13px;
 }
 
+/* «4 ejercicios» junto a un nombre largo: sin encoger, o el nombre lo parte letra a letra. */
+.hoja-fila-extra {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .hoja-vacia {
   margin: 0;
   padding: 14px 0 4px;

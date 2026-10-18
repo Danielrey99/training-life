@@ -246,6 +246,9 @@ button.resumen-columna {
 
 .resumen-fila .num {
   color: var(--texto-tenue);
+  /* «6.758 kg», «3 series»: enteros a la derecha, aunque el nombre ocupe dos líneas. */
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .resumen-punto {
