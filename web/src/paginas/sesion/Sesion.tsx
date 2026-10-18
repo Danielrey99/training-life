@@ -289,7 +289,6 @@ export function Sesion() {
           titulo="¿Terminar la sesión?"
           cuerpo="No has apuntado ninguna serie, así que la sesión se cancelará, como si no la hubieras empezado."
           confirmar="Terminar"
-          cancelar="Seguir entrenando"
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)
             navegar(alCancelar, { replace: true })
@@ -303,7 +302,6 @@ export function Sesion() {
           titulo="¿Terminar la sesión?"
           cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completos} de ${visibles.length} ejercicios completos. Podrás revisarla y corregirla después en la pestaña Historial.`}
           confirmar="Terminar"
-          cancelar="Seguir entrenando"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
             // Si se abrió desde su día (Seguir apuntando), se vuelve a él; si no, el día
@@ -326,7 +324,8 @@ export function Sesion() {
                 } que llevas, como si no la hubieras empezado.`
           }
           confirmar="Cancelar sesión"
-          cancelar="Seguir entrenando"
+          // No «Cancelar»: junto a «Cancelar sesión» no se sabría cuál cancela qué.
+          cancelar="Seguir"
           peligro
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)

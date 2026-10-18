@@ -57,7 +57,7 @@
   margin-top: 6px;
 }
 
-/* Menos margen lateral que un botón suelto: "Seguir entrenando" tiene que caber
+/* Menos margen lateral que un botón suelto: "Cancelar sesión" tiene que caber
    en media pantalla de móvil. */
 .dialogo-botones .boton {
   min-height: 48px;
