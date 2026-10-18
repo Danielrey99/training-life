@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 import { api } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina } from '../../api/tipos'
+import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
 import { useVolver } from '../../utiles/volver'
@@ -50,6 +51,8 @@ export function ProgramaNuevo() {
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
+  // Crear un programa que se activa pregunta antes, como activar uno desde su semana.
+  const [confirmando, setConfirmando] = useState(false)
 
   useEffect(() => {
     let vigente = true
@@ -95,6 +98,20 @@ export function ProgramaNuevo() {
     volver('/programas')
   }
 
+  /**
+   * Con «Activarlo al crearlo» encendido, *Crear* pregunta antes (decisión del autor): activa
+   * el programa en lugar del que hubiera, y activar siempre pide confirmación. Apagado, no
+   * cambia nada de lo que ya hay y crea directamente.
+   */
+  function pedirCrear() {
+    if (!borrador!.nombre.trim()) {
+      setFalloNombre('Ponle un nombre.')
+      return
+    }
+    if (borrador!.activar) setConfirmando(true)
+    else void crear()
+  }
+
   async function crear() {
     const nombre = borrador!.nombre.trim()
     if (!nombre) {
@@ -132,7 +149,7 @@ export function ProgramaNuevo() {
         <button
           type="button"
           className="dia-cabecera-boton"
-          onClick={() => void crear()}
+          onClick={pedirCrear}
           disabled={guardando}
         >
           Crear
@@ -158,11 +175,8 @@ export function ProgramaNuevo() {
 
       <Interruptor
         titulo="Activarlo al crearlo"
-        ayuda={
-          activo
-            ? `Marcará qué rutina toca cada día, en lugar de ${activo.nombre}`
-            : 'Marcará qué rutina toca cada día'
-        }
+        // Sin decir cuál deja de estar activo: lo dice la confirmación de Crear (decisión del autor).
+        ayuda="Marcará qué rutina toca cada día"
         encendido={borrador.activar}
         alCambiar={() => cambiar({ activar: !borrador.activar })}
         desactivado={guardando}
@@ -195,6 +209,23 @@ export function ProgramaNuevo() {
           alCrearNueva={() =>
             navegar(`/programas/rutinas/nueva?dia=${hojaDe}`, { state: { empezar: true } })
           }
+        />
+      )}
+
+      {confirmando && (
+        <Dialogo
+          titulo={`¿Crear y activar ${borrador.nombre.trim()}?`}
+          cuerpo={
+            activo
+              ? `${activo.nombre} dejará de estar activo.`
+              : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.'
+          }
+          confirmar="Crear"
+          alConfirmar={async () => {
+            setConfirmando(false)
+            await crear()
+          }}
+          alCancelar={() => setConfirmando(false)}
         />
       )}
     </div>
