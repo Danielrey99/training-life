@@ -4,6 +4,8 @@
   --borde: #2c313b;
   --texto: #e8eaed;
   --texto-tenue: #9aa1ac;
+  /* La flecha de un `<select>`, del gris tenue de cada tema (un fondo no puede usar variables de color). */
+  --flecha-desplegable: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239aa1ac%27 stroke-width=%271.75%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E');
   --acento: #4ade80;
   --acento-suave: #86efac;
   --error: #f87171;
@@ -42,6 +44,7 @@
   --borde: #d8dbe0;
   --texto: #1a1d23;
   --texto-tenue: #5f6672;
+  --flecha-desplegable: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%235f6672%27 stroke-width=%271.75%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E');
   --acento: #16a34a;
   --acento-suave: #15803d;
   --error: #dc2626;

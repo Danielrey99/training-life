@@ -157,7 +157,8 @@
 .detalle-campo.campo-texto {
   height: auto;
   padding: 10px;
-  resize: vertical;
+  /* Sin el asa de estirar del navegador, como en los bocetos: el texto largo se desliza por dentro. */
+  resize: none;
   line-height: 1.4;
 }
 

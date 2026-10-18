@@ -132,6 +132,18 @@ select {
   padding: 0.4rem 0.5rem;
 }
 
+/* La flecha del navegador no se parece a las de la app: la nuestra, fina y gris. Con la clase,
+   para ganar a `.campo-texto`, que pone su propio fondo y relleno. */
+select,
+select.campo-texto {
+  appearance: none;
+  padding-right: 36px;
+  background-image: var(--flecha-desplegable);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 18px;
+}
+
 input:focus,
 select:focus {
   outline: 2px solid var(--acento);

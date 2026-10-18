@@ -29,7 +29,7 @@
 }
 
 .nota-sesion textarea {
-  resize: vertical;
+  resize: none;
   font: inherit;
 }
 
