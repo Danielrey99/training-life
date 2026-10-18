@@ -77,6 +77,12 @@ def test_adelantar_lo_del_viernes(cliente, ppl):
 
 
 def test_se_adelanta_desde_el_lunes_de_la_misma_semana(cliente, ppl):
+    """El lunes 14 ya es pasado: la hoja de registrar un día pasado no ofrece
+    adelantar, pero el POST se sigue aceptando. El backend valida que los datos
+    sean coherentes, no qué botones enseña cada pantalla, y una sesión pasada que
+    cuenta un día posterior se produce por otros caminos (un adelanto de hoy es
+    mañana una sesión pasada; un PUT que la mueve atrás; el importador).
+    """
     assert sesion(cliente, LUNES_14, ppl["Leg"], cubre_fecha=VIERNES_18).status_code == 201
 
 

@@ -97,7 +97,8 @@ def obtener_hoy(
     y la última sesión.
 
     Con `fecha` (un día pasado) sirve para la hoja de registrar ese día desde el
-    calendario, que ofrece lo que habría ofrecido la pantalla de hoy aquel día. Una
+    calendario: lo que tocaba, lo que seguía por recuperar y el resto sin contar,
+    sin intercambiar ni adelantar (adelantar, solo desde Entrenar). Una
     fecha futura da 422: el futuro se planifica, no se registra.
     """
     fecha = fecha or hoy()

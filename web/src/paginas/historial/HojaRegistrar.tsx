@@ -35,10 +35,11 @@ function contarEjercicios(cuantos: number) {
  * H1b · Registrar un día pasado: para pasar la libreta de meses anteriores o
  * apuntar un día que se olvidó.
  *
- * Ofrece lo mismo que habría ofrecido la pantalla de Hoy ese día (`GET /plan/hoy`
- * con esa fecha): lo que tocaba, lo que seguía por recuperar y lo que se podía
- * adelantar. Cualquier otra rutina se apunta igual, pero sin contar para ningún
- * día del programa. No cambia lo planificado: registra lo que pasó.
+ * Ofrece lo que tocaba y lo que seguía por recuperar ese día (`GET /plan/hoy` con
+ * esa fecha), pero no adelantar: la hoja apunta de hoy hacia atrás, y adelantar se
+ * hace solo desde Entrenar (decisión del autor). Cualquier otra rutina se apunta
+ * igual, pero sin contar para ningún día del programa. No cambia lo planificado:
+ * registra lo que pasó.
  */
 export function HojaRegistrar({ fecha, alCerrar }: Props) {
   const navegar = useNavigate()
@@ -92,16 +93,9 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
         cubre: recuperable.fecha,
       })
     }
+    // Con un día pasado, la API solo ofrece `sin_contar`: ni intercambiar ni adelantar.
     for (const ofrecida of resumen.ofrecidas) {
-      if (ofrecida.accion === 'adelantar' && ofrecida.fecha) {
-        cuentan.push({
-          clave: `adelantar-${ofrecida.fecha}`,
-          rutina: ofrecida.rutina,
-          titulo: `Adelantar el ${ofrecida.rutina.nombre} del ${fechaEnFrase(ofrecida.fecha, false)}`,
-          detalle: null,
-          cubre: ofrecida.fecha,
-        })
-      } else if (ofrecida.accion === 'sin_contar') {
+      if (ofrecida.accion === 'sin_contar') {
         otras.push({
           clave: `otra-${ofrecida.rutina.id}`,
           rutina: ofrecida.rutina,
@@ -115,7 +109,7 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
 
   function elegir(opcion: Opcion) {
     // Las que cuentan para un día no llevan texto (decisión del autor): «Contará como el del
-    // lunes» confundía, y el título ya dice qué día recupera o adelanta.
+    // lunes» confundía, y el título ya dice qué día recupera.
     const cuerpo = opcion.cubre ? undefined : 'No contará para ningún día del programa.'
     setEleccion({ opcion, cuerpo })
   }

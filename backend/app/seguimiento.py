@@ -350,12 +350,14 @@ def _una_por_rutina(dias: list[DiaSeguimiento]) -> list[DiaSeguimiento]:
 def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
     """Todo lo que necesita la pantalla de hoy para el día `fecha`, que es hoy en
     la pantalla de Entrenar y un día pasado en la hoja de registrar un día del
-    calendario (que ofrece lo que habría ofrecido la pantalla de hoy ese día).
+    calendario. Esa hoja ofrece lo que tocaba, lo que seguía por recuperar y el
+    resto de rutinas sin contar, pero ni intercambiar ni adelantar: apunta de hoy
+    hacia atrás, y adelantar se hace solo desde Entrenar (decisión del autor).
 
     Qué manda el cliente al pulsar cada botón (`POST /entrenamientos`):
     - *Empezar*: la rutina del día, con `cubre_fecha` = `fecha`.
     - *Recuperar*: la rutina, con `cubre_fecha` = el día que se recupera.
-    - *Adelantar*: la rutina, con `cubre_fecha` = el día ofrecido.
+    - *Adelantar* (solo hoy): la rutina, con `cubre_fecha` = el día ofrecido.
     - *Intercambiar*: primero `POST /plan/intercambiar` y después *Empezar*.
     - Una rutina `sin_contar`: sin `cubre_fecha`.
     - Una ofrecida o un recuperable con `se_puede_hoy` falso: nada (es un recordatorio).
@@ -398,21 +400,24 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
 
     ofrecidas: list[Ofrecida] = []
     esta_semana = [d for d in siguientes if d.fecha <= domingo and sin_contar(d)]
+    es_hoy = fecha == hoy()
     if dia.sesion is None:
-        if situacion == "entrenamiento" and fecha == hoy():
+        # Un día pasado no intercambia ni adelanta (eso es planificar, y adelantar se
+        # hace solo desde Entrenar): lo que queda de su semana sale abajo, sin contar.
+        if es_hoy and situacion == "entrenamiento":
             ofrecidas = [
                 Ofrecida("intercambiar", d.rutina, d.fecha, se_puede_hoy=True)
                 for d in _una_por_rutina(esta_semana)
                 if d.rutina.id != dia.rutina.id
             ]
-        elif situacion in ("descanso", "movido"):
+        elif es_hoy and situacion in ("descanso", "movido"):
             ofrecidas = [
                 Ofrecida("adelantar", d.rutina, d.fecha, se_puede_hoy=True)
                 for d in _una_por_rutina(esta_semana)
             ]
         # Sin programa se puede entrenar cualquier rutina, y un día pasado admite
         # apuntar la que se hizo aunque no cuente para ninguno.
-        if situacion in ("sin_programa", "primera_vez") or fecha < hoy():
+        if situacion in ("sin_programa", "primera_vez") or not es_hoy:
             ya_ofrecidas = {o.rutina.id for o in ofrecidas} | {r.rutina.id for r in por_recuperar}
             if situacion == "entrenamiento":
                 ya_ofrecidas.add(dia.rutina.id)
@@ -421,7 +426,7 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
                 for rutina in rutinas
                 if rutina.id not in ya_ofrecidas
             ]
-    elif fecha == hoy() and not _sin_programa(dia):
+    elif es_hoy and not _sin_programa(dia):
         # Hoy ya se entrenó: lo que queda de la semana sale como recordatorio, sin botón.
         # Siempre como adelantar (intercambiar cambiaría el plan de hoy, que ya está
         # ocupado) y sin quitar la rutina de hoy: si vuelve a tocar, sigue pendiente.
