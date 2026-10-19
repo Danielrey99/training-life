@@ -355,6 +355,24 @@ def test_una_nota_en_blanco_no_se_acepta(cliente, grupo_muscular_id):
     )
 
 
+def test_editar_una_nota_no_la_cambia_de_ejercicio(cliente, grupo_muscular_id):
+    """`nota` es el único campo editable: un `ejercicio_id` en el cuerpo se ignora y
+    la nota sigue en el ejercicio de su ruta.
+    """
+    remo = _ejercicio(cliente, grupo_muscular_id, "Remo")
+    jalon = _ejercicio(cliente, grupo_muscular_id, "Jalón")
+    nota_id = cliente.post(f"/ejercicios/{remo}/notas", json={"nota": "Original"}).json()["id"]
+
+    respuesta = cliente.put(
+        f"/ejercicios/{remo}/notas/{nota_id}", json={"nota": "Editada", "ejercicio_id": jalon}
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert (respuesta.json()["nota"], respuesta.json()["ejercicio_id"]) == ("Editada", remo)
+    assert [n["id"] for n in cliente.get(f"/ejercicios/{remo}/notas").json()] == [nota_id]
+    assert cliente.get(f"/ejercicios/{jalon}/notas").json() == []
+
+
 # --- Editar y borrar: rutinas, huecos y comodines ------------------------
 
 
@@ -479,14 +497,23 @@ def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
 
 
 def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grupo_muscular_id):
+    """La serie tiene que ser de la sesión de la ruta: si no, da 404 en el PUT y en
+    el DELETE y no se toca. Las dos sesiones son de la misma rutina, así que el
+    cuerpo del PUT sería válido en cualquiera de ellas: el 404 solo puede ser por la ruta.
+    """
     banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
     uno = entrenar(cliente, FECHA).json()["id"]
     otro = entrenar(cliente, "2026-09-05").json()["id"]
-    serie_id = cliente.post(
-        f"/entrenamientos/{uno}/series", json=_serie(cliente, uno, banca)
-    ).json()["id"]
+    serie = cliente.post(f"/entrenamientos/{uno}/series", json=_serie(cliente, uno, banca)).json()
+    cambiada = _serie(cliente, otro, banca, peso=90, slot_id=serie["slot_id"])
 
-    assert cliente.delete(f"/entrenamientos/{otro}/series/{serie_id}").status_code == 404
+    assert (
+        cliente.put(f"/entrenamientos/{otro}/series/{serie['id']}", json=cambiada).status_code
+        == 404
+    )
+    assert cliente.delete(f"/entrenamientos/{otro}/series/{serie['id']}").status_code == 404
+    assert cliente.get(f"/entrenamientos/{uno}").json()["series"] == [serie]
+    assert cliente.get(f"/entrenamientos/{otro}").json()["series"] == []
 
 
 def test_cancelar_una_sesion_la_borra_con_sus_series(cliente, grupo_muscular_id):

@@ -1,5 +1,5 @@
 """Tests de la ficha de un ejercicio: `GET /ejercicios/{id}/donde-se-usa`
-(«Rutinas donde se usa»).
+(«Rutinas donde se usa»), y que una nota solo se alcanza por la ruta de su ejercicio.
 
 El aviso y el borrado de un ejercicio están en `test_borrados.py`, y lo que no se
 ve de otro usuario, en `test_aislamiento_por_usuario.py`.
@@ -228,3 +228,21 @@ def test_donde_se_usa_hace_las_mismas_consultas_con_un_uso_que_con_muchos(
     con_muchos = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/donde-se-usa"))
 
     assert con_uno == con_muchos
+
+
+# --- Notas: la ruta tiene que cuadrar ------------------------------------------
+
+
+def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, ejercicios):
+    """La ruta lleva el ejercicio y la nota: si no cuadran entre sí, da 404 y la
+    nota no se toca, aunque los dos ejercicios existan y se puedan anotar.
+    """
+    press, remo = ejercicios["Press banca"], ejercicios["Remo"]
+    nota = cliente.post(f"/ejercicios/{press}/notas", json={"nota": "Agarre cerrado"}).json()
+
+    editada = cliente.put(f"/ejercicios/{remo}/notas/{nota['id']}", json={"nota": "Cambiada"})
+    borrada = cliente.delete(f"/ejercicios/{remo}/notas/{nota['id']}")
+
+    assert (editada.status_code, borrada.status_code) == (404, 404)
+    assert cliente.get(f"/ejercicios/{press}/notas").json() == [nota]
+    assert cliente.get(f"/ejercicios/{remo}/notas").json() == []

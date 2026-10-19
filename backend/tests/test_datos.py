@@ -1559,17 +1559,33 @@ def borrar(cliente):
     assert respuesta.content == b""
 
 
-def _foto_de(sesion_bd, usuario_id) -> dict:
-    """Las filas de ese usuario en cada una de las 11 tablas de datos; los hijos sin
-    `usuario_id`, a través de su padre.
+def _foto(sesion_bd) -> dict:
+    """Cada fila de las 11 tablas de datos, enteras y con todas sus columnas. De los
+    ejercicios, solo los propios: los predefinidos no son datos de nadie.
     """
-    from tests.test_aislamiento_por_usuario import _foto_de
+    sesion_bd.expire_all()
 
-    return _foto_de(sesion_bd, usuario_id)
+    def todo(modelo, *condiciones):
+        consulta = select(*modelo.__table__.columns).where(*condiciones).order_by(modelo.id)
+        return [tuple(fila) for fila in sesion_bd.execute(consulta)]
+
+    return {
+        "ejercicios": todo(Ejercicio, Ejercicio.es_predefinido.is_(False)),
+        "notas": todo(NotaUsuarioEjercicio),
+        "rutinas": todo(Rutina),
+        "huecos": todo(RutinaSlot),
+        "comodines": todo(SlotAlternativa),
+        "programas": todo(Programa),
+        "dias": todo(ProgramaDia),
+        "periodos": todo(ProgramaPeriodo),
+        "excepciones": todo(ExcepcionDelPlan),
+        "sesiones": todo(Entrenamiento),
+        "series": todo(Serie),
+    }
 
 
-def _nada_de(sesion_bd, usuario_id) -> bool:
-    return all(filas == [] for filas in _foto_de(sesion_bd, usuario_id).values())
+def _nada(sesion_bd) -> bool:
+    return all(filas == [] for filas in _foto(sesion_bd).values())
 
 
 def test_borrar_sin_datos_da_204_sin_cuerpo_y_el_resumen_sigue_a_cero(cliente, hoy_es):
@@ -1615,21 +1631,16 @@ def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
 
 
 def test_borrar_no_deja_ninguna_fila_del_usuario_ni_hijos_sueltos(cliente, sesion_bd, datos):
-    """Los huecos, comodines, días y series no tienen `usuario_id`: se cuentan por su
-    padre y, como aquí no hay nadie más, también la tabla entera (un hijo que se
-    quedara sin su padre no saldría en el join).
+    """Se mira cada tabla entera, no a través de su padre: un hijo que se quedara
+    sin él (un hueco, un comodín, un día, una serie) también saldría.
     """
-    antes = _foto_de(sesion_bd, USUARIO_SEMBRADO_ID)
+    antes = _foto(sesion_bd)
     # Que no pase por estar ya vacío: el escenario llena las 11 tablas.
     assert all(antes.values()), [tabla for tabla, filas in antes.items() if not filas]
 
     borrar(cliente)
 
-    assert _foto_de(sesion_bd, USUARIO_SEMBRADO_ID) == {tabla: [] for tabla in antes}
-    for modelo in (set(FORMATO_DE) - {Ejercicio}) | {SlotAlternativa}:
-        assert sesion_bd.scalar(select(func.count()).select_from(modelo)) == 0, modelo.__name__
-    propios = select(func.count()).select_from(Ejercicio).where(Ejercicio.usuario_id.is_not(None))
-    assert sesion_bd.scalar(propios) == 0
+    assert _foto(sesion_bd) == {tabla: [] for tabla in antes}
 
 
 def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
@@ -1691,7 +1702,7 @@ def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
 
     borrar(cliente)
 
-    assert _nada_de(sesion_bd, u)
+    assert _nada(sesion_bd)
     assert cliente.get("/entrenamientos").json() == []
     assert cliente.get(f"/ejercicios/{ejercicio_predefinido_id}/notas").json() == []
     rango = {"desde": "2026-09-01", "hasta": "2026-09-30"}
@@ -1723,13 +1734,16 @@ def test_borrar_no_toca_nada_de_otro_usuario(
     if yo == "con mis datos":
         mios = montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
         assert mios["de_nota"] == ajenos["de_nota"]
+    # Este test se va con los usuarios: hasta entonces, la foto por usuario.
+    from tests.test_aislamiento_por_usuario import _foto_de
+
     antes = _foto_de(sesion_bd, otro_usuario_id)
     assert all(antes.values())
 
     borrar(cliente)
 
     assert _foto_de(sesion_bd, otro_usuario_id) == antes
-    assert _nada_de(sesion_bd, USUARIO_SEMBRADO_ID)
+    assert all(filas == [] for filas in _foto_de(sesion_bd, USUARIO_SEMBRADO_ID).values())
 
 
 def test_borrar_dos_veces_da_204_las_dos(cliente, sesion_bd, datos):
@@ -1737,7 +1751,7 @@ def test_borrar_dos_veces_da_204_las_dos(cliente, sesion_bd, datos):
     borrar(cliente)
 
     assert resumen(cliente) == CERO
-    assert _nada_de(sesion_bd, USUARIO_SEMBRADO_ID)
+    assert _nada(sesion_bd)
 
 
 def test_tras_borrar_se_puede_empezar_de_cero(cliente, datos, ejercicio_predefinido_id):

@@ -184,6 +184,39 @@ def test_una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden(
     assert huecos_guardados(sesion_bd) == (100, 0)
 
 
+def test_el_orden_automatico_no_cuenta_los_huecos_de_otra_rutina(cliente, ejercicios):
+    """Pull tiene un hueco en el 100: si contara, Push estaría «llena» y daría 409."""
+    pull = crear_rutina(cliente, "Pull")
+    hueco_creado(cliente, pull, ejercicios["Press"], orden=100)
+    push = crear_rutina(cliente, "Push")
+
+    assert hueco_creado(cliente, push, ejercicios["Aperturas"])["orden"] == 1
+
+
+# --- La ruta tiene que cuadrar -------------------------------------------------
+
+
+def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, sesion_bd, ejercicios):
+    """El hueco es de Push: si la ruta no se comprobara, se podría editar o borrar
+    "desde" Pull.
+    """
+    push = crear_rutina(cliente, "Push")
+    pull = crear_rutina(cliente, "Pull")
+    hueco = hueco_creado(cliente, push, ejercicios["Press"], orden=1)
+
+    editado = editar_hueco(cliente, pull, hueco["id"], ejercicios["Aperturas"], series=2)
+    borrado = cliente.delete(f"/rutinas/{pull}/slots/{hueco['id']}")
+
+    assert (editado.status_code, borrado.status_code) == (404, 404)
+    [guardado] = cliente.get(f"/rutinas/{push}").json()["slots"]
+    assert (guardado["id"], guardado["ejercicio_principal"]["id"], guardado["series_objetivo"]) == (
+        hueco["id"],
+        ejercicios["Press"],
+        4,
+    )
+    assert cliente.get(f"/rutinas/{pull}").json()["slots"] == []
+
+
 # --- POST: con sus comodines --------------------------------------------------
 
 
