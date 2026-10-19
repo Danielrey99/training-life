@@ -15,7 +15,7 @@ from app.datos import (
     validar,
 )
 from app.fechas import hoy
-from app.schemas import ComprobacionDeImportar, DatosDeUsuario, ResumenDeDatos
+from app.schemas import ComprobacionDeImportar, ArchivoDeDatos, ResumenDeDatos
 
 router = APIRouter(prefix="/datos", tags=["datos"])
 
@@ -29,7 +29,7 @@ def _no_se_puede(mensaje: str, errores: list[str] | None = None) -> HTTPExceptio
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detalle)
 
 
-@router.get("/exportar", response_model=DatosDeUsuario)
+@router.get("/exportar", response_model=ArchivoDeDatos)
 def exportar_datos(
     response: Response,
     db: Session = Depends(get_db),
@@ -81,7 +81,7 @@ def importar_datos(
     if version != 1:
         raise _no_se_puede(NO_ES_UNA_COPIA)
     try:
-        datos = DatosDeUsuario.model_validate(archivo)
+        datos = ArchivoDeDatos.model_validate(archivo)
     except ValidationError as fallo:
         errores = [
             f"{'.'.join(str(parte) for parte in error['loc'])}: {error['msg']}"

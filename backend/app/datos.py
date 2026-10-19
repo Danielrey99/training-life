@@ -32,7 +32,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
-from app.schemas import DatosDeUsuario, ResumenDeDatos
+from app.schemas import ArchivoDeDatos, ResumenDeDatos
 
 # Más no ayudan a arreglar nada y alargan la respuesta.
 MAXIMO_DE_ERRORES = 20
@@ -41,7 +41,7 @@ MAXIMO_DE_ERRORES = 20
 # --- Exportar --------------------------------------------------------------------
 
 
-def exportar(db: Session) -> DatosDeUsuario:
+def exportar(db: Session) -> ArchivoDeDatos:
     """Todo lo que hay, cada lista por id. Un número fijo de consultas. De los
     ejercicios, solo los propios: los predefinidos vienen con la app.
     """
@@ -122,7 +122,7 @@ def exportar(db: Session) -> DatosDeUsuario:
             }
         )
 
-    return DatosDeUsuario.model_validate(
+    return ArchivoDeDatos.model_validate(
         {
             "exportado_en": datetime.now(timezone.utc),
             "predefinidos": [{"id": e.id, "nombre": e.nombre} for e in predefinidos],
@@ -212,7 +212,7 @@ def _repetidos(valores) -> list:
     return [valor for valor, veces in Counter(valores).items() if veces > 1]
 
 
-def validar(db: Session, datos: DatosDeUsuario) -> tuple[list[str], Mapas]:
+def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     """Todo lo que impediría cargar el archivo tal cual, para decirlo de una vez y no
     tocar nada: ids repetidos, referencias a algo que no está en el archivo,
     predefinidos o grupos que no existen aquí y las restricciones de la base.
@@ -344,7 +344,7 @@ def validar(db: Session, datos: DatosDeUsuario) -> tuple[list[str], Mapas]:
 # --- Resumir ------------------------------------------------------------------------
 
 
-def resumir_archivo(datos: DatosDeUsuario) -> ResumenDeDatos:
+def resumir_archivo(datos: ArchivoDeDatos) -> ResumenDeDatos:
     con_series = [s for s in datos.entrenamientos if s.series]
     fechas = [s.fecha for s in con_series]
     return ResumenDeDatos(
@@ -410,7 +410,7 @@ def borrar_todo(db: Session) -> None:
     db.expire_all()
 
 
-def cargar(db: Session, datos: DatosDeUsuario, mapas: Mapas) -> None:
+def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
     """Inserta el archivo, nivel a nivel y en su orden, con ids nuevos. Cada nivel hace
     `flush()` para tener los ids que necesita el siguiente. Las fechas de creación y
     de cambio se conservan: la copia es idéntica a lo exportado.

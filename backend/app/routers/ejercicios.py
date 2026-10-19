@@ -49,7 +49,7 @@ def _validar_grupo_muscular(db: Session, grupo_muscular_id: int) -> None:
         )
 
 
-def obtener_ejercicio_del_usuario(db: Session, ejercicio_id: int) -> Ejercicio:
+def obtener_ejercicio_legible(db: Session, ejercicio_id: int) -> Ejercicio:
     """El ejercicio aunque esté ocultado, o 404 si no existe.
 
     Biblioteca combinada: cuentan los predefinidos y los propios. Es la
@@ -69,7 +69,7 @@ def obtener_ejercicio_visible(db: Session, ejercicio_id: int) -> Ejercicio:
     Pública (sin `_`) porque la usan también los otros routers para validar
     cualquier ejercicio_id que llegue en una petición.
     """
-    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id)
+    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
@@ -255,7 +255,7 @@ def obtener_ejercicio(
     db: Session = Depends(get_db),
 ):
     # Legible y no visible: la ficha de un ejercicio oculto necesita abrirlo.
-    return obtener_ejercicio_del_usuario(db, ejercicio_id)
+    return obtener_ejercicio_legible(db, ejercicio_id)
 
 
 @router.get("/{ejercicio_id}/donde-se-usa", response_model=list[UsoEnRutinaOut])
@@ -267,11 +267,11 @@ def donde_se_usa(
     del 409 del DELETE porque la ficha lo enseña siempre, no solo al borrar.
     Admite ocultos y predefinidos.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    obtener_ejercicio_legible(db, ejercicio_id)
     return _usos_en_rutinas(db, ejercicio_id)
 
 
-def _notas_del_usuario(db: Session, ejercicio_id: int) -> int:
+def _cuantas_notas(db: Session, ejercicio_id: int) -> int:
     return db.scalar(
         select(func.count())
         .select_from(NotaUsuarioEjercicio)
@@ -291,7 +291,7 @@ def aviso_de_borrar_ejercicio(
 
     Un predefinido da 404 y no 403: no se puede borrar, así que su aviso no existe.
     """
-    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id)
+    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     series, series_de_comodines, sesiones, desde = db.execute(
@@ -311,7 +311,7 @@ def aviso_de_borrar_ejercicio(
         series_de_comodines=series_de_comodines,
         sesiones=sesiones,
         desde=desde,
-        notas=_notas_del_usuario(db, ejercicio_id),
+        notas=_cuantas_notas(db, ejercicio_id),
         huecos=_usos_en_rutinas(db, ejercicio_id),
         sesiones_que_se_vacian=[
             SesionQueSeVaciaOut(
@@ -401,7 +401,7 @@ def borrar_ejercicio(
         # tiene que enumerar todo lo que se perdería con modo=definitivo, no
         # solo lo que lo impide — si no, las notas desaparecen en silencio
         # justo cuando la API está detallando el resto.
-        notas = _notas_del_usuario(db, ejercicio_id)
+        notas = _cuantas_notas(db, ejercicio_id)
         sesiones_que_se_borrarian = len(
             sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
         )
@@ -507,20 +507,20 @@ def historial_de_ejercicio(
     evoluciona un hueco entero (unos días con el ejercicio principal y otros con
     un comodín), el endpoint es `/rutinas/{id}/slots/{slot_id}/historial`.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    obtener_ejercicio_legible(db, ejercicio_id)
     return sesiones_con_series(db, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite)
 
 
 # --- Notas sobre un ejercicio --------------------------------
 
 
-def _obtener_nota_propia(db: Session, ejercicio_id: int, nota_id: int) -> NotaUsuarioEjercicio:
+def _obtener_nota(db: Session, ejercicio_id: int, nota_id: int) -> NotaUsuarioEjercicio:
     """404 si el ejercicio o la nota no existen, o la nota es de otro ejercicio.
 
     Admite ejercicios ocultos: las notas no "usan" el ejercicio, y una nota es
     justo donde apuntar por qué se ocultó.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    obtener_ejercicio_legible(db, ejercicio_id)
     nota = db.get(NotaUsuarioEjercicio, nota_id)
     if nota is None or nota.ejercicio_id != ejercicio_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
@@ -534,8 +534,8 @@ def listar_notas(
 ):
     """Las notas sobre este ejercicio, de la más reciente a la más antigua."""
     # También si está oculto: las notas se pueden leer y escribir igual (ver
-    # `_obtener_nota_propia`).
-    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    # `_obtener_nota`).
+    obtener_ejercicio_legible(db, ejercicio_id)
     stmt = (
         select(NotaUsuarioEjercicio)
         .where(
@@ -556,7 +556,7 @@ def crear_nota(
     ejercicio: cada una es independiente, no se sobreescriben. También en uno
     oculto, por ejemplo para apuntar por qué se ocultó.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    obtener_ejercicio_legible(db, ejercicio_id)
     nota = NotaUsuarioEjercicio(**datos.model_dump(), ejercicio_id=ejercicio_id)
     db.add(nota)
     db.commit()
@@ -571,7 +571,7 @@ def actualizar_nota(
     datos: NotaUpdate,
     db: Session = Depends(get_db),
 ):
-    nota = _obtener_nota_propia(db, ejercicio_id, nota_id)
+    nota = _obtener_nota(db, ejercicio_id, nota_id)
     for campo, valor in datos.model_dump().items():
         setattr(nota, campo, valor)
     db.commit()
@@ -588,6 +588,6 @@ def borrar_nota(
     """Borrado directo, sin parámetro `modo`: nada referencia una nota, así
     que no hay historial ajeno que proteger (igual que con las series).
     """
-    nota = _obtener_nota_propia(db, ejercicio_id, nota_id)
+    nota = _obtener_nota(db, ejercicio_id, nota_id)
     db.delete(nota)
     db.commit()

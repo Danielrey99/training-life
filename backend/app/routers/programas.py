@@ -33,7 +33,7 @@ def _obtener_programa_legible(db: Session, programa_id: int) -> Programa:
     return programa
 
 
-def _obtener_programa_propio(
+def _obtener_programa_modificable(
     db: Session, programa_id: int, admitir_oculto: bool = False
 ) -> Programa:
     """Para modificar: 404 si no existe y 409 si está oculto, salvo con `admitir_oculto`, que es para borrarlo o volver a mostrarlo."""
@@ -148,7 +148,7 @@ def actualizar_programa(
     datos: ProgramaUpdate,
     db: Session = Depends(get_db),
 ):
-    programa = _obtener_programa_propio(db, programa_id)
+    programa = _obtener_programa_modificable(db, programa_id)
     programa.nombre = datos.nombre
     db.commit()
     db.refresh(programa)
@@ -168,7 +168,7 @@ def activar_programa(
     adelante, que se planificaron pensando en el programa anterior. Los pasados
     se quedan: dicen qué tocaba entonces.
     """
-    programa = _obtener_programa_propio(db, programa_id)
+    programa = _obtener_programa_modificable(db, programa_id)
     _activar(db, programa)
     if datos is not None and datos.quitar_excepciones:
         db.execute(delete(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha >= hoy()))
@@ -185,7 +185,7 @@ def desactivar_programa(
     """Lo saca de uso y deja sin programa activo. Si no estaba activo,
     no hace nada.
     """
-    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
+    programa = _obtener_programa_modificable(db, programa_id, admitir_oculto=True)
     if programa.activo:
         _cerrar_periodo_abierto(db)
         db.commit()
@@ -201,7 +201,7 @@ def mostrar_programa(
     """Deshace un `modo=ocultar`. No lo vuelve a activar aunque lo estuviera:
     qué programa está en uso se decide activándolo.
     """
-    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
+    programa = _obtener_programa_modificable(db, programa_id, admitir_oculto=True)
     programa.oculto_desde = None
     db.commit()
     db.refresh(programa)
@@ -224,7 +224,7 @@ def borrar_programa(
     - Si lo estuvo, hace falta `modo=ocultar` (conserva todo; si era el activo,
       deja de serlo) o `modo=definitivo` (se van también sus días y periodos).
     """
-    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
+    programa = _obtener_programa_modificable(db, programa_id, admitir_oculto=True)
 
     if modo == "ocultar":
         if programa.activo:
@@ -325,7 +325,7 @@ def poner_rutina_en_dia(
     """Pone una rutina en un día. Si el día ya tenía una (también si estaba
     oculta), la nueva la sustituye: un día, una rutina.
     """
-    programa = _obtener_programa_propio(db, programa_id)
+    programa = _obtener_programa_modificable(db, programa_id)
     obtener_rutina_visible(db, datos.rutina_id)
     _cambiar_dia(db, programa, dia_semana, datos.rutina_id)
     db.commit()
@@ -340,7 +340,7 @@ def quitar_rutina_de_dia(
     db: Session = Depends(get_db),
 ):
     """Deja el día en descanso desde hoy; los días pasados no cambian."""
-    programa = _obtener_programa_propio(db, programa_id)
+    programa = _obtener_programa_modificable(db, programa_id)
     if not any(fila.dia_semana == dia_semana for fila in programa.dias):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso"

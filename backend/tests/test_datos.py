@@ -30,7 +30,7 @@ from app.models import (
     SlotAlternativa,
 )
 from app.schemas import (
-    DatosDeUsuario,
+    ArchivoDeDatos,
     DiaDeArchivo,
     EjercicioDeArchivo,
     EntrenamientoDeArchivo,
@@ -744,7 +744,7 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
     }
     # El archivo pasado por el formato, para que tenga sus valores por defecto y las
     # horas escritas igual que al exportar.
-    normalizado = DatosDeUsuario.model_validate(archivo).model_dump(mode="json")
+    normalizado = ArchivoDeDatos.model_validate(archivo).model_dump(mode="json")
     assert sin_ids(exportado(cliente)) == sin_ids(normalizado)
     # Nada de lo de antes, tampoco la nota del predefinido que no se usaba en nada
     # (no se iría con ningún ejercicio).
@@ -1549,7 +1549,7 @@ def test_cada_tabla_esta_en_el_formato_o_fuera_a_proposito():
 
 
 def test_el_formato_de_alto_nivel_tiene_una_lista_por_cada_cosa():
-    assert set(DatosDeUsuario.model_fields) == {
+    assert set(ArchivoDeDatos.model_fields) == {
         "formato",
         "version",
         "exportado_en",

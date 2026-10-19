@@ -926,7 +926,7 @@ class EntrenamientoDeArchivo(BaseModel):
     series: list[SerieDeArchivo] = []
 
 
-class DatosDeUsuario(BaseModel):
+class ArchivoDeDatos(BaseModel):
     """Todos los datos, para pasarlos a otro dispositivo o guardarlos
     como copia. Cada lista va por id, también dentro de cada padre: se inserta en ese
     orden, y así se conserva el orden relativo de los ids (el de los comodines y el
