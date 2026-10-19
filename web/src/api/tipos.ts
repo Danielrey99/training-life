@@ -21,8 +21,6 @@ export type Ejercicio = {
   grupo_muscular_id: number
   descripcion: string | null
   es_predefinido: boolean
-  usuario_id: number | null
-  visibilidad: string
   // Desde cuándo está oculto; nulo si está visible.
   oculto_desde: string | null
   created_at: string
@@ -37,7 +35,6 @@ export type EjercicioMinimo = {
 
 export type Nota = {
   id: number
-  usuario_id: number
   ejercicio_id: number
   nota: string
   created_at: string
@@ -65,7 +62,6 @@ export type HuecoDeRutina = {
 
 export type Rutina = {
   id: number
-  usuario_id: number
   nombre: string
   // Desde cuándo está oculto; nulo si está visible.
   oculto_desde: string | null
@@ -163,7 +159,6 @@ export type Serie = {
 
 export type Entrenamiento = {
   id: number
-  usuario_id: number
   rutina_id: number
   fecha: string
   // El día del plan que cuenta: el de hoy, uno que se recupera o uno que se
@@ -221,7 +216,6 @@ export type ProgramaDia = {
 
 export type Programa = {
   id: number
-  usuario_id: number
   nombre: string
   oculto_desde: string | null
   // El que usan Hoy y el calendario. Solo puede haber uno.
