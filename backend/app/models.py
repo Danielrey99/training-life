@@ -77,17 +77,18 @@ class Ejercicio(Ocultable, Base):
     )
 
 
-class NotaUsuarioEjercicio(Base):
-    """Una nota personal sobre un ejercicio, propio o predefinido (ej. "en esta máquina el asiento va en el 4").
+class NotaEjercicio(Base):
+    """Una nota personal sobre un ejercicio, propio o predefinido (ej. "en esta
+    máquina el asiento va en el 4").
 
     Separada de Ejercicio.descripcion porque esa es información general y
-    objetiva del ejercicio (y no editable si es predefinido), mientras que
-    una nota es subjetiva. Sin unicidad de `ejercicio_id` a propósito: se pueden ir acumulando notas
-    independientes sobre el mismo ejercicio a lo largo del tiempo, cada una
-    con su propia fila, editable y borrable por separado.
+    objetiva del ejercicio (y no editable si es predefinido), mientras que una
+    nota es subjetiva. Sin unicidad de `ejercicio_id` a propósito: se pueden ir
+    acumulando notas independientes sobre el mismo ejercicio a lo largo del
+    tiempo, cada una con su propia fila, editable y borrable por separado.
     """
 
-    __tablename__ = "notas_usuario_ejercicio"
+    __tablename__ = "notas_ejercicio"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # CASCADE (a diferencia de rutina_slots, slot_alternativas y series hacia
@@ -205,10 +206,11 @@ class SlotAlternativa(Base):
 class Entrenamiento(Base):
     """Una sesión real de entrenamiento, en una fecha concreta.
 
-    A diferencia de Ejercicio/Rutina/RutinaSlot, no se puede ocultar: es el propio historial, no algo que otras tablas referencien
-    con historial que proteger — nada depende de un entrenamiento concreto
-    salvo sus propias series, que se borran con él (CASCADE). Por eso su
-    DELETE es directo, sin parámetro `modo` de por medio.
+    A diferencia de Ejercicio/Rutina/RutinaSlot, no se puede ocultar: es el propio
+    historial, no algo que otras tablas referencien con historial que proteger —
+    nada depende de un entrenamiento concreto salvo sus propias series, que se
+    borran con él (CASCADE). Por eso su DELETE es directo, sin parámetro `modo`
+    de por medio.
     """
 
     __tablename__ = "entrenamientos"

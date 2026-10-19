@@ -13,7 +13,7 @@ from sqlalchemy import func, select, update
 from app.fechas import hoy
 from app.models import (
     Ejercicio,
-    NotaUsuarioEjercicio,
+    NotaEjercicio,
     Programa,
     Rutina,
     RutinaSlot,
@@ -233,8 +233,8 @@ def contar_notas(sesion_bd, ejercicio_id):
     """
     return sesion_bd.scalar(
         select(func.count())
-        .select_from(NotaUsuarioEjercicio)
-        .where(NotaUsuarioEjercicio.ejercicio_id == ejercicio_id)
+        .select_from(NotaEjercicio)
+        .where(NotaEjercicio.ejercicio_id == ejercicio_id)
     )
 
 

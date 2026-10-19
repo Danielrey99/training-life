@@ -23,7 +23,7 @@ from app.models import (
     Entrenamiento,
     ExcepcionDelPlan,
     GrupoMuscular,
-    NotaUsuarioEjercicio,
+    NotaEjercicio,
     Programa,
     ProgramaDia,
     ProgramaPeriodo,
@@ -48,7 +48,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
     ejercicios = db.scalars(
         select(Ejercicio).where(Ejercicio.es_predefinido.is_(False)).order_by(Ejercicio.id)
     ).all()
-    notas = db.scalars(select(NotaUsuarioEjercicio).order_by(NotaUsuarioEjercicio.id)).all()
+    notas = db.scalars(select(NotaEjercicio).order_by(NotaEjercicio.id)).all()
     rutinas = db.scalars(select(Rutina).order_by(Rutina.id)).all()
     huecos = db.scalars(select(RutinaSlot).order_by(RutinaSlot.id)).all()
     alternativas = db.scalars(select(SlotAlternativa).order_by(SlotAlternativa.id)).all()
@@ -374,7 +374,7 @@ def resumir_actual(db: Session) -> ResumenDeDatos:
     return ResumenDeDatos(
         # Solo los propios: los predefinidos vienen con la app y no se pierden al importar.
         ejercicios=contar(Ejercicio, Ejercicio.es_predefinido.is_(False)),
-        notas=contar(NotaUsuarioEjercicio),
+        notas=contar(NotaEjercicio),
         rutinas=contar(Rutina),
         programas=contar(Programa),
         sesiones=sesiones,
@@ -400,7 +400,7 @@ def borrar_todo(db: Session) -> None:
     db.execute(delete(Programa))
     db.execute(delete(Entrenamiento))
     # También las notas de predefinidos, que no se irían con ningún ejercicio.
-    db.execute(delete(NotaUsuarioEjercicio))
+    db.execute(delete(NotaEjercicio))
     db.execute(delete(RutinaSlot))
     db.execute(delete(Rutina))
     # ⚠️ Solo los propios: sin esta condición se borrarían también los predefinidos.
@@ -433,7 +433,7 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
     ejercicio_nuevo.update({viejo: nuevo.id for viejo, nuevo in ejercicios})
 
     db.add_all(
-        NotaUsuarioEjercicio(
+        NotaEjercicio(
             ejercicio_id=ejercicio_nuevo[n.ejercicio_id],
             nota=n.nota,
             created_at=n.created_at,

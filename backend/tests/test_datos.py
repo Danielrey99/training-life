@@ -20,7 +20,7 @@ from app.models import (
     Entrenamiento,
     ExcepcionDelPlan,
     GrupoMuscular,
-    NotaUsuarioEjercicio,
+    NotaEjercicio,
     Programa,
     ProgramaDia,
     ProgramaPeriodo,
@@ -112,13 +112,13 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
 
     sesion_bd.add_all(
         [
-            NotaUsuarioEjercicio(
+            NotaEjercicio(
                 ejercicio_id=press,
                 nota="El banco del fondo cojea",
                 created_at=instante("2026-08-03T08:00:00.000001+00:00"),
                 updated_at=instante("2026-08-04T08:00:00.000002+00:00"),
             ),
-            NotaUsuarioEjercicio(
+            NotaEjercicio(
                 ejercicio_id=de_nota[0],
                 nota="Asiento en el 4",
                 created_at=instante("2026-08-05T08:00:00+00:00"),
@@ -1255,7 +1255,7 @@ def test_el_resumen_cuenta_lo_oculto_y_no_los_predefinidos_ni_las_sesiones_sin_s
             oculto,
             rutina,
             Programa(nombre="Viejo", oculto_desde=date(2026, 9, 1)),
-            NotaUsuarioEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Asiento en el 4"),
+            NotaEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Asiento en el 4"),
         ]
     )
     sesion_bd.flush()
@@ -1497,7 +1497,7 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
 
 FORMATO_DE = {
     Ejercicio: EjercicioDeArchivo,
-    NotaUsuarioEjercicio: NotaDeArchivo,
+    NotaEjercicio: NotaDeArchivo,
     Rutina: RutinaDeArchivo,
     RutinaSlot: SlotDeArchivo,
     Programa: ProgramaDeArchivo,
@@ -1514,7 +1514,7 @@ NO_SE_EXPORTA = {
         "es_predefinido": "los propios nunca lo son; los predefinidos van aparte",
         "grupo_muscular_id": "va por nombre, en grupo_muscular",
     },
-    NotaUsuarioEjercicio: {"id": "nada la referencia"},
+    NotaEjercicio: {"id": "nada la referencia"},
     RutinaSlot: {"rutina_id": "va dentro de su rutina"},
     Programa: {"id": "nada la referencia"},
     ProgramaDia: {"id": "nada la referencia", "programa_id": "va dentro de su programa"},
@@ -1590,7 +1590,7 @@ def _foto(sesion_bd) -> dict:
 
     return {
         "ejercicios": todo(Ejercicio, Ejercicio.es_predefinido.is_(False)),
-        "notas": todo(NotaUsuarioEjercicio),
+        "notas": todo(NotaEjercicio),
         "rutinas": todo(Rutina),
         "huecos": todo(RutinaSlot),
         "comodines": todo(SlotAlternativa),
@@ -1675,7 +1675,7 @@ def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
     sesion_bd.add_all(
         [
             rutina,
-            NotaUsuarioEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"),
+            NotaEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"),
             ExcepcionDelPlan(fecha=date(2026, 9, 18), rutina_id=None),
         ]
     )

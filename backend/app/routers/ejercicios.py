@@ -13,7 +13,7 @@ from app.models import (
     Ejercicio,
     Entrenamiento,
     GrupoMuscular,
-    NotaUsuarioEjercicio,
+    NotaEjercicio,
     Programa,
     ProgramaDia,
     ProgramaPeriodo,
@@ -274,9 +274,9 @@ def donde_se_usa(
 def _cuantas_notas(db: Session, ejercicio_id: int) -> int:
     return db.scalar(
         select(func.count())
-        .select_from(NotaUsuarioEjercicio)
+        .select_from(NotaEjercicio)
         .where(
-            NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
+            NotaEjercicio.ejercicio_id == ejercicio_id,
         )
     )
 
@@ -514,14 +514,14 @@ def historial_de_ejercicio(
 # --- Notas sobre un ejercicio --------------------------------
 
 
-def _obtener_nota(db: Session, ejercicio_id: int, nota_id: int) -> NotaUsuarioEjercicio:
+def _obtener_nota(db: Session, ejercicio_id: int, nota_id: int) -> NotaEjercicio:
     """404 si el ejercicio o la nota no existen, o la nota es de otro ejercicio.
 
     Admite ejercicios ocultos: las notas no "usan" el ejercicio, y una nota es
     justo donde apuntar por qué se ocultó.
     """
     obtener_ejercicio_legible(db, ejercicio_id)
-    nota = db.get(NotaUsuarioEjercicio, nota_id)
+    nota = db.get(NotaEjercicio, nota_id)
     if nota is None or nota.ejercicio_id != ejercicio_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
     return nota
@@ -537,11 +537,11 @@ def listar_notas(
     # `_obtener_nota`).
     obtener_ejercicio_legible(db, ejercicio_id)
     stmt = (
-        select(NotaUsuarioEjercicio)
+        select(NotaEjercicio)
         .where(
-            NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
+            NotaEjercicio.ejercicio_id == ejercicio_id,
         )
-        .order_by(NotaUsuarioEjercicio.created_at.desc(), NotaUsuarioEjercicio.id.desc())
+        .order_by(NotaEjercicio.created_at.desc(), NotaEjercicio.id.desc())
     )
     return db.scalars(stmt).all()
 
@@ -557,7 +557,7 @@ def crear_nota(
     oculto, por ejemplo para apuntar por qué se ocultó.
     """
     obtener_ejercicio_legible(db, ejercicio_id)
-    nota = NotaUsuarioEjercicio(**datos.model_dump(), ejercicio_id=ejercicio_id)
+    nota = NotaEjercicio(**datos.model_dump(), ejercicio_id=ejercicio_id)
     db.add(nota)
     db.commit()
     db.refresh(nota)

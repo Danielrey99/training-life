@@ -46,7 +46,7 @@ TABLAS_A_VACIAR = (
     "programa_periodos",
     "programa_dias",
     "programas",
-    "notas_usuario_ejercicio",
+    "notas_ejercicio",
     "series",
     "entrenamientos",
     "slot_alternativas",

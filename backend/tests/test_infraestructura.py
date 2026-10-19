@@ -131,6 +131,8 @@ def test_la_migracion_que_exige_rutina_y_hueco_se_niega_si_quedan_datos_libres()
 # único con el que la API pudo escribir.
 
 ANTES_DE_QUITAR_USUARIOS = "c96823b23d81"
+# Los nombres de entonces: las notas se llamaban `notas_usuario_ejercicio` hasta
+# `b4e81d2c6f07`, que va por encima.
 TABLAS_CON_USUARIO = (
     "notas_usuario_ejercicio",
     "rutinas",
@@ -293,3 +295,96 @@ def test_quitar_los_usuarios_se_niega_si_hay_datos_que_no_son_del_usuario_1(caso
             conexion.execute(text("DELETE FROM ejercicios WHERE nombre = 'Raro'"))
             conexion.execute(text("DELETE FROM usuarios WHERE id <> 1"))
         command.upgrade(configuracion, "head")
+
+
+# --- La migración que renombró las notas -----------------------------------
+#
+# Sin usuarios, `notas_usuario_ejercicio` pasó a llamarse `notas_ejercicio`.
+# `rename_table` no toca la secuencia ni las restricciones: la migración las
+# renombra aparte, y al bajar tienen que volver con su nombre de antes.
+
+ANTES_DE_RENOMBRAR_NOTAS = "a7c3f19b2d84"
+
+
+def _nombres_de_las_notas(conexion, tabla: str) -> dict:
+    """Si existe la tabla, su secuencia y sus dos restricciones con el nombre que
+    les toca a `tabla`.
+    """
+    from sqlalchemy import text
+
+    def existe(sql, nombre):
+        return conexion.scalar(text(sql), {"n": nombre}) == 1
+
+    return {
+        "tabla": existe("SELECT count(*) FROM pg_tables WHERE tablename = :n", tabla),
+        "secuencia": existe(
+            "SELECT count(*) FROM pg_sequences WHERE sequencename = :n", f"{tabla}_id_seq"
+        ),
+        "pkey": existe("SELECT count(*) FROM pg_constraint WHERE conname = :n", f"{tabla}_pkey"),
+        "fkey": existe(
+            "SELECT count(*) FROM pg_constraint WHERE conname = :n",
+            f"{tabla}_ejercicio_id_fkey",
+        ),
+    }
+
+
+TODO_CON_ESE_NOMBRE = {"tabla": True, "secuencia": True, "pkey": True, "fkey": True}
+NADA_CON_ESE_NOMBRE = {"tabla": False, "secuencia": False, "pkey": False, "fkey": False}
+
+
+def test_renombrar_las_notas_y_volver_atras_no_pierde_ninguna(cliente, ejercicio_predefinido_id):
+    """Al bajar, la tabla, su secuencia y sus restricciones recuperan el nombre de
+    `notas_usuario_ejercicio`, con la nota dentro; al volver a subir, todo se llama
+    `notas_ejercicio`, la nota sigue y se puede escribir otra (la secuencia renombrada
+    es la que usa la columna `id`).
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    ruta = f"/ejercicios/{ejercicio_predefinido_id}/notas"
+    creada = cliente.post(ruta, json={"nota": "Asiento en el 4"})
+    assert creada.status_code == 201
+    nota = creada.json()
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        command.downgrade(configuracion, ANTES_DE_RENOMBRAR_NOTAS)
+        with engine.connect() as conexion:
+            assert _nombres_de_las_notas(conexion, "notas_usuario_ejercicio") == (
+                TODO_CON_ESE_NOMBRE
+            )
+            assert _nombres_de_las_notas(conexion, "notas_ejercicio") == NADA_CON_ESE_NOMBRE
+            filas = conexion.execute(
+                text("SELECT id, ejercicio_id, nota FROM notas_usuario_ejercicio")
+            ).all()
+            assert [tuple(fila) for fila in filas] == [
+                (nota["id"], ejercicio_predefinido_id, "Asiento en el 4")
+            ]
+            # La secuencia sigue siendo la de la columna, no una suelta con otro nombre.
+            secuencia = conexion.scalar(
+                text("SELECT pg_get_serial_sequence('notas_usuario_ejercicio', 'id')")
+            )
+            assert secuencia == "public.notas_usuario_ejercicio_id_seq"
+
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+        with engine.connect() as conexion:
+            assert _nombres_de_las_notas(conexion, "notas_ejercicio") == TODO_CON_ESE_NOMBRE
+            assert _nombres_de_las_notas(conexion, "notas_usuario_ejercicio") == (
+                NADA_CON_ESE_NOMBRE
+            )
+            secuencia = conexion.scalar(
+                text("SELECT pg_get_serial_sequence('notas_ejercicio', 'id')")
+            )
+            assert secuencia == "public.notas_ejercicio_id_seq"
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    otra = cliente.post(ruta, json={"nota": "Barra baja"})
+    assert otra.status_code == 201
+    assert otra.json()["id"] > nota["id"]
+    textos = [n["nota"] for n in cliente.get(ruta).json()]
+    assert sorted(textos) == ["Asiento en el 4", "Barra baja"]
