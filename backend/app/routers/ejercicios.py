@@ -586,7 +586,7 @@ def borrar_nota(
     db: Session = Depends(get_db),
 ):
     """Borrado directo, sin parámetro `modo`: nada referencia una nota, así
-    que no hay historial ajeno que proteger (igual que con las series).
+    que no hay historial que proteger (igual que con las series).
     """
     nota = _obtener_nota(db, ejercicio_id, nota_id)
     db.delete(nota)

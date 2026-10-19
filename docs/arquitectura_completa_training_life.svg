@@ -48,7 +48,7 @@
 
 <rect x="405" y="399" width="320" height="36" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
 <text x="565" y="414" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#04342C">FastAPI (usa Pydantic)</text>
-<text x="565" y="428" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#085041">3. JWT valida el token, luego valida los datos</text>
+<text x="565" y="428" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#085041">3. valida los datos que llegan (Pydantic)</text>
 
 <line x1="565" y1="435" x2="565" y2="441" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
 

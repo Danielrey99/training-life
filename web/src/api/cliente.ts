@@ -4,7 +4,7 @@
  * Todas las llamadas pasan por aquí para que las pantallas no repartan URLs ni
  * manejo de errores por su cuenta: si cambia la forma de un endpoint, se toca
  * un archivo. También es lo que permitiría cambiar `fetch` por otra cosa —o
- * añadir el token cuando exista JWT— sin recorrer toda la aplicación.
+ * reintentar peticiones fallidas— sin recorrer toda la aplicación.
  */
 
 import type {

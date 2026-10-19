@@ -259,7 +259,7 @@ Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen
 
 Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede ofrecer continuarla.
 
-Esa separación es la que permitirá cambiar cosas en un solo archivo más adelante — añadir el token cuando exista JWT, reintentar peticiones fallidas o meter una caché — sin recorrer todas las pantallas.
+Esa separación es la que permitirá cambiar cosas en un solo archivo más adelante — reintentar peticiones fallidas o meter una caché — sin recorrer todas las pantallas.
 
 Los tipos de `src/api/tipos.ts` reflejan los esquemas de `backend/app/schemas.py`. **No se generan solos**: si cambia un endpoint, hay que actualizarlos a mano o el editor mentirá.
 

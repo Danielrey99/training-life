@@ -24,8 +24,8 @@ app = FastAPI(
 
 # El navegador bloquea las peticiones entre orígenes distintos, y en desarrollo
 # la web (localhost:5173, Vite) y esta API (localhost:8000) lo son. Se nombra el
-# origen en vez de abrir a todos: cuando exista JWT, un "*" dejaría que
-# cualquier página llamara a la API desde el navegador de un usuario con sesión.
+# origen en vez de abrir a todos: un "*" dejaría que cualquier página llamara a
+# la API desde el navegador.
 # En producción la web se servirá desde el mismo origen que la API y esto dejará
 # de hacer falta.
 
