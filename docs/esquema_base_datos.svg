@@ -1,6 +1,6 @@
 <svg width="1320" height="1275" viewBox="0 0 1320 1275" xmlns="http://www.w3.org/2000/svg" role="img">
 <title>Esquema de la base de datos de Training Life: tablas y relaciones de borrado</title>
-<desc>Diagrama de las 13 tablas y sus foreign keys, mostrando para cada una si es ON DELETE CASCADE, ON DELETE RESTRICT o sin ondelete explícito, y qué tablas se pueden ocultar (columna oculto_desde), cuáles son historial y cuáles son accesorios que se borran con su padre.</desc>
+<desc>Diagrama de las 12 tablas y sus foreign keys, mostrando para cada una si es ON DELETE CASCADE, ON DELETE RESTRICT o sin ondelete explícito, y qué tablas se pueden ocultar (columna oculto_desde), cuáles son historial y cuáles son accesorios que se borran con su padre.</desc>
 <defs>
 <marker id="arrow-verde" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
 <path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -22,9 +22,8 @@
 <rect x="40" y="60" width="240" height="110" rx="10" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.5"/>
 <text x="55" y="83" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">programas</text>
 <text x="55" y="104" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
-<text x="55" y="121" font-family="Arial, sans-serif" font-size="11" fill="#085041">usuario_id → usuarios</text>
-<text x="55" y="138" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre</text>
-<text x="55" y="158" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
+<text x="55" y="121" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre</text>
+<text x="55" y="141" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- programa_dias -->
 <rect x="340" y="60" width="260" height="127" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
@@ -39,35 +38,31 @@
 <rect x="700" y="60" width="240" height="110" rx="10" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.5"/>
 <text x="715" y="83" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">rutinas</text>
 <text x="715" y="104" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
-<text x="715" y="121" font-family="Arial, sans-serif" font-size="11" fill="#085041">usuario_id → usuarios</text>
-<text x="715" y="138" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre</text>
-<text x="715" y="158" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
+<text x="715" y="121" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre</text>
+<text x="715" y="141" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- entrenamientos -->
 <rect x="1020" y="60" width="250" height="144" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
 <text x="1035" y="83" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#26215C">entrenamientos</text>
 <text x="1035" y="104" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">id (PK)</text>
-<text x="1035" y="121" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">usuario_id → usuarios</text>
-<text x="1035" y="138" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">rutina_id → rutinas</text>
-<text x="1035" y="155" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">fecha (una sesión por día)</text>
-<text x="1035" y="172" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">cubre_fecha (el día del plan que cuenta)</text>
-<text x="1035" y="189" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">terminada_en (nula = en curso)</text>
+<text x="1035" y="121" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">rutina_id → rutinas</text>
+<text x="1035" y="138" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">fecha (una sesión por día)</text>
+<text x="1035" y="155" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">cubre_fecha (el día del plan que cuenta)</text>
+<text x="1035" y="172" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">terminada_en (nula = en curso)</text>
 
 <!-- programa_periodos -->
 <rect x="40" y="230" width="240" height="110" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
 <text x="55" y="253" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#26215C">programa_periodos</text>
 <text x="55" y="274" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">id (PK)</text>
 <text x="55" y="291" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">programa_id → programas</text>
-<text x="55" y="308" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">usuario_id → usuarios</text>
-<text x="55" y="325" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">desde, hasta (nulo = activo)</text>
+<text x="55" y="308" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">desde, hasta (nulo = activo)</text>
 
 <!-- excepciones_del_plan -->
 <rect x="340" y="230" width="260" height="100" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
 <text x="355" y="253" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">excepciones_del_plan</text>
 <text x="355" y="274" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
-<text x="355" y="291" font-family="Arial, sans-serif" font-size="11" fill="#085041">usuario_id → usuarios</text>
-<text x="355" y="308" font-family="Arial, sans-serif" font-size="11" fill="#085041">fecha, única por usuario</text>
-<text x="355" y="325" font-family="Arial, sans-serif" font-size="11" fill="#085041">rutina_id → rutinas (nula = descanso)</text>
+<text x="355" y="291" font-family="Arial, sans-serif" font-size="11" fill="#085041">fecha (única)</text>
+<text x="355" y="308" font-family="Arial, sans-serif" font-size="11" fill="#085041">rutina_id → rutinas (nula = descanso)</text>
 
 <!-- rutina_slots -->
 <rect x="700" y="230" width="240" height="150" rx="10" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.5"/>
@@ -98,10 +93,8 @@
 <text x="355" y="463" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">ejercicios</text>
 <text x="355" y="484" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="355" y="501" font-family="Arial, sans-serif" font-size="11" fill="#085041">grupo_muscular_id → grupos_musculares</text>
-<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">usuario_id → usuarios</text>
-<text x="355" y="535" font-family="Arial, sans-serif" font-size="11" fill="#085041">(nulo si es predefinido)</text>
-<text x="355" y="552" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion, es_predefinido</text>
-<text x="355" y="574" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
+<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion, es_predefinido</text>
+<text x="355" y="540" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- slot_alternativas -->
 <rect x="700" y="450" width="240" height="100" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
@@ -110,18 +103,11 @@
 <text x="715" y="511" font-family="Arial, sans-serif" font-size="11" fill="#085041">slot_id → rutina_slots</text>
 <text x="715" y="528" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_id → ejercicios</text>
 
-<!-- notas_usuario_ejercicio -->
+<!-- notas_ejercicio -->
 <rect x="40" y="560" width="240" height="100" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
-<text x="55" y="583" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">notas_usuario_ejercicio</text>
+<text x="55" y="583" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">notas_ejercicio</text>
 <text x="55" y="604" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
-<text x="55" y="621" font-family="Arial, sans-serif" font-size="11" fill="#085041">usuario_id → usuarios</text>
-<text x="55" y="638" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_id → ejercicios</text>
-
-<!-- usuarios -->
-<rect x="40" y="700" width="240" height="80" rx="10" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
-<text x="55" y="723" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2C2C2A">usuarios</text>
-<text x="55" y="744" font-family="Arial, sans-serif" font-size="11" fill="#444441">id (PK)</text>
-<text x="55" y="761" font-family="Arial, sans-serif" font-size="11" fill="#444441">nombre, email</text>
+<text x="55" y="621" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_id → ejercicios</text>
 
 <!-- ============ FLECHAS (del HIJO al PADRE, siempre en horizontal/vertical) ============ -->
 
@@ -184,11 +170,9 @@
 <rect x="60" y="952" width="16" height="16" rx="3" fill="#8A8980"/>
 <text x="84" y="964" font-family="Arial, sans-serif" font-size="11" fill="#444441">Flecha gris discontinua = sin ondelete explícito (el comportamiento por defecto de Postgres: NO ACTION, parecido a RESTRICT).</text>
 
-<text x="60" y="986" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">Las FK hacia usuarios no se dibujan: las siete tablas con usuario_id la tienen, todas sin ondelete, y serían siete flechas grises iguales hacia la misma caja.</text>
-
 <text x="60" y="1018" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#2C2C2A">Color de cada tabla:</text>
 <rect x="60" y="1030" width="16" height="16" rx="3" fill="#F1EFE8" stroke="#5F5E5A"/>
-<text x="84" y="1042" font-family="Arial, sans-serif" font-size="11" fill="#444441">Beige = catálogo que no depende de nada: usuarios y grupos_musculares (los 17 grupos los siembra una migración).</text>
+<text x="84" y="1042" font-family="Arial, sans-serif" font-size="11" fill="#444441">Beige = catálogo que no depende de nada: grupos_musculares (los 17 grupos los siembra una migración).</text>
 
 <rect x="60" y="1052" width="16" height="16" rx="3" fill="#9FE1CB" stroke="#0F6E56"/>
 <text x="84" y="1064" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde = se puede ocultar (columna oculto_desde, la fecha desde la que está oculto): ejercicios, rutinas, rutina_slots y programas.</text>
@@ -197,12 +181,12 @@
 <text x="84" y="1086" font-family="Arial, sans-serif" font-size="11" fill="#444441">Morado = historial: lo que se entrenó (entrenamientos, series) y en qué fechas estuvo activo cada programa (programa_periodos).</text>
 
 <rect x="60" y="1096" width="16" height="16" rx="3" fill="#D3F1E5" stroke="#0F6E56"/>
-<text x="84" y="1108" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde claro = accesorio de su padre, que no significa nada sin él y se borra con él (CASCADE): slot_alternativas, notas_usuario_ejercicio, programa_dias y excepciones_del_plan.</text>
+<text x="84" y="1108" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde claro = accesorio de su padre, que no significa nada sin él y se borra con él (CASCADE): slot_alternativas, notas_ejercicio, programa_dias y excepciones_del_plan.</text>
 
 <text x="60" y="1140" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">Por eso las relaciones hacia hijos con CASCADE llevan cascade="all, delete-orphan" y passive_deletes=True en SQLAlchemy: los hijos cargados los borra el ORM y los demás, la base de datos.</text>
 <text x="60" y="1158" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">Rutina.slots, cuyo hijo es RESTRICT, lleva passive_deletes="all": el ORM no toca los huecos y decide siempre la restricción de la base de datos.</text>
-<text x="60" y="1186" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">programa_periodos tiene además un índice único parcial sobre usuario_id (WHERE hasta IS NULL): un usuario no puede tener dos programas activos a la vez.</text>
+<text x="60" y="1186" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">programa_periodos tiene además un índice único parcial (WHERE hasta IS NULL): como mucho un periodo abierto, o sea, un solo programa activo a la vez.</text>
 <text x="60" y="1204" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">programa_dias, lo mismo sobre (programa_id, dia_semana): una sola fila vigente por día. Las cerradas son lo que tocaba antes: editar un programa no reescribe el pasado.</text>
-<text x="60" y="1222" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">entrenamientos es único por (usuario_id, fecha): se entrena una rutina al día. Y por (usuario_id, cubre_fecha): un día del plan lo cuenta una sesión como mucho.</text>
+<text x="60" y="1222" font-family="Arial, sans-serif" font-size="11" font-style="italic" fill="#5F5E5A">entrenamientos es único por fecha: se entrena una rutina al día. Y por cubre_fecha: un día del plan lo cuenta una sesión como mucho.</text>
 
 </svg>

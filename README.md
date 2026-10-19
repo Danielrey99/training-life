@@ -59,16 +59,16 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
-**Lo siguiente**, en este orden: un último repaso del diseño, simplificar el backend a una sola persona por instalación (la app no va a ser una red social, así que los usuarios sobran), un repaso completo del proyecto y la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
+**Lo siguiente**, en este orden: un último repaso del diseño, un repaso completo del proyecto y la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, creables de una vez con la rutina; mismo patrón de borrado)
 - [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso, repeticiones y variante, base del historial de progresión)
-- [x] Backend: notas personales por ejercicio (privadas de cada usuario, también sobre los ejercicios predefinidos)
+- [x] Backend: notas personales por ejercicio (también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
-- [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, aislamiento por usuario, CRUD)
+- [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, restricciones de la base, CRUD)
 - [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
 - [x] Web: primera versión de registrar un entrenamiento (ya sustituida por la del diseño)
 - [x] Diseño de la app completo: pantallas, navegación y comportamiento, en móvil primero
@@ -83,7 +83,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Exportar e importar los datos en un archivo, para pasarlos de un dispositivo a otro
 - [x] Ajustes: kilos o libras, el paso de los botones del peso, las series y reps por defecto de un ejercicio nuevo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
 - [ ] Repaso final del diseño, pantalla a pantalla
-- [ ] Una sola persona por instalación: quitar los usuarios del backend
+- [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 

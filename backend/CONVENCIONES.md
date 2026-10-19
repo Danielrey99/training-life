@@ -26,12 +26,12 @@ Cada uno responde además a una pregunta distinta:
 Por eso conviven sin pisarse:
 
 ```python
-class NotaUsuarioEjercicio(Base):
-    """Una nota personal y privada de un usuario sobre un ejercicio, propio o
+class NotaEjercicio(Base):
+    """Una nota personal sobre un ejercicio, propio o
     predefinido (ej. "en esta máquina el asiento va en el 4").
     """
 
-    __tablename__ = "notas_usuario_ejercicio"
+    __tablename__ = "notas_ejercicio"
 
     # CASCADE (a diferencia de rutina_slots, slot_alternativas y series hacia
     # ejercicios, que son RESTRICT): una nota no es historial de progresión
@@ -44,7 +44,7 @@ class NotaUsuarioEjercicio(Base):
 Se sigue [PEP 257](https://peps.python.org/pep-0257/), la guía oficial de Python:
 
 - Termina siempre en punto.
-- De una línea, todo junto: `"""Visible si es predefinido o si es del usuario actual."""`
+- De una línea, todo junto: `"""Visible si no está oculto."""`
 - De varias líneas, el `"""` de cierre **baja a su propia línea**, para marcar dónde acaba la explicación y empieza el código.
 - Escrito en español. Las clases se describen con un sustantivo ("Un hueco dentro de una rutina..."); las funciones, en tercera persona ("Devuelve...", "Crea...").
 

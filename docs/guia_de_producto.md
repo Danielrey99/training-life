@@ -328,7 +328,7 @@ Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo
 
 Descripción; la progresión, con el peso más alto de la última sesión y cuándo fue (*Última vez el jueves 1*), que lleva a la gráfica (H3); las notas personales con su fecha, las más recientes arriba, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el lugar que ocupa en la rutina (*Push · ejercicio 1*), si es el principal o una alternativa, y en qué programas está la rutina. Lleva a la rutina (P3). Solo el programa activo lo dice (*Push Pull Leg · programa activo*); los demás salen con su nombre. Si el ejercicio está oculto dentro de una rutina, o la rutina está oculta, esa fila va plegada en *Ver N rutinas ocultas*. Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie. Lo que no tiene contenido no sale: sin descripción, sin sesiones o sin rutinas, esos bloques no aparecen.
 
-**Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app y son compartidos por todos los usuarios. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son del usuario.
+**Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son tuyas.
 
 ### X3 · Nuevo / editar ejercicio
 
@@ -408,14 +408,14 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado): cómo hará esos cálculos se decidirá al empezarla.
 
-Las pantallas de la web ya están todas. Lo siguiente es un último repaso del diseño, dejar la app para una sola persona por instalación (sin usuarios) y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
+Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios. Lo siguiente es un último repaso del diseño y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
 
 ## Por decidir
 
 Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
 - **Objetivo por ejercicio y no por puesto en la rutina.** Hoy las series objetivo y el rango de reps son del puesto, y la alternativa los hereda. Queda por ver si cada alternativa debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
-- **Ocultar predefinidos**: haría falta guardarlo por usuario, porque ocultar la fila compartida la ocultaría para todos.
+- **Ocultar predefinidos**: de momento no se ve necesario, así que no se pueden ocultar.
 - **Temporizador de descanso** entre series, en E2, con el tiempo por defecto en Ajustes.
 - **Peso corporal**, para comparar con el peso levantado.
 - **Cardio**: la app está pensada para series de peso por repeticiones, y el cardio (cinta, bici, remo) se mide de otra forma, con tiempo, distancia o ritmo. Tendría sentido como grupo aparte, con su propio registro.
