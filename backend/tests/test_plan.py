@@ -14,7 +14,6 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import update
 
-from app.auth import USUARIO_SEMBRADO_ID
 from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
 from tests.semana import HOY
 
@@ -40,10 +39,8 @@ def crear_programa(cliente, nombre, dias) -> int:
     return respuesta.json()["id"]
 
 
-def periodo(sesion_bd, programa_id, desde, hasta=None, usuario_id=USUARIO_SEMBRADO_ID) -> None:
-    sesion_bd.add(
-        ProgramaPeriodo(programa_id=programa_id, usuario_id=usuario_id, desde=desde, hasta=hasta)
-    )
+def periodo(sesion_bd, programa_id, desde, hasta=None) -> None:
+    sesion_bd.add(ProgramaPeriodo(programa_id=programa_id, desde=desde, hasta=hasta))
     sesion_bd.commit()
 
 
@@ -135,17 +132,6 @@ def test_un_programa_oculto_sigue_contando_para_los_dias_en_que_estuvo_activo(cl
     assert rutina_de(dias[(HOY - timedelta(days=7)).isoformat()]) == "Push"
 
 
-def test_los_programas_de_otro_usuario_no_cuentan(cliente, sesion_bd, otro_usuario_id):
-    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
-    sesion_bd.add(ajeno)
-    sesion_bd.flush()
-    periodo(sesion_bd, ajeno.id, HOY - timedelta(days=3), usuario_id=otro_usuario_id)
-
-    dias = plan(cliente, HOY, HOY)
-
-    assert dias[HOY.isoformat()]["origen"] == "sin_programa"
-
-
 def test_el_rango_invertido_da_422(cliente):
     respuesta = cliente.get(
         "/plan", params={"desde": HOY.isoformat(), "hasta": (HOY - timedelta(days=1)).isoformat()}
@@ -177,9 +163,7 @@ def planificar(cliente, fecha, rutina_id):
 
 def excepcion_a_mano(sesion_bd, fecha, rutina_id) -> None:
     """Para días ya pasados, que por la API no se pueden planificar."""
-    sesion_bd.add(
-        ExcepcionDelPlan(usuario_id=USUARIO_SEMBRADO_ID, fecha=fecha, rutina_id=rutina_id)
-    )
+    sesion_bd.add(ExcepcionDelPlan(fecha=fecha, rutina_id=rutina_id))
     sesion_bd.commit()
 
 
@@ -418,19 +402,24 @@ def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push
     assert respuesta.status_code == 422
 
 
-def test_los_dias_planificados_de_otro_usuario_no_cuentan(
-    cliente, sesion_bd, semana_push, otro_usuario_id
+def test_la_base_de_datos_no_admite_dos_dias_planificados_la_misma_fecha(
+    cliente, sesion_bd, semana_push
 ):
-    ajena = Rutina(usuario_id=otro_usuario_id, nombre="De otro")
-    sesion_bd.add(ajena)
-    sesion_bd.flush()
-    sesion_bd.add(ExcepcionDelPlan(usuario_id=otro_usuario_id, fecha=HOY, rutina_id=ajena.id))
-    sesion_bd.commit()
+    """La red por debajo del PUT, que sustituye el día en vez de añadir otro: sin
+    `excepciones_del_plan_fecha_key`, el plan no sabría cuál de los dos manda.
+    """
+    from sqlalchemy.exc import IntegrityError
 
-    dia = plan(cliente, HOY, HOY)[HOY.isoformat()]
-
-    assert (dia["origen"], rutina_de(dia)) == ("programa", "Push")
-    assert cliente.get("/plan/excepciones").json() == []
+    sesion_bd.add_all(
+        [
+            ExcepcionDelPlan(fecha=HOY, rutina_id=semana_push["push"]),
+            ExcepcionDelPlan(fecha=HOY, rutina_id=None),
+        ]
+    )
+    with pytest.raises(IntegrityError) as error:
+        sesion_bd.commit()
+    sesion_bd.rollback()
+    assert "excepciones_del_plan_fecha_key" in str(error.value)
 
 
 # --- Bordes y combinaciones con lo oculto --------------------------------
@@ -481,8 +470,8 @@ def test_intercambiar_un_dia_con_la_rutina_oculta_lo_mueve_como_descanso(cliente
 def test_ocultar_el_programa_activo_deja_hoy_sin_programa_pero_respeta_lo_planificado(
     cliente, semana_push
 ):
-    """Las excepciones son del usuario, no del programa: sobreviven a que el
-    programa deje de estar activo.
+    """Las excepciones no son del programa: sobreviven a que el programa deje de
+    estar activo.
     """
     manana = HOY + timedelta(days=1)
     planificar(cliente, manana, semana_push["pull"])

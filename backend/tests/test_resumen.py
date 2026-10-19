@@ -22,8 +22,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.models import Entrenamiento, Programa, ProgramaDia, ProgramaPeriodo, Serie
-from tests.ayudas import consultas_de, ejercicio_de_prueba, hueco_en_bd, rutina_en_bd, serie_en
+from tests.ayudas import consultas_de, ejercicio_de_prueba, serie_en
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18
 
 SEPTIEMBRE = "2026-09"
@@ -176,7 +175,7 @@ def test_sin_mes_es_el_de_hoy(cliente, hoy_es):
     assert pedir(cliente)["mes"] == "2026-09-01"
 
 
-def test_un_usuario_sin_nada_recibe_todo_a_cero(cliente, hoy_es):
+def test_sin_datos_todo_sale_a_cero(cliente, hoy_es):
     """El 16 de septiembre, pidiendo septiembre: hay barra en curso en las dos
     vistas, y sale aunque esté vacía.
     """
@@ -1000,85 +999,7 @@ def test_en_un_año_pasado_no_hay_nada_por_llegar(cliente, ppl, hoy_es):
     assert constancia["entrenados"] == 0
 
 
-# --- Aislamiento y consultas -------------------------------------------------
-
-
-def sesion_ajena(sesion_bd, usuario_id, rutina_id, hueco_id, ejercicio_id, fecha) -> None:
-    entrenamiento = Entrenamiento(
-        usuario_id=usuario_id, rutina_id=rutina_id, fecha=fecha, cubre_fecha=fecha
-    )
-    sesion_bd.add(entrenamiento)
-    sesion_bd.flush()
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=entrenamiento.id,
-            slot_id=hueco_id,
-            ejercicio_id=ejercicio_id,
-            numero_serie=1,
-            peso=Decimal("100"),
-            repeticiones=10,
-        )
-    )
-
-
-def test_lo_de_otro_usuario_no_sale_en_ninguna_tarjeta(
-    cliente, hoy_es, ejercicio_id, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
-):
-    """El otro tiene un programa activo y sesiones con series en las mismas fechas
-    (una de hoy, en curso) y otra de hace casi un año, que no puede servir de
-    referencia para el cambio.
-    """
-    hoy_es(MARTES_6_OCT)
-    rutina_ajena = rutina_en_bd(sesion_bd, otro_usuario_id, "Push")
-    hueco = hueco_en_bd(sesion_bd, rutina_ajena, ejercicio_predefinido_id)
-    programa = Programa(usuario_id=otro_usuario_id, nombre="Ajeno")
-    sesion_bd.add(programa)
-    sesion_bd.flush()
-    sesion_bd.add_all(
-        [
-            ProgramaDia(programa_id=programa.id, dia_semana=dia, rutina_id=rutina_ajena)
-            for dia in range(1, 8)
-        ]
-        + [
-            ProgramaPeriodo(
-                programa_id=programa.id, usuario_id=otro_usuario_id, desde=date(2026, 1, 1)
-            )
-        ]
-    )
-    for fecha in (
-        date(2025, 12, 1),
-        date(2026, 8, 20),
-        date(2026, 9, 29),
-        date(2026, 10, 2),
-        MARTES_6_OCT,
-    ):
-        sesion_ajena(
-            sesion_bd, otro_usuario_id, rutina_ajena, hueco, ejercicio_predefinido_id, fecha
-        )
-    sesion_bd.commit()
-
-    for mes in (SEPTIEMBRE, OCTUBRE, "2026-08"):
-        datos = pedir(cliente, mes)
-        if mes == OCTUBRE:
-            assert datos["por_semana"]["en_curso"] and datos["por_mes"]["en_curso"]
-        for vista in (datos["por_semana"], datos["por_mes"]):
-            for periodo in todas_las_barras(vista):
-                assert periodo["volumen"] == "0.00"
-                assert cambio(periodo) == (None, None)
-                assert periodo["volumen_por_rutina"] == periodo["series_por_grupo"] == []
-        assert all(
-            (m["entrenados"], m["planificados"], m["por_llegar"]) == (0, 0, 0)
-            for m in datos["constancia"]["meses"]
-        )
-
-    # Con una sesión propia, la ajena de diciembre no le da con qué compararse.
-    push = rutina(cliente, "Push")
-    sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (100, 1))
-    datos = pedir(cliente, SEPTIEMBRE)
-    semana = barra(datos["por_semana"], date(2026, 9, 21))
-    assert semana["volumen"] == "100.00"
-    assert cambio(semana) == (None, None)
-    assert cambio(barra(datos["por_mes"], date(2026, 9, 1))) == (None, None)
+# --- Consultas ----------------------------------------------------------------
 
 
 def test_siempre_hace_las_mismas_consultas(cliente, ppl, hoy_es, grupo_muscular_id):

@@ -12,9 +12,8 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.auth import USUARIO_SEMBRADO_ID
 from app.fechas import hoy
-from app.models import Programa, ProgramaDia, ProgramaPeriodo, Rutina
+from app.models import ProgramaDia, ProgramaPeriodo
 from tests.ayudas import consultas_de
 
 # --- Ayudantes -----------------------------------------------------------
@@ -114,16 +113,14 @@ def test_crear_con_una_rutina_oculta_falla_y_no_guarda_nada(cliente):
     assert cliente.get("/programas").json() == []
 
 
-def test_crear_con_una_rutina_de_otro_usuario_da_404(cliente, sesion_bd, otro_usuario_id):
-    ajena = Rutina(usuario_id=otro_usuario_id, nombre="De otro")
-    sesion_bd.add(ajena)
-    sesion_bd.commit()
-
+def test_crear_con_una_rutina_inexistente_da_404_y_no_guarda_nada(cliente):
     respuesta = cliente.post(
-        "/programas", json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": ajena.id}]}
+        "/programas", json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": 999999}]}
     )
 
     assert respuesta.status_code == 404
+    assert cliente.get("/programas", params={"ocultos": True}).json() == []
+    assert cliente.get("/programas").json() == []
 
 
 # --- Reutilizar rutinas --------------------------------------------------
@@ -245,14 +242,12 @@ def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente
     assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] is not None
 
 
-def test_un_programa_de_otro_usuario_no_se_ve_ni_se_edita(cliente, sesion_bd, otro_usuario_id):
-    ajeno = Programa(usuario_id=otro_usuario_id, nombre="De otro")
-    sesion_bd.add(ajeno)
-    sesion_bd.commit()
+def test_consultar_un_programa_inexistente_da_404(cliente):
+    """Los verbos que escriben, en `test_crud.py` («Lo que no existe»)."""
+    respuesta = cliente.get("/programas/999999")
 
-    assert cliente.get(f"/programas/{ajeno.id}").status_code == 404
-    assert cliente.put(f"/programas/{ajeno.id}", json={"nombre": "Mío"}).status_code == 403
-    assert cliente.get("/programas").json() == []
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Programa no encontrado"
 
 
 # --- Las rutinas ocultas o borradas y sus días ---------------------------
@@ -316,7 +311,6 @@ def activo_desde_hace(sesion_bd, programa_id, dias) -> None:
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=programa_id,
-            usuario_id=USUARIO_SEMBRADO_ID,
             desde=hoy() - timedelta(days=dias),
         )
     )
@@ -385,8 +379,8 @@ def test_activar_el_que_ya_esta_activo_no_hace_nada(cliente, sesion_bd):
 
 
 def test_desactivar_uno_que_no_esta_activo_no_hace_nada(cliente, sesion_bd):
-    """Ni en él ni en el que sí está activo: cerrar "el periodo abierto" del
-    usuario sin mirar de qué programa es desactivaría el otro.
+    """Ni en él ni en el que sí está activo: cerrar "el periodo abierto" sin
+    mirar de qué programa es desactivaría el otro.
     """
     activo = crear_programa(cliente, "Activo")
     activo_desde_hace(sesion_bd, activo["id"], 5)
@@ -406,17 +400,35 @@ def test_un_programa_oculto_no_se_puede_activar(cliente, sesion_bd):
     assert cliente.post(f"/programas/{programa['id']}/activar").status_code == 409
 
 
-def test_la_base_de_datos_no_admite_dos_periodos_abiertos_del_mismo_usuario(cliente, sesion_bd):
-    """La red por debajo de la comprobación del endpoint: el índice único parcial."""
+def test_la_base_de_datos_no_admite_dos_periodos_abiertos(cliente, sesion_bd):
+    """La red por debajo de la comprobación del endpoint: el índice único parcial
+    `ix_programa_periodos_abierto`, sobre la expresión `(hasta IS NULL)`. Es su
+    única red: ningún endpoint deja llegar a dos abiertos.
+    """
     uno, otro = crear_programa(cliente, "Uno"), crear_programa(cliente, "Otro")
     activo_desde_hace(sesion_bd, uno["id"], 3)
 
-    sesion_bd.add(
-        ProgramaPeriodo(programa_id=otro["id"], usuario_id=USUARIO_SEMBRADO_ID, desde=hoy())
-    )
-    with pytest.raises(IntegrityError):
+    sesion_bd.add(ProgramaPeriodo(programa_id=otro["id"], desde=hoy()))
+    with pytest.raises(IntegrityError) as error:
         sesion_bd.commit()
     sesion_bd.rollback()
+    assert "ix_programa_periodos_abierto" in str(error.value)
+
+
+def test_la_base_de_datos_si_admite_varios_periodos_cerrados(cliente, sesion_bd):
+    """El índice es parcial: los cerrados (con `hasta`) no chocan entre sí."""
+    uno, otro = crear_programa(cliente, "Uno"), crear_programa(cliente, "Otro")
+
+    sesion_bd.add_all(
+        [
+            ProgramaPeriodo(programa_id=uno["id"], desde=hoy() - timedelta(days=9), hasta=hoy()),
+            ProgramaPeriodo(programa_id=otro["id"], desde=hoy() - timedelta(days=9), hasta=hoy()),
+            ProgramaPeriodo(programa_id=otro["id"], desde=hoy()),
+        ]
+    )
+    sesion_bd.commit()
+
+    assert len(periodos(sesion_bd, otro["id"])) == 2
 
 
 # --- Ocultar, mostrar y borrar -------------------------------------------
@@ -584,7 +596,6 @@ def test_un_programa_que_ya_no_esta_activo_conserva_su_pasado_al_editarlo(client
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=programa["id"],
-            usuario_id=USUARIO_SEMBRADO_ID,
             desde=hoy() - timedelta(days=14),
             hasta=hoy() - timedelta(days=3),
         )
@@ -703,7 +714,6 @@ def periodo_cerrado(sesion_bd, programa_id, desde_hace, hasta_hace) -> None:
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=programa_id,
-            usuario_id=USUARIO_SEMBRADO_ID,
             desde=hoy() - timedelta(days=desde_hace),
             hasta=hoy() - timedelta(days=hasta_hace),
         )

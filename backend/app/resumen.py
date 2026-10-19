@@ -15,7 +15,7 @@ una semana sin entrenar no deja a la siguiente sin con qué compararse.
 Qué cuenta en cada cifra:
 
 - **Volumen** (Σ peso × repeticiones, como en el día del historial) y **series**:
-  todas las sesiones del usuario por su fecha real, no por el día del plan que
+  todas las sesiones por su fecha real, no por el día del plan que
   cuentan. También las que siguen abiertas, las que no cuentan para ningún día y
   las de rutinas o ejercicios ocultos: es historial. Las canceladas no tienen
   series, así que no suman sin necesidad de filtrarlas.
@@ -200,9 +200,7 @@ def _ventanas(primero: date, hoy_: date) -> tuple[_Ventana, _Ventana]:
     return _Ventana("week", semanas, semana_en_curso), _Ventana("month", meses, mes_en_curso)
 
 
-def _referencia(
-    db: Session, usuario_id: int, unidad: Unidad, antes_de: date
-) -> tuple[date, Decimal] | None:
+def _referencia(db: Session, unidad: Unidad, antes_de: date) -> tuple[date, Decimal] | None:
     """El último periodo anterior a `antes_de` con volumen, y su volumen.
 
     Es con lo que se compara la primera barra con volumen de la gráfica, aunque
@@ -220,7 +218,7 @@ def _referencia(
             (Serie.peso * Serie.repeticiones).label("volumen"),
         )
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Entrenamiento.usuario_id == usuario_id, Entrenamiento.fecha < antes_de)
+        .where(Entrenamiento.fecha < antes_de)
         .subquery()
     )
     # Se agrupa fuera de la subconsulta: dentro, la unidad iría como parámetro en el
@@ -277,9 +275,9 @@ def _evolucion(
     return EvolucionDeVolumen(periodos, en_curso)
 
 
-def _constancia(db: Session, usuario_id: int, anio: int) -> Constancia:
+def _constancia(db: Session, anio: int) -> Constancia:
     meses = [MesDeConstancia(date(anio, n, 1), 0, 0, 0) for n in range(1, 13)]
-    for dia in seguimiento(db, usuario_id, date(anio, 1, 1), date(anio, 12, 31)):
+    for dia in seguimiento(db, date(anio, 1, 1), date(anio, 12, 31)):
         mes = meses[dia.fecha.month - 1]
         if dia.estado in ("hecho", "movido"):
             mes.entrenados += 1
@@ -295,7 +293,7 @@ def _constancia(db: Session, usuario_id: int, anio: int) -> Constancia:
     )
 
 
-def resumen(db: Session, usuario_id: int, primero: date) -> Resumen:
+def resumen(db: Session, primero: date) -> Resumen:
     """Todo lo de la pantalla de resumen para el mes que empieza en `primero`.
 
     Las mismas consultas tenga los datos que tenga, sin una por sesión, por rutina
@@ -323,7 +321,6 @@ def resumen(db: Session, usuario_id: int, primero: date) -> Resumen:
         .join(Ejercicio, Ejercicio.id == Serie.ejercicio_id)
         .join(GrupoMuscular, GrupoMuscular.id == Ejercicio.grupo_muscular_id)
         .where(
-            Entrenamiento.usuario_id == usuario_id,
             Entrenamiento.fecha >= desde,
             Entrenamiento.fecha <= hasta,
         )
@@ -343,12 +340,12 @@ def resumen(db: Session, usuario_id: int, primero: date) -> Resumen:
                 rutina.id, VolumenDeRutina(rutina, Decimal(0))
             ).volumen += volumen
             barra.grupos.setdefault(grupo.id, SeriesDeGrupo(grupo, 0)).series += series
-        referencia = _referencia(db, usuario_id, vista.unidad, vista.terminados[0][0])
+        referencia = _referencia(db, vista.unidad, vista.terminados[0][0])
         evoluciones.append(_evolucion(vista, barras, referencia))
 
     return Resumen(
         mes=primero,
         por_semana=evoluciones[0],
         por_mes=evoluciones[1],
-        constancia=_constancia(db, usuario_id, primero.year),
+        constancia=_constancia(db, primero.year),
     )

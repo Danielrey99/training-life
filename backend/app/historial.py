@@ -2,7 +2,7 @@
 
 La usan dos endpoints con filtros distintos —las series de un ejercicio concreto y
 las de un hueco de rutina— pero el resto del trabajo es el mismo: quedarse con las
-últimas sesiones del usuario y agrupar sus series por día.
+últimas sesiones y agrupar sus series por día.
 """
 
 from collections import defaultdict
@@ -19,13 +19,12 @@ SESIONES_POR_DEFECTO = 50
 
 def sesiones_con_series(
     db: Session,
-    usuario_id: int,
     filtro: ColumnElement[bool],
     desde: date | None = None,
     hasta: date | None = None,
     limite: int = SESIONES_POR_DEFECTO,
 ) -> list[dict]:
-    """Las últimas sesiones del usuario con series que cumplan `filtro`, de la más
+    """Las últimas sesiones con series que cumplan `filtro`, de la más
     reciente a la más antigua y con esas series dentro.
 
     El límite cuenta sesiones, no series: cortar por series partiría un día por la
@@ -43,7 +42,7 @@ def sesiones_con_series(
         select(Entrenamiento.id, Entrenamiento.fecha, Rutina.nombre)
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
         .join(Rutina, Rutina.id == Entrenamiento.rutina_id)
-        .where(Entrenamiento.usuario_id == usuario_id, filtro)
+        .where(filtro)
     )
     if desde is not None:
         sesiones = sesiones.where(Entrenamiento.fecha >= desde)

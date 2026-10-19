@@ -1,8 +1,7 @@
 """Tests de la ficha de un ejercicio: `GET /ejercicios/{id}/donde-se-usa`
 («Rutinas donde se usa»), y que una nota solo se alcanza por la ruta de su ejercicio.
 
-El aviso y el borrado de un ejercicio están en `test_borrados.py`, y lo que no se
-ve de otro usuario, en `test_aislamiento_por_usuario.py`.
+El aviso y el borrado de un ejercicio están en `test_borrados.py`.
 """
 
 from datetime import date

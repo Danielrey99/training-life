@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 
 from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
-from tests.ayudas import consultas_de, entrenar, hueco_en_bd, rutina_en_bd
+from tests.ayudas import consultas_de, entrenar
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -105,8 +105,8 @@ def hueco_nuevo(principal, comodines=(), series=4, reps=(6, 10)) -> dict:
 
 
 def filas_guardadas(sesion_bd) -> tuple[int, int, int]:
-    """Cuántas rutinas, huecos y comodines hay en la base, también los ocultos y
-    los de otros usuarios: para ver que un fallo no ha dejado nada a medias.
+    """Cuántas rutinas, huecos y comodines hay en la base, también los ocultos:
+    para ver que un fallo no ha dejado nada a medias.
     """
     sesion_bd.expire_all()
     return tuple(
@@ -583,38 +583,3 @@ def test_listar_rutinas_hace_las_mismas_consultas_con_una_que_con_cinco(cliente,
     assert len(listado) == 5
     assert all(r["num_programas"] == 1 and len(r["slots"]) == 2 for r in listado)
     assert con_cinco == con_una
-
-
-# --- Datos de otro usuario --------------------------------------------------
-# El resto del aislamiento de estos endpoints, en test_aislamiento_por_usuario.py.
-
-
-def test_duplicar_no_cuenta_los_nombres_de_las_rutinas_de_otro_usuario(
-    cliente, sesion_bd, otro_usuario_id
-):
-    """El nombre se busca libre solo entre las mías: si mirara las de todos, se
-    sabría qué nombres usa otro usuario.
-    """
-    rutina_en_bd(sesion_bd, otro_usuario_id, "Push - copia")
-    sesion_bd.commit()
-    push = crear_rutina(cliente, "Push")
-
-    assert nombre_de_la_copia(cliente, push) == "Push - copia"
-
-
-def test_reordenar_con_un_hueco_de_otro_usuario_da_422_sin_tocarlo(
-    cliente, sesion_bd, otro_usuario_id, tres_huecos, ejercicio_predefinido_id
-):
-    """422 y no 404: no confirma que ese id exista."""
-    rutina, (a, b, c) = tres_huecos
-    ajena = rutina_en_bd(sesion_bd, otro_usuario_id)
-    hueco_ajeno = hueco_en_bd(sesion_bd, ajena, ejercicio_predefinido_id)
-    sesion_bd.commit()
-
-    respuesta = ordenar(cliente, rutina, [c, b, a, hueco_ajeno])
-
-    assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == MENSAJE_DE_ORDEN
-    sesion_bd.expire_all()
-    assert sesion_bd.get(Rutina, ajena).slots[0].orden == 1
-    assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}

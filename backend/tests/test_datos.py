@@ -1,10 +1,9 @@
-"""Tests de exportar, importar y borrar los datos de un usuario (`/datos`).
+"""Tests de exportar, importar y borrar todos los datos (`/datos`).
 
-Importar **sustituye todo** lo del usuario por lo del archivo, así que lo que más
-importa es que la copia sea idéntica (nada se pierde por el camino, ni una fecha de
-creación, ni el orden de los comodines), que un archivo malo no toque nada y que
-nada de esto alcance a los predefinidos ni a otro usuario (eso último, en
-`test_aislamiento_por_usuario.py`, salvo lo de borrar, que está al final de este).
+Importar **sustituye todo** por lo del archivo, así que lo que más importa es que la
+copia sea idéntica (nada se pierde por el camino, ni una fecha de creación, ni el
+orden de los comodines), que un archivo malo no toque nada y que nada de esto
+alcance a los ejercicios predefinidos, que vienen con la app y no son datos de nadie.
 """
 
 import copy
@@ -15,7 +14,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select
 
-from app.auth import USUARIO_SEMBRADO_ID
 from app.database import Base
 from app.models import (
     Ejercicio,
@@ -69,7 +67,6 @@ def _predefinidos(sesion_bd, cuantos: int) -> list[tuple[int, str]]:
         for fila in sesion_bd.execute(
             select(Ejercicio.id, Ejercicio.nombre)
             .where(
-                Ejercicio.usuario_id.is_(None),
                 Ejercicio.es_predefinido.is_(True),
                 Ejercicio.nombre != "Sentadilla con barra",
             )
@@ -79,8 +76,8 @@ def _predefinidos(sesion_bd, cuantos: int) -> list[tuple[int, str]]:
     ]
 
 
-def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict:
-    """Todo lo que puede tener un usuario, directamente en la base y con cada campo
+def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
+    """Todo lo que pueden tener los datos, directamente en la base y con cada campo
     opcional relleno en algún sitio (si no, una ida y vuelta que perdiera ese campo
     pasaría igual): ejercicios propios (uno oculto), notas (una de un predefinido que
     no se usa en nada más), una rutina visible con un hueco oculto y comodines en un
@@ -102,7 +99,6 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
         fila = Ejercicio(
             nombre=nombre,
             grupo_muscular_id=grupo_id,
-            usuario_id=usuario_id,
             created_at=instante("2026-08-01T09:15:00.123456+00:00"),
             updated_at=instante("2026-08-02T10:20:30.654321+00:00"),
             **campos,
@@ -117,14 +113,12 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
     sesion_bd.add_all(
         [
             NotaUsuarioEjercicio(
-                usuario_id=usuario_id,
                 ejercicio_id=press,
                 nota="El banco del fondo cojea",
                 created_at=instante("2026-08-03T08:00:00.000001+00:00"),
                 updated_at=instante("2026-08-04T08:00:00.000002+00:00"),
             ),
             NotaUsuarioEjercicio(
-                usuario_id=usuario_id,
                 ejercicio_id=de_nota[0],
                 nota="Asiento en el 4",
                 created_at=instante("2026-08-05T08:00:00+00:00"),
@@ -135,7 +129,6 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
 
     def rutina(nombre, **campos):
         fila = Rutina(
-            usuario_id=usuario_id,
             nombre=nombre,
             created_at=instante("2026-08-06T07:00:00.111111+00:00"),
             updated_at=instante("2026-08-07T07:00:00.222222+00:00"),
@@ -176,13 +169,11 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
     sesion_bd.flush()
 
     ppl = Programa(
-        usuario_id=usuario_id,
         nombre="PPL",
         created_at=instante("2026-07-30T12:00:00.5+00:00"),
         updated_at=instante("2026-09-07T12:00:00.5+00:00"),
     )
     viejo = Programa(
-        usuario_id=usuario_id,
         nombre="Viejo",
         oculto_desde=date(2026, 9, 1),
         created_at=instante("2026-07-01T12:00:00+00:00"),
@@ -203,14 +194,12 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
         [
             ProgramaPeriodo(
                 programa_id=ppl.id,
-                usuario_id=usuario_id,
                 desde=date(2026, 8, 1),
                 hasta=date(2026, 8, 15),
             ),
-            ProgramaPeriodo(programa_id=ppl.id, usuario_id=usuario_id, desde=date(2026, 8, 31)),
+            ProgramaPeriodo(programa_id=ppl.id, desde=date(2026, 8, 31)),
             ProgramaPeriodo(
                 programa_id=viejo.id,
-                usuario_id=usuario_id,
                 desde=date(2026, 8, 15),
                 hasta=date(2026, 8, 31),
             ),
@@ -220,14 +209,12 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
     sesion_bd.add_all(
         [
             ExcepcionDelPlan(
-                usuario_id=usuario_id,
                 fecha=date(2026, 9, 12),
                 rutina_id=push,
                 created_at=instante("2026-09-10T20:00:00.777777+00:00"),
                 updated_at=instante("2026-09-11T20:00:00.888888+00:00"),
             ),
             ExcepcionDelPlan(
-                usuario_id=usuario_id,
                 fecha=date(2026, 9, 13),
                 rutina_id=None,
                 created_at=instante("2026-09-10T20:00:00+00:00"),
@@ -239,7 +226,6 @@ def montar_datos(sesion_bd, usuario_id, sentadilla_id, sesiones_extra=0) -> dict
 
     def sesion(fecha, rutina_id, series=(), **campos):
         fila = Entrenamiento(
-            usuario_id=usuario_id,
             rutina_id=rutina_id,
             fecha=fecha,
             created_at=datetime(fecha.year, fecha.month, fecha.day, 16, 0, 0, 1, timezone.utc),
@@ -407,7 +393,7 @@ def lo_que_se_ve(cliente) -> dict:
 @pytest.fixture
 def datos(sesion_bd, hoy_es, ejercicio_predefinido_id) -> dict:
     hoy_es(HOY)
-    return montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    return montar_datos(sesion_bd, ejercicio_predefinido_id)
 
 
 # --- 1. Exportar sin datos -------------------------------------------------------
@@ -505,9 +491,7 @@ def test_las_marcas_de_tiempo_se_exportan_exactas_y_con_zona(cliente, datos):
         assert instante(marca).tzinfo is not None
 
 
-def test_se_exportan_solo_los_predefinidos_que_usa_algo_del_usuario(
-    cliente, datos, ejercicio_predefinido_id
-):
+def test_se_exportan_solo_los_predefinidos_que_usa_algo(cliente, datos, ejercicio_predefinido_id):
     """Principal, comodín, solo una serie y solo una nota cuentan; uno que no usa
     nada no se exporta (viene con la app).
     """
@@ -557,13 +541,13 @@ def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
     cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
 ):
     hoy_es(HOY)
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = consultas_de(lambda: cliente.get("/datos/exportar"))
 
     # Se vacía y se monta el mismo escenario con diez sesiones más.
     vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id, sesiones_extra=10)
+    montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/exportar"))
 
     assert con_mucho == con_poco
@@ -644,7 +628,6 @@ def test_la_ida_y_vuelta_conserva_las_marcas_de_tiempo_en_la_base(cliente, sesio
     sesion_bd.expire_all()
     sesion = sesion_bd.scalar(
         select(Entrenamiento).where(
-            Entrenamiento.usuario_id == USUARIO_SEMBRADO_ID,
             Entrenamiento.fecha == date(2026, 9, 7),
         )
     )
@@ -652,10 +635,7 @@ def test_la_ida_y_vuelta_conserva_las_marcas_de_tiempo_en_la_base(cliente, sesio
     assert sesion.created_at == datetime(2026, 9, 7, 16, 0, 0, 1, timezone.utc)
     assert sesion.updated_at == datetime(2026, 9, 7, 18, 0, 0, 2, timezone.utc)
     hueco = sesion_bd.scalar(
-        select(RutinaSlot)
-        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(Rutina.usuario_id == USUARIO_SEMBRADO_ID)
-        .order_by(RutinaSlot.id)
+        select(RutinaSlot).join(Rutina, Rutina.id == RutinaSlot.rutina_id).order_by(RutinaSlot.id)
     )
     assert hueco.updated_at == instante("2026-08-09T06:00:00.444444+00:00")
     alternativas = sesion_bd.scalar(
@@ -689,7 +669,7 @@ def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente,
 
     assert importar(cliente, archivo).status_code == 200
 
-    rutina = sesion_bd.scalar(select(Rutina).where(Rutina.usuario_id == USUARIO_SEMBRADO_ID))
+    rutina = sesion_bd.scalar(select(Rutina))
     assert rutina.created_at == rutina.updated_at == instante("2026-09-01T18:00:00.5+00:00")
 
 
@@ -798,16 +778,7 @@ def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos)
         "entrenamientos": [],
     }
     sesion_bd.expire_all()
-    for modelo in (Ejercicio, NotaUsuarioEjercicio, Rutina, Programa, Entrenamiento):
-        cuantos = sesion_bd.scalar(
-            select(func.count()).select_from(modelo).where(modelo.usuario_id == USUARIO_SEMBRADO_ID)
-        )
-        assert cuantos == 0, modelo.__name__
-    for modelo in (ProgramaPeriodo, ExcepcionDelPlan):
-        cuantos = sesion_bd.scalar(
-            select(func.count()).select_from(modelo).where(modelo.usuario_id == USUARIO_SEMBRADO_ID)
-        )
-        assert cuantos == 0, modelo.__name__
+    assert _nada(sesion_bd)
 
 
 def test_importar_dos_veces_el_mismo_archivo_no_duplica_nada(cliente, datos):
@@ -1273,22 +1244,18 @@ def test_el_resumen_cuenta_lo_oculto_y_no_los_predefinidos_ni_las_sesiones_sin_s
     moverían. La de hoy, en curso y vacía, tampoco cuenta.
     """
     hoy_es(HOY)
-    u = USUARIO_SEMBRADO_ID
     oculto = Ejercicio(
         nombre="Remo viejo",
         grupo_muscular_id=grupo_muscular_id,
-        usuario_id=u,
         oculto_desde=date(2026, 9, 1),
     )
-    rutina = Rutina(usuario_id=u, nombre="Pull", oculto_desde=date(2026, 9, 14))
+    rutina = Rutina(nombre="Pull", oculto_desde=date(2026, 9, 14))
     sesion_bd.add_all(
         [
             oculto,
             rutina,
-            Programa(usuario_id=u, nombre="Viejo", oculto_desde=date(2026, 9, 1)),
-            NotaUsuarioEjercicio(
-                usuario_id=u, ejercicio_id=ejercicio_predefinido_id, nota="Asiento en el 4"
-            ),
+            Programa(nombre="Viejo", oculto_desde=date(2026, 9, 1)),
+            NotaUsuarioEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Asiento en el 4"),
         ]
     )
     sesion_bd.flush()
@@ -1314,7 +1281,7 @@ def test_el_resumen_cuenta_lo_oculto_y_no_los_predefinidos_ni_las_sesiones_sin_s
     terminada = instante("2026-09-01T18:00:00+00:00")
 
     def sesion(dia, series=(), **campos):
-        fila = Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, dia), **campos)
+        fila = Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, dia), **campos)
         sesion_bd.add(fila)
         sesion_bd.flush()
         for numero, (hueco, ejercicio_id) in enumerate(series, start=1):
@@ -1375,12 +1342,12 @@ def test_el_resumen_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
 ):
     hoy_es(HOY)
     sin_datos = consultas_de(lambda: cliente.get("/datos/resumen"))
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = consultas_de(lambda: cliente.get("/datos/resumen"))
 
     vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id, sesiones_extra=10)
+    montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/resumen"))
 
     assert sin_datos == con_poco == con_mucho
@@ -1401,7 +1368,7 @@ def _predefinidos_en_bd(sesion_bd) -> list[tuple]:
             Ejercicio.oculto_desde,
             Ejercicio.updated_at,
         )
-        .where(Ejercicio.usuario_id.is_(None))
+        .where(Ejercicio.es_predefinido.is_(True))
         .order_by(Ejercicio.id)
     ).all()
 
@@ -1464,6 +1431,64 @@ def test_los_predefinidos_del_archivo_van_por_nombre_y_no_por_id(
     assert _predefinidos_en_bd(sesion_bd) == antes
 
 
+def test_la_lista_de_ejercicios_del_archivo_solo_trae_los_propios(cliente, sesion_bd, datos):
+    """Los predefinidos van aparte, en `predefinidos`, y solo los que se usan. Si
+    salieran en `ejercicios`, importar el archivo los duplicaría como propios.
+    """
+    archivo = exportado(cliente)
+
+    assert [e["nombre"] for e in archivo["ejercicios"]] == [
+        "Press inclinado con mancuernas",
+        "Remo en máquina vieja",
+    ]
+    predefinidos = {fila.id for fila in _predefinidos_en_bd(sesion_bd)}
+    assert predefinidos.isdisjoint(e["id"] for e in archivo["ejercicios"])
+
+
+def test_sin_ejercicios_propios_el_archivo_no_trae_ninguno(
+    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
+):
+    """El caso en que un filtro perdido más se notaría: solo hay una nota en un
+    predefinido, y la lista de propios tiene que salir vacía, no con los 59.
+    """
+    hoy_es(HOY)
+    cliente.post(f"/ejercicios/{ejercicio_predefinido_id}/notas", json={"nota": "Barra baja"})
+
+    archivo = exportado(cliente)
+
+    assert archivo["ejercicios"] == []
+    assert [p["id"] for p in archivo["predefinidos"]] == [ejercicio_predefinido_id]
+    assert resumen(cliente)["ejercicios"] == 0
+
+
+def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombre(
+    cliente, sesion_bd, hoy_es, grupo_muscular_id
+):
+    """Un predefinido del archivo se busca por nombre solo entre los predefinidos.
+    Si se buscara entre todos, encontraría el propio que importar va a borrar, y la
+    carga apuntaría a un ejercicio que ya no existe (un 500 en vez del 422).
+    """
+    hoy_es(HOY)
+    propio = cliente.post(
+        "/ejercicios", json={"nombre": "Press del autor", "grupo_muscular_id": grupo_muscular_id}
+    ).json()["id"]
+    marca = {"created_at": _AHORA, "updated_at": _AHORA}
+    archivo = {
+        "formato": "training-life",
+        "version": 1,
+        "exportado_en": _AHORA,
+        "predefinidos": [{"id": 7, "nombre": "Press del autor"}],
+        "notas": [{"ejercicio_id": 7, "nota": "Con pausa", **marca}],
+    }
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert '"Press del autor" no existe' in str(respuesta.json()["detail"])
+    assert cliente.get(f"/ejercicios/{propio}").status_code == 200
+    assert cliente.get(f"/ejercicios/{propio}/notas").json() == []
+
+
 # --- 9. Guarda de columnas ---------------------------------------------------
 #
 # Si se añade una columna a una tabla que se exporta y no se lleva al archivo, la
@@ -1486,30 +1511,23 @@ FORMATO_DE = {
 # Columna → por qué no está con ese nombre en el formato.
 NO_SE_EXPORTA = {
     Ejercicio: {
-        "usuario_id": "es el de quien importa",
         "es_predefinido": "los propios nunca lo son; los predefinidos van aparte",
-        "visibilidad": "no se usa todavía",
         "grupo_muscular_id": "va por nombre, en grupo_muscular",
     },
-    NotaUsuarioEjercicio: {"id": "nada la referencia", "usuario_id": "el de quien importa"},
-    Rutina: {"usuario_id": "el de quien importa"},
+    NotaUsuarioEjercicio: {"id": "nada la referencia"},
     RutinaSlot: {"rutina_id": "va dentro de su rutina"},
-    Programa: {"id": "nada la referencia", "usuario_id": "el de quien importa"},
+    Programa: {"id": "nada la referencia"},
     ProgramaDia: {"id": "nada la referencia", "programa_id": "va dentro de su programa"},
-    ProgramaPeriodo: {
-        "id": "nada la referencia",
-        "programa_id": "va dentro de su programa",
-        "usuario_id": "el de quien importa",
-    },
-    ExcepcionDelPlan: {"id": "nada la referencia", "usuario_id": "el de quien importa"},
-    Entrenamiento: {"id": "nada la referencia", "usuario_id": "el de quien importa"},
+    ProgramaPeriodo: {"id": "nada la referencia", "programa_id": "va dentro de su programa"},
+    ExcepcionDelPlan: {"id": "nada la referencia"},
+    Entrenamiento: {"id": "nada la referencia"},
     Serie: {"id": "nada la referencia", "entrenamiento_id": "va dentro de su sesión"},
     # De los comodines solo cuenta el ejercicio, en `alternativa_ids` de su hueco.
     SlotAlternativa: {"id": "", "slot_id": "", "ejercicio_id": ""},
 }
 
 # Tablas que no se exportan enteras.
-TABLAS_FUERA = {"usuarios", "grupos_musculares", "alembic_version"}
+TABLAS_FUERA = {"grupos_musculares", "alembic_version"}
 
 
 @pytest.mark.parametrize("modelo", list(FORMATO_DE), ids=lambda m: m.__name__)
@@ -1548,9 +1566,10 @@ def test_el_formato_de_alto_nivel_tiene_una_lista_por_cada_cosa():
 # --- 10. Borrar todo (`DELETE /datos`) ----------------------------------------
 #
 # Usa el mismo `borrar_todo` que importar, con sentencias directas y sin ids
-# concretos: un `WHERE` mal puesto borraría lo de otro usuario o dejaría algo
-# colgado. Tras borrar, el usuario tiene que poder empezar de cero sin chocar con
-# nada que quedara (un periodo abierto, la sesión de hoy, un nombre de rutina).
+# concretos: un `WHERE` mal puesto en los ejercicios se llevaría los predefinidos, y
+# uno de menos dejaría algo colgado. Tras borrar se tiene que poder empezar de cero
+# sin chocar con nada que quedara (un periodo abierto, la sesión de hoy, un nombre
+# de rutina).
 
 
 def borrar(cliente):
@@ -1630,7 +1649,7 @@ def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
     assert cliente.get(f"/ejercicios/{datos['de_nota'][0]}/notas").json() == []
 
 
-def test_borrar_no_deja_ninguna_fila_del_usuario_ni_hijos_sueltos(cliente, sesion_bd, datos):
+def test_borrar_no_deja_ninguna_fila_ni_hijos_sueltos(cliente, sesion_bd, datos):
     """Se mira cada tabla entera, no a través de su padre: un hijo que se quedara
     sin él (un hueco, un comodín, un día, una serie) también saldría.
     """
@@ -1652,15 +1671,12 @@ def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
     de un predefinido (no se iría con ningún ejercicio propio).
     """
     hoy_es(HOY)
-    u = USUARIO_SEMBRADO_ID
-    rutina = Rutina(usuario_id=u, nombre="Pierna")
+    rutina = Rutina(nombre="Pierna")
     sesion_bd.add_all(
         [
             rutina,
-            NotaUsuarioEjercicio(
-                usuario_id=u, ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"
-            ),
-            ExcepcionDelPlan(usuario_id=u, fecha=date(2026, 9, 18), rutina_id=None),
+            NotaUsuarioEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"),
+            ExcepcionDelPlan(fecha=date(2026, 9, 18), rutina_id=None),
         ]
     )
     sesion_bd.flush()
@@ -1673,16 +1689,14 @@ def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
         reps_max=8,
     )
     terminada = instante("2026-09-10T18:00:00+00:00")
-    con_series = Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 15))
+    con_series = Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 15))
     sesion_bd.add_all(
         [
             hueco,
             con_series,
-            Entrenamiento(
-                usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 10), terminada_en=terminada
-            ),
-            Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=date(2026, 9, 14)),
-            Entrenamiento(usuario_id=u, rutina_id=rutina.id, fecha=HOY),
+            Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 10), terminada_en=terminada),
+            Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 14)),
+            Entrenamiento(rutina_id=rutina.id, fecha=HOY),
         ]
     )
     sesion_bd.flush()
@@ -1717,33 +1731,6 @@ def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
     despues = _predefinidos_en_bd(sesion_bd)
     assert len(despues) == 59
     assert despues == antes
-
-
-@pytest.mark.parametrize("yo", ["con mis datos", "sin datos míos"])
-def test_borrar_no_toca_nada_de_otro_usuario(
-    cliente, sesion_bd, hoy_es, otro_usuario_id, ejercicio_predefinido_id, yo
-):
-    """El otro usuario tiene el escenario completo, con los mismos predefinidos que
-    yo: la sentadilla de principal, el mismo comodín y una nota en el mismo
-    predefinido que la mía (las notas se borran por usuario, no por ejercicio), un
-    periodo abierto, excepciones y la sesión de hoy. Sin datos míos es el caso más
-    peligroso: un filtro perdido borraría lo único que hay.
-    """
-    hoy_es(HOY)
-    ajenos = montar_datos(sesion_bd, otro_usuario_id, ejercicio_predefinido_id)
-    if yo == "con mis datos":
-        mios = montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
-        assert mios["de_nota"] == ajenos["de_nota"]
-    # Este test se va con los usuarios: hasta entonces, la foto por usuario.
-    from tests.test_aislamiento_por_usuario import _foto_de
-
-    antes = _foto_de(sesion_bd, otro_usuario_id)
-    assert all(antes.values())
-
-    borrar(cliente)
-
-    assert _foto_de(sesion_bd, otro_usuario_id) == antes
-    assert all(filas == [] for filas in _foto_de(sesion_bd, USUARIO_SEMBRADO_ID).values())
 
 
 def test_borrar_dos_veces_da_204_las_dos(cliente, sesion_bd, datos):
@@ -1810,10 +1797,10 @@ def test_borrar_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
         return consultas_de(peticion)
 
     sin_datos = borrar_y_contar()
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id)
+    montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = borrar_y_contar()
     sesion_bd.expire_all()
-    montar_datos(sesion_bd, USUARIO_SEMBRADO_ID, ejercicio_predefinido_id, sesiones_extra=10)
+    montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = borrar_y_contar()
 
     assert sin_datos == con_poco == con_mucho

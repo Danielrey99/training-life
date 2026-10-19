@@ -1,12 +1,12 @@
-"""Exportar, importar y borrar todos los datos de un usuario.
+"""Exportar, importar y borrar todos los datos.
 
 Exportar e importar sirven para pasar los datos de un dispositivo a otro (la web y el
 móvil no se conectan entre sí) y como copia de seguridad. Importar **sustituye todo**:
-se borra lo del usuario y se carga lo del archivo, en una sola transacción. Borrar es
+se borra todo lo que hay y se carga lo del archivo, en una sola transacción. Borrar es
 empezar de cero.
 
 Los ids del archivo solo enlazan cosas dentro del archivo: al importar se asignan otros
-(las secuencias son comunes a todos los usuarios). Los ejercicios predefinidos y los
+(las secuencias siguen donde estaban). Los ejercicios predefinidos y los
 grupos musculares van por nombre, porque los siembra una migración y su id cambia de
 una instalación a otra.
 """
@@ -41,68 +41,26 @@ MAXIMO_DE_ERRORES = 20
 # --- Exportar --------------------------------------------------------------------
 
 
-def exportar(db: Session, usuario_id: int) -> DatosDeUsuario:
-    """Todo lo del usuario, cada lista por id. Un número fijo de consultas, todas
-    filtradas por el usuario (los huecos y sus comodines, a través de su rutina).
+def exportar(db: Session) -> DatosDeUsuario:
+    """Todo lo que hay, cada lista por id. Un número fijo de consultas. De los
+    ejercicios, solo los propios: los predefinidos vienen con la app.
     """
     ejercicios = db.scalars(
-        select(Ejercicio).where(Ejercicio.usuario_id == usuario_id).order_by(Ejercicio.id)
+        select(Ejercicio).where(Ejercicio.es_predefinido.is_(False)).order_by(Ejercicio.id)
     ).all()
-    notas = db.scalars(
-        select(NotaUsuarioEjercicio)
-        .where(NotaUsuarioEjercicio.usuario_id == usuario_id)
-        .order_by(NotaUsuarioEjercicio.id)
-    ).all()
-    rutinas = db.scalars(
-        select(Rutina).where(Rutina.usuario_id == usuario_id).order_by(Rutina.id)
-    ).all()
-    huecos = db.scalars(
-        select(RutinaSlot)
-        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(Rutina.usuario_id == usuario_id)
-        .order_by(RutinaSlot.id)
-    ).all()
-    alternativas = db.scalars(
-        select(SlotAlternativa)
-        .join(RutinaSlot, RutinaSlot.id == SlotAlternativa.slot_id)
-        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(Rutina.usuario_id == usuario_id)
-        .order_by(SlotAlternativa.id)
-    ).all()
-    programas = db.scalars(
-        select(Programa).where(Programa.usuario_id == usuario_id).order_by(Programa.id)
-    ).all()
-    dias = db.scalars(
-        select(ProgramaDia)
-        .join(Programa, Programa.id == ProgramaDia.programa_id)
-        .where(Programa.usuario_id == usuario_id)
-        .order_by(ProgramaDia.id)
-    ).all()
-    periodos = db.scalars(
-        select(ProgramaPeriodo)
-        .join(Programa, Programa.id == ProgramaPeriodo.programa_id)
-        .where(Programa.usuario_id == usuario_id)
-        .order_by(ProgramaPeriodo.id)
-    ).all()
-    excepciones = db.scalars(
-        select(ExcepcionDelPlan)
-        .where(ExcepcionDelPlan.usuario_id == usuario_id)
-        .order_by(ExcepcionDelPlan.id)
-    ).all()
-    sesiones = db.scalars(
-        select(Entrenamiento)
-        .where(Entrenamiento.usuario_id == usuario_id)
-        .order_by(Entrenamiento.id)
-    ).all()
-    series = db.scalars(
-        select(Serie)
-        .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
-        .where(Entrenamiento.usuario_id == usuario_id)
-        .order_by(Serie.id)
-    ).all()
+    notas = db.scalars(select(NotaUsuarioEjercicio).order_by(NotaUsuarioEjercicio.id)).all()
+    rutinas = db.scalars(select(Rutina).order_by(Rutina.id)).all()
+    huecos = db.scalars(select(RutinaSlot).order_by(RutinaSlot.id)).all()
+    alternativas = db.scalars(select(SlotAlternativa).order_by(SlotAlternativa.id)).all()
+    programas = db.scalars(select(Programa).order_by(Programa.id)).all()
+    dias = db.scalars(select(ProgramaDia).order_by(ProgramaDia.id)).all()
+    periodos = db.scalars(select(ProgramaPeriodo).order_by(ProgramaPeriodo.id)).all()
+    excepciones = db.scalars(select(ExcepcionDelPlan).order_by(ExcepcionDelPlan.id)).all()
+    sesiones = db.scalars(select(Entrenamiento).order_by(Entrenamiento.id)).all()
+    series = db.scalars(select(Serie).order_by(Serie.id)).all()
     grupos = dict(db.execute(select(GrupoMuscular.id, GrupoMuscular.nombre)).all())
 
-    # Solo los predefinidos que usa algo del usuario: los demás vienen con la app.
+    # Solo los predefinidos que usa algo: los demás vienen con la app.
     usados = (
         {hueco.ejercicio_principal_id for hueco in huecos}
         | {alternativa.ejercicio_id for alternativa in alternativas}
@@ -111,7 +69,7 @@ def exportar(db: Session, usuario_id: int) -> DatosDeUsuario:
     )
     predefinidos = db.scalars(
         select(Ejercicio)
-        .where(Ejercicio.id.in_(usados), Ejercicio.usuario_id.is_(None))
+        .where(Ejercicio.id.in_(usados), Ejercicio.es_predefinido.is_(True))
         .order_by(Ejercicio.id)
     ).all()
 
@@ -281,7 +239,6 @@ def validar(db: Session, datos: DatosDeUsuario) -> tuple[list[str], Mapas]:
     for id_, nombre in db.execute(
         select(Ejercicio.id, Ejercicio.nombre)
         .where(
-            Ejercicio.usuario_id.is_(None),
             Ejercicio.es_predefinido.is_(True),
             Ejercicio.nombre.in_(nombres),
         )
@@ -402,29 +359,21 @@ def resumir_archivo(datos: DatosDeUsuario) -> ResumenDeDatos:
     )
 
 
-def resumir_actual(db: Session, usuario_id: int) -> ResumenDeDatos:
-    def contar(modelo):
-        return db.scalar(
-            select(func.count()).select_from(modelo).where(modelo.usuario_id == usuario_id)
-        )
+def resumir_actual(db: Session) -> ResumenDeDatos:
+    def contar(modelo, *condiciones):
+        return db.scalar(select(func.count()).select_from(modelo).where(*condiciones))
 
     sesiones, primera, ultima = db.execute(
         select(
             func.count(func.distinct(Entrenamiento.id)),
             func.min(Entrenamiento.fecha),
             func.max(Entrenamiento.fecha),
-        )
-        .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Entrenamiento.usuario_id == usuario_id)
+        ).join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
     ).one()
-    series = db.scalar(
-        select(func.count())
-        .select_from(Serie)
-        .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
-        .where(Entrenamiento.usuario_id == usuario_id)
-    )
+    series = contar(Serie)
     return ResumenDeDatos(
-        ejercicios=contar(Ejercicio),
+        # Solo los propios: los predefinidos vienen con la app y no se pierden al importar.
+        ejercicios=contar(Ejercicio, Ejercicio.es_predefinido.is_(False)),
         notas=contar(NotaUsuarioEjercicio),
         rutinas=contar(Rutina),
         programas=contar(Programa),
@@ -438,8 +387,8 @@ def resumir_actual(db: Session, usuario_id: int) -> ResumenDeDatos:
 # --- Borrar e importar -------------------------------------------------------------
 
 
-def borrar_todo(db: Session, usuario_id: int) -> None:
-    """Borra todo lo del usuario, sin tocar a nadie más ni los predefinidos. La usan
+def borrar_todo(db: Session) -> None:
+    """Borra todo lo que hay, menos los ejercicios predefinidos. La usan
     importar y `DELETE /datos`: un cambio aquí cambia los dos.
 
     Sentencias directas, en el orden que piden las FK: lo que es RESTRICT hacia algo se
@@ -447,26 +396,21 @@ def borrar_todo(db: Session, usuario_id: int) -> None:
     y ejercicios). Lo que es CASCADE se va solo (días y periodos con su programa,
     series con su sesión, comodines con su hueco).
     """
-    db.execute(delete(ExcepcionDelPlan).where(ExcepcionDelPlan.usuario_id == usuario_id))
-    db.execute(delete(Programa).where(Programa.usuario_id == usuario_id))
-    db.execute(delete(Entrenamiento).where(Entrenamiento.usuario_id == usuario_id))
+    db.execute(delete(ExcepcionDelPlan))
+    db.execute(delete(Programa))
+    db.execute(delete(Entrenamiento))
     # También las notas de predefinidos, que no se irían con ningún ejercicio.
-    db.execute(delete(NotaUsuarioEjercicio).where(NotaUsuarioEjercicio.usuario_id == usuario_id))
-    # Los huecos por su rutina: no tienen usuario propio.
-    db.execute(
-        delete(RutinaSlot).where(
-            RutinaSlot.rutina_id.in_(select(Rutina.id).where(Rutina.usuario_id == usuario_id))
-        )
-    )
-    db.execute(delete(Rutina).where(Rutina.usuario_id == usuario_id))
-    # La igualdad nunca casa con NULL: los predefinidos no se tocan.
-    db.execute(delete(Ejercicio).where(Ejercicio.usuario_id == usuario_id))
+    db.execute(delete(NotaUsuarioEjercicio))
+    db.execute(delete(RutinaSlot))
+    db.execute(delete(Rutina))
+    # ⚠️ Solo los propios: sin esta condición se borrarían también los predefinidos.
+    db.execute(delete(Ejercicio).where(Ejercicio.es_predefinido.is_(False)))
     # Las sentencias directas no pasan por la sesión del ORM: lo que tuviera cargado
     # de esas filas ya no existe.
     db.expire_all()
 
 
-def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) -> None:
+def cargar(db: Session, datos: DatosDeUsuario, mapas: Mapas) -> None:
     """Inserta el archivo, nivel a nivel y en su orden, con ids nuevos. Cada nivel hace
     `flush()` para tener los ids que necesita el siguiente. Las fechas de creación y
     de cambio se conservan: la copia es idéntica a lo exportado.
@@ -479,7 +423,6 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
             grupo_muscular_id=mapas.grupos[e.grupo_muscular],
             descripcion=e.descripcion,
             es_predefinido=False,
-            usuario_id=usuario_id,
             oculto_desde=e.oculto_desde,
             created_at=e.created_at,
             updated_at=e.updated_at,
@@ -491,7 +434,6 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
 
     db.add_all(
         NotaUsuarioEjercicio(
-            usuario_id=usuario_id,
             ejercicio_id=ejercicio_nuevo[n.ejercicio_id],
             nota=n.nota,
             created_at=n.created_at,
@@ -504,7 +446,6 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
         (
             r,
             Rutina(
-                usuario_id=usuario_id,
                 nombre=r.nombre,
                 oculto_desde=r.oculto_desde,
                 created_at=r.created_at,
@@ -548,7 +489,6 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
         (
             p,
             Programa(
-                usuario_id=usuario_id,
                 nombre=p.nombre,
                 oculto_desde=p.oculto_desde,
                 created_at=p.created_at,
@@ -571,15 +511,11 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
             for d in p.dias
         )
         db.add_all(
-            ProgramaPeriodo(
-                programa_id=nuevo.id, usuario_id=usuario_id, desde=x.desde, hasta=x.hasta
-            )
-            for x in p.periodos
+            ProgramaPeriodo(programa_id=nuevo.id, desde=x.desde, hasta=x.hasta) for x in p.periodos
         )
 
     db.add_all(
         ExcepcionDelPlan(
-            usuario_id=usuario_id,
             fecha=x.fecha,
             rutina_id=None if x.rutina_id is None else rutina_nueva[x.rutina_id],
             created_at=x.created_at,
@@ -592,7 +528,6 @@ def cargar(db: Session, usuario_id: int, datos: DatosDeUsuario, mapas: Mapas) ->
         (
             s,
             Entrenamiento(
-                usuario_id=usuario_id,
                 rutina_id=rutina_nueva[s.rutina_id],
                 fecha=s.fecha,
                 cubre_fecha=s.cubre_fecha,

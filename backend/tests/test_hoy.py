@@ -10,7 +10,6 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 
 from datetime import date
 
-from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
 from tests.ayudas import serie_en
 from tests.semana import (
     DOMINGO_13,
@@ -552,45 +551,3 @@ def test_un_dia_pasado_con_sesion(cliente, ppl, grupo_muscular_id):
 
 def test_una_fecha_futura_da_422(cliente, ppl):
     assert cliente.get("/plan/hoy", params={"fecha": "2026-09-17"}).status_code == 422
-
-
-# --- Aislamiento ---------------------------------------------------------
-
-
-def test_lo_de_otro_usuario_ni_se_ofrece_ni_es_la_ultima_sesion(
-    cliente, hoy_es, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
-):
-    hoy_es(HOY)
-    cliente.post("/rutinas", json={"nombre": "Push"})
-    rutina_ajena = Rutina(usuario_id=otro_usuario_id, nombre="Ajena")
-    sesion_bd.add(rutina_ajena)
-    sesion_bd.flush()
-    ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_ajena.id, fecha=MARTES_15)
-    sesion_bd.add(ajena)
-    sesion_bd.flush()
-    hueco_ajeno = RutinaSlot(
-        rutina_id=rutina_ajena.id,
-        ejercicio_principal_id=ejercicio_predefinido_id,
-        orden=1,
-        series_objetivo=3,
-        reps_min=5,
-        reps_max=8,
-    )
-    sesion_bd.add(hueco_ajeno)
-    sesion_bd.flush()
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=ajena.id,
-            slot_id=hueco_ajeno.id,
-            ejercicio_id=ejercicio_predefinido_id,
-            numero_serie=1,
-            peso=50,
-            repeticiones=5,
-        )
-    )
-    sesion_bd.commit()
-
-    resumen = hoy(cliente)
-
-    assert ofrecidas(resumen) == [("sin_contar", "Push", None, True)]
-    assert resumen["ultima_sesion"] is None

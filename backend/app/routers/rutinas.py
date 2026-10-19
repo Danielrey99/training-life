@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
@@ -48,25 +47,23 @@ router = APIRouter(prefix="/rutinas", tags=["rutinas"])
 # --- Rutinas -------------------------------------------------------------
 
 
-def _obtener_rutina_legible(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
-    """Para leer: 404 tanto si no existe como si no es tuya (no hay rutinas
-    predefinidas). Admite las ocultas, que tienen su propia vista.
-    """
+def _obtener_rutina_legible(db: Session, rutina_id: int) -> Rutina:
+    """Para leer: 404 si no existe. Admite las ocultas, que tienen su propia vista."""
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.usuario_id != usuario_id:
+    if rutina is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
     return rutina
 
 
-def obtener_rutina_visible(db: Session, rutina_id: int, usuario_id: int) -> Rutina:
+def obtener_rutina_visible(db: Session, rutina_id: int) -> Rutina:
     """Para *usar* una rutina que llega en una petición (asignarla a un día de un
-    programa): 404 si no existe, es de otro o está oculta, igual que
+    programa): 404 si no existe o está oculta, igual que
     `obtener_ejercicio_visible`. Lo oculto deja de ofrecerse para elegir.
 
     Pública porque la usan también otros routers.
     """
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.usuario_id != usuario_id or rutina.oculto:
+    if rutina is None or rutina.oculto:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ninguna rutina con id {rutina_id}",
@@ -86,20 +83,13 @@ def _aviso_de_dias(cuantos: int, que_les_pasa: str) -> str:
     return f" Además, está en {cuantos} día{'s' if plural else ''} {texto}."
 
 
-def _obtener_rutina_propia(
-    db: Session, rutina_id: int, usuario_id: int, admitir_oculta: bool = False
-) -> Rutina:
-    """Para modificar: 404 si no existe, 403 si no es tuya y 409 si está oculta,
-    salvo con `admitir_oculta`, que es para borrarla o volver a mostrarla.
+def _obtener_rutina_propia(db: Session, rutina_id: int, admitir_oculta: bool = False) -> Rutina:
+    """Para modificar: 404 si no existe y 409 si está oculta, salvo con
+    `admitir_oculta`, que es para borrarla o volver a mostrarla.
     """
     rutina = db.get(Rutina, rutina_id)
     if rutina is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
-    if rutina.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede modificar una rutina que no es tuya",
-        )
     if not admitir_oculta:
         exigir_visible(rutina, "Esta rutina está oculta: muéstrala antes de cambiarla.")
     return rutina
@@ -186,9 +176,8 @@ def _dias_planificados(db: Session, rutina_id: int) -> int:
 def listar_rutinas(
     ocultas: bool = False,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Por defecto, lista las rutinas visibles del usuario. Con
+    """Por defecto, lista las rutinas visibles. Con
     `ocultas=true`, lista en cambio las que ha ocultado — para poder
     volver a mostrarlas (`POST /rutinas/{id}/mostrar`) o borrarlas definitivamente.
     """
@@ -196,7 +185,7 @@ def listar_rutinas(
     huecos = selectinload(Rutina.slots)
     stmt = (
         select(Rutina)
-        .where(Rutina.usuario_id == usuario_id, filtro)
+        .where(filtro)
         # De una vez para todas las rutinas, y no una consulta por rutina al
         # serializar sus huecos, sus comodines y en qué programas está.
         .options(
@@ -215,21 +204,19 @@ def listar_rutinas(
 def obtener_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return _obtener_rutina_legible(db, rutina_id, usuario_id)
+    return _obtener_rutina_legible(db, rutina_id)
 
 
 @router.post("", response_model=RutinaOut, status_code=status.HTTP_201_CREATED)
 def crear_rutina(
     datos: RutinaCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea una rutina, vacía o con sus huecos y comodines de una vez.
 
     Todo en una transacción: primero se comprueba cada ejercicio y solo después se
-    construye nada, así que un ejercicio que no vale (inexistente, ajeno u oculto:
+    construye nada, así que un ejercicio que no vale (inexistente u oculto:
     404) no deja una rutina a medias. El orden de los huecos es el de la lista.
     """
     _validar_ejercicios_elegidos(
@@ -239,9 +226,8 @@ def crear_rutina(
             for hueco in datos.slots
             for id_ in (hueco.ejercicio_principal_id, *hueco.alternativa_ids)
         ],
-        usuario_id,
     )
-    rutina = Rutina(usuario_id=usuario_id, nombre=datos.nombre)
+    rutina = Rutina(nombre=datos.nombre)
     # Solo INSERT, todos en la misma relación: no hace falta flush() entre ellos.
     rutina.slots = [
         RutinaSlot(
@@ -265,9 +251,8 @@ def actualizar_rutina(
     rutina_id: int,
     datos: RutinaUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id)
+    rutina = _obtener_rutina_propia(db, rutina_id)
     for campo, valor in datos.model_dump().items():
         setattr(rutina, campo, valor)
     db.commit()
@@ -293,7 +278,6 @@ def _nombre_de_copia(nombre: str, ocupados: set[str]) -> str:
 def duplicar_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Una copia de la rutina para que diverja del original: editar una rutina
     cambia todos los programas y días donde está, y esta es la forma de no
@@ -304,14 +288,11 @@ def duplicar_rutina(
     ni los días de programa (la copia nace sin usar), ni el historial. Admite una
     rutina oculta, porque duplicar no la modifica; la copia nace visible.
     """
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
+    rutina = _obtener_rutina_propia(db, rutina_id, admitir_oculta=True)
     # También las ocultas: dos rutinas con el mismo nombre se confundirían al
     # volver a mostrar una.
-    ocupados = {
-        nombre.casefold()
-        for nombre in db.scalars(select(Rutina.nombre).where(Rutina.usuario_id == usuario_id))
-    }
-    copia = Rutina(usuario_id=usuario_id, nombre=_nombre_de_copia(rutina.nombre, ocupados))
+    ocupados = {nombre.casefold() for nombre in db.scalars(select(Rutina.nombre))}
+    copia = Rutina(nombre=_nombre_de_copia(rutina.nombre, ocupados))
     copia.slots = [
         RutinaSlot(
             ejercicio_principal_id=slot.ejercicio_principal_id,
@@ -338,7 +319,6 @@ def ordenar_huecos(
     rutina_id: int,
     datos: OrdenDeHuecos,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Reordena los huecos visibles de una vez. Con PUT sueltos no se puede:
     intercambiar dos huecos choca a medias con `UNIQUE(rutina_id, orden)`.
@@ -346,9 +326,9 @@ def ordenar_huecos(
     Los visibles se reparten los `orden` que ya tenían, en el orden nuevo, y los
     ocultos conservan el suyo: así no chocan, y al mostrarlos vuelven a su sitio.
     """
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id)
+    rutina = _obtener_rutina_propia(db, rutina_id)
     visibles = {slot.id: slot for slot in rutina.slots if not slot.oculto}
-    # 422 y no 404 con un id ajeno: no confirma que exista.
+    # 422 y no 404 con un id que no es de esta rutina.
     if set(datos.slot_ids) != set(visibles):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -373,13 +353,12 @@ def ordenar_huecos(
 def aviso_de_borrar_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Lo que se perdería al borrarla, para el diálogo de confirmar. La web no
     puede saberlo con el 409 del DELETE: sin historial, el DELETE borraría sin
     preguntar.
     """
-    _obtener_rutina_legible(db, rutina_id, usuario_id)
+    _obtener_rutina_legible(db, rutina_id)
     toco_dias_pasados = _estuvo_en_el_plan(db, rutina_id)
     con_series = exists().where(Serie.entrenamiento_id == Entrenamiento.id)
     return AvisoDeBorrarRutinaOut(
@@ -408,10 +387,9 @@ def aviso_de_borrar_rutina(
 def mostrar_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deshace un `modo=ocultar`: la rutina vuelve a ofrecerse para usarla."""
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
+    rutina = _obtener_rutina_propia(db, rutina_id, admitir_oculta=True)
     rutina.oculto_desde = None
     db.commit()
     db.refresh(rutina)
@@ -423,7 +401,6 @@ def borrar_rutina(
     rutina_id: int,
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra una rutina propia.
 
@@ -433,7 +410,7 @@ def borrar_rutina(
       `modo=ocultar` (conserva todo) o `modo=definitivo` (lo borra todo, sin
       vuelta atrás, y esos días pasan a descanso en el calendario).
     """
-    rutina = _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=True)
+    rutina = _obtener_rutina_propia(db, rutina_id, admitir_oculta=True)
 
     if modo == "ocultar":
         # Si ya estaba oculta, se conserva desde cuándo.
@@ -487,12 +464,12 @@ def borrar_rutina(
 
 
 def _obtener_slot_propio(
-    db: Session, rutina_id: int, slot_id: int, usuario_id: int, admitir_oculto: bool = False
+    db: Session, rutina_id: int, slot_id: int, admitir_oculto: bool = False
 ) -> RutinaSlot:
     """Para modificar un hueco: los mismos códigos que `_obtener_rutina_propia`, y
     el 409 salta tanto si está oculto el hueco como si lo está su rutina.
     """
-    _obtener_rutina_propia(db, rutina_id, usuario_id, admitir_oculta=admitir_oculto)
+    _obtener_rutina_propia(db, rutina_id, admitir_oculta=admitir_oculto)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
@@ -501,16 +478,14 @@ def _obtener_slot_propio(
     return slot
 
 
-def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int, usuario_id: int) -> RutinaSlot:
-    """Para leer el historial de un hueco: 404 si no existe o no es tuyo.
+def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int) -> RutinaSlot:
+    """Para leer el historial de un hueco: 404 si no existe.
 
     A diferencia de `_obtener_slot_propio`, admite que el hueco o su rutina
     estén ocultos: ocultarlos deja de ofrecerlos para entrenamientos nuevos,
-    pero no borra lo que ya se entrenó ahí. Y responde 404 en vez de 403, como
-    el resto de los GET del proyecto: en una lectura no hay ninguna acción para
-    la que el usuario pudiera "tener permiso de más".
+    pero no borra lo que ya se entrenó ahí.
     """
-    _obtener_rutina_legible(db, rutina_id, usuario_id)
+    _obtener_rutina_legible(db, rutina_id)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
@@ -534,12 +509,12 @@ def _validar_orden_disponible(
         )
 
 
-def _validar_ejercicios_elegidos(db: Session, ids, usuario_id: int) -> None:
+def _validar_ejercicios_elegidos(db: Session, ids) -> None:
     """Cada ejercicio que se elige (principal o comodín) tiene que ser visible: 404
-    si no existe, es de otro usuario o está oculto. Cada id se mira una vez.
+    si no existe o está oculto. Cada id se mira una vez.
     """
     for ejercicio_id in dict.fromkeys(ids):
-        obtener_ejercicio_visible(db, ejercicio_id, usuario_id)
+        obtener_ejercicio_visible(db, ejercicio_id)
 
 
 ORDEN_MAXIMO = 100
@@ -571,12 +546,9 @@ def crear_slot(
     rutina_id: int,
     datos: RutinaSlotCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    _obtener_rutina_propia(db, rutina_id, usuario_id)
-    _validar_ejercicios_elegidos(
-        db, [datos.ejercicio_principal_id, *datos.alternativa_ids], usuario_id
-    )
+    _obtener_rutina_propia(db, rutina_id)
+    _validar_ejercicios_elegidos(db, [datos.ejercicio_principal_id, *datos.alternativa_ids])
     if datos.orden is None:
         orden = _siguiente_orden(db, rutina_id)
     else:
@@ -603,17 +575,16 @@ def actualizar_slot(
     slot_id: int,
     datos: RutinaSlotUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Cambia un hueco. Con `alternativa_ids`, la lista sustituye a los comodines
     actuales (vacía, los quita todos); sin ella, los comodines no se tocan.
     """
-    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
+    slot = _obtener_slot_propio(db, rutina_id, slot_id)
     actuales = {fila.ejercicio_id for fila in slot.slot_alternativas}
     # El principal solo se valida si cambia: si se ocultó después, el hueco lo
     # sigue enseñando, y corregir sus series o reps no es elegirlo de nuevo.
     if datos.ejercicio_principal_id != slot.ejercicio_principal_id:
-        obtener_ejercicio_visible(db, datos.ejercicio_principal_id, usuario_id)
+        obtener_ejercicio_visible(db, datos.ejercicio_principal_id)
         # Con la lista nueva, el validador ya garantiza que el principal no está en
         # ella: intercambiar principal y comodín en una sola petición vale.
         if datos.alternativa_ids is None and datos.ejercicio_principal_id in actuales:
@@ -625,7 +596,7 @@ def actualizar_slot(
     # se está eligiendo de nuevo ("corregir sí, elegir algo oculto no").
     if datos.alternativa_ids is not None:
         _validar_ejercicios_elegidos(
-            db, [id_ for id_ in datos.alternativa_ids if id_ not in actuales], usuario_id
+            db, [id_ for id_ in datos.alternativa_ids if id_ not in actuales]
         )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump(exclude={"alternativa_ids"}).items():
@@ -658,12 +629,11 @@ def aviso_de_borrar_slot(
     rutina_id: int,
     slot_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Lo que se perdería al borrarlo, para el diálogo de confirmar (como el de la
     rutina): cuántas series, desde cuándo y qué sesiones se quedarían vacías.
     """
-    _obtener_slot_legible(db, rutina_id, slot_id, usuario_id)
+    _obtener_slot_legible(db, rutina_id, slot_id)
     series, desde = db.execute(
         select(func.count(Serie.id), func.min(Entrenamiento.fecha))
         .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
@@ -676,7 +646,7 @@ def aviso_de_borrar_slot(
             SesionQueSeVaciaOut(
                 entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
             )
-            for sesion in sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)
+            for sesion in sesiones_que_se_vacian(db, Serie.slot_id == slot_id)
         ],
     )
 
@@ -687,7 +657,6 @@ def borrar_slot(
     slot_id: int,
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra un hueco propio.
 
@@ -697,7 +666,7 @@ def borrar_slot(
       `modo=definitivo` (borra también las series que lo usan, y las sesiones
       que se quedan sin ninguna, sin vuelta atrás).
     """
-    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id, admitir_oculto=True)
+    slot = _obtener_slot_propio(db, rutina_id, slot_id, admitir_oculto=True)
 
     if modo == "ocultar":
         # Si ya estaba oculto, se conserva desde cuándo.
@@ -714,14 +683,14 @@ def borrar_slot(
                 "?modo=ocultar (conserva todo) o ?modo=definitivo (borra "
                 "también esas series, sin poder deshacerlo)."
                 + aviso_de_sesiones_que_se_borran(
-                    len(sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)),
+                    len(sesiones_que_se_vacian(db, Serie.slot_id == slot_id)),
                     "este hueco",
                 )
             ),
         )
 
     # Antes de tocar nada: sin las series del hueco, ya no se sabría cuáles se vacían.
-    vacias = sesiones_que_se_vacian(db, usuario_id, Serie.slot_id == slot_id)
+    vacias = sesiones_que_se_vacian(db, Serie.slot_id == slot_id)
     # series.slot_id es RESTRICT: hay que borrar antes las series que lo usan.
     for serie in db.scalars(select(Serie).where(Serie.slot_id == slot_id)).all():
         db.delete(serie)
@@ -740,10 +709,9 @@ def mostrar_slot(
     rutina_id: int,
     slot_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deshace un `modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio."""
-    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id, admitir_oculto=True)
+    slot = _obtener_slot_propio(db, rutina_id, slot_id, admitir_oculto=True)
     slot.oculto_desde = None
     db.commit()
     db.refresh(slot)
@@ -759,7 +727,6 @@ def historial_de_hueco(
     hasta: date | None = None,
     limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """La progresión del hueco entero, no la de un ejercicio suelto: los días en
     que se entrenó, con qué ejercicio se hizo cada serie y con cuánto peso.
@@ -772,13 +739,13 @@ def historial_de_hueco(
     "última vez" con la que se compara al entrenar, que tiene que ser con el mismo
     ejercicio y no con el comodín que tocó la semana pasada.
     """
-    _obtener_slot_legible(db, rutina_id, slot_id, usuario_id)
+    _obtener_slot_legible(db, rutina_id, slot_id)
     filtro = Serie.slot_id == slot_id
     if ejercicio_id is not None:
         # Legible y no visible: un ejercicio ocultado sigue teniendo historial.
-        obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+        obtener_ejercicio_del_usuario(db, ejercicio_id)
         filtro = and_(filtro, Serie.ejercicio_id == ejercicio_id)
-    return sesiones_con_series(db, usuario_id, filtro, desde, hasta, limite)
+    return sesiones_con_series(db, filtro, desde, hasta, limite)
 
 
 # --- Comodines (slot_alternativas) ---------------------------------------
@@ -794,10 +761,9 @@ def anadir_comodin(
     slot_id: int,
     datos: ComodinCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    slot = _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
+    slot = _obtener_slot_propio(db, rutina_id, slot_id)
+    obtener_ejercicio_visible(db, datos.ejercicio_id)
 
     if datos.ejercicio_id == slot.ejercicio_principal_id:
         raise HTTPException(
@@ -831,9 +797,8 @@ def quitar_comodin(
     slot_id: int,
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    _obtener_slot_propio(db, rutina_id, slot_id, usuario_id)
+    _obtener_slot_propio(db, rutina_id, slot_id)
     comodin = db.scalar(
         select(SlotAlternativa).where(
             SlotAlternativa.slot_id == slot_id,

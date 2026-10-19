@@ -3,7 +3,6 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.resumen import nombre_del_mes, resumen
@@ -18,7 +17,6 @@ def obtener_resumen(
     # extrema se salga del calendario de Python.
     mes: str | None = Query(default=None, pattern=r"^20\d{2}-(0[1-9]|1[0-2])$"),
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """El resumen del mes `mes` (`2026-09`; sin él, el de hoy): las barras de
     volumen por semana y por mes (las terminadas y la en curso), cada una con su
@@ -37,4 +35,4 @@ def obtener_resumen(
                 " entrenado."
             ),
         )
-    return resumen(db, usuario_id, primero)
+    return resumen(db, primero)

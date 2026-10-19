@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app import fechas
-from tests.ayudas import entrenar, hueco_en_bd, rutina_en_bd, serie_en
+from tests.ayudas import entrenar, rutina_en_bd, serie_en
 from tests.semana import HOY
 
 AYER = HOY - timedelta(days=1)
@@ -200,21 +200,37 @@ def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
     assert respuesta.status_code == 200
 
 
-def test_la_base_no_admite_dos_sesiones_del_mismo_usuario_el_mismo_dia(sesion_bd):
-    """La regla vive también en la base, por si algo se salta la API."""
+def test_la_base_no_admite_dos_sesiones_el_mismo_dia(sesion_bd):
+    """La regla vive también en la base, por si algo se salta la API. Sin
+    `cubre_fecha` (nulas): lo que choca es la fecha, no el día que cuentan.
+    """
     from sqlalchemy.exc import IntegrityError
 
-    from app.auth import get_usuario_actual_id
     from app.models import Entrenamiento
 
-    usuario_id = get_usuario_actual_id()
-    rutina_id = rutina_en_bd(sesion_bd, usuario_id)
-    sesion_bd.add_all(
-        [Entrenamiento(usuario_id=usuario_id, rutina_id=rutina_id, fecha=AYER) for _ in range(2)]
-    )
-    with pytest.raises(IntegrityError):
+    rutina_id = rutina_en_bd(sesion_bd)
+    sesion_bd.add_all([Entrenamiento(rutina_id=rutina_id, fecha=AYER) for _ in range(2)])
+    with pytest.raises(IntegrityError) as error:
         sesion_bd.commit()
     sesion_bd.rollback()
+    assert "entrenamientos_fecha_key" in str(error.value)
+
+
+def test_la_base_admite_varias_sesiones_que_no_cuentan_ningun_dia(sesion_bd):
+    """`cubre_fecha` es única, pero las nulas no chocan entre sí: una sesión que
+    no cuenta ningún día (suelta, o que soltó el suyo) es lo normal.
+    """
+    from sqlalchemy import func, select
+
+    from app.models import Entrenamiento
+
+    rutina_id = rutina_en_bd(sesion_bd)
+    sesion_bd.add_all(
+        [Entrenamiento(rutina_id=rutina_id, fecha=HOY - timedelta(days=n)) for n in (1, 2, 3)]
+    )
+    sesion_bd.commit()
+
+    assert sesion_bd.scalar(select(func.count()).select_from(Entrenamiento)) == 3
 
 
 # --- Filtros del listado -------------------------------------------------
@@ -268,51 +284,37 @@ def test_el_listado_sin_terminar_no_da_la_vacia_terminada_ni_la_vacia_de_hoy(cli
     assert cliente.get("/entrenamientos", params={"sin_terminar": True}).json() == []
 
 
-def test_el_listado_sin_terminar_no_da_las_de_otro_usuario(
-    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
-):
-    """Ni la que tiene series ni la vacía: ahora que las vacías también salen, el
-    filtro por usuario tiene que valer para las dos.
-    """
-    from app.models import Entrenamiento, Serie
-
-    rutina_id = rutina_en_bd(sesion_bd, otro_usuario_id)
-    hueco_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_predefinido_id)
-    ajena = Entrenamiento(usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=AYER)
-    vacia = Entrenamiento(
-        usuario_id=otro_usuario_id, rutina_id=rutina_id, fecha=HOY - timedelta(days=2)
-    )
-    sesion_bd.add_all([ajena, vacia])
-    sesion_bd.flush()
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=ajena.id,
-            slot_id=hueco_id,
-            ejercicio_id=ejercicio_predefinido_id,
-            numero_serie=1,
-            peso=40,
-            repeticiones=10,
-        )
-    )
-    sesion_bd.commit()
-
-    assert cliente.get("/entrenamientos", params={"sin_terminar": True}).json() == []
-
-
 def test_cancelada_y_en_curso_dicen_lo_mismo_en_sql_que_en_python(
-    cliente, sesion_bd, otro_usuario_id, ejercicio_predefinido_id
+    cliente, sesion_bd, ejercicio_predefinido_id
 ):
     """`cancelada_sql` y `en_curso_sql` (para un WHERE) van en pareja con
     `esta_cancelada` y `Entrenamiento.en_curso`. Si una regla cambia y la otra no,
     borrar una rutina, el aviso y el seguimiento dirían cosas distintas de la misma
     sesión. Se comparan con todos los casos: con y sin series, de hoy y de días
     pasados, terminadas y sin terminar.
+
+    Son seis, pero la de hoy abierta y vacía y la de hoy terminada y vacía no caben a
+    la vez (una sesión al día): se compara con la de hoy abierta, se termina y se
+    vuelve a comparar.
     """
     from sqlalchemy import select
 
     from app.models import Entrenamiento
     from app.seguimiento import cancelada_sql, en_curso_sql, esta_cancelada
 
+    def comparar() -> tuple[set, set]:
+        sesion_bd.expire_all()
+        sesiones = sesion_bd.scalars(select(Entrenamiento)).all()
+        canceladas = set(sesion_bd.scalars(select(Entrenamiento.id).where(cancelada_sql())))
+        en_curso = set(sesion_bd.scalars(select(Entrenamiento.id).where(en_curso_sql())))
+        assert len(sesiones) == 5
+        assert canceladas == {s.id for s in sesiones if esta_cancelada(s)}
+        assert en_curso == {s.id for s in sesiones if s.en_curso}
+        # Que la comparación no sea trivial: hay sesiones de las dos clases.
+        assert 0 < len(canceladas) < len(sesiones)
+        return canceladas, en_curso
+
+    ids = {}
     for dias_atras, series, terminada in [
         (0, False, False),
         (1, False, False),
@@ -321,32 +323,22 @@ def test_cancelada_y_en_curso_dicen_lo_mismo_en_sql_que_en_python(
         (4, True, True),
     ]:
         sesion = empezar(cliente, HOY - timedelta(days=dias_atras))
+        ids[dias_atras] = sesion["id"]
         if series:
             serie_en(cliente, sesion["id"], ejercicio_predefinido_id)
         if terminada:
             terminar(cliente, sesion["id"])
-    # La de hoy terminada y vacía no cabe en el usuario de la API, que ya tiene la de
-    # hoy abierta (una sesión al día): va a nombre del otro usuario.
-    sesion_bd.add(
-        Entrenamiento(
-            usuario_id=otro_usuario_id,
-            rutina_id=rutina_en_bd(sesion_bd, otro_usuario_id),
-            fecha=HOY,
-            terminada_en=datetime.now(timezone.utc),
-        )
-    )
-    sesion_bd.commit()
 
-    sesiones = sesion_bd.scalars(select(Entrenamiento)).all()
-    canceladas = set(sesion_bd.scalars(select(Entrenamiento.id).where(cancelada_sql())))
-    en_curso = set(sesion_bd.scalars(select(Entrenamiento.id).where(en_curso_sql())))
+    # Con la de hoy abierta y vacía: en curso, no cancelada.
+    canceladas, en_curso = comparar()
+    assert en_curso == {ids[0]}
+    assert ids[0] not in canceladas
 
-    assert len(sesiones) == 6
-    assert canceladas == {s.id for s in sesiones if esta_cancelada(s)}
-    assert en_curso == {s.id for s in sesiones if s.en_curso}
-    # Que la comparación no sea trivial: hay de las dos clases en cada regla.
-    assert 0 < len(canceladas) < len(sesiones)
-    assert 0 < len(en_curso) < len(sesiones)
+    # Con la de hoy terminada y vacía: ya no está en curso, así que es cancelada.
+    terminar(cliente, ids[0])
+    canceladas, en_curso = comparar()
+    assert en_curso == set()
+    assert ids[0] in canceladas
 
 
 def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):

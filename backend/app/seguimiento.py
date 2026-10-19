@@ -69,7 +69,7 @@ def cancelada_sql():
     return and_(~con_series, ~en_curso_sql())
 
 
-def sesiones_que_se_vacian(db: Session, usuario_id: int, se_borran) -> list[Entrenamiento]:
+def sesiones_que_se_vacian(db: Session, se_borran) -> list[Entrenamiento]:
     """Las sesiones cuyas series son todas de las que cumplen `se_borran` (la
     condición de lo que se va a borrar: las de un hueco, las de un ejercicio). Al
     borrarlas se quedarían sin ninguna, que es estar cancelada, así que se borran
@@ -86,7 +86,6 @@ def sesiones_que_se_vacian(db: Session, usuario_id: int, se_borran) -> list[Entr
     return db.scalars(
         select(Entrenamiento)
         .where(
-            Entrenamiento.usuario_id == usuario_id,
             en_lo_borrado,
             ~en_otra_cosa,
             ~en_curso_sql(),
@@ -164,7 +163,7 @@ class DiaSeguimiento(DiaPlan):
     sesion: SesionDelDia | None
 
 
-def seguimiento(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaSeguimiento]:
+def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
     """El estado de cada día de `desde` a `hasta`, los dos incluidos.
 
     - `descanso`: no tocaba nada (o tocaba una rutina que ese día estaba oculta).
@@ -182,13 +181,12 @@ def seguimiento(db: Session, usuario_id: int, desde: date, hasta: date) -> list[
     rango: seis para el plan y dos para las sesiones.
     """
     validar_rango_del_plan(desde, hasta)
-    plan = {dia.fecha: dia for dia in resolver_dias(db, usuario_id, desde - MARGEN, hasta + MARGEN)}
+    plan = {dia.fecha: dia for dia in resolver_dias(db, desde - MARGEN, hasta + MARGEN)}
 
     tiene_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
     filas = db.execute(
         select(Entrenamiento, tiene_series)
         .where(
-            Entrenamiento.usuario_id == usuario_id,
             or_(
                 # Las de los días pedidos y las que pueden contarlos...
                 and_(Entrenamiento.fecha >= desde - MARGEN, Entrenamiento.fecha <= hasta + MARGEN),
@@ -347,7 +345,7 @@ def _una_por_rutina(dias: list[DiaSeguimiento]) -> list[DiaSeguimiento]:
     return primeros
 
 
-def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
+def resumen_de_hoy(db: Session, fecha: date) -> ResumenDeHoy:
     """Todo lo que necesita la pantalla de hoy para el día `fecha`, que es hoy en
     la pantalla de Entrenar y un día pasado en la hoja de registrar un día del
     calendario. Esa hoja ofrece lo que tocaba, lo que seguía por recuperar y el
@@ -366,14 +364,10 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
     domingo = lunes + timedelta(days=6)
     # Una sola vez, de lo más antiguo que aún se puede recuperar al próximo
     # entrenamiento más lejano que se busca.
-    dias = {
-        dia.fecha: dia for dia in seguimiento(db, usuario_id, fecha - MARGEN, fecha + HORIZONTE)
-    }
+    dias = {dia.fecha: dia for dia in seguimiento(db, fecha - MARGEN, fecha + HORIZONTE)}
     dia = dias[fecha]
     rutinas = db.scalars(
-        select(Rutina)
-        .where(Rutina.usuario_id == usuario_id, Rutina.oculto_desde.is_(None))
-        .order_by(Rutina.nombre, Rutina.id)
+        select(Rutina).where(Rutina.oculto_desde.is_(None)).order_by(Rutina.nombre, Rutina.id)
     ).all()
     visibles = {rutina.id for rutina in rutinas}
     situacion = _situacion(dia, bool(rutinas))
@@ -441,7 +435,6 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
     ultima = db.scalar(
         select(Entrenamiento)
         .where(
-            Entrenamiento.usuario_id == usuario_id,
             Entrenamiento.fecha <= fecha,
             or_(Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_not(None)),
             tiene_series,
@@ -472,7 +465,6 @@ def resumen_de_hoy(db: Session, usuario_id: int, fecha: date) -> ResumenDeHoy:
         db.execute(
             select(Entrenamiento.rutina_id, func.max(Entrenamiento.fecha))
             .where(
-                Entrenamiento.usuario_id == usuario_id,
                 Entrenamiento.rutina_id.in_(visibles),
                 Entrenamiento.fecha < fecha,
                 tiene_series,
@@ -507,7 +499,7 @@ def _hoy_al_domingo() -> tuple[date, date]:
     return hoy_, hoy_ + timedelta(days=6 - hoy_.weekday())
 
 
-def coberturas_en_juego(db: Session, usuario_id: int) -> list[int]:
+def coberturas_en_juego(db: Session) -> list[int]:
     """Las sesiones que cuentan algún día de hoy al domingo.
 
     Son las únicas que un cambio del plan puede dejar sin su día: el pasado no se
@@ -517,12 +509,12 @@ def coberturas_en_juego(db: Session, usuario_id: int) -> list[int]:
     """
     return [
         dia.cubierto_por.entrenamiento_id
-        for dia in seguimiento(db, usuario_id, *_hoy_al_domingo())
+        for dia in seguimiento(db, *_hoy_al_domingo())
         if dia.cubierto_por
     ]
 
 
-def reubicar_coberturas(db: Session, usuario_id: int, contaban: list[int]) -> None:
+def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
     """Tras cambiar el plan, lleva lo hecho por adelantado a donde haya ido su día.
 
     Si el Pull del miércoles se hizo el martes y en Planificar se pasa el Pull al
@@ -541,7 +533,7 @@ def reubicar_coberturas(db: Session, usuario_id: int, contaban: list[int]) -> No
     # bastaría con retener una para reubicar con el plan viejo sin que nada falle.
     db.flush()
     db.expire_all()
-    dias = {dia.fecha: dia for dia in seguimiento(db, usuario_id, *_hoy_al_domingo())}
+    dias = {dia.fecha: dia for dia in seguimiento(db, *_hoy_al_domingo())}
     siguen = {dia.cubierto_por.entrenamiento_id for dia in dias.values() if dia.cubierto_por}
     perdidas = sorted(
         (db.get(Entrenamiento, id_) for id_ in contaban if id_ not in siguen),
@@ -583,7 +575,6 @@ def reubicar_coberturas(db: Session, usuario_id: int, contaban: list[int]) -> No
     ids = [sesion.id for sesion in perdidas]
     for retenida in db.scalars(
         select(Entrenamiento).where(
-            Entrenamiento.usuario_id == usuario_id,
             Entrenamiento.cubre_fecha.in_(destinos.values()),
             Entrenamiento.id.not_in(ids),
         )

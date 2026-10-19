@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.ocultos import exigir_visible
@@ -50,27 +49,27 @@ def _validar_grupo_muscular(db: Session, grupo_muscular_id: int) -> None:
         )
 
 
-def obtener_ejercicio_del_usuario(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
-    """El ejercicio aunque esté ocultado, o 404 si no existe o es de otro.
+def obtener_ejercicio_del_usuario(db: Session, ejercicio_id: int) -> Ejercicio:
+    """El ejercicio aunque esté ocultado, o 404 si no existe.
 
     Biblioteca combinada: cuentan los predefinidos y los propios. Es la
     comprobación para *leer* historial — ocultar un ejercicio deja de ofrecerlo
     para entrenamientos nuevos, pero no esconde lo que ya se hizo con él.
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None or not (ejercicio.es_predefinido or ejercicio.usuario_id == usuario_id):
+    if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
 
 
-def obtener_ejercicio_visible(db: Session, ejercicio_id: int, usuario_id: int) -> Ejercicio:
+def obtener_ejercicio_visible(db: Session, ejercicio_id: int) -> Ejercicio:
     """Lo mismo, pero además no puede estar oculto: es la comprobación para
     *usar* el ejercicio (ponerlo en un hueco, registrar una serie, anotarlo).
 
     Pública (sin `_`) porque la usan también los otros routers para validar
     cualquier ejercicio_id que llegue en una petición.
     """
-    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id)
     if ejercicio.oculto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     return ejercicio
@@ -95,7 +94,7 @@ def _series_que_se_borran(ejercicio_id: int):
     )
 
 
-def _usos_de_ejercicio(db: Session, ejercicio_id: int, usuario_id: int) -> list[dict]:
+def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
     """¿Dónde se usa este ejercicio? Una entrada por cada hueco donde
     aparece (como principal o como comodín) y una por cada entrenamiento con
     series registradas de este ejercicio — con nombre/fecha, para que el
@@ -107,18 +106,18 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int, usuario_id: int) -> list[
     principales = db.execute(
         select(RutinaSlot.id, Rutina.id, Rutina.nombre)
         .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id, Rutina.usuario_id == usuario_id)
+        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
     ).all()
     comodines = db.execute(
         select(RutinaSlot.id, Rutina.id, Rutina.nombre)
         .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
         .join(SlotAlternativa, SlotAlternativa.slot_id == RutinaSlot.id)
-        .where(SlotAlternativa.ejercicio_id == ejercicio_id, Rutina.usuario_id == usuario_id)
+        .where(SlotAlternativa.ejercicio_id == ejercicio_id)
     ).all()
     entrenamientos_con_series = db.execute(
         select(Entrenamiento.id, Entrenamiento.fecha)
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Serie.ejercicio_id == ejercicio_id, Entrenamiento.usuario_id == usuario_id)
+        .where(Serie.ejercicio_id == ejercicio_id)
         .distinct()
     ).all()
     return (
@@ -151,13 +150,10 @@ def _usos_de_ejercicio(db: Session, ejercicio_id: int, usuario_id: int) -> list[
     )
 
 
-def _usos_en_rutinas(db: Session, ejercicio_id: int, usuario_id: int) -> list[UsoEnRutinaOut]:
-    """Los huecos de las rutinas del usuario donde aparece el ejercicio, con lo que
-    hace falta para enseñarlos: su número en la rutina, si están ocultos y en qué
-    programas está la rutina. Tres consultas, sin una más por uso.
-
-    Todo se filtra por el usuario: un predefinido es de todos, y sin el filtro
-    saldrían las rutinas (y los programas activos) de otros.
+def _usos_en_rutinas(db: Session, ejercicio_id: int) -> list[UsoEnRutinaOut]:
+    """Los huecos de las rutinas donde aparece el ejercicio, con lo que hace falta
+    para enseñarlos: su número en la rutina, si están ocultos y en qué programas
+    está la rutina. Tres consultas, sin una más por uso.
     """
     filas = db.execute(
         select(RutinaSlot, Rutina)
@@ -170,7 +166,6 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int, usuario_id: int) -> list[Us
             ),
         )
         .where(
-            Rutina.usuario_id == usuario_id,
             or_(
                 RutinaSlot.ejercicio_principal_id == ejercicio_id,
                 SlotAlternativa.id.is_not(None),
@@ -204,14 +199,12 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int, usuario_id: int) -> list[Us
             and_(
                 ProgramaPeriodo.programa_id == Programa.id,
                 ProgramaPeriodo.hasta.is_(None),
-                ProgramaPeriodo.usuario_id == usuario_id,
             ),
         )
         .where(
             ProgramaDia.rutina_id.in_(rutina_ids),
             ProgramaDia.hasta.is_(None),
             Programa.oculto_desde.is_(None),
-            Programa.usuario_id == usuario_id,
         )
         .order_by(Programa.nombre, Programa.id, ProgramaDia.dia_semana)
     ):
@@ -243,23 +236,16 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int, usuario_id: int) -> list[Us
 def listar_ejercicios(
     ocultos: bool = False,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Por defecto, biblioteca combinada: ejercicios predefinidos + los
-    creados por el usuario actual, sin los ocultos. Con `ocultos=true`, lista
-    en cambio los propios que el usuario ha ocultado — para poder
-    volver a mostrarlos (`POST /ejercicios/{id}/mostrar`) o borrarlos
-    definitivamente.
+    """Por defecto, biblioteca combinada: ejercicios predefinidos + los propios,
+    sin los ocultos. Con `ocultos=true`, lista en cambio los que se han ocultado
+    — para poder volver a mostrarlos (`POST /ejercicios/{id}/mostrar`) o
+    borrarlos definitivamente.
     """
     if ocultos:
-        stmt = select(Ejercicio).where(
-            Ejercicio.oculto_desde.is_not(None), Ejercicio.usuario_id == usuario_id
-        )
+        stmt = select(Ejercicio).where(Ejercicio.oculto_desde.is_not(None))
     else:
-        stmt = select(Ejercicio).where(
-            Ejercicio.oculto_desde.is_(None),
-            (Ejercicio.es_predefinido.is_(True)) | (Ejercicio.usuario_id == usuario_id),
-        )
+        stmt = select(Ejercicio).where(Ejercicio.oculto_desde.is_(None))
     return db.scalars(stmt.order_by(Ejercicio.nombre)).all()
 
 
@@ -267,33 +253,30 @@ def listar_ejercicios(
 def obtener_ejercicio(
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     # Legible y no visible: la ficha de un ejercicio oculto necesita abrirlo.
-    return obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    return obtener_ejercicio_del_usuario(db, ejercicio_id)
 
 
 @router.get("/{ejercicio_id}/donde-se-usa", response_model=list[UsoEnRutinaOut])
 def donde_se_usa(
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Las rutinas del usuario donde aparece, para la ficha del ejercicio. Aparte
+    """Las rutinas donde aparece, para la ficha del ejercicio. Aparte
     del 409 del DELETE porque la ficha lo enseña siempre, no solo al borrar.
     Admite ocultos y predefinidos.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
-    return _usos_en_rutinas(db, ejercicio_id, usuario_id)
+    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    return _usos_en_rutinas(db, ejercicio_id)
 
 
-def _notas_del_usuario(db: Session, ejercicio_id: int, usuario_id: int) -> int:
+def _notas_del_usuario(db: Session, ejercicio_id: int) -> int:
     return db.scalar(
         select(func.count())
         .select_from(NotaUsuarioEjercicio)
         .where(
             NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
-            NotaUsuarioEjercicio.usuario_id == usuario_id,
         )
     )
 
@@ -302,14 +285,13 @@ def _notas_del_usuario(db: Session, ejercicio_id: int, usuario_id: int) -> int:
 def aviso_de_borrar_ejercicio(
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Lo que se perdería al borrarlo, para el diálogo de confirmar (como el de la
     rutina y el del hueco). No modifica nada.
 
     Un predefinido da 404 y no 403: no se puede borrar, así que su aviso no existe.
     """
-    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    ejercicio = obtener_ejercicio_del_usuario(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     series, series_de_comodines, sesiones, desde = db.execute(
@@ -320,24 +302,22 @@ def aviso_de_borrar_ejercicio(
             func.min(Entrenamiento.fecha),
         )
         .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
-        .where(_series_que_se_borran(ejercicio_id), Entrenamiento.usuario_id == usuario_id)
+        .where(_series_que_se_borran(ejercicio_id))
     ).one()
     return AvisoDeBorrarEjercicioOut(
         # Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
-        con_historial=bool(_usos_de_ejercicio(db, ejercicio_id, usuario_id)),
+        con_historial=bool(_usos_de_ejercicio(db, ejercicio_id)),
         series=series,
         series_de_comodines=series_de_comodines,
         sesiones=sesiones,
         desde=desde,
-        notas=_notas_del_usuario(db, ejercicio_id, usuario_id),
-        huecos=_usos_en_rutinas(db, ejercicio_id, usuario_id),
+        notas=_notas_del_usuario(db, ejercicio_id),
+        huecos=_usos_en_rutinas(db, ejercicio_id),
         sesiones_que_se_vacian=[
             SesionQueSeVaciaOut(
                 entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
             )
-            for sesion in sesiones_que_se_vacian(
-                db, usuario_id, _series_que_se_borran(ejercicio_id)
-            )
+            for sesion in sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
         ],
     )
 
@@ -346,13 +326,12 @@ def aviso_de_borrar_ejercicio(
 def crear_ejercicio(
     datos: EjercicioCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Crea un ejercicio propio del usuario actual (nunca predefinido — eso
-    se gestiona aparte, no a través de este endpoint).
+    """Crea un ejercicio propio (nunca predefinido — eso se gestiona aparte, no a
+    través de este endpoint).
     """
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
-    ejercicio = Ejercicio(**datos.model_dump(), usuario_id=usuario_id)
+    ejercicio = Ejercicio(**datos.model_dump())
     db.add(ejercicio)
     db.commit()
     db.refresh(ejercicio)
@@ -364,18 +343,15 @@ def actualizar_ejercicio(
     ejercicio_id: int,
     datos: EjercicioUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Edita un ejercicio propio. Los predefinidos y los de otros usuarios
-    (cuando exista JWT) no se pueden editar por aquí.
-    """
+    """Edita un ejercicio propio. Los predefinidos no se pueden editar."""
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
-    if ejercicio.usuario_id != usuario_id:
+    if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede editar un ejercicio que no es tuyo",
+            detail="Los ejercicios predefinidos no se pueden editar.",
         )
     exigir_visible(ejercicio, "Este ejercicio está oculto: muéstralo antes de editarlo.")
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
@@ -391,7 +367,6 @@ def borrar_ejercicio(
     ejercicio_id: int,
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra un ejercicio propio.
 
@@ -406,10 +381,10 @@ def borrar_ejercicio(
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
-    if ejercicio.usuario_id != usuario_id:
+    if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede borrar un ejercicio que no es tuyo",
+            detail="Los ejercicios predefinidos no se pueden ocultar ni borrar.",
         )
 
     if modo == "ocultar":
@@ -419,16 +394,16 @@ def borrar_ejercicio(
         db.commit()
         return
 
-    usos = _usos_de_ejercicio(db, ejercicio_id, usuario_id)
+    usos = _usos_de_ejercicio(db, ejercicio_id)
     if usos and modo != "definitivo":
         # Las notas nunca bloquean el borrado (su FK es CASCADE: se van solas
         # con el ejercicio). Pero si algo más ya lo está bloqueando, el aviso
         # tiene que enumerar todo lo que se perdería con modo=definitivo, no
         # solo lo que lo impide — si no, las notas desaparecen en silencio
         # justo cuando la API está detallando el resto.
-        notas = _notas_del_usuario(db, ejercicio_id, usuario_id)
+        notas = _notas_del_usuario(db, ejercicio_id)
         sesiones_que_se_borrarian = len(
-            sesiones_que_se_vacian(db, usuario_id, _series_que_se_borran(ejercicio_id))
+            sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
         )
         # Los huecos donde es principal se borran enteros, así que se llevan
         # también las series que se hicieron en ellos con un comodín.
@@ -473,7 +448,7 @@ def borrar_ejercicio(
     # que borrar antes las filas dependientes explícitamente (los comodines
     # de cada hueco se van solos, en cascada por FK).
     # Antes de tocar nada: sin las series, ya no se sabría qué sesiones se vacían.
-    vacias = sesiones_que_se_vacian(db, usuario_id, _series_que_se_borran(ejercicio_id))
+    vacias = sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
     # Las series del ejercicio y, además, todas las de los huecos que se van a
     # borrar: las hechas con un comodín también apuntan al hueco (RESTRICT).
     for serie in db.scalars(select(Serie).where(_series_que_se_borran(ejercicio_id))).all():
@@ -501,16 +476,15 @@ def borrar_ejercicio(
 def mostrar_ejercicio(
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deshace un `modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo."""
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
-    if ejercicio.usuario_id != usuario_id:
+    if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede mostrar un ejercicio que no es tuyo",
+            detail="Los ejercicios predefinidos no se ocultan.",
         )
     ejercicio.oculto_desde = None
     db.commit()
@@ -525,7 +499,6 @@ def historial_de_ejercicio(
     hasta: date | None = None,
     limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Los días en que se hizo este ejercicio, del más reciente al más antiguo,
     con las series de cada día — la progresión de un ejercicio concreto.
@@ -534,38 +507,23 @@ def historial_de_ejercicio(
     evoluciona un hueco entero (unos días con el ejercicio principal y otros con
     un comodín), el endpoint es `/rutinas/{id}/slots/{slot_id}/historial`.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
-    return sesiones_con_series(
-        db, usuario_id, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite
-    )
+    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    return sesiones_con_series(db, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite)
 
 
-# --- Notas del usuario sobre un ejercicio --------------------------------
+# --- Notas sobre un ejercicio --------------------------------
 
 
-def _obtener_nota_propia(
-    db: Session, ejercicio_id: int, nota_id: int, usuario_id: int
-) -> NotaUsuarioEjercicio:
-    """404 si el ejercicio o la nota no existen (o la nota es de otro
-    ejercicio), 403 si la nota existe pero no es tuya.
+def _obtener_nota_propia(db: Session, ejercicio_id: int, nota_id: int) -> NotaUsuarioEjercicio:
+    """404 si el ejercicio o la nota no existen, o la nota es de otro ejercicio.
 
-    A diferencia de los demás recursos anidados (series, comodines), aquí no
-    basta con comprobar que el padre es accesible: un ejercicio predefinido
-    lo ven todos los usuarios, así que el dueño hay que comprobarlo en la
-    propia nota.
-
-    Admite ejercicios ocultos: las notas son del usuario y no "usan" el
-    ejercicio, y una nota es justo donde apuntar por qué se ocultó.
+    Admite ejercicios ocultos: las notas no "usan" el ejercicio, y una nota es
+    justo donde apuntar por qué se ocultó.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    obtener_ejercicio_del_usuario(db, ejercicio_id)
     nota = db.get(NotaUsuarioEjercicio, nota_id)
     if nota is None or nota.ejercicio_id != ejercicio_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
-    if nota.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede acceder a una nota que no es tuya",
-        )
     return nota
 
 
@@ -573,20 +531,15 @@ def _obtener_nota_propia(
 def listar_notas(
     ejercicio_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Las notas del usuario actual sobre este ejercicio, de la más reciente
-    a la más antigua. Nunca incluye las de otros usuarios, ni siquiera cuando
-    el ejercicio es predefinido y por tanto compartido.
-    """
+    """Las notas sobre este ejercicio, de la más reciente a la más antigua."""
     # También si está oculto: las notas se pueden leer y escribir igual (ver
     # `_obtener_nota_propia`).
-    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
+    obtener_ejercicio_del_usuario(db, ejercicio_id)
     stmt = (
         select(NotaUsuarioEjercicio)
         .where(
             NotaUsuarioEjercicio.ejercicio_id == ejercicio_id,
-            NotaUsuarioEjercicio.usuario_id == usuario_id,
         )
         .order_by(NotaUsuarioEjercicio.created_at.desc(), NotaUsuarioEjercicio.id.desc())
     )
@@ -598,16 +551,13 @@ def crear_nota(
     ejercicio_id: int,
     datos: NotaCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Añade una nota al ejercicio. Se pueden acumular varias sobre el mismo
     ejercicio: cada una es independiente, no se sobreescriben. También en uno
     oculto, por ejemplo para apuntar por qué se ocultó.
     """
-    obtener_ejercicio_del_usuario(db, ejercicio_id, usuario_id)
-    nota = NotaUsuarioEjercicio(
-        **datos.model_dump(), usuario_id=usuario_id, ejercicio_id=ejercicio_id
-    )
+    obtener_ejercicio_del_usuario(db, ejercicio_id)
+    nota = NotaUsuarioEjercicio(**datos.model_dump(), ejercicio_id=ejercicio_id)
     db.add(nota)
     db.commit()
     db.refresh(nota)
@@ -620,9 +570,8 @@ def actualizar_nota(
     nota_id: int,
     datos: NotaUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    nota = _obtener_nota_propia(db, ejercicio_id, nota_id, usuario_id)
+    nota = _obtener_nota_propia(db, ejercicio_id, nota_id)
     for campo, valor in datos.model_dump().items():
         setattr(nota, campo, valor)
     db.commit()
@@ -635,11 +584,10 @@ def borrar_nota(
     ejercicio_id: int,
     nota_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borrado directo, sin parámetro `modo`: nada referencia una nota, así
     que no hay historial ajeno que proteger (igual que con las series).
     """
-    nota = _obtener_nota_propia(db, ejercicio_id, nota_id, usuario_id)
+    nota = _obtener_nota_propia(db, ejercicio_id, nota_id)
     db.delete(nota)
     db.commit()

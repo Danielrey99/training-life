@@ -13,10 +13,8 @@ día de la semana no dependa de cuándo se ejecuten.
 from datetime import date
 
 import pytest
-from sqlalchemy import select
 
-from app.auth import USUARIO_SEMBRADO_ID
-from app.models import Entrenamiento, Rutina
+from app.models import Entrenamiento
 
 from tests.semana import (
     DOMINGO_13,
@@ -214,40 +212,12 @@ def test_la_base_de_datos_impide_que_dos_sesiones_cuenten_el_mismo_dia(cliente, 
     from sqlalchemy.exc import IntegrityError
 
     for fecha in (MARTES_15, HOY):
-        sesion_bd.add(
-            Entrenamiento(
-                usuario_id=USUARIO_SEMBRADO_ID,
-                rutina_id=ppl["Push"],
-                fecha=fecha,
-                cubre_fecha=LUNES_14,
-            )
-        )
-    with pytest.raises(IntegrityError):
+        sesion_bd.add(Entrenamiento(rutina_id=ppl["Push"], fecha=fecha, cubre_fecha=LUNES_14))
+    with pytest.raises(IntegrityError) as error:
         sesion_bd.commit()
     sesion_bd.rollback()
-
-
-# --- Aislamiento ---------------------------------------------------------
-
-
-def test_lo_que_cuenta_otro_usuario_no_estorba(cliente, ppl, sesion_bd, otro_usuario_id):
-    """Ni da 409 ni se suelta: cada usuario tiene su propio plan."""
-    rutina_ajena = Rutina(usuario_id=otro_usuario_id, nombre="Push")
-    sesion_bd.add(rutina_ajena)
-    sesion_bd.flush()
-    ajena = Entrenamiento(
-        usuario_id=otro_usuario_id, rutina_id=rutina_ajena.id, fecha=MARTES_15, cubre_fecha=LUNES_14
-    )
-    sesion_bd.add(ajena)
-    sesion_bd.commit()
-
-    assert sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_14).status_code == 201
-
-    sesion_bd.expire_all()
-    assert (
-        sesion_bd.scalar(select(Entrenamiento.cubre_fecha).where(Entrenamiento.id == ajena.id))
-        == LUNES_14
-    )
+    # Que salte la restricción que se prueba y no otra.
+    assert "entrenamientos_cubre_fecha_key" in str(error.value)
 
 
 # --- Corregir la fecha (PUT) ---------------------------------------------

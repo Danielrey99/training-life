@@ -43,8 +43,8 @@ class GrupoMuscularOut(BaseModel):
 class EjercicioBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un ejercicio.
 
-    Deliberadamente no incluye usuario_id, es_predefinido, visibilidad ni
-    oculto_desde: esos los decide el backend, no el cliente.
+    Deliberadamente no incluye es_predefinido ni oculto_desde: los decide el
+    backend, no el cliente.
     """
 
     nombre: Nombre
@@ -69,8 +69,6 @@ class EjercicioOut(EjercicioBase):
 
     id: int
     es_predefinido: bool
-    usuario_id: int | None
-    visibilidad: str
     oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
@@ -79,8 +77,7 @@ class EjercicioOut(EjercicioBase):
 class NotaBase(BaseModel):
     """El único campo que el cliente envía al crear o editar una nota.
 
-    usuario_id lo decide el backend y ejercicio_id viene de la ruta, así que
-    ninguno de los dos se declara aquí.
+    ejercicio_id viene de la ruta, así que no se declara aquí.
     """
 
     nota: TextoNota
@@ -104,7 +101,6 @@ class NotaOut(NotaBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    usuario_id: int
     ejercicio_id: int
     created_at: datetime
     updated_at: datetime
@@ -221,7 +217,6 @@ class RutinaOut(RutinaBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    usuario_id: int
     oculto_desde: date | None
     # En cuántos programas visibles aparece: la lista de rutinas lo enseña.
     num_programas: int
@@ -416,7 +411,6 @@ class EntrenamientoOut(EntrenamientoBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    usuario_id: int
     rutina_id: int
     cubre_fecha: date | None
     # Las dos las decide el servidor: terminada_en se pone con POST .../terminar,
@@ -457,7 +451,7 @@ class ProgramaDeUnUsoOut(BaseModel):
 
 
 class UsoEnRutinaOut(BaseModel):
-    """Un hueco del usuario donde aparece un ejercicio, para «Rutinas donde se usa»
+    """Un hueco donde aparece un ejercicio, para «Rutinas donde se usa»
     y para el aviso de borrarlo.
     """
 
@@ -561,7 +555,6 @@ class ProgramaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    usuario_id: int
     nombre: str
     oculto_desde: date | None
     # Los dos se deducen de sus periodos (ver Programa.activo).
@@ -934,7 +927,7 @@ class EntrenamientoDeArchivo(BaseModel):
 
 
 class DatosDeUsuario(BaseModel):
-    """Todos los datos de un usuario, para pasarlos a otro dispositivo o guardarlos
+    """Todos los datos, para pasarlos a otro dispositivo o guardarlos
     como copia. Cada lista va por id, también dentro de cada padre: se inserta en ese
     orden, y así se conserva el orden relativo de los ids (el de los comodines y el
     desempate de las series dependen de él).

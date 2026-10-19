@@ -339,7 +339,7 @@ def test_un_ejercicio_y_una_rutina_ocultos_se_pueden_abrir(cliente, grupo_muscul
 
 
 def test_las_notas_de_un_ejercicio_oculto_se_pueden_leer_y_escribir(cliente, grupo_muscular_id):
-    """Las notas no usan el ejercicio: son del usuario, y un buen sitio para
+    """Las notas no usan el ejercicio: son de quien entrena, y un buen sitio para
     apuntar por qué se ocultó.
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
@@ -424,26 +424,83 @@ def test_algo_oculto_se_puede_borrar_en_definitivo(cliente, grupo_muscular_id):
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
 
 
-# --- Los predefinidos no son de nadie ------------------------------------
+# --- Los predefinidos vienen con la app ----------------------------------
 
 
 def test_un_ejercicio_predefinido_no_se_puede_editar_ocultar_ni_borrar(
-    cliente, ejercicio_predefinido_id, grupo_muscular_id
+    cliente, sesion_bd, ejercicio_predefinido_id, grupo_muscular_id
 ):
-    """Vienen con la app y los comparten todos los usuarios: cambiarlos o
-    borrarlos afectaría a todos. 403, porque existen pero no son tuyos. Tampoco
-    se pueden "mostrar": nunca están ocultos, y no son del usuario.
+    """Vienen con la app: los archivos de exportación los buscan por nombre, así
+    que cambiarlos o borrarlos rompería la importación. 403, porque la acción no
+    está permitida sobre ese recurso y ningún cambio de estado lo arregla. Tampoco
+    se pueden "mostrar": nunca están ocultos. Cada 403, con su mensaje (y no el de
+    otra comprobación), y sin tocar nada.
     """
+    from app.models import Ejercicio
+
     ruta = f"/ejercicios/{ejercicio_predefinido_id}"
+    antes = cliente.get(ruta).json()
+    no_se_borra = "Los ejercicios predefinidos no se pueden ocultar ni borrar."
 
     editar = cliente.put(ruta, json={"nombre": "Otra cosa", "grupo_muscular_id": grupo_muscular_id})
 
     assert editar.status_code == 403
+    assert editar.json()["detail"] == "Los ejercicios predefinidos no se pueden editar."
+    for modo in (None, "ocultar", "definitivo"):
+        respuesta = cliente.delete(ruta, params={"modo": modo} if modo else None)
+        assert respuesta.status_code == 403, modo
+        assert respuesta.json()["detail"] == no_se_borra, modo
+    mostrar = cliente.post(f"{ruta}/mostrar")
+    assert mostrar.status_code == 403
+    assert mostrar.json()["detail"] == "Los ejercicios predefinidos no se ocultan."
+    assert cliente.get(ruta).json() == antes
+    sesion_bd.expire_all()
+    fila = sesion_bd.get(Ejercicio, ejercicio_predefinido_id)
+    assert (fila.nombre, fila.oculto_desde, fila.es_predefinido) == (
+        "Sentadilla con barra",
+        None,
+        True,
+    )
+
+
+def test_un_predefinido_en_uso_da_403_y_no_el_409_de_lo_que_se_perderia(
+    cliente, ejercicio_predefinido_id
+):
+    """Con historial, el DELETE sin modo de un propio da 409 con lo que se perdería;
+    el de un predefinido tiene que pararse antes, en el 403, y no borrar nada aunque
+    venga con `modo=definitivo`.
+    """
+    rutina_id = cliente.post("/rutinas", json={"nombre": "Pierna"}).json()["id"]
+    slot_id = cliente.post(
+        f"/rutinas/{rutina_id}/slots",
+        json={
+            "ejercicio_principal_id": ejercicio_predefinido_id,
+            "series_objetivo": 3,
+            "reps_min": 5,
+            "reps_max": 8,
+        },
+    ).json()["id"]
+    sesion = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": "2026-09-01"}
+    ).json()["id"]
+    serie = cliente.post(
+        f"/entrenamientos/{sesion}/series",
+        json={
+            "ejercicio_id": ejercicio_predefinido_id,
+            "slot_id": slot_id,
+            "numero_serie": 1,
+            "peso": 100,
+            "repeticiones": 5,
+        },
+    )
+    assert serie.status_code == 201, serie.text
+    ruta = f"/ejercicios/{ejercicio_predefinido_id}"
+
     assert cliente.delete(ruta).status_code == 403
-    assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 403
-    assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 403
-    assert cliente.post(f"{ruta}/mostrar").status_code == 403
-    assert cliente.get(ruta).json()["nombre"] == "Sentadilla con barra"
+    assert cliente.delete(ruta, params={"modo": "definitivo"}).status_code == 403
+    assert len(cliente.get(f"/entrenamientos/{sesion}").json()["series"]) == 1
+    assert [h["id"] for h in cliente.get(f"/rutinas/{rutina_id}").json()["slots"]] == [slot_id]
+    assert cliente.get(f"{ruta}/aviso-de-borrado").status_code == 404
 
 
 # --- Borrar un ejercicio que es comodín ----------------------------------

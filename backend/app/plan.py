@@ -62,13 +62,13 @@ def validar_rango_del_plan(desde: date, hasta: date) -> None:
         )
 
 
-def dias_del_plan(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaPlan]:
+def dias_del_plan(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
     """Qué toca cada día de `desde` a `hasta`, los dos incluidos."""
     validar_rango_del_plan(desde, hasta)
-    return resolver_dias(db, usuario_id, desde, hasta)
+    return resolver_dias(db, desde, hasta)
 
 
-def resolver_dias(db: Session, usuario_id: int, desde: date, hasta: date) -> list[DiaPlan]:
+def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
     """Como `dias_del_plan`, pero sin validar el rango: para quien necesita unos
     días de margen alrededor del que le han pedido (el seguimiento).
     """
@@ -78,7 +78,6 @@ def resolver_dias(db: Session, usuario_id: int, desde: date, hasta: date) -> lis
     periodos = db.scalars(
         select(ProgramaPeriodo)
         .where(
-            ProgramaPeriodo.usuario_id == usuario_id,
             ProgramaPeriodo.desde <= hasta,
             or_(ProgramaPeriodo.hasta.is_(None), ProgramaPeriodo.hasta > desde),
         )
@@ -93,7 +92,6 @@ def resolver_dias(db: Session, usuario_id: int, desde: date, hasta: date) -> lis
         for excepcion in db.scalars(
             select(ExcepcionDelPlan)
             .where(
-                ExcepcionDelPlan.usuario_id == usuario_id,
                 ExcepcionDelPlan.fecha >= desde,
                 ExcepcionDelPlan.fecha <= hasta,
             )

@@ -38,9 +38,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.database import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
-# Tablas que los tests ensucian. `usuarios` y `grupos_musculares` quedan fuera a
-# propósito: las siembran las migraciones y todos los tests las necesitan. Por lo
-# mismo, `ejercicios` no se vacía entera (ver `limpiar_tablas`).
+# Tablas que los tests ensucian. `grupos_musculares` queda fuera a propósito: la
+# siembran las migraciones y todos los tests la necesitan. Por lo mismo,
+# `ejercicios` no se vacía entera (ver `limpiar_tablas`).
 TABLAS_A_VACIAR = (
     "excepciones_del_plan",
     "programa_periodos",
@@ -114,8 +114,8 @@ def limpiar_tablas():
     with engine.begin() as conexion:
         conexion.execute(text(f"TRUNCATE {', '.join(TABLAS_A_VACIAR)} RESTART IDENTITY CASCADE"))
         # Los ejercicios predefinidos los siembra una migración y se quedan; solo
-        # se borran los que crean los tests, que siempre tienen dueño.
-        conexion.execute(text("DELETE FROM ejercicios WHERE usuario_id IS NOT NULL"))
+        # se borran los propios, que son los que crean los tests.
+        conexion.execute(text("DELETE FROM ejercicios WHERE NOT es_predefinido"))
 
 
 @pytest.fixture
@@ -185,7 +185,7 @@ def grupo_muscular_id(cliente: TestClient) -> int:
 @pytest.fixture
 def sesion_bd():
     """Acceso directo a la base, para montar situaciones que la API no permite
-    crear (por ejemplo, datos pertenecientes a otro usuario).
+    crear (por ejemplo, dos sesiones el mismo día, para probar las restricciones).
     """
     from app.database import SessionLocal
 
@@ -197,34 +197,11 @@ def sesion_bd():
 
 
 @pytest.fixture
-def otro_usuario_id(sesion_bd) -> int:
-    """Un segundo usuario, distinto del que usa la API, para los tests de aislamiento.
-
-    Mientras no haya JWT la API trabaja siempre con el usuario sembrado, así que
-    los datos ajenos se insertan con `sesion_bd` a nombre de este. La tabla de
-    usuarios no se vacía entre tests: se reutiliza si ya existe.
-    """
-    from sqlalchemy import select
-
-    from app.auth import USUARIO_SEMBRADO_ID
-    from app.models import Usuario
-
-    email = "otro@example.com"
-    usuario = sesion_bd.scalar(select(Usuario).where(Usuario.email == email))
-    if usuario is None:
-        usuario = Usuario(nombre="Otro", email=email, password_hash="sin-login")
-        sesion_bd.add(usuario)
-        sesion_bd.commit()
-    assert usuario.id != USUARIO_SEMBRADO_ID
-    return usuario.id
-
-
-@pytest.fixture
 def ejercicio_predefinido_id(sesion_bd) -> int:
     """Uno de los ejercicios predefinidos que siembra la migración.
 
     Los tests no crean predefinidos: usan los sembrados. La limpieza entre tests
-    solo borra los ejercicios con dueño, así que uno predefinido creado por un test
+    solo borra los ejercicios propios, así que uno predefinido creado por un test
     se quedaría para siempre en la base de tests.
     """
     from sqlalchemy import select

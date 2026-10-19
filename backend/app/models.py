@@ -39,23 +39,6 @@ class Ocultable:
         return self.oculto_desde is not None
 
 
-class Usuario(Base):
-    """Usuario de la app.
-
-    Mientras no exista autenticación real (JWT, "nivel medio" del roadmap),
-    el backend trabaja con una única fila sembrada por migración y un
-    usuario_id hardcodeado en el código (ver app/auth.py).
-    """
-
-    __tablename__ = "usuarios"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(100))
-    email: Mapped[str] = mapped_column(String(255), unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-
 class GrupoMuscular(Base):
     """Grupo muscular (ej. "Pecho", "Espalda", "Pierna").
 
@@ -72,10 +55,9 @@ class GrupoMuscular(Base):
 class Ejercicio(Ocultable, Base):
     """Un ejercicio de la biblioteca (ej. 'Press banca', 'Sentadilla').
 
-    Biblioteca combinada: ejercicios predefinidos (es_predefinido=True,
-    usuario_id NULL) + ejercicios creados por cada usuario (usuario_id propio),
-    en la misma tabla. Sin unicidad de `nombre`: dos usuarios distintos pueden
-    llamar igual a su propio ejercicio.
+    Biblioteca combinada: ejercicios predefinidos (es_predefinido=True) +
+    ejercicios propios, en la misma tabla. Sin unicidad de `nombre`: uno propio
+    puede llamarse como un predefinido.
 
     Es la tabla base de la que dependen las rutinas/plantillas (qué
     ejercicios incluyen, ver Rutina/RutinaSlot) y de la que dependerán más
@@ -89,8 +71,6 @@ class Ejercicio(Ocultable, Base):
     grupo_muscular_id: Mapped[int] = mapped_column(ForeignKey("grupos_musculares.id"))
     descripcion: Mapped[str | None] = mapped_column(String(500), default=None)
     es_predefinido: Mapped[bool] = mapped_column(Boolean, default=False)
-    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), default=None)
-    visibilidad: Mapped[str] = mapped_column(String(20), default="privado")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -98,13 +78,11 @@ class Ejercicio(Ocultable, Base):
 
 
 class NotaUsuarioEjercicio(Base):
-    """Una nota personal y privada de un usuario sobre un ejercicio, propio o
-    predefinido (ej. "en esta máquina el asiento va en el 4").
+    """Una nota personal sobre un ejercicio, propio o predefinido (ej. "en esta máquina el asiento va en el 4").
 
     Separada de Ejercicio.descripcion porque esa es información general y
     objetiva del ejercicio (y no editable si es predefinido), mientras que
-    una nota es subjetiva y solo la ve quien la escribió. Sin unicidad de
-    (usuario_id, ejercicio_id) a propósito: se pueden ir acumulando notas
+    una nota es subjetiva. Sin unicidad de `ejercicio_id` a propósito: se pueden ir acumulando notas
     independientes sobre el mismo ejercicio a lo largo del tiempo, cada una
     con su propia fila, editable y borrable por separado.
     """
@@ -112,7 +90,6 @@ class NotaUsuarioEjercicio(Base):
     __tablename__ = "notas_usuario_ejercicio"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     # CASCADE (a diferencia de rutina_slots, slot_alternativas y series hacia
     # ejercicios, que son RESTRICT): una nota no es historial de progresión
     # que haya que proteger, es un accesorio del ejercicio — huérfana no
@@ -126,15 +103,13 @@ class NotaUsuarioEjercicio(Base):
 
 
 class Rutina(Ocultable, Base):
-    """Una rutina/plantilla del usuario (ej. "Push", "Leg", "Pull") — el
-    plan, no un entrenamiento concreto de un día. No existen rutinas
-    predefinidas: siempre son propias de un usuario.
+    """Una rutina/plantilla (ej. "Push", "Leg", "Pull") — el plan, no un
+    entrenamiento concreto de un día. No existen rutinas predefinidas.
     """
 
     __tablename__ = "rutinas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     nombre: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -242,14 +217,11 @@ class Entrenamiento(Base):
     # Y un día del plan lo cuenta una sesión como mucho; las que no cuentan para
     # ninguno llevan cubre_fecha nula, y los nulos no chocan entre sí.
     __table_args__ = (
-        UniqueConstraint("usuario_id", "fecha", name="entrenamientos_usuario_id_fecha_key"),
-        UniqueConstraint(
-            "usuario_id", "cubre_fecha", name="entrenamientos_usuario_id_cubre_fecha_key"
-        ),
+        UniqueConstraint("fecha", name="entrenamientos_fecha_key"),
+        UniqueConstraint("cubre_fecha", name="entrenamientos_cubre_fecha_key"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     # RESTRICT: borrar una rutina con entrenamientos ya registrados no debe
     # arrastrarlos por accidente (ver Rutina/borrar_rutina, modo=definitivo).
     # Se fija al crear la sesión y no cambia: sus series van en huecos de esta
@@ -337,7 +309,6 @@ class Programa(Ocultable, Base):
     __tablename__ = "programas"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     nombre: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -444,12 +415,13 @@ class ProgramaPeriodo(Base):
     __tablename__ = "programa_periodos"
     __table_args__ = (
         CheckConstraint("hasta IS NULL OR hasta >= desde", name="programa_periodos_rango_check"),
-        # Solo un periodo abierto por usuario: solo un programa activo. Lo
-        # comprueba antes el endpoint; esto es la red por si dos peticiones a la
-        # vez se colaran.
+        # Solo un periodo abierto: solo un programa activo. Lo comprueba antes el
+        # endpoint; esto es la red por si dos peticiones a la vez se colaran. Es
+        # un índice sobre una expresión constante (`hasta IS NULL` vale lo mismo en
+        # todos los abiertos), así que un segundo abierto choca; vale igual en SQLite.
         Index(
-            "ix_programa_periodos_usuario_abierto",
-            "usuario_id",
+            "ix_programa_periodos_abierto",
+            text("(hasta IS NULL)"),
             unique=True,
             postgresql_where=text("hasta IS NULL"),
         ),
@@ -457,9 +429,6 @@ class ProgramaPeriodo(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     programa_id: Mapped[int] = mapped_column(ForeignKey("programas.id", ondelete="CASCADE"))
-    # Repite el del programa porque el índice de arriba necesita tenerlo en la
-    # propia tabla. Lo pone siempre el backend, copiado del programa.
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     desde: Mapped[date] = mapped_column(Date)
     hasta: Mapped[date | None] = mapped_column(Date, default=None)
 
@@ -475,12 +444,9 @@ class ExcepcionDelPlan(Base):
     """
 
     __tablename__ = "excepciones_del_plan"
-    __table_args__ = (
-        UniqueConstraint("usuario_id", "fecha", name="excepciones_del_plan_usuario_id_fecha_key"),
-    )
+    __table_args__ = (UniqueConstraint("fecha", name="excepciones_del_plan_fecha_key"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     fecha: Mapped[date] = mapped_column(Date)
     # Nula = ese día es descanso. CASCADE y no SET NULL: si la rutina se borra,
     # el día vuelve a lo que diga el programa, en vez de quedarse en un descanso

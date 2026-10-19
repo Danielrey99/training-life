@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo
@@ -26,28 +25,21 @@ router = APIRouter(prefix="/programas", tags=["programas"])
 DiaDeLaRuta = Path(ge=1, le=7, description="1 = lunes … 7 = domingo")
 
 
-def _obtener_programa_legible(db: Session, programa_id: int, usuario_id: int) -> Programa:
-    """Para leer: 404 si no existe o no es tuyo. Admite los ocultos."""
+def _obtener_programa_legible(db: Session, programa_id: int) -> Programa:
+    """Para leer: 404 si no existe. Admite los ocultos."""
     programa = db.get(Programa, programa_id)
-    if programa is None or programa.usuario_id != usuario_id:
+    if programa is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
     return programa
 
 
 def _obtener_programa_propio(
-    db: Session, programa_id: int, usuario_id: int, admitir_oculto: bool = False
+    db: Session, programa_id: int, admitir_oculto: bool = False
 ) -> Programa:
-    """Para modificar: 404 si no existe, 403 si no es tuyo y 409 si está oculto,
-    salvo con `admitir_oculto`, que es para borrarlo o volver a mostrarlo.
-    """
+    """Para modificar: 404 si no existe y 409 si está oculto, salvo con `admitir_oculto`, que es para borrarlo o volver a mostrarlo."""
     programa = db.get(Programa, programa_id)
     if programa is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
-    if programa.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede modificar un programa que no es tuyo",
-        )
     if not admitir_oculto:
         exigir_visible(programa, "Este programa está oculto: muéstralo antes de cambiarlo.")
     return programa
@@ -60,17 +52,13 @@ def _obtener_programa_propio(
 # `desde` = hoy, así que hoy le toca al nuevo y no se solapan.
 
 
-def _cerrar_periodo_abierto(db: Session, usuario_id: int) -> None:
-    """Deja al usuario sin programa activo.
+def _cerrar_periodo_abierto(db: Session) -> None:
+    """Deja sin programa activo.
 
     Si el periodo empezó hoy, no llegó a cubrir ningún día: se borra en vez de
     cerrarse, para que activar y desactivar el mismo día no deje rastro.
     """
-    periodo = db.scalar(
-        select(ProgramaPeriodo).where(
-            ProgramaPeriodo.usuario_id == usuario_id, ProgramaPeriodo.hasta.is_(None)
-        )
-    )
+    periodo = db.scalar(select(ProgramaPeriodo).where(ProgramaPeriodo.hasta.is_(None)))
     if periodo is None:
         return
     if periodo.desde == hoy():
@@ -88,7 +76,7 @@ def _activar(db: Session, programa: Programa) -> None:
     """
     if programa.activo:
         return
-    _cerrar_periodo_abierto(db, programa.usuario_id)
+    _cerrar_periodo_abierto(db)
     # Si se desactivó hoy mismo, se reabre ese periodo en vez de empezar otro.
     ultimo = db.scalar(
         select(ProgramaPeriodo)
@@ -99,22 +87,19 @@ def _activar(db: Session, programa: Programa) -> None:
     if ultimo is not None and ultimo.hasta == hoy():
         ultimo.hasta = None
     else:
-        db.add(
-            ProgramaPeriodo(programa_id=programa.id, usuario_id=programa.usuario_id, desde=hoy())
-        )
+        db.add(ProgramaPeriodo(programa_id=programa.id, desde=hoy()))
 
 
 @router.get("", response_model=list[ProgramaOut])
 def listar_programas(
     ocultos: bool = False,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Los programas visibles del usuario o, con `ocultos=true`, los que ha ocultado."""
+    """Los programas visibles o, con `ocultos=true`, los ocultos."""
     filtro = Programa.oculto_desde.is_not(None) if ocultos else Programa.oculto_desde.is_(None)
     stmt = (
         select(Programa)
-        .where(Programa.usuario_id == usuario_id, filtro)
+        .where(filtro)
         # De una vez para todos los programas, y no una consulta por programa al
         # serializar sus periodos y sus días.
         .options(
@@ -129,23 +114,21 @@ def listar_programas(
 def obtener_programa(
     programa_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    return _obtener_programa_legible(db, programa_id, usuario_id)
+    return _obtener_programa_legible(db, programa_id)
 
 
 @router.post("", response_model=ProgramaOut, status_code=status.HTTP_201_CREATED)
 def crear_programa(
     datos: ProgramaCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea el programa con sus días en una sola transacción: o se guarda todo, o
     nada. Cada rutina tiene que ser tuya y estar visible.
     """
     for dia in datos.dias:
-        obtener_rutina_visible(db, dia.rutina_id, usuario_id)
-    programa = Programa(usuario_id=usuario_id, nombre=datos.nombre)
+        obtener_rutina_visible(db, dia.rutina_id)
+    programa = Programa(nombre=datos.nombre)
     # Todavía no ha gobernado ningún día: sus filas valen desde siempre.
     programa.filas_dias = [
         ProgramaDia(dia_semana=dia.dia_semana, rutina_id=dia.rutina_id) for dia in datos.dias
@@ -164,9 +147,8 @@ def actualizar_programa(
     programa_id: int,
     datos: ProgramaUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    programa = _obtener_programa_propio(db, programa_id, usuario_id)
+    programa = _obtener_programa_propio(db, programa_id)
     programa.nombre = datos.nombre
     db.commit()
     db.refresh(programa)
@@ -178,7 +160,6 @@ def activar_programa(
     programa_id: int,
     datos: ActivarPrograma | None = None,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Lo pone en uso: es el que dirá qué toca hoy. El que estuviera activo deja
     de estarlo, en la misma transacción. Un programa oculto no se puede activar.
@@ -187,14 +168,10 @@ def activar_programa(
     adelante, que se planificaron pensando en el programa anterior. Los pasados
     se quedan: dicen qué tocaba entonces.
     """
-    programa = _obtener_programa_propio(db, programa_id, usuario_id)
+    programa = _obtener_programa_propio(db, programa_id)
     _activar(db, programa)
     if datos is not None and datos.quitar_excepciones:
-        db.execute(
-            delete(ExcepcionDelPlan).where(
-                ExcepcionDelPlan.usuario_id == usuario_id, ExcepcionDelPlan.fecha >= hoy()
-            )
-        )
+        db.execute(delete(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha >= hoy()))
     db.commit()
     db.refresh(programa)
     return programa
@@ -204,14 +181,13 @@ def activar_programa(
 def desactivar_programa(
     programa_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Lo saca de uso y deja al usuario sin programa activo. Si no estaba activo,
+    """Lo saca de uso y deja sin programa activo. Si no estaba activo,
     no hace nada.
     """
-    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
     if programa.activo:
-        _cerrar_periodo_abierto(db, usuario_id)
+        _cerrar_periodo_abierto(db)
         db.commit()
         db.refresh(programa)
     return programa
@@ -221,12 +197,11 @@ def desactivar_programa(
 def mostrar_programa(
     programa_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deshace un `modo=ocultar`. No lo vuelve a activar aunque lo estuviera:
     qué programa está en uso se decide activándolo.
     """
-    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
     programa.oculto_desde = None
     db.commit()
     db.refresh(programa)
@@ -238,7 +213,6 @@ def borrar_programa(
     programa_id: int,
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra un programa propio.
 
@@ -250,11 +224,11 @@ def borrar_programa(
     - Si lo estuvo, hace falta `modo=ocultar` (conserva todo; si era el activo,
       deja de serlo) o `modo=definitivo` (se van también sus días y periodos).
     """
-    programa = _obtener_programa_propio(db, programa_id, usuario_id, admitir_oculto=True)
+    programa = _obtener_programa_propio(db, programa_id, admitir_oculto=True)
 
     if modo == "ocultar":
         if programa.activo:
-            _cerrar_periodo_abierto(db, usuario_id)
+            _cerrar_periodo_abierto(db)
         # Si ya estaba oculto, se conserva desde cuándo.
         if programa.oculto_desde is None:
             programa.oculto_desde = hoy()
@@ -299,7 +273,7 @@ def _desde_cuando_cambia(db: Session, programa: Programa, dia_semana: int) -> da
     """
     hoy_ = hoy()
     proximo = hoy_ + timedelta(days=(dia_semana - hoy_.isoweekday()) % 7)
-    [dia] = seguimiento(db, programa.usuario_id, proximo, proximo)
+    [dia] = seguimiento(db, proximo, proximo)
     contado = dia.cubierto_por is not None and dia.origen == "programa"
     if contado and dia.programa_id == programa.id:
         return proximo + timedelta(days=1)
@@ -347,13 +321,12 @@ def poner_rutina_en_dia(
     datos: ProgramaDiaUpdate,
     dia_semana: int = DiaDeLaRuta,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Pone una rutina en un día. Si el día ya tenía una (también si estaba
     oculta), la nueva la sustituye: un día, una rutina.
     """
-    programa = _obtener_programa_propio(db, programa_id, usuario_id)
-    obtener_rutina_visible(db, datos.rutina_id, usuario_id)
+    programa = _obtener_programa_propio(db, programa_id)
+    obtener_rutina_visible(db, datos.rutina_id)
     _cambiar_dia(db, programa, dia_semana, datos.rutina_id)
     db.commit()
     db.refresh(programa)
@@ -365,10 +338,9 @@ def quitar_rutina_de_dia(
     programa_id: int,
     dia_semana: int = DiaDeLaRuta,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Deja el día en descanso desde hoy; los días pasados no cambian."""
-    programa = _obtener_programa_propio(db, programa_id, usuario_id)
+    programa = _obtener_programa_propio(db, programa_id)
     if not any(fila.dia_semana == dia_semana for fila in programa.dias):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso"

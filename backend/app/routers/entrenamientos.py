@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.fechas import hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
@@ -26,28 +25,19 @@ router = APIRouter(prefix="/entrenamientos", tags=["entrenamientos"])
 # --- Entrenamientos ------------------------------------------------------
 
 
-def _obtener_entrenamiento_propio(
-    db: Session, entrenamiento_id: int, usuario_id: int
-) -> Entrenamiento:
-    """No hay entrenamientos predefinidos ni ajenos visibles: 404 si no
-    existe, 403 si existe pero no es tuyo.
-    """
+def _obtener_entrenamiento_propio(db: Session, entrenamiento_id: int) -> Entrenamiento:
+    """404 si no existe."""
     entrenamiento = db.get(Entrenamiento, entrenamiento_id)
     if entrenamiento is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
         )
-    if entrenamiento.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No se puede acceder a un entrenamiento que no es tuyo",
-        )
     return entrenamiento
 
 
-def _validar_rutina_propia(db: Session, rutina_id: int, usuario_id: int) -> None:
+def _validar_rutina_propia(db: Session, rutina_id: int) -> None:
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.oculto or rutina.usuario_id != usuario_id:
+    if rutina is None or rutina.oculto:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No existe ninguna rutina con id {rutina_id}",
@@ -66,9 +56,7 @@ def _validar_fecha_no_futura(fecha: date) -> None:
         )
 
 
-def _validar_dia_libre(
-    db: Session, usuario_id: int, fecha: date, excepto_id: int | None = None
-) -> None:
+def _validar_dia_libre(db: Session, fecha: date, excepto_id: int | None = None) -> None:
     """Una sesión por día como mucho, sea de la rutina que sea: se entrena una rutina al
     día. Lo garantiza también la base de datos; esto es para dar un 409 que diga
     cuál es la otra sesión (la pantalla de hoy lo usa para ofrecer *Continuar*) y
@@ -77,9 +65,7 @@ def _validar_dia_libre(
     Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada:
     no se hizo nada. Si es la que ocupa el día, se borra y el día queda libre.
     """
-    stmt = select(Entrenamiento).where(
-        Entrenamiento.usuario_id == usuario_id, Entrenamiento.fecha == fecha
-    )
+    stmt = select(Entrenamiento).where(Entrenamiento.fecha == fecha)
     if excepto_id is not None:
         stmt = stmt.where(Entrenamiento.id != excepto_id)
     otra = db.scalar(stmt)
@@ -118,7 +104,7 @@ def _validar_en_plazo(fecha: date, cubre: date) -> None:
         )
 
 
-def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreate) -> DiaPlan:
+def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
     """Comprueba que la sesión puede contar para el día que dice, y devuelve ese
     día del plan.
 
@@ -130,10 +116,7 @@ def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreat
     """
     fecha, cubre = datos.fecha, datos.cubre_fecha
     _validar_en_plazo(fecha, cubre)
-    plan = {
-        dia.fecha: dia
-        for dia in dias_del_plan(db, usuario_id, min(fecha, cubre), max(fecha, cubre))
-    }
+    plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fecha, cubre), max(fecha, cubre))}
     dia = plan[cubre]
     if dia.descanso or dia.rutina.id != datos.rutina_id:
         raise HTTPException(
@@ -151,7 +134,7 @@ def _validar_cubre_fecha(db: Session, usuario_id: int, datos: EntrenamientoCreat
     return dia
 
 
-def _dejar_sitio_en(db: Session, usuario_id: int, dia: DiaPlan) -> None:
+def _dejar_sitio_en(db: Session, dia: DiaPlan) -> None:
     """Un día del plan lo cuenta una sesión como mucho.
 
     Si ya lo cuenta otra, 409 con su id. Si lo retiene una que no lo cuenta, lo
@@ -159,11 +142,7 @@ def _dejar_sitio_en(db: Session, usuario_id: int, dia: DiaPlan) -> None:
     que ese día ya no toca se queda en el historial sin contar para ningún día.
     """
     cubre = dia.fecha
-    otra = db.scalar(
-        select(Entrenamiento).where(
-            Entrenamiento.usuario_id == usuario_id, Entrenamiento.cubre_fecha == cubre
-        )
-    )
+    otra = db.scalar(select(Entrenamiento).where(Entrenamiento.cubre_fecha == cubre))
     if otra is None:
         return
     if cuenta(otra, dia):
@@ -191,9 +170,8 @@ def listar_entrenamientos(
     rutina_id: int | None = None,
     limite: int | None = Query(default=None, gt=0, le=500),
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """Los entrenamientos del usuario, del más reciente al más antiguo.
+    """Los entrenamientos, del más reciente al más antiguo.
 
     `desde` y `hasta` (incluidos) sirven para pedir una semana o un mes, y
     `rutina_id` con `limite`, las últimas sesiones de una rutina (el día del
@@ -213,7 +191,7 @@ def listar_entrenamientos(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"El rango de fechas está invertido: 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
         )
-    stmt = select(Entrenamiento).where(Entrenamiento.usuario_id == usuario_id)
+    stmt = select(Entrenamiento)
     if desde is not None:
         stmt = stmt.where(Entrenamiento.fecha >= desde)
     if hasta is not None:
@@ -232,24 +210,14 @@ def listar_entrenamientos(
 def obtener_entrenamiento(
     entrenamiento_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    """404 tanto si no existe como si es de otro usuario, como el resto de los GET:
-    un 403 confirmaría que ese id existe.
-    """
-    entrenamiento = db.get(Entrenamiento, entrenamiento_id)
-    if entrenamiento is None or entrenamiento.usuario_id != usuario_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
-        )
-    return entrenamiento
+    return _obtener_entrenamiento_propio(db, entrenamiento_id)
 
 
 @router.post("", response_model=EntrenamientoOut, status_code=status.HTTP_201_CREATED)
 def crear_entrenamiento(
     datos: EntrenamientoCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Crea la sesión "vacía" (sin series todavía) — se añaden aparte, con
     POST /entrenamientos/{id}/series.
@@ -259,14 +227,14 @@ def crear_entrenamiento(
     queda en el historial pero no cuenta para ningún día.
     """
     _validar_fecha_no_futura(datos.fecha)
-    _validar_rutina_propia(db, datos.rutina_id, usuario_id)
+    _validar_rutina_propia(db, datos.rutina_id)
     # Primero todo lo que es un error de la petición (422), haya lo que haya en la
     # base; después lo que choca con otras sesiones, que puede borrar las canceladas.
-    dia = _validar_cubre_fecha(db, usuario_id, datos) if datos.cubre_fecha else None
-    _validar_dia_libre(db, usuario_id, datos.fecha)
+    dia = _validar_cubre_fecha(db, datos) if datos.cubre_fecha else None
+    _validar_dia_libre(db, datos.fecha)
     if dia is not None:
-        _dejar_sitio_en(db, usuario_id, dia)
-    entrenamiento = Entrenamiento(**datos.model_dump(), usuario_id=usuario_id)
+        _dejar_sitio_en(db, dia)
+    entrenamiento = Entrenamiento(**datos.model_dump())
     db.add(entrenamiento)
     db.commit()
     db.refresh(entrenamiento)
@@ -278,12 +246,11 @@ def actualizar_entrenamiento(
     entrenamiento_id: int,
     datos: EntrenamientoUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Corrige la fecha y las notas. La rutina y el día que cuenta se fijan al
     crear la sesión: para apuntar otra rutina se borra el día y se registra de nuevo.
     """
-    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id)
     _validar_fecha_no_futura(datos.fecha)
     if datos.fecha != entrenamiento.fecha:
         # El día que cuenta no cambia al corregir la fecha: la sesión sigue siendo "la
@@ -291,7 +258,7 @@ def actualizar_entrenamiento(
         # que mirar si el día nuevo está ocupado (409).
         if entrenamiento.cubre_fecha is not None:
             _validar_en_plazo(datos.fecha, entrenamiento.cubre_fecha)
-        _validar_dia_libre(db, usuario_id, datos.fecha, excepto_id=entrenamiento_id)
+        _validar_dia_libre(db, datos.fecha, excepto_id=entrenamiento_id)
     for campo, valor in datos.model_dump().items():
         setattr(entrenamiento, campo, valor)
     db.commit()
@@ -303,7 +270,6 @@ def actualizar_entrenamiento(
 def terminar_entrenamiento(
     entrenamiento_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Da la sesión por terminada. Terminarla otra vez no hace nada: se conserva
     la hora de la primera, que es cuando de verdad se acabó.
@@ -311,7 +277,7 @@ def terminar_entrenamiento(
     Terminada no significa cerrada: se le pueden seguir añadiendo o corrigiendo
     series, que es lo que hace la edición de un día ya pasado.
     """
-    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id)
     if entrenamiento.terminada_en is None:
         entrenamiento.terminada_en = datetime.now(timezone.utc)
         db.commit()
@@ -323,14 +289,13 @@ def terminar_entrenamiento(
 def borrar_entrenamiento(
     entrenamiento_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Borra un entrenamiento propio, con todas sus series (se van con él,
     en cascada por FK). A diferencia de Ejercicio/Rutina/RutinaSlot, no tiene
     parámetro `modo`: nada más depende de un entrenamiento concreto, así que
     no hay nada que proteger con un aviso previo.
     """
-    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id)
     db.delete(entrenamiento)
     db.commit()
 
@@ -338,12 +303,8 @@ def borrar_entrenamiento(
 # --- Series --------------------------------------------------------------
 
 
-def _obtener_serie_propia(
-    db: Session, entrenamiento_id: int, serie_id: int, usuario_id: int
-) -> Serie:
-    _obtener_entrenamiento_propio(
-        db, entrenamiento_id, usuario_id
-    )  # valida dueño del entrenamiento
+def _obtener_serie_propia(db: Session, entrenamiento_id: int, serie_id: int) -> Serie:
+    _obtener_entrenamiento_propio(db, entrenamiento_id)  # valida el entrenamiento
     serie = db.get(Serie, serie_id)
     if serie is None or serie.entrenamiento_id != entrenamiento_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serie no encontrada")
@@ -395,10 +356,9 @@ def crear_serie(
     entrenamiento_id: int,
     datos: SerieCreate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id)
+    obtener_ejercicio_visible(db, datos.ejercicio_id)
     _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, datos.ejercicio_id)
     serie = Serie(**datos.model_dump(), entrenamiento_id=entrenamiento_id)
     db.add(serie)
@@ -413,17 +373,16 @@ def actualizar_serie(
     serie_id: int,
     datos: SerieUpdate,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    serie = _obtener_serie_propia(db, entrenamiento_id, serie_id, usuario_id)
-    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id, usuario_id)
+    serie = _obtener_serie_propia(db, entrenamiento_id, serie_id)
+    entrenamiento = _obtener_entrenamiento_propio(db, entrenamiento_id)
     # Corregir lo que ya se apuntó no es elegir nada nuevo: si el ejercicio no
     # cambia, basta con que sea legible (puede estar oculto). Si cambia por otro,
     # ese otro tiene que estar visible, como al apuntar una serie nueva.
     if datos.ejercicio_id == serie.ejercicio_id:
-        obtener_ejercicio_del_usuario(db, datos.ejercicio_id, usuario_id)
+        obtener_ejercicio_del_usuario(db, datos.ejercicio_id)
     else:
-        obtener_ejercicio_visible(db, datos.ejercicio_id, usuario_id)
+        obtener_ejercicio_visible(db, datos.ejercicio_id)
     _validar_slot(
         db,
         datos.slot_id,
@@ -443,8 +402,7 @@ def borrar_serie(
     entrenamiento_id: int,
     serie_id: int,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
-    serie = _obtener_serie_propia(db, entrenamiento_id, serie_id, usuario_id)
+    serie = _obtener_serie_propia(db, entrenamiento_id, serie_id)
     db.delete(serie)
     db.commit()

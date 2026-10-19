@@ -4,7 +4,6 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.auth import get_usuario_actual_id
 from app.database import get_db
 from app.datos import (
     MAXIMO_DE_ERRORES,
@@ -34,7 +33,6 @@ def _no_se_puede(mensaje: str, errores: list[str] | None = None) -> HTTPExceptio
 def exportar_datos(
     response: Response,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Todos tus datos en un archivo, para pasarlos a otro dispositivo o guardarlos
     como copia. Se descarga como `training-life-<fecha>.json`.
@@ -42,19 +40,18 @@ def exportar_datos(
     response.headers["Content-Disposition"] = (
         f'attachment; filename="training-life-{hoy().isoformat()}.json"'
     )
-    return exportar(db, usuario_id)
+    return exportar(db)
 
 
 @router.get("/resumen", response_model=ResumenDeDatos)
 def resumen_de_datos(
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """Cuánto hay, para la confirmación de exportar y de borrar: las mismas cifras que
     `actual` en la comprobación de importar. (No es `GET /resumen`, el resumen semanal
     de H5.)
     """
-    return resumir_actual(db, usuario_id)
+    return resumir_actual(db)
 
 
 @router.post(
@@ -67,7 +64,6 @@ def importar_datos(
     archivo: Any = Body(...),
     comprobar: bool = False,
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """**Sustituye todos tus datos** por los del archivo, en una sola transacción: si
     algo del archivo no vale, no se toca nada y el 422 dice qué.
@@ -101,25 +97,24 @@ def importar_datos(
         return ComprobacionDeImportar(
             exportado_en=datos.exportado_en,
             archivo=resumir_archivo(datos),
-            actual=resumir_actual(db, usuario_id),
+            actual=resumir_actual(db),
         )
 
-    borrar_todo(db, usuario_id)
-    cargar(db, usuario_id, datos, mapas)
+    borrar_todo(db)
+    cargar(db, datos, mapas)
     # Un único commit: si algo falla antes, `get_db` cierra sin confirmar y no queda
     # nada a medias.
     db.commit()
-    return resumir_actual(db, usuario_id)
+    return resumir_actual(db)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 def borrar_datos(
     db: Session = Depends(get_db),
-    usuario_id: int = Depends(get_usuario_actual_id),
 ):
     """**Borra todos tus datos** (rutinas, programas, sesiones, notas y tus ejercicios)
     para empezar de cero. Los ejercicios de la app no se tocan. No se puede deshacer: lo
     que cuenta `GET /datos/resumen` es lo que se pierde.
     """
-    borrar_todo(db, usuario_id)
+    borrar_todo(db)
     db.commit()

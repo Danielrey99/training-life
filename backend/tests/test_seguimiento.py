@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Entrenamiento, Rutina
+from app.models import Entrenamiento
 from tests.ayudas import consultas_de
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
@@ -220,30 +220,3 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
     con_mas = consultas(LUNES_7 - timedelta(days=300), VIERNES_18)
 
     assert con_mas == con_pocas <= 8
-
-
-# --- Aislamiento ---------------------------------------------------------
-
-
-def test_las_sesiones_de_otro_usuario_no_salen_ni_cuentan(cliente, ppl, sesion_bd, otro_usuario_id):
-    """La ajena es de hoy y sin terminar: está en curso, así que no se queda fuera
-    por cancelada, sino por ser de otro.
-    """
-    rutina_ajena = Rutina(usuario_id=otro_usuario_id, nombre="Push")
-    sesion_bd.add(rutina_ajena)
-    sesion_bd.flush()
-    sesion_bd.add(
-        Entrenamiento(
-            usuario_id=otro_usuario_id,
-            rutina_id=rutina_ajena.id,
-            fecha=HOY,
-            cubre_fecha=HOY,
-        )
-    )
-    sesion_bd.commit()
-
-    dia = seguimiento(cliente, HOY)[HOY]
-
-    assert dia["estado"] == "pendiente"
-    assert dia["cubierto_por"] is None
-    assert dia["sesion"] is None

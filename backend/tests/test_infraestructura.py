@@ -26,14 +26,15 @@ def test_las_migraciones_sembraron_los_grupos_musculares(cliente):
 
 
 def propios(cliente) -> list:
-    """Los ejercicios del usuario: los predefinidos están siempre, sembrados."""
+    """Los ejercicios propios: los predefinidos están siempre, sembrados."""
     return [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]]
 
 
 def test_las_migraciones_sembraron_los_ejercicios_predefinidos(cliente):
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
     assert len(predefinidos) == 59
-    assert all(e["usuario_id"] is None for e in predefinidos)
+    # Sin usuarios, la respuesta ya no lleva dueño ni visibilidad.
+    assert all("usuario_id" not in e and "visibilidad" not in e for e in predefinidos)
     assert "Press banca con barra" in [e["nombre"] for e in predefinidos]
 
 
@@ -78,7 +79,6 @@ def test_la_migracion_que_exige_rutina_y_hueco_se_niega_si_quedan_datos_libres()
     from alembic.config import Config
     from sqlalchemy import text
 
-    from app.auth import USUARIO_SEMBRADO_ID
     from app.database import engine
 
     # Bajar y subir versiones es destructivo: solo contra la base de tests.
@@ -92,9 +92,8 @@ def test_la_migracion_que_exige_rutina_y_hueco_se_niega_si_quedan_datos_libres()
             libre = conexion.scalar(
                 text(
                     "INSERT INTO entrenamientos (usuario_id, fecha, created_at, updated_at) "
-                    "VALUES (:usuario, '2026-09-01', now(), now()) RETURNING id"
+                    "VALUES (1, '2026-09-01', now(), now()) RETURNING id"
                 ),
-                {"usuario": USUARIO_SEMBRADO_ID},
             )
             ejercicio = conexion.scalar(
                 text("SELECT id FROM ejercicios WHERE es_predefinido LIMIT 1")
@@ -122,4 +121,175 @@ def test_la_migracion_que_exige_rutina_y_hueco_se_niega_si_quedan_datos_libres()
         engine.dispose()
         with engine.begin() as conexion:
             conexion.execute(text("TRUNCATE series, entrenamientos RESTART IDENTITY CASCADE"))
+        command.upgrade(configuracion, "head")
+
+
+# --- La migración que quitó los usuarios -----------------------------------
+#
+# Antes de `a7c3f19b2d84` todo tenía `usuario_id` y había una tabla `usuarios`. Al
+# quitarlos, todo pasa a ser «los datos», y al bajar todo vuelve al usuario 1, el
+# único con el que la API pudo escribir.
+
+ANTES_DE_QUITAR_USUARIOS = "c96823b23d81"
+TABLAS_CON_USUARIO = (
+    "notas_usuario_ejercicio",
+    "rutinas",
+    "entrenamientos",
+    "programas",
+    "programa_periodos",
+    "excepciones_del_plan",
+)
+
+
+def _configuracion_de_alembic():
+    from alembic.config import Config
+
+    # Bajar y subir versiones es destructivo: solo contra la base de tests.
+    assert os.environ["DATABASE_URL"].endswith("/training_life_test")
+    configuracion = Config(str(BACKEND_DIR / "alembic.ini"))
+    configuracion.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    return configuracion
+
+
+def test_quitar_los_usuarios_y_volver_a_ponerlos_no_pierde_nada(
+    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
+):
+    """Con todo lo que pueden tener los datos (el escenario de `test_datos.py`: un
+    ejercicio propio oculto, notas en un propio y en un predefinido, rutinas con
+    huecos y comodines, sesiones con series, un programa con su periodo abierto y
+    excepciones): al bajar, todo es del usuario 1 y los predefinidos de nadie; al
+    volver a subir, la exportación sale idéntica, ids incluidos.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+    from tests.test_datos import HOY, exportado, montar_datos, sin_marca
+
+    hoy_es(HOY)
+    montar_datos(sesion_bd, ejercicio_predefinido_id)
+    # Sin transacciones abiertas que bloqueen los ALTER TABLE de la migración.
+    sesion_bd.close()
+    antes = exportado(cliente)
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        command.downgrade(configuracion, ANTES_DE_QUITAR_USUARIOS)
+        with engine.connect() as conexion:
+
+            def valor(sql):
+                return conexion.scalar(text(sql))
+
+            assert valor("SELECT array_agg(id) FROM usuarios") == [1]
+            # La siguiente fila de usuarios no chocaría con la 1.
+            assert valor("SELECT last_value FROM usuarios_id_seq") == 1
+            for tabla in TABLAS_CON_USUARIO:
+                assert valor(f"SELECT count(*) FROM {tabla}") > 0, tabla
+                assert valor(f"SELECT count(*) FROM {tabla} WHERE usuario_id <> 1") == 0, tabla
+            propios_sin_el_1 = (
+                "SELECT count(*) FROM ejercicios "
+                "WHERE NOT es_predefinido AND usuario_id IS DISTINCT FROM 1"
+            )
+            assert valor("SELECT count(*) FROM ejercicios WHERE NOT es_predefinido") == 2
+            assert valor(propios_sin_el_1) == 0
+            predefinidos_con_dueno = (
+                "SELECT count(*) FROM ejercicios WHERE es_predefinido AND usuario_id IS NOT NULL"
+            )
+            assert valor("SELECT count(*) FROM ejercicios WHERE es_predefinido") == 59
+            assert valor(predefinidos_con_dueno) == 0
+            assert valor("SELECT count(*) FROM ejercicios WHERE visibilidad <> 'privado'") == 0
+            # Las restricciones vuelven con su nombre de entonces.
+            restricciones = valor(
+                "SELECT count(*) FROM pg_constraint WHERE conname IN ("
+                "'entrenamientos_usuario_id_fecha_key', "
+                "'entrenamientos_usuario_id_cubre_fecha_key', "
+                "'excepciones_del_plan_usuario_id_fecha_key')"
+            )
+            assert restricciones == 3
+            indice = valor(
+                "SELECT count(*) FROM pg_indexes "
+                "WHERE indexname = 'ix_programa_periodos_usuario_abierto'"
+            )
+            assert indice == 1
+
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize(
+    "caso",
+    ["rutina de otro usuario", "ejercicio de otro usuario", "predefinido con dueño"],
+)
+def test_quitar_los_usuarios_se_niega_si_hay_datos_que_no_son_del_usuario_1(caso):
+    """Sin usuarios no se sabría de quién son: la migración no los borra ni los
+    reparte, se para y lo dice, y la base se queda como estaba. Lo mismo con un
+    ejercicio que se dice predefinido pero tiene dueño: `es_predefinido` pasa a ser
+    lo único que los distingue.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, ANTES_DE_QUITAR_USUARIOS)
+    try:
+        with engine.begin() as conexion:
+            otro = conexion.scalar(
+                text(
+                    "INSERT INTO usuarios (nombre, email, password_hash, created_at) "
+                    "VALUES ('Otro', 'otro@example.com', 'x', now()) RETURNING id"
+                )
+            )
+            assert otro != 1
+            grupo = conexion.scalar(text("SELECT min(id) FROM grupos_musculares"))
+            if caso == "rutina de otro usuario":
+                conexion.execute(
+                    text(
+                        "INSERT INTO rutinas (usuario_id, nombre, created_at, updated_at) "
+                        "VALUES (:u, 'Ajena', now(), now())"
+                    ),
+                    {"u": otro},
+                )
+                esperado = "rutinas 1"
+            else:
+                # Uno propio de otro, o uno «predefinido» del 1 (pasa la primera
+                # comprobación y tiene que saltar la segunda).
+                de_otro = caso == "ejercicio de otro usuario"
+                conexion.execute(
+                    text(
+                        "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                        "usuario_id, visibilidad, created_at, updated_at) "
+                        "VALUES ('Raro', :g, :predefinido, :u, 'privado', now(), now())"
+                    ),
+                    {"g": grupo, "predefinido": not de_otro, "u": otro if de_otro else 1},
+                )
+                if de_otro:
+                    esperado = "ejercicios 1"
+                else:
+                    esperado = "1 ejercicios donde es_predefinido no coincide"
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert esperado in str(error.value)
+        with engine.connect() as conexion:
+            # Nada ha cambiado: sigue en la versión de antes, con sus usuarios.
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            assert version == ANTES_DE_QUITAR_USUARIOS
+            usuarios = conexion.scalar(text("SELECT count(*) FROM usuarios"))
+            assert usuarios == 2
+    finally:
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("DELETE FROM rutinas WHERE nombre = 'Ajena'"))
+            conexion.execute(text("DELETE FROM ejercicios WHERE nombre = 'Raro'"))
+            conexion.execute(text("DELETE FROM usuarios WHERE id <> 1"))
         command.upgrade(configuracion, "head")

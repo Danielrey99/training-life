@@ -4,15 +4,14 @@
 Los dos endpoints comparten la consulta (`app/historial.py`), así que lo que se
 prueba aquí es sobre todo esa parte común: que la agrupación por sesión no mezcla
 días ni entrenamientos, que `?limite=` recorta sesiones enteras (nunca series
-sueltas), que el rango de fechas incluye sus dos extremos, y que nada de otro
-usuario se cuela por el camino.
+sueltas), que el rango de fechas incluye sus dos extremos, y que un hueco solo se
+alcanza por la ruta de su rutina.
 """
 
 import pytest
 
-from app.models import Ejercicio, Entrenamiento, Rutina, RutinaSlot, Serie
 from tests.ayudas import entrenar as entrenar_en
-from tests.ayudas import hueco_en_bd, rutina_en_bd, serie_en
+from tests.ayudas import serie_en
 
 # --- Ayudantes para montar escenarios ------------------------------------
 
@@ -276,17 +275,9 @@ def test_el_filtro_acepta_un_ejercicio_ocultado(cliente, hueco_con_comodin):
     assert [sesion["fecha"] for sesion in comodin] == ["2026-09-08"]
 
 
-def test_el_filtro_con_un_ejercicio_ajeno_o_inexistente_da_404(
-    cliente, sesion_bd, grupo_muscular_id, otro_usuario_id, escenario
-):
-    ajeno = Ejercicio(
-        nombre="Press de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
-    )
-    sesion_bd.add(ajeno)
-    sesion_bd.commit()
+def test_el_filtro_con_un_ejercicio_inexistente_da_404(cliente, escenario):
     ruta = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/historial"
 
-    assert cliente.get(ruta, params={"ejercicio_id": ajeno.id}).status_code == 404
     assert cliente.get(ruta, params={"ejercicio_id": 999999}).status_code == 404
 
 
@@ -422,123 +413,25 @@ def test_un_rango_invertido_se_rechaza(cliente, escenario):
     assert "invertido" in respuesta.json()["detail"]
 
 
-# --- Aislamiento por usuario ---------------------------------------------
-#
-# Como todavía no hay JWT (`app/auth.py` devuelve un id fijo), los datos ajenos
-# se insertan directamente en la base: es la única forma de montar el escenario.
+# --- Lo que no existe o no cuadra con su ruta ----------------------------
 
 
-def registrar_serie_ajena(sesion_bd, usuario_id, ejercicio_id, fecha, slot_id=None) -> None:
-    """Un entrenamiento de otro usuario con una serie dentro, insertado a mano."""
-    rutina_id = rutina_en_bd(sesion_bd, usuario_id)
-    if slot_id is None:
-        slot_id = hueco_en_bd(sesion_bd, rutina_id, ejercicio_id)
-    entrenamiento = Entrenamiento(usuario_id=usuario_id, rutina_id=rutina_id, fecha=fecha)
-    sesion_bd.add(entrenamiento)
-    sesion_bd.flush()
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=entrenamiento.id,
-            slot_id=slot_id,
-            ejercicio_id=ejercicio_id,
-            numero_serie=1,
-            peso=99,
-            repeticiones=1,
-        )
-    )
-    sesion_bd.commit()
+def test_el_historial_de_un_ejercicio_inexistente_da_404(cliente):
+    assert cliente.get("/ejercicios/999999/historial").status_code == 404
 
 
-def test_el_historial_de_un_ejercicio_predefinido_no_muestra_series_de_otro_usuario(
-    cliente, sesion_bd, ejercicio_predefinido_id, otro_usuario_id
+def test_el_historial_de_un_hueco_inexistente_o_de_una_rutina_inexistente_da_404(
+    cliente, escenario
 ):
-    """Un ejercicio predefinido lo comparten todos los usuarios, así que el
-    filtro por dueño no puede estar en el ejercicio: tiene que estar en el
-    entrenamiento al que pertenece cada serie.
-    """
-    registrar_serie_ajena(sesion_bd, otro_usuario_id, ejercicio_predefinido_id, "2026-09-05")
-    entrenar(cliente, "2026-09-01", ejercicio_predefinido_id, series=1)
+    """Un GET de algo que no existe da 404, tanto si falla el hueco como la rutina."""
+    rutina, hueco = escenario["rutina_id"], escenario["slot_id"]
 
-    historial = historial_de_ejercicio(cliente, ejercicio_predefinido_id)
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-01"]
-    assert [float(serie["peso"]) for serie in historial[0]["series"]] == [60.0]
-
-
-def test_no_se_puede_ver_el_historial_de_un_ejercicio_privado_de_otro_usuario(
-    cliente, sesion_bd, grupo_muscular_id, otro_usuario_id
-):
-    ejercicio = Ejercicio(
-        nombre="Ejercicio de otro",
-        grupo_muscular_id=grupo_muscular_id,
-        usuario_id=otro_usuario_id,
-    )
-    sesion_bd.add(ejercicio)
-    sesion_bd.commit()
-
-    assert cliente.get(f"/ejercicios/{ejercicio.id}/historial").status_code == 404
-
-
-def test_el_historial_de_un_hueco_no_muestra_series_de_otro_usuario(
-    cliente, sesion_bd, escenario, otro_usuario_id
-):
-    """Nada impide en la base que la serie de otro usuario apunte a un hueco
-    ajeno, así que el filtro por dueño del entrenamiento es lo único que separa
-    los dos historiales.
-    """
-    registrar_serie_ajena(
-        sesion_bd,
-        otro_usuario_id,
-        escenario["ejercicio_id"],
-        "2026-09-05",
-        slot_id=escenario["slot_id"],
-    )
-    entrenar(
-        cliente,
-        "2026-09-01",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=1,
-    )
-
-    historial = historial_de_hueco(cliente, escenario["rutina_id"], escenario["slot_id"])
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-01"]
-
-
-def test_no_se_puede_ver_el_historial_de_un_hueco_de_una_rutina_ajena(
-    cliente, sesion_bd, grupo_muscular_id, otro_usuario_id
-):
-    """404, como el resto de GET del proyecto: una rutina ajena no existe para
-    quien la pide, y un 403 confirmaría que ese id existe.
-    """
-    ejercicio = Ejercicio(
-        nombre="Press de otro", grupo_muscular_id=grupo_muscular_id, usuario_id=otro_usuario_id
-    )
-    rutina = Rutina(usuario_id=otro_usuario_id, nombre="Rutina de otro")
-    sesion_bd.add_all([ejercicio, rutina])
-    sesion_bd.flush()
-    hueco = RutinaSlot(
-        rutina_id=rutina.id,
-        ejercicio_principal_id=ejercicio.id,
-        orden=1,
-        series_objetivo=4,
-        reps_min=6,
-        reps_max=10,
-    )
-    sesion_bd.add(hueco)
-    sesion_bd.commit()
-
-    respuesta = cliente.get(f"/rutinas/{rutina.id}/slots/{hueco.id}/historial")
-
-    assert respuesta.status_code == 404
+    assert cliente.get(f"/rutinas/{rutina}/slots/999999/historial").status_code == 404
+    assert cliente.get(f"/rutinas/999999/slots/{hueco}/historial").status_code == 404
 
 
 def test_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina(cliente, escenario):
-    """La ruta lleva rutina_id y slot_id: si no cuadran entre sí, 404 — aunque
-    las dos rutinas sean del mismo usuario.
-    """
+    """La ruta lleva rutina_id y slot_id: si no cuadran entre sí, 404."""
     otra_rutina_id = crear_rutina(cliente, "Pull")
 
     respuesta = cliente.get(f"/rutinas/{otra_rutina_id}/slots/{escenario['slot_id']}/historial")

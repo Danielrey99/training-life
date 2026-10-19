@@ -301,11 +301,11 @@ def test_un_nombre_formado_solo_por_espacios_no_se_acepta(cliente, grupo_muscula
     assert cliente.post("/rutinas", json={"nombre": "  \n "}).status_code == 422
 
 
-# --- Notas del usuario sobre un ejercicio --------------------------------
+# --- Notas sobre un ejercicio -------------------------------------------
 
 
 def test_se_pueden_acumular_varias_notas_sobre_el_mismo_ejercicio(cliente, grupo_muscular_id):
-    """No hay `UNIQUE(usuario_id, ejercicio_id)` a propósito: cada nota es una
+    """No hay `UNIQUE` sobre el ejercicio a propósito: cada nota es una
     fila independiente, no se sobreescriben entre ellas. Se listan de la más
     reciente a la más antigua.
     """
@@ -796,7 +796,7 @@ def test_los_textos_opcionales_en_blanco_se_guardan_como_nulos(cliente, grupo_mu
 
 # --- Lo que no existe ----------------------------------------------------
 #
-# Escribir sobre un id que no existe da 404 (y no 403, que es para lo ajeno). Se
+# Escribir sobre un id que no existe da 404 (el 403 es solo para los predefinidos). Se
 # mira también el texto: un 404 de una ruta mal escrita diría "Not Found".
 
 INEXISTENTE = 999_999

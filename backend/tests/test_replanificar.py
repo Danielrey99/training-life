@@ -14,8 +14,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.auth import USUARIO_SEMBRADO_ID
-from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo, Rutina
+from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo
 from tests.semana import HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
 SABADO_19 = date(2026, 9, 19)
@@ -270,7 +269,6 @@ def test_editar_otro_programa_no_mira_lo_adelantado_del_activo(
     sesion_bd.add(
         ProgramaPeriodo(
             programa_id=otro,
-            usuario_id=USUARIO_SEMBRADO_ID,
             desde=date(2026, 8, 1),
             hasta=date(2026, 8, 31),
         )
@@ -341,28 +339,3 @@ def test_una_sesion_de_otra_rutina_que_retenia_el_destino_lo_suelta_y_se_queda(
     retenida = cliente.get(f"/entrenamientos/{push}").json()
     assert retenida["cubre_fecha"] is None
     assert len(retenida["series"]) == 1
-
-
-# --- Aislamiento ---------------------------------------------------------
-
-
-def test_lo_de_otro_usuario_no_se_toca(cliente, ppl, grupo_muscular_id, sesion_bd, otro_usuario_id):
-    """La sesión ajena que cuenta el sábado de su propio plan no se suelta cuando
-    la nuestra pasa a contar nuestro sábado.
-    """
-    rutina_ajena = Rutina(usuario_id=otro_usuario_id, nombre="Leg")
-    sesion_bd.add(rutina_ajena)
-    sesion_bd.flush()
-    ajena = Entrenamiento(
-        usuario_id=otro_usuario_id, rutina_id=rutina_ajena.id, fecha=HOY, cubre_fecha=SABADO_19
-    )
-    sesion_bd.add(ajena)
-    sesion_bd.commit()
-    adelantada = leg_adelantado(cliente, ppl, grupo_muscular_id)
-    assert planificar(cliente, SABADO_19, ppl["Leg"]).status_code == 200
-
-    assert planificar(cliente, VIERNES_18, None).status_code == 200
-
-    assert cubre(cliente, adelantada) == SABADO_19.isoformat()
-    sesion_bd.expire_all()
-    assert sesion_bd.get(Entrenamiento, ajena.id).cubre_fecha == SABADO_19

@@ -8,8 +8,7 @@ trampa es el `UNIQUE(slot_id, ejercicio_id)`: si se reconstruye la lista entera 
 vez de conservar las filas que siguen, SQLAlchemy inserta antes de borrar y la
 base lo rechaza.
 
-El resto del CRUD de huecos está en test_crud.py, y lo de otros usuarios en
-test_aislamiento_por_usuario.py.
+El resto del CRUD de huecos está en test_crud.py.
 """
 
 import pytest

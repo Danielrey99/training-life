@@ -107,15 +107,14 @@ def serie_en(cliente, entrenamiento_id, ejercicio_id, **campos):
 
 
 # --- Lo mismo, directamente en la base ------------------------------------
-# Para montar lo que la API no deja crear: datos de otro usuario o dos sesiones
-# el mismo día.
+# Para montar lo que la API no deja crear (por ejemplo, dos sesiones el mismo día).
 
 
-def rutina_en_bd(sesion_bd, usuario_id, nombre=NOMBRE_DE_PRUEBA) -> int:
-    """Una rutina de ese usuario, creada directamente en la base."""
+def rutina_en_bd(sesion_bd, nombre=NOMBRE_DE_PRUEBA) -> int:
+    """Una rutina creada directamente en la base."""
     from app.models import Rutina
 
-    rutina = Rutina(usuario_id=usuario_id, nombre=nombre)
+    rutina = Rutina(nombre=nombre)
     sesion_bd.add(rutina)
     sesion_bd.flush()
     return rutina.id
