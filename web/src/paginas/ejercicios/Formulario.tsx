@@ -160,8 +160,8 @@ export function Formulario() {
       <label className="campo">
         <span className="campo-etiqueta">Descripción (opcional)</span>
         <textarea
-          className="campo-texto detalle-campo"
-          rows={4}
+          className="campo-texto detalle-campo detalle-campo-descripcion"
+          rows={3}
           maxLength={500}
           value={descripcion}
           placeholder="Cómo se ejecuta, qué máquina hace falta…"

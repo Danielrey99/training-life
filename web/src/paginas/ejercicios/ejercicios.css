@@ -162,6 +162,11 @@
   line-height: 1.4;
 }
 
+/* La descripción de un ejercicio: 92 px aunque esté vacía, como en el boceto. */
+.detalle-campo.detalle-campo-descripcion {
+  min-height: 92px;
+}
+
 .detalle-uso.programas-rutina {
   min-height: 60px;
 }
