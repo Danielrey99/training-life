@@ -463,6 +463,53 @@ def test_un_ejercicio_predefinido_no_se_puede_editar_ocultar_ni_borrar(
     )
 
 
+def test_editar_un_predefinido_da_403_antes_de_mirar_el_grupo(cliente, ejercicio_predefinido_id):
+    """El orden del PUT es 404 → 403 → 409 → grupo: con un grupo que no existe, lo
+    que se dice es que el predefinido no se edita, no que falta el grupo.
+    """
+    respuesta = cliente.put(
+        f"/ejercicios/{ejercicio_predefinido_id}",
+        json={"nombre": "Otra cosa", "grupo_muscular_id": 999_999},
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Los ejercicios predefinidos no se pueden editar."
+
+
+def test_el_cliente_no_puede_crear_ni_convertir_un_ejercicio_en_predefinido(
+    cliente, sesion_bd, grupo_muscular_id
+):
+    """Sin usuarios, `es_predefinido` es lo único que separa lo de la app de lo
+    propio. Si el cuerpo pudiera ponerlo, saldría un ejercicio que no se edita ni se
+    borra, que borrar todos los datos no se lleva y que exportar no guarda. El
+    backend lo ignora al crear y al editar, igual que `oculto_desde`.
+    """
+    from app.models import Ejercicio
+
+    colado = {"es_predefinido": True, "oculto_desde": "2026-09-01"}
+    creado = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Press del autor", "grupo_muscular_id": grupo_muscular_id, **colado},
+    )
+    assert creado.status_code == 201, creado.text
+    ruta = f"/ejercicios/{creado.json()['id']}"
+    editado = cliente.put(
+        ruta, json={"nombre": "Press del autor", "grupo_muscular_id": grupo_muscular_id, **colado}
+    )
+
+    assert editado.status_code == 200, editado.text
+    for respuesta in (creado, editado):
+        assert (respuesta.json()["es_predefinido"], respuesta.json()["oculto_desde"]) == (
+            False,
+            None,
+        )
+    sesion_bd.expire_all()
+    fila = sesion_bd.get(Ejercicio, creado.json()["id"])
+    assert (fila.es_predefinido, fila.oculto_desde) == (False, None)
+    assert cliente.get("/datos/resumen").json()["ejercicios"] == 1
+    assert cliente.delete(ruta).status_code == 204
+
+
 def test_un_predefinido_en_uso_da_403_y_no_el_409_de_lo_que_se_perderia(
     cliente, ejercicio_predefinido_id
 ):

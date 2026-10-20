@@ -66,6 +66,72 @@ def test_las_series_ya_no_tienen_columna_rpe():
     assert "rpe" not in columnas
 
 
+# --- La cadena entera de migraciones --------------------------------------
+
+
+def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_entera(cliente):
+    """`conftest.py` solo sube lo que falte: en una base de tests que ya existe, la
+    cadena desde cero no se vuelve a recorrer. Aquí se baja hasta antes de la primera
+    migración (no queda ni una tabla) y se sube hasta la última, y la base queda
+    como dicen los modelos: sin usuarios, con las restricciones globales que los
+    sustituyeron, las notas con su nombre nuevo y lo sembrado otra vez en su sitio.
+    """
+    from alembic import command
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        command.downgrade(configuracion, "base")
+        with engine.connect() as conexion:
+            tablas = conexion.scalars(
+                text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+            ).all()
+        assert tablas == ["alembic_version"]
+
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+        with engine.connect() as conexion:
+
+            def nombres(sql):
+                return set(conexion.scalars(text(sql)).all())
+
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            assert version == ScriptDirectory.from_config(configuracion).get_current_head()
+            assert "usuarios" not in nombres("SELECT tablename FROM pg_tables")
+            assert "notas_ejercicio" in nombres("SELECT tablename FROM pg_tables")
+            assert "notas_usuario_ejercicio" not in nombres("SELECT tablename FROM pg_tables")
+            columnas = nombres(
+                "SELECT table_name || '.' || column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public'"
+            )
+            assert not {c for c in columnas if c.endswith((".usuario_id", ".visibilidad"))}
+            assert {
+                "entrenamientos_fecha_key",
+                "entrenamientos_cubre_fecha_key",
+                "excepciones_del_plan_fecha_key",
+            } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'u'")
+            indice = conexion.scalar(
+                text(
+                    "SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_programa_periodos_abierto'"
+                )
+            )
+            assert indice is not None and "UNIQUE" in indice and "hasta IS NULL" in indice
+            assert not nombres("SELECT conname FROM pg_constraint WHERE conname LIKE '%usuario%'")
+            assert not nombres("SELECT indexname FROM pg_indexes WHERE indexname LIKE '%usuario%'")
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    # Lo sembrado vuelve, y la API funciona sobre la base recién subida.
+    assert len(cliente.get("/grupos-musculares").json()) == 17
+    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 59
+    assert cliente.post("/rutinas", json={"nombre": "Push"}).status_code == 201
+
+
 # --- La migración que quitó el entrenamiento libre ------------------------
 
 

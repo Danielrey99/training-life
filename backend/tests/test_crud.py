@@ -550,6 +550,28 @@ def test_una_serie_no_puede_apuntar_a_un_hueco_de_otra_rutina(cliente, grupo_mus
     assert respuesta.status_code == 404
 
 
+def test_corregir_una_serie_no_la_pasa_a_un_hueco_de_otra_rutina(cliente, grupo_muscular_id):
+    """Lo mismo al corregirla: el hueco nuevo también tiene que ser de la rutina de
+    su sesión, aunque el ejercicio sea el principal de los dos huecos. 404 y la
+    serie se queda donde estaba.
+    """
+    banca = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    hueco_de_pull = cliente.post(f"/rutinas/{pull}/slots", json=_hueco(banca)).json()["id"]
+    sesion = cliente.post("/entrenamientos", json={"rutina_id": push, "fecha": FECHA}).json()["id"]
+    serie = serie_en(cliente, sesion, banca).json()
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{serie['id']}",
+        json=_serie(cliente, sesion, banca, peso=90, slot_id=hueco_de_pull),
+    )
+
+    assert respuesta.status_code == 404
+    assert "en la rutina de este entrenamiento" in respuesta.json()["detail"]
+    assert cliente.get(f"/entrenamientos/{sesion}").json()["series"] == [serie]
+
+
 def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
     push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
     cliente.delete(f"/rutinas/{push}?modo=ocultar")
@@ -870,3 +892,128 @@ def test_modificar_un_ejercicio_o_un_programa_que_no_existe_da_404(
 
     assert respuesta.status_code == 404, respuesta.text
     assert respuesta.json()["detail"] == detalle
+
+
+@pytest.fixture
+def lo_que_existe(cliente, grupo_muscular_id) -> dict:
+    """Un ejercicio, una rutina con su hueco y una sesión de esa rutina: los padres
+    que sí existen cuando lo que falta es el hijo.
+    """
+    ejercicio = _ejercicio(cliente, grupo_muscular_id, "Press banca")
+    rutina = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    hueco = cliente.post(f"/rutinas/{rutina}/slots", json=_hueco(ejercicio)).json()["id"]
+    sesion = cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": FECHA}).json()
+    return {"ejercicio": ejercicio, "rutina": rutina, "hueco": hueco, "sesion": sesion["id"]}
+
+
+NO_HAY_EJERCICIO = "Ejercicio no encontrado"
+NO_HAY_RUTINA = "Rutina no encontrada"
+NO_HAY_HUECO = "Hueco no encontrado"
+NO_HAY_SESION = "Entrenamiento no encontrado"
+
+
+@pytest.mark.parametrize(
+    "metodo, ruta, cuerpo, detalle",
+    [
+        ("get", "/ejercicios/{X}", None, NO_HAY_EJERCICIO),
+        ("get", "/ejercicios/{X}/notas", None, NO_HAY_EJERCICIO),
+        ("post", "/ejercicios/{X}/notas", "nota", NO_HAY_EJERCICIO),
+        ("put", "/ejercicios/{X}/notas/1", "nota", NO_HAY_EJERCICIO),
+        ("delete", "/ejercicios/{X}/notas/1", None, NO_HAY_EJERCICIO),
+        ("put", "/ejercicios/{ejercicio}/notas/{X}", "nota", "Nota no encontrada"),
+        ("delete", "/ejercicios/{ejercicio}/notas/{X}", None, "Nota no encontrada"),
+        ("get", "/rutinas/{X}", None, NO_HAY_RUTINA),
+        ("put", "/rutinas/{X}", "rutina", NO_HAY_RUTINA),
+        ("delete", "/rutinas/{X}", None, NO_HAY_RUTINA),
+        ("post", "/rutinas/{X}/mostrar", None, NO_HAY_RUTINA),
+        ("post", "/rutinas/{X}/slots", "hueco", NO_HAY_RUTINA),
+        ("put", "/rutinas/{X}/slots/{hueco}", "hueco", NO_HAY_RUTINA),
+        ("put", "/rutinas/{rutina}/slots/{X}", "hueco", NO_HAY_HUECO),
+        ("delete", "/rutinas/{rutina}/slots/{X}", None, NO_HAY_HUECO),
+        ("post", "/rutinas/{rutina}/slots/{X}/mostrar", None, NO_HAY_HUECO),
+        ("post", "/rutinas/{rutina}/slots/{X}/alternativas", "comodin", NO_HAY_HUECO),
+        ("delete", "/rutinas/{rutina}/slots/{X}/alternativas/{ejercicio}", None, NO_HAY_HUECO),
+        ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),
+        ("put", "/entrenamientos/{X}", "sesion", NO_HAY_SESION),
+        ("delete", "/entrenamientos/{X}", None, NO_HAY_SESION),
+        ("post", "/entrenamientos/{X}/series", "serie", NO_HAY_SESION),
+        ("put", "/entrenamientos/{X}/series/1", "serie", NO_HAY_SESION),
+        ("put", "/entrenamientos/{sesion}/series/{X}", "serie", "Serie no encontrada"),
+    ],
+)
+def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
+    cliente, lo_que_existe, metodo, ruta, cuerpo, detalle
+):
+    """Lo mismo para el resto de recursos y sus hijos: con el padre inexistente, el
+    404 es el del padre; con el padre bien y el hijo inexistente, el del hijo. El
+    cuerpo es válido, para que el 404 no pueda ser un 422 de otra cosa.
+    """
+    hay = lo_que_existe
+    cuerpos = {
+        "nota": {"nota": "Agarre cerrado"},
+        "rutina": {"nombre": "Empuje"},
+        "hueco": _hueco(hay["ejercicio"], orden=2),
+        "comodin": {"ejercicio_id": hay["ejercicio"]},
+        "sesion": {"fecha": FECHA},
+        "serie": {
+            "ejercicio_id": hay["ejercicio"],
+            "slot_id": hay["hueco"],
+            "numero_serie": 1,
+            "peso": 60,
+            "repeticiones": 8,
+        },
+    }
+    argumentos = {} if cuerpo is None else {"json": cuerpos[cuerpo]}
+
+    respuesta = getattr(cliente, metodo)(ruta.format(X=INEXISTENTE, **hay), **argumentos)
+
+    assert respuesta.status_code == 404, respuesta.text
+    assert respuesta.json()["detail"] == detalle
+
+
+@pytest.mark.parametrize("donde", ["sesion", "dia de programa", "dia planificado", "serie"])
+def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
+    cliente, sesion_bd, lo_que_existe, donde
+):
+    """Un id que llega en el cuerpo y no existe se trata como uno oculto: 404, porque
+    no se puede elegir, y nada se queda a medias.
+    """
+    from sqlalchemy import func, select
+
+    from app.fechas import hoy
+    from app.models import Entrenamiento, ExcepcionDelPlan, ProgramaDia, Serie
+
+    hay = lo_que_existe
+    if donde == "sesion":
+        respuesta = cliente.post(
+            "/entrenamientos", json={"rutina_id": INEXISTENTE, "fecha": "2026-09-05"}
+        )
+        tabla, cuantas = Entrenamiento, 1
+    elif donde == "dia de programa":
+        programa = cliente.post("/programas", json={"nombre": "PPL"}).json()["id"]
+        respuesta = cliente.put(f"/programas/{programa}/dias/1", json={"rutina_id": INEXISTENTE})
+        tabla, cuantas = ProgramaDia, 0
+    elif donde == "dia planificado":
+        respuesta = cliente.put(
+            f"/plan/excepciones/{hoy().isoformat()}", json={"rutina_id": INEXISTENTE}
+        )
+        tabla, cuantas = ExcepcionDelPlan, 0
+    else:
+        respuesta = cliente.post(
+            f"/entrenamientos/{hay['sesion']}/series",
+            json={
+                "ejercicio_id": INEXISTENTE,
+                "slot_id": hay["hueco"],
+                "numero_serie": 1,
+                "peso": 60,
+                "repeticiones": 8,
+            },
+        )
+        tabla, cuantas = Serie, 0
+
+    assert respuesta.status_code == 404, respuesta.text
+    esperado = (
+        NO_HAY_EJERCICIO if donde == "serie" else f"No existe ninguna rutina con id {INEXISTENTE}"
+    )
+    assert respuesta.json()["detail"] == esperado
+    assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == cuantas
