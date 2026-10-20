@@ -278,7 +278,7 @@ Progresión general, no por ejercicio. Arriba, el mes con sus flechas, como en e
 
 ### P1 · Programas y rutinas
 
-Dos secciones. **Programas**, con el activo primero y marcado; cada uno dice cuándo se usó (*Desde el 6 de julio*, *Del 2 de marzo al 28 de junio* o *Sin usar todavía*). **Rutinas**, todas las del usuario, con cuántos ejercicios tiene y en cuántos programas se usa (o *sin programa*). Sin esta segunda sección, una rutina que no estuviera en ningún programa sería inalcanzable. Al pie, una línea explica la diferencia: una rutina son los ejercicios de un día; un programa las reparte en la semana.
+Dos secciones. **Programas**, con el activo primero y marcado; cada uno dice cuándo se usó (*Desde el 6 de julio*, *Del 2 de marzo al 28 de junio* o *Sin usar todavía*). **Rutinas**, todas las del usuario y por orden alfabético, con cuántos ejercicios tiene y en cuántos programas se usa (o *sin programa*). Sin esta segunda sección, una rutina que no estuviera en ningún programa sería inalcanzable. Al pie, una línea explica la diferencia: una rutina son los ejercicios de un día; un programa las reparte en la semana.
 
 ### P2 · Semana del programa
 
