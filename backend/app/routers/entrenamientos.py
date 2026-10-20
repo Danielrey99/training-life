@@ -282,7 +282,7 @@ def borrar_entrenamiento(
     entrenamiento_id: int,
     db: Session = Depends(get_db),
 ):
-    """Borra un entrenamiento propio, con todas sus series (se van con él,
+    """Borra un entrenamiento, con todas sus series (se van con él,
     en cascada por FK). A diferencia de Ejercicio/Rutina/RutinaSlot, no tiene
     parámetro `modo`: nada más depende de un entrenamiento concreto, así que
     no hay nada que proteger con un aviso previo.

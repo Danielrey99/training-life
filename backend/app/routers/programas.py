@@ -124,7 +124,7 @@ def crear_programa(
     db: Session = Depends(get_db),
 ):
     """Crea el programa con sus días en una sola transacción: o se guarda todo, o
-    nada. Cada rutina tiene que ser tuya y estar visible.
+    nada. Cada rutina tiene que existir y estar visible.
     """
     for dia in datos.dias:
         obtener_rutina_visible(db, dia.rutina_id)
@@ -214,7 +214,7 @@ def borrar_programa(
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
 ):
-    """Borra un programa propio.
+    """Borra un programa.
 
     Aquí el historial que hay que proteger son sus **periodos**: sin ellos, el
     calendario ya no sabe qué tocaba los días en que estuvo activo. Las sesiones

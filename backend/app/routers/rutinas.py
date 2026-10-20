@@ -404,7 +404,7 @@ def borrar_rutina(
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
 ):
-    """Borra una rutina propia.
+    """Borra una rutina.
 
     - Sin huecos ni sesiones (las canceladas no cuentan y se borran con ella), y
       sin haber tocado ningún día pasado: se borra de verdad, sin preguntar nada.
@@ -660,7 +660,7 @@ def borrar_slot(
     modo: Literal["ocultar", "definitivo"] | None = None,
     db: Session = Depends(get_db),
 ):
-    """Borra un hueco propio.
+    """Borra un hueco.
 
     - Sin series registradas: se borra de verdad (sus comodines se van con
       él, en cascada por FK), sin preguntar nada.

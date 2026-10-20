@@ -41,7 +41,7 @@ Diagrama de la arquitectura **completa y final** del proyecto: el recorrido de u
 
 ![Esquema de la base de datos de Training Life](docs/esquema_base_datos.svg)
 
-Las 13 tablas de la app, con lo que más condiciona el diseño: qué relaciones arrastran el borrado (`CASCADE`), cuáles lo impiden mientras exista historial (`RESTRICT`), y qué tablas se pueden ocultar, cuáles son historial y cuáles son accesorios que se borran con su padre. Además de la biblioteca de ejercicios, las rutinas y lo entrenado, están los programas semanales, en qué fechas estuvo activo cada uno y los días que se cambian a mano.
+Las 12 tablas de la app, con lo que más condiciona el diseño: qué relaciones arrastran el borrado (`CASCADE`), cuáles lo impiden mientras exista historial (`RESTRICT`), y qué tablas se pueden ocultar, cuáles son historial y cuáles son accesorios que se borran con su padre. Además de la biblioteca de ejercicios, las rutinas y lo entrenado, están los programas semanales, en qué fechas estuvo activo cada uno y los días que se cambian a mano.
 
 ## Diseño de la app
 
