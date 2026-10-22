@@ -10,7 +10,7 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 
 from datetime import date
 
-from tests.ayudas import serie_en
+from tests.ayudas import crear_ejercicio, crear_hueco, serie_en
 from tests.semana import (
     DOMINGO_13,
     HOY,
@@ -395,11 +395,9 @@ def test_la_ultima_sesion_es_la_anterior_con_algo_apuntado(cliente, ppl, grupo_m
 
 def test_la_ultima_sesion_trae_sus_cifras_y_el_dia_que_recuperaba(cliente, ppl, grupo_muscular_id):
     recuperada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14)
-    otro = cliente.post(
-        "/ejercicios", json={"nombre": "Fondos", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
+    otro = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
     for numero in (2, 3):
-        serie_en(cliente, recuperada, otro, numero=numero, peso=20)
+        assert serie_en(cliente, recuperada, otro, numero=numero, peso=20).status_code == 201
 
     ultima = hoy(cliente)["ultima_sesion"]
 
@@ -426,23 +424,11 @@ def test_cada_rutina_dice_sus_ejercicios_y_cuando_se_hizo_por_ultima_vez(
     cliente, ppl, grupo_muscular_id
 ):
     """Los huecos ocultos no cuentan, ni las sesiones canceladas ni las de hoy."""
-    ejercicio = cliente.post(
-        "/ejercicios", json={"nombre": "Remo", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
-    huecos = [
-        cliente.post(
-            f"/rutinas/{ppl['Pull']}/slots",
-            json={
-                "ejercicio_principal_id": ejercicio,
-                "orden": orden,
-                "series_objetivo": 3,
-                "reps_min": 8,
-                "reps_max": 12,
-            },
-        ).json()["id"]
-        for orden in (1, 2, 3)
-    ]
-    cliente.delete(f"/rutinas/{ppl['Pull']}/slots/{huecos[2]}?modo=ocultar")
+    ejercicio = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+    huecos = [crear_hueco(cliente, ppl["Pull"], ejercicio) for _ in range(3)]
+    assert (
+        cliente.delete(f"/rutinas/{ppl['Pull']}/slots/{huecos[2]}?modo=ocultar").status_code == 204
+    )
     hecha(cliente, grupo_muscular_id, MIERCOLES_9, ppl["Pull"], cubre_fecha=MIERCOLES_9)
     sesion(cliente, VIERNES_11, ppl["Pull"])  # cancelada
     hecha(cliente, grupo_muscular_id, HOY, ppl["Pull"], cubre_fecha=HOY)

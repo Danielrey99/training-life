@@ -10,7 +10,22 @@ from pathlib import Path
 
 import pytest
 
+from tests.ayudas import crear_ejercicio
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+def _configuracion_de_alembic():
+    """La de `alembic.ini`, con las rutas absolutas para que no dependa de desde
+    dónde se lance pytest.
+    """
+    from alembic.config import Config
+
+    # Bajar y subir versiones es destructivo: solo contra la base de tests.
+    assert os.environ["DATABASE_URL"].endswith("/training_life_test")
+    configuracion = Config(str(BACKEND_DIR / "alembic.ini"))
+    configuracion.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    return configuracion
 
 
 def test_la_api_responde(cliente):
@@ -33,8 +48,6 @@ def propios(cliente) -> list:
 def test_las_migraciones_sembraron_los_ejercicios_predefinidos(cliente):
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
     assert len(predefinidos) == 59
-    # Sin usuarios, la respuesta ya no lleva dueño ni visibilidad.
-    assert all("usuario_id" not in e and "visibilidad" not in e for e in predefinidos)
     assert "Press banca con barra" in [e["nombre"] for e in predefinidos]
 
 
@@ -43,27 +56,13 @@ def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
     Los predefinidos, en cambio, siguen ahí.
     """
     assert propios(cliente) == []
-    cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    )
+    crear_ejercicio(cliente, grupo_muscular_id)
     assert len(propios(cliente)) == 1
 
 
 def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert propios(cliente) == []
     assert len(cliente.get("/ejercicios").json()) == 59
-
-
-def test_las_series_ya_no_tienen_columna_rpe():
-    """El RPE se quitó de la app: la migración borra la columna, no la deja huérfana."""
-    from sqlalchemy import inspect
-
-    from app.database import engine
-
-    columnas = {columna["name"] for columna in inspect(engine).get_columns("series")}
-
-    assert "peso" in columnas  # la tabla es la que se cree
-    assert "rpe" not in columnas
 
 
 # --- La cadena entera de migraciones --------------------------------------
@@ -74,7 +73,9 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
     cadena desde cero no se vuelve a recorrer. Aquí se baja hasta antes de la primera
     migración (no queda ni una tabla) y se sube hasta la última, y la base queda
     como dicen los modelos: sin usuarios, con las restricciones globales que los
-    sustituyeron, las notas con su nombre nuevo y lo sembrado otra vez en su sitio.
+    sustituyeron, las notas con su nombre nuevo, las series sin la columna del RPE
+    (se quitó de la app: la migración la borra, no la deja huérfana) y lo sembrado
+    otra vez en su sitio.
     """
     from alembic import command
     from alembic.script import ScriptDirectory
@@ -109,6 +110,7 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
                 "WHERE table_schema = 'public'"
             )
             assert not {c for c in columnas if c.endswith((".usuario_id", ".visibilidad"))}
+            assert "series.peso" in columnas and "series.rpe" not in columnas
             assert {
                 "entrenamientos_fecha_key",
                 "entrenamientos_cubre_fecha_key",
@@ -142,15 +144,11 @@ def test_la_migracion_que_exige_rutina_y_hueco_se_niega_si_quedan_datos_libres()
     versión anterior y volviendo a subirla con esos datos dentro.
     """
     from alembic import command
-    from alembic.config import Config
     from sqlalchemy import text
 
     from app.database import engine
 
-    # Bajar y subir versiones es destructivo: solo contra la base de tests.
-    assert os.environ["DATABASE_URL"].endswith("/training_life_test")
-    configuracion = Config(str(BACKEND_DIR / "alembic.ini"))
-    configuracion.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    configuracion = _configuracion_de_alembic()
     engine.dispose()
     command.downgrade(configuracion, "0a3efc993007")
     try:
@@ -207,16 +205,6 @@ TABLAS_CON_USUARIO = (
     "programa_periodos",
     "excepciones_del_plan",
 )
-
-
-def _configuracion_de_alembic():
-    from alembic.config import Config
-
-    # Bajar y subir versiones es destructivo: solo contra la base de tests.
-    assert os.environ["DATABASE_URL"].endswith("/training_life_test")
-    configuracion = Config(str(BACKEND_DIR / "alembic.ini"))
-    configuracion.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-    return configuracion
 
 
 def test_quitar_los_usuarios_y_volver_a_ponerlos_no_pierde_nada(

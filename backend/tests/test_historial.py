@@ -10,37 +10,10 @@ alcanza por la ruta de su rutina.
 
 import pytest
 
+from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina, serie_en
 from tests.ayudas import entrenar as entrenar_en
-from tests.ayudas import serie_en
 
 # --- Ayudantes para montar escenarios ------------------------------------
-
-
-def crear_ejercicio(cliente, grupo_muscular_id, nombre="Press banca") -> int:
-    respuesta = cliente.post(
-        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
-    )
-    assert respuesta.status_code == 201
-    return respuesta.json()["id"]
-
-
-def crear_rutina(cliente, nombre="Push") -> int:
-    return cliente.post("/rutinas", json={"nombre": nombre}).json()["id"]
-
-
-def crear_hueco(cliente, rutina_id, ejercicio_id, orden=1) -> int:
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots",
-        json={
-            "ejercicio_principal_id": ejercicio_id,
-            "orden": orden,
-            "series_objetivo": 4,
-            "reps_min": 6,
-            "reps_max": 10,
-        },
-    )
-    assert respuesta.status_code == 201
-    return respuesta.json()["id"]
 
 
 def crear_entrenamiento(cliente, fecha, rutina_id=None) -> int:
@@ -278,7 +251,10 @@ def test_el_filtro_acepta_un_ejercicio_ocultado(cliente, hueco_con_comodin):
 def test_el_filtro_con_un_ejercicio_inexistente_da_404(cliente, escenario):
     ruta = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/historial"
 
-    assert cliente.get(ruta, params={"ejercicio_id": 999999}).status_code == 404
+    respuesta = cliente.get(ruta, params={"ejercicio_id": 999999})
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
 
 
 # --- El límite cuenta sesiones, no series --------------------------------
@@ -413,30 +389,28 @@ def test_un_rango_invertido_se_rechaza(cliente, escenario):
     assert "invertido" in respuesta.json()["detail"]
 
 
-# --- Lo que no existe o no cuadra con su ruta ----------------------------
-
-
-def test_el_historial_de_un_ejercicio_inexistente_da_404(cliente):
-    assert cliente.get("/ejercicios/999999/historial").status_code == 404
-
-
-def test_el_historial_de_un_hueco_inexistente_o_de_una_rutina_inexistente_da_404(
-    cliente, escenario
-):
-    """Un GET de algo que no existe da 404, tanto si falla el hueco como la rutina."""
-    rutina, hueco = escenario["rutina_id"], escenario["slot_id"]
-
-    assert cliente.get(f"/rutinas/{rutina}/slots/999999/historial").status_code == 404
-    assert cliente.get(f"/rutinas/999999/slots/{hueco}/historial").status_code == 404
+# --- Lo que no cuadra con su ruta ----------------------------------------
+#
+# Lo que no existe (ejercicio, rutina u hueco), en la tabla de `test_crud.py`.
 
 
 def test_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina(cliente, escenario):
-    """La ruta lleva rutina_id y slot_id: si no cuadran entre sí, 404."""
+    """La ruta lleva rutina_id y slot_id: si no cuadran entre sí, 404, aunque los
+    dos existan y el hueco tenga historial.
+    """
+    entrenar(
+        cliente,
+        "2026-09-05",
+        escenario["ejercicio_id"],
+        escenario["rutina_id"],
+        escenario["slot_id"],
+    )
     otra_rutina_id = crear_rutina(cliente, "Pull")
 
     respuesta = cliente.get(f"/rutinas/{otra_rutina_id}/slots/{escenario['slot_id']}/historial")
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Hueco no encontrado"
 
 
 # --- Historial de lo que se ha ocultado ----------------------------------
@@ -522,12 +496,15 @@ def test_el_historial_de_los_huecos_de_una_rutina_ocultada_se_sigue_pudiendo_con
 # --- Los valores admitidos de `?limite=` ---------------------------------
 
 
-@pytest.mark.parametrize("limite", [0, 501])
-def test_el_limite_va_de_1_a_500_sesiones(cliente, escenario, limite):
+@pytest.mark.parametrize("limite, codigo", [(0, 422), (1, 200), (500, 200), (501, 422)])
+def test_el_limite_va_de_1_a_500_sesiones(cliente, escenario, limite, codigo):
     rutas = [
         f"/ejercicios/{escenario['ejercicio_id']}/historial",
         f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/historial",
     ]
 
     for ruta in rutas:
-        assert cliente.get(ruta, params={"limite": limite}).status_code == 422
+        respuesta = cliente.get(ruta, params={"limite": limite})
+        assert respuesta.status_code == codigo, ruta
+        if codigo == 422:
+            assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "limite"]]

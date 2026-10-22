@@ -15,16 +15,13 @@ import pytest
 from sqlalchemy import update
 
 from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
+from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina
 from tests.semana import HOY
 
 
 @pytest.fixture(autouse=True)
 def reloj_congelado(hoy_es):
     hoy_es(HOY)
-
-
-def crear_rutina(cliente, nombre) -> int:
-    return cliente.post("/rutinas", json={"nombre": nombre}).json()["id"]
 
 
 def crear_programa(cliente, nombre, dias) -> int:
@@ -138,6 +135,7 @@ def test_el_rango_invertido_da_422(cliente):
     )
 
     assert respuesta.status_code == 422
+    assert "invertido" in respuesta.json()["detail"]
 
 
 def test_el_rango_no_puede_pasar_de_400_dias(cliente):
@@ -151,7 +149,9 @@ def test_el_rango_no_puede_pasar_de_400_dias(cliente):
         )
 
     assert pedir(400).status_code == 200
-    assert pedir(401).status_code == 422
+    demasiado = pedir(401)
+    assert demasiado.status_code == 422
+    assert demasiado.json()["detail"] == "El rango no puede pasar de 400 días."
 
 
 # --- Excepciones: días cambiados a mano ----------------------------------
@@ -222,17 +222,32 @@ def test_un_dia_se_puede_cambiar_aunque_no_haya_programa(cliente):
     assert (dia["origen"], rutina_de(dia), dia["programa_id"]) == ("excepcion", "Push", None)
 
 
-def test_el_pasado_no_se_planifica(cliente, semana_push):
+def test_el_pasado_no_se_planifica(cliente, sesion_bd, semana_push):
+    """Ni cambiar un día pasado ni restablecerlo, aunque esté cambiado: 422 y no se toca."""
     ayer = HOY - timedelta(days=1)
+    excepcion_a_mano(sesion_bd, ayer, semana_push["pull"])
 
-    assert planificar(cliente, ayer, semana_push["pull"]).status_code == 422
-    assert cliente.delete(f"/plan/excepciones/{ayer.isoformat()}").status_code == 422
+    for respuesta in (
+        planificar(cliente, ayer, None),
+        cliente.delete(f"/plan/excepciones/{ayer.isoformat()}"),
+    ):
+        assert respuesta.status_code == 422
+        assert "ya ha pasado" in respuesta.json()["detail"]
+    [excepcion] = cliente.get("/plan/excepciones").json()
+    assert (excepcion["fecha"], excepcion["rutina"]["id"]) == (
+        ayer.isoformat(),
+        semana_push["pull"],
+    )
 
 
 def test_no_se_puede_planificar_una_rutina_oculta(cliente, semana_push):
-    cliente.delete(f"/rutinas/{semana_push['pull']}?modo=ocultar")
+    assert cliente.delete(f"/rutinas/{semana_push['pull']}?modo=ocultar").status_code == 204
 
-    assert planificar(cliente, HOY, semana_push["pull"]).status_code == 404
+    respuesta = planificar(cliente, HOY, semana_push["pull"])
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {semana_push['pull']}"
+    assert cliente.get("/plan/excepciones").json() == []
 
 
 def test_restablecer_un_dia_lo_devuelve_al_programa(cliente, semana_push):
@@ -358,20 +373,9 @@ def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, s
 def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias_planificados(
     cliente, grupo_muscular_id, semana_push
 ):
-    ejercicio = cliente.post(
-        "/ejercicios", json={"nombre": "Dominadas", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
-    cliente.post(
-        f"/rutinas/{semana_push['pull']}/slots",
-        json={
-            "ejercicio_principal_id": ejercicio,
-            "orden": 1,
-            "series_objetivo": 4,
-            "reps_min": 6,
-            "reps_max": 10,
-        },
-    )
-    planificar(cliente, HOY, semana_push["pull"])
+    dominadas = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas")
+    crear_hueco(cliente, semana_push["pull"], dominadas)
+    assert planificar(cliente, HOY, semana_push["pull"]).status_code == 200
 
     respuesta = cliente.delete(f"/rutinas/{semana_push['pull']}")
 

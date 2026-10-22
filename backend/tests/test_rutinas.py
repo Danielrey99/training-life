@@ -13,45 +13,22 @@ from sqlalchemy import func, select
 
 from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
-from tests.ayudas import consultas_de, entrenar
+from tests.ayudas import (
+    consultas_de,
+    crear_ejercicio,
+    crear_hueco,
+    crear_rutina,
+    entrenar,
+)
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def crear_rutina(cliente, nombre="Push") -> int:
-    respuesta = cliente.post("/rutinas", json={"nombre": nombre})
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
-
-
-def crear_ejercicio(cliente, grupo_muscular_id, nombre) -> int:
-    respuesta = cliente.post(
-        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
-
-
-def crear_hueco(cliente, rutina_id, ejercicio_id, orden, series=4, reps=(6, 10)) -> int:
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots",
-        json={
-            "ejercicio_principal_id": ejercicio_id,
-            "orden": orden,
-            "series_objetivo": series,
-            "reps_min": reps[0],
-            "reps_max": reps[1],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def anadir_comodin(cliente, rutina_id, slot_id, ejercicio_id) -> None:
     respuesta = cliente.post(
         f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": ejercicio_id}
     )
-    assert respuesta.status_code in (200, 201), respuesta.text
+    assert respuesta.status_code == 201, respuesta.text
 
 
 def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
@@ -431,10 +408,6 @@ def test_se_puede_duplicar_una_rutina_oculta_y_la_copia_sale_visible(cliente, gr
     assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] == hoy().isoformat()
 
 
-def test_duplicar_una_rutina_inexistente_da_404(cliente):
-    assert duplicar(cliente, 999_999).status_code == 404
-
-
 # --- Reordenar los huecos ---------------------------------------------------
 
 
@@ -543,12 +516,11 @@ def test_una_rutina_oculta_no_se_puede_reordenar(cliente, tres_huecos):
     rutina, (a, b, c) = tres_huecos
     assert cliente.delete(f"/rutinas/{rutina}?modo=ocultar").status_code == 204
 
-    assert ordenar(cliente, rutina, [c, b, a]).status_code == 409
+    respuesta = ordenar(cliente, rutina, [c, b, a])
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"] == "Esta rutina está oculta: muéstrala antes de cambiarla."
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
-
-
-def test_reordenar_una_rutina_inexistente_da_404(cliente):
-    assert ordenar(cliente, 999_999, []).status_code == 404
 
 
 # --- Consultas del listado ------------------------------------------------

@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app import fechas
-from tests.ayudas import entrenar, rutina_en_bd, serie_en
+from tests.ayudas import crear_ejercicio, crear_rutina, entrenar, rutina_en_bd, serie_en
 from tests.semana import HOY
 
 AYER = HOY - timedelta(days=1)
@@ -72,9 +72,7 @@ def test_una_sesion_de_ayer_sin_terminar_no_esta_en_curso(cliente):
 
 def test_una_sesion_terminada_admite_mas_series(cliente, grupo_muscular_id):
     """Terminada no es cerrada: corregir un día ya pasado añade o cambia series."""
-    ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     sesion_id = terminar(cliente, empezar(cliente)["id"])["id"]
 
     respuesta = serie_en(cliente, sesion_id, ejercicio_id)
@@ -82,18 +80,12 @@ def test_una_sesion_terminada_admite_mas_series(cliente, grupo_muscular_id):
     assert respuesta.status_code == 201
 
 
-def test_no_se_puede_terminar_una_sesion_que_no_existe(cliente):
-    assert cliente.post("/entrenamientos/999999/terminar").status_code == 404
-
-
 # --- Una sesión por día --------------------------------------------------
 
 
 def con_una_serie(cliente, grupo_muscular_id, sesion_id) -> None:
     """Una sesión con algo hecho: sin series contaría como cancelada."""
-    ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     respuesta = serie_en(cliente, sesion_id, ejercicio_id)
     assert respuesta.status_code == 201
 
@@ -163,7 +155,8 @@ def test_una_sesion_de_ayer_sin_terminar_no_impide_empezar_hoy(cliente):
 
 
 def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_muscular_id):
-    empezar(cliente)
+    """La de hoy está vacía, pero en curso: ocupa el día. El 409 dice cuál es."""
+    de_hoy = empezar(cliente)
     de_ayer = empezar(cliente, AYER)
     con_una_serie(cliente, grupo_muscular_id, de_ayer["id"])
 
@@ -173,7 +166,26 @@ def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_
     )
 
     assert respuesta.status_code == 409
+    detalle = respuesta.json()["detail"]
+    assert (detalle["entrenamiento_id"], detalle["en_curso"]) == (de_hoy["id"], True)
     assert cliente.get(f"/entrenamientos/{de_ayer['id']}").json()["fecha"] == AYER.isoformat()
+
+
+def test_mover_una_sesion_al_dia_de_una_cancelada_borra_la_cancelada(cliente, grupo_muscular_id):
+    """Una sesión sin series de un día pasado está cancelada y no ocupa su fecha,
+    tampoco al corregir la fecha de otra: se borra para dejar sitio, como al crear
+    una nueva (y no sale el 500 de `entrenamientos_fecha_key`).
+    """
+    cancelada = empezar(cliente, AYER)
+    otra = empezar(cliente, AYER - timedelta(days=1))
+    con_una_serie(cliente, grupo_muscular_id, otra["id"])
+
+    respuesta = cliente.put(f"/entrenamientos/{otra['id']}", json={"fecha": AYER.isoformat()})
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["fecha"] == AYER.isoformat()
+    assert len(respuesta.json()["series"]) == 1
+    assert cliente.get(f"/entrenamientos/{cancelada['id']}").status_code == 404
 
 
 def test_una_sesion_se_puede_mover_a_un_dia_libre(cliente):
@@ -345,8 +357,7 @@ def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):
     """Lo que usa el día del historial para comparar su volumen con la sesión
     anterior de la misma rutina, sin pedir todo el historial.
     """
-    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
-    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
 
     def sesion(rutina_id, dias_atras):
         fecha = (HOY - timedelta(days=dias_atras)).isoformat()
@@ -365,8 +376,12 @@ def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):
     assert [s["id"] for s in una] == [reciente]
 
 
-def test_el_listado_rechaza_un_limite_que_no_es_positivo(cliente):
-    assert cliente.get("/entrenamientos", params={"limite": 0}).status_code == 422
+@pytest.mark.parametrize("limite", [0, 501])
+def test_el_listado_admite_un_limite_de_1_a_500(cliente, limite):
+    respuesta = cliente.get("/entrenamientos", params={"limite": limite})
+
+    assert respuesta.status_code == 422
+    assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "limite"]]
 
 
 def test_el_listado_filtra_por_rango_de_fechas_incluidos_los_extremos(cliente):
@@ -394,6 +409,7 @@ def test_el_listado_con_el_rango_invertido_da_422(cliente):
     )
 
     assert respuesta.status_code == 422
+    assert "invertido" in respuesta.json()["detail"]
 
 
 # --- El futuro no se registra --------------------------------------------
@@ -408,6 +424,7 @@ def test_no_se_puede_apuntar_un_entrenamiento_en_el_futuro(cliente):
     respuesta = entrenar(cliente, manana)
 
     assert respuesta.status_code == 422
+    assert "todavía no ha llegado" in respuesta.json()["detail"]
     assert cliente.get("/entrenamientos").json() == []
 
 

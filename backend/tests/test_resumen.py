@@ -22,7 +22,7 @@ from decimal import Decimal
 
 import pytest
 
-from tests.ayudas import consultas_de, ejercicio_de_prueba, serie_en
+from tests.ayudas import consultas_de, crear_rutina, ejercicio_de_prueba, serie_en
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18
 
 SEPTIEMBRE = "2026-09"
@@ -40,12 +40,6 @@ def pedir(cliente, mes=None) -> dict:
     respuesta = cliente.get("/resumen", params={"mes": mes} if mes else None)
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()
-
-
-def rutina(cliente, nombre) -> int:
-    respuesta = cliente.post("/rutinas", json={"nombre": nombre})
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def sesion_con_series(cliente, fecha, rutina_id, ejercicio_id, *series, cubre_fecha=None, **campos):
@@ -356,7 +350,7 @@ def test_septiembre_pedido_el_1_de_octubre_trae_la_semana_en_curso_y_no_el_mes(
     Septiembre ya acabó, así que es su última barra terminada y no hay mes en curso.
     """
     hoy_es(date(2026, 9, 29))
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 9, 29), push, ejercicio_id, (100, 1))
     hoy_es(date(2026, 10, 1))
     sesion_con_series(cliente, date(2026, 10, 1), push, ejercicio_id, (50, 2))
@@ -389,7 +383,7 @@ def test_la_constancia_es_del_año_del_mes_pedido(cliente, hoy_es):
 
 def test_el_volumen_es_la_suma_de_peso_por_repeticiones(cliente, hoy_es, ejercicio_id):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (22.5, 10), (20, 8))
     # Una serie sin peso cuenta como serie, pero no suma volumen.
     sesion_con_series(cliente, date(2026, 9, 24), push, ejercicio_id, (0, 12))
@@ -413,7 +407,7 @@ def test_la_semana_que_cruza_de_mes_se_cuenta_entera(cliente, hoy_es, ejercicio_
     meses, mientras que la gráfica mensual separa cada mes.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 9, 29), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 10, 2), push, ejercicio_id, (50, 1))
 
@@ -441,7 +435,7 @@ def test_lo_de_la_semana_y_el_mes_en_curso_sale_solo_en_la_barra_en_curso(
     cliente, hoy_es, ejercicio_id
 ):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 10, 5), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, MARTES_6_OCT, push, ejercicio_id, (100, 1))
 
@@ -459,7 +453,7 @@ def test_lo_de_la_semana_y_el_mes_en_curso_sale_solo_en_la_barra_en_curso(
 
 def test_los_meses_de_la_grafica_cruzan_de_año(cliente, hoy_es, ejercicio_id):
     hoy_es(HOY)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2025, 7, 1), push, ejercicio_id, (10, 1))
     sesion_con_series(cliente, date(2025, 12, 31), push, ejercicio_id, (20, 1))
     sesion_con_series(cliente, date(2026, 2, 28), push, ejercicio_id, (30, 1))
@@ -489,7 +483,7 @@ def test_el_cambio_compara_el_ultimo_periodo_con_el_anterior(
     cliente, hoy_es, ejercicio_id, anterior, ultimo, esperado
 ):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     # Las dos últimas semanas: la del 21 y la del 28 de septiembre.
     if anterior:
         sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (anterior, 1))
@@ -518,7 +512,7 @@ def test_el_cambio_redondea_las_medias_decimas_hacia_fuera(
     salía 6,2 (y −6,2 al bajar).
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (anterior, 1))
     sesion_con_series(cliente, date(2026, 9, 29), push, ejercicio_id, (ultimo, 1))
 
@@ -532,7 +526,7 @@ def test_el_cambio_mensual_usa_los_dos_ultimos_meses_terminados(cliente, hoy_es,
     la barra en curso, que se compara con septiembre.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 8, 3), push, ejercicio_id, (200, 1))
     sesion_con_series(cliente, date(2026, 9, 7), push, ejercicio_id, (300, 1))
     sesion_con_series(cliente, date(2026, 10, 1), push, ejercicio_id, (1000, 1))
@@ -552,7 +546,7 @@ def test_el_cambio_salta_las_barras_vacias(cliente, hoy_es, ejercicio_id):
     segunda, y las vacías no tienen cambio.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 8, 18), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 9, 8), push, ejercicio_id, (150, 1))
 
@@ -577,7 +571,7 @@ def test_una_barra_a_cero_entre_dos_con_volumen_no_tiene_cambio(cliente, hoy_es,
     agosto comparado con junio.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 6, 10), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 8, 10), push, ejercicio_id, (300, 1))
 
@@ -593,7 +587,7 @@ def test_la_primera_barra_se_compara_con_una_semana_de_hace_un_año(cliente, hoy
     martes 12 de agosto de 2025; `comparado_con` es el lunes de esa semana.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2025, 8, 12), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, LUNES_10_AGO, push, ejercicio_id, (120, 1))
 
@@ -608,8 +602,8 @@ def test_la_referencia_anterior_suma_la_semana_entera(cliente, hoy_es, ejercicio
     gráfica: la referencia es su suma (200), no una de ellas.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
-    pull = rutina(cliente, "Pull")
+    push = crear_rutina(cliente, "Push")
+    pull = crear_rutina(cliente, "Pull")
     sesion_con_series(cliente, date(2026, 8, 4), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 8, 6), pull, ejercicio_id, (50, 2))
     sesion_con_series(cliente, LUNES_10_AGO, push, ejercicio_id, (300, 1))
@@ -627,7 +621,7 @@ def test_la_referencia_anterior_respeta_los_limites_de_semana_y_de_mes(
     de enero, no de febrero, primer mes de la gráfica.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 1, 31), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 2, 1), push, ejercicio_id, (150, 1))
     sesion_con_series(cliente, date(2026, 8, 9), push, ejercicio_id, (100, 1))
@@ -648,7 +642,7 @@ def test_una_barra_solo_con_series_sin_peso(cliente, hoy_es, ejercicio_id, grupo
     de referencia: la siguiente se compara con una anterior a ella.
     """
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 8, 18), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 9, 1), push, ejercicio_id, (0, 10), (0, 10))
     sesion_con_series(cliente, date(2026, 9, 8), push, ejercicio_id, (150, 1))
@@ -667,7 +661,7 @@ def test_la_referencia_anterior_salta_los_periodos_solo_con_series_sin_peso(
     cliente, hoy_es, ejercicio_id
 ):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 7, 21), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 8, 4), push, ejercicio_id, (0, 10))
     sesion_con_series(cliente, LUNES_10_AGO, push, ejercicio_id, (150, 1))
@@ -679,7 +673,7 @@ def test_la_referencia_anterior_salta_los_periodos_solo_con_series_sin_peso(
 
 def test_comparado_con_cruza_de_año(cliente, hoy_es, ejercicio_id):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2025, 12, 30), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, date(2026, 1, 6), push, ejercicio_id, (200, 1))
 
@@ -693,8 +687,8 @@ def test_una_sesion_de_rutina_y_ejercicio_ocultos_sirve_de_referencia(
     cliente, hoy_es, grupo_muscular_id
 ):
     hoy_es(MARTES_6_OCT)
-    antigua = rutina(cliente, "Antigua")
-    push = rutina(cliente, "Push")
+    antigua = crear_rutina(cliente, "Antigua")
+    push = crear_rutina(cliente, "Push")
     retirado = ejercicio_de_prueba(cliente, grupo_muscular_id, "Ejercicio retirado")
     press = ejercicio_de_prueba(cliente, grupo_muscular_id, "Press banca")
     sesion_con_series(cliente, date(2026, 8, 4), antigua, retirado, (100, 1))
@@ -734,7 +728,7 @@ def test_una_sesion_de_rutina_y_ejercicio_ocultos_sirve_de_referencia(
 )
 def test_el_cambio_de_la_barra_en_curso(cliente, hoy_es, ejercicio_id, sesiones, esperado):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     for fecha, peso in sesiones:
         sesion_con_series(cliente, fecha, push, ejercicio_id, (peso, 1))
 
@@ -750,8 +744,8 @@ def test_el_volumen_cuenta_lo_oculto_y_lo_sin_terminar(cliente, hoy_es, grupo_mu
     en el desglose con su `oculto_desde`.
     """
     hoy_es(MARTES_6_OCT)
-    antigua = rutina(cliente, "Antigua")
-    push = rutina(cliente, "Push")
+    antigua = crear_rutina(cliente, "Antigua")
+    push = crear_rutina(cliente, "Push")
     retirado = ejercicio_de_prueba(cliente, grupo_muscular_id, "Ejercicio retirado")
     press = ejercicio_de_prueba(cliente, grupo_muscular_id, "Press banca")
     sesion_con_series(cliente, date(2026, 8, 12), antigua, retirado, (50, 10))
@@ -786,7 +780,7 @@ def test_el_volumen_cuenta_lo_oculto_y_lo_sin_terminar(cliente, hoy_es, grupo_mu
 
 def test_la_sesion_abierta_de_hoy_cuenta_en_la_barra_en_curso(cliente, hoy_es, ejercicio_id):
     hoy_es(MARTES_6_OCT)
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, MARTES_6_OCT, push, ejercicio_id, (80, 5), (80, 5))
     assert cliente.get("/entrenamientos", params={"en_curso": True}).json()
 
@@ -830,7 +824,9 @@ def test_el_volumen_va_por_la_fecha_real_y_la_constancia_por_el_dia_que_cuenta(
 def test_el_volumen_por_rutina_es_de_la_barra_y_de_mayor_a_menor(cliente, hoy_es, ejercicio_id):
     """Empates por nombre sin mirar mayúsculas."""
     hoy_es(MARTES_6_OCT)
-    ids = {nombre: rutina(cliente, nombre) for nombre in ("Push", "Pull", "Leg", "Core", "Abs")}
+    ids = {
+        nombre: crear_rutina(cliente, nombre) for nombre in ("Push", "Pull", "Leg", "Core", "Abs")
+    }
     for fecha, nombre, peso in (
         (date(2026, 8, 31), "Leg", 5000),  # Agosto, aunque cae en la semana del 31.
         (date(2026, 9, 1), "Push", 100),
@@ -867,7 +863,7 @@ def test_las_series_van_al_grupo_del_ejercicio_que_se_hizo(cliente, hoy_es):
     pecho, espalda = grupos[0], grupos[1]
     principal = ejercicio_de_prueba(cliente, pecho["id"], "Press banca")
     comodin = ejercicio_de_prueba(cliente, espalda["id"], "Remo")
-    push = rutina(cliente, "Push")
+    push = crear_rutina(cliente, "Push")
     respuesta = cliente.post(
         f"/rutinas/{push}/slots",
         json={
@@ -1020,7 +1016,7 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, hoy_es, grupo_muscular_
     sesion_con_series(cliente, date(2026, 9, 2), ppl["Pull"], ejercicios[0], (20, 10))
     con_pocas = consultas(SEPTIEMBRE)
 
-    otras = [rutina(cliente, nombre) for nombre in ("Brazos", "Core", "Hombro")]
+    otras = [crear_rutina(cliente, nombre) for nombre in ("Brazos", "Core", "Hombro")]
     todas = [ppl["Push"], ppl["Pull"], ppl["Leg"], *otras]
     for n in range(12):
         fecha = date(2026, 3, 2) + timedelta(days=15 * n)

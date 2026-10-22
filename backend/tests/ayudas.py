@@ -1,8 +1,11 @@
-"""Ayudas para los tests que necesitan una sesión con series.
+"""Ayudas que comparten los tests para montar sus escenarios.
+
+Las `crear_*` crean un ejercicio, una rutina o un hueco por la API, siempre nuevos.
 
 Toda sesión es de una rutina y toda serie va en un hueco de esa rutina, así que
-para apuntar una serie hace falta antes una rutina con su hueco. Estas funciones
-lo montan a demanda y sin repetirlo: si la rutina o el hueco ya existen, los usan.
+para apuntar una serie hace falta antes una rutina con su hueco. `entrenar`,
+`serie_en` y compañía lo montan a demanda y sin repetirlo: si la rutina o el hueco
+ya existen, los usan.
 
 Ojo con lo que se monta a demanda: si el ejercicio no es el principal de ningún
 hueco visible de la rutina, `hueco_para` le añade uno, y eso cambia lo que la
@@ -11,6 +14,48 @@ rutina tiene. Un test que cuente huecos o ejercicios de una rutina debe pasar el
 """
 
 NOMBRE_DE_PRUEBA = "Rutina de prueba"
+
+
+# --- Crear lo básico por la API -------------------------------------------
+# Siempre crean uno nuevo (aunque ya exista otro con ese nombre) y fallan si la API
+# no da 201: un test que monta su escenario con ellas no puede seguir con un id
+# que no existe.
+
+
+def crear_ejercicio(cliente, grupo_muscular_id, nombre="Press banca") -> int:
+    """Un ejercicio propio nuevo; devuelve su id."""
+    respuesta = cliente.post(
+        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    return respuesta.json()["id"]
+
+
+def crear_rutina(cliente, nombre="Push") -> int:
+    """Una rutina nueva, sin huecos; devuelve su id."""
+    respuesta = cliente.post("/rutinas", json={"nombre": nombre})
+    assert respuesta.status_code == 201, respuesta.text
+    return respuesta.json()["id"]
+
+
+def crear_hueco(cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6, 10)) -> int:
+    """Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines.
+    Sin `orden`, el backend lo pone al final. Devuelve su id.
+    """
+    cuerpo = {
+        "ejercicio_principal_id": ejercicio_id,
+        "series_objetivo": series,
+        "reps_min": reps[0],
+        "reps_max": reps[1],
+    }
+    if orden is not None:
+        cuerpo["orden"] = orden
+    respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json=cuerpo)
+    assert respuesta.status_code == 201, respuesta.text
+    return respuesta.json()["id"]
+
+
+# --- Lo que se busca o se crea a demanda ------------------------------------
 
 
 def rutina_de_prueba(cliente, nombre=NOMBRE_DE_PRUEBA) -> int:

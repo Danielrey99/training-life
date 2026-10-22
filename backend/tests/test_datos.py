@@ -42,7 +42,7 @@ from app.schemas import (
     SerieDeArchivo,
     SlotDeArchivo,
 )
-from tests.ayudas import consultas_de, entrenar, serie_en
+from tests.ayudas import consultas_de, crear_ejercicio, entrenar, serie_en
 
 HOY = date(2026, 9, 16)
 
@@ -51,6 +51,17 @@ MAS_NUEVA = "Este archivo es de una versión más nueva de la app. Actualízala 
 DANADO = "El archivo está dañado."
 _AHORA = "2026-09-16T10:00:00+00:00"
 NO_SE_CAMBIA_NADA = "No se puede cargar el archivo: no se ha cambiado nada."
+# Lo que dicen `GET /datos/resumen` y la comprobación de importar sin datos.
+CERO = {
+    "ejercicios": 0,
+    "notas": 0,
+    "rutinas": 0,
+    "programas": 0,
+    "sesiones": 0,
+    "series": 0,
+    "primera_sesion": None,
+    "ultima_sesion": None,
+}
 
 
 def instante(texto: str) -> datetime:
@@ -317,6 +328,35 @@ def importar(cliente, archivo, **params):
     return cliente.post("/datos/importar", json=archivo, params=params)
 
 
+def _foto(sesion_bd) -> dict:
+    """Cada fila de las 11 tablas de datos, enteras y con todas sus columnas. De los
+    ejercicios, solo los propios: los predefinidos no son datos de nadie.
+    """
+    sesion_bd.expire_all()
+
+    def todo(modelo, *condiciones):
+        consulta = select(*modelo.__table__.columns).where(*condiciones).order_by(modelo.id)
+        return [tuple(fila) for fila in sesion_bd.execute(consulta)]
+
+    return {
+        "ejercicios": todo(Ejercicio, Ejercicio.es_predefinido.is_(False)),
+        "notas": todo(NotaEjercicio),
+        "rutinas": todo(Rutina),
+        "huecos": todo(RutinaSlot),
+        "comodines": todo(SlotAlternativa),
+        "programas": todo(Programa),
+        "dias": todo(ProgramaDia),
+        "periodos": todo(ProgramaPeriodo),
+        "excepciones": todo(ExcepcionDelPlan),
+        "sesiones": todo(Entrenamiento),
+        "series": todo(Serie),
+    }
+
+
+def _nada(sesion_bd) -> bool:
+    return all(filas == [] for filas in _foto(sesion_bd).values())
+
+
 # --- Comparar sin los ids ----------------------------------------------------
 #
 # Importar asigna ids nuevos, así que dos exportaciones (o dos respuestas de /plan)
@@ -514,8 +554,11 @@ def test_se_exportan_solo_los_predefinidos_que_usa_algo(cliente, datos, ejercici
     assert datos["sin_usar"][0] not in {p["id"] for p in archivo["predefinidos"]}
 
 
-def test_el_archivo_no_lleva_usuario_ni_campos_internos(cliente, datos):
-    prohibidas = {"usuario_id", "es_predefinido", "visibilidad", "grupo_muscular_id"}
+def test_el_archivo_no_lleva_campos_internos(cliente, datos):
+    """Ni el `es_predefinido` (lo dice estar en `predefinidos` o en `ejercicios`) ni
+    el id del grupo (va por nombre): los dos son de esta instalación.
+    """
+    prohibidas = {"es_predefinido", "grupo_muscular_id"}
 
     def claves(valor):
         if isinstance(valor, dict):
@@ -817,6 +860,52 @@ def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio
     assert sorted(e["es_predefinido"] for e in con_ese_nombre) == [False, True]
 
 
+@pytest.mark.parametrize("accion", ["desactivarlo", "activar otro", "ocultarlo"])
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Fallo del código: importar acepta un periodo abierto que empieza después de hoy,"
+        " y `_cerrar_periodo_abierto` (routers/programas.py) le pone `hasta = hoy`, que"
+        " viola `programa_periodos_rango_check` (hasta >= desde): IntegrityError, un 500."
+    ),
+)
+def test_un_programa_importado_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
+    cliente, hoy_es, accion
+):
+    """Importar no valida a propósito las fechas futuras (una copia de un teléfono con
+    otra fecha), pero un periodo abierto con `desde` posterior a hoy deja el programa
+    activo sin que se pueda desactivar, activar otro ni ocultarlo: los tres cierran
+    el periodo con `hasta = hoy`. Lo esperado (regla «toda restricción de la base con
+    su comprobación») es que funcione igual que con uno que empezó hoy, que se borra
+    al cerrarse porque no llegó a cubrir ningún día, o un 409/422 legible; nunca un 500.
+    """
+    hoy_es(HOY)
+    marca = {"created_at": _AHORA, "updated_at": _AHORA}
+    archivo = {
+        "formato": "training-life",
+        "version": 1,
+        "exportado_en": _AHORA,
+        "programas": [
+            {"nombre": "PPL", **marca, "periodos": [{"desde": "2026-09-20", "hasta": None}]},
+            {"nombre": "Otro", **marca},
+        ],
+    }
+    assert importar(cliente, archivo).status_code == 200
+    ids = {p["nombre"]: p["id"] for p in cliente.get("/programas").json()}
+
+    ruta = f"/programas/{ids['PPL']}"
+    peticion, codigo = {
+        "desactivarlo": (lambda: cliente.post(f"{ruta}/desactivar"), 200),
+        "activar otro": (lambda: cliente.post(f"/programas/{ids['Otro']}/activar"), 200),
+        "ocultarlo": (lambda: cliente.delete(f"{ruta}?modo=ocultar"), 204),
+    }[accion]
+
+    respuesta = peticion()
+
+    assert respuesta.status_code == codigo, respuesta.text
+    assert cliente.get(ruta).json()["activo"] is False
+
+
 # --- El RPE de los archivos viejos -------------------------------------------
 #
 # Las series tenían RPE y se quitó sin subir la versión del formato: un archivo
@@ -1051,7 +1140,7 @@ MALOS = [
     (_serie_de_un_ejercicio_que_no_esta, NO_SE_CAMBIA_NADA, "una serie de un ejercicio"),
     (_serie_en_un_hueco_de_otra_rutina, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
     (_serie_en_un_hueco_que_no_esta, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
-    (_dos_ejercicios_en_un_hueco, NO_SE_CAMBIA_NADA, "en el mismo ejercicio de"),
+    # Dos ejercicios en un hueco de una sesión: en sus propios tests, con la frase entera.
     (_predefinido_que_no_existe, NO_SE_CAMBIA_NADA, '"Press con kettlebell de cristal" no'),
     (_grupo_que_no_existe, NO_SE_CAMBIA_NADA, 'El grupo muscular "Orejas"'),
     (_sesiones_el_mismo_dia, NO_SE_CAMBIA_NADA, "Hay dos sesiones el 2026-09-10"),
@@ -1107,20 +1196,25 @@ def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):
 @pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
 def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos, comprobar):
     """En una sesión, cada hueco se hace con un solo ejercicio, también en un
-    archivo. La frase nombra los dos ejercicios (aquí uno propio y uno
-    predefinido), en el orden de sus series, y la rutina.
+    archivo: 422 y no se cambia nada. La frase nombra los dos ejercicios (aquí uno
+    propio y uno predefinido), en el orden de sus series, y la rutina.
     """
-    archivo = exportado(cliente)
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
     _dos_ejercicios_en_un_hueco(archivo)
 
     respuesta = importar(cliente, archivo, comprobar=comprobar)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"]["errores"] == [
-        'La sesión del 2026-09-09 tiene series de "Sentadilla con barra" y de "Remo en máquina'
-        ' vieja" en el mismo ejercicio de "Push": en una sesión, cada uno se hace con un solo'
-        " ejercicio."
-    ]
+    assert respuesta.json()["detail"] == {
+        "mensaje": NO_SE_CAMBIA_NADA,
+        "errores": [
+            'La sesión del 2026-09-09 tiene series de "Sentadilla con barra" y de "Remo en'
+            ' máquina vieja" en el mismo ejercicio de "Push": en una sesión, cada uno se hace'
+            " con un solo ejercicio."
+        ],
+    }
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
 @pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
@@ -1275,17 +1369,6 @@ def test_comprobar_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
 # mismas cifras que `actual` en la comprobación de importar, y contar lo que de
 # verdad se guarda (lo oculto sí; los predefinidos no, que vienen con la app; una
 # sesión sin series tampoco, ni sus fechas).
-
-CERO = {
-    "ejercicios": 0,
-    "notas": 0,
-    "rutinas": 0,
-    "programas": 0,
-    "sesiones": 0,
-    "series": 0,
-    "primera_sesion": None,
-    "ultima_sesion": None,
-}
 
 
 def resumen(cliente) -> dict:
@@ -1543,9 +1626,7 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     carga apuntaría a un ejercicio que ya no existe (un 500 en vez del 422).
     """
     hoy_es(HOY)
-    propio = cliente.post(
-        "/ejercicios", json={"nombre": "Press del autor", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
+    propio = crear_ejercicio(cliente, grupo_muscular_id, "Press del autor")
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
@@ -1650,35 +1731,6 @@ def borrar(cliente):
     respuesta = cliente.delete("/datos")
     assert respuesta.status_code == 204, respuesta.text
     assert respuesta.content == b""
-
-
-def _foto(sesion_bd) -> dict:
-    """Cada fila de las 11 tablas de datos, enteras y con todas sus columnas. De los
-    ejercicios, solo los propios: los predefinidos no son datos de nadie.
-    """
-    sesion_bd.expire_all()
-
-    def todo(modelo, *condiciones):
-        consulta = select(*modelo.__table__.columns).where(*condiciones).order_by(modelo.id)
-        return [tuple(fila) for fila in sesion_bd.execute(consulta)]
-
-    return {
-        "ejercicios": todo(Ejercicio, Ejercicio.es_predefinido.is_(False)),
-        "notas": todo(NotaEjercicio),
-        "rutinas": todo(Rutina),
-        "huecos": todo(RutinaSlot),
-        "comodines": todo(SlotAlternativa),
-        "programas": todo(Programa),
-        "dias": todo(ProgramaDia),
-        "periodos": todo(ProgramaPeriodo),
-        "excepciones": todo(ExcepcionDelPlan),
-        "sesiones": todo(Entrenamiento),
-        "series": todo(Serie),
-    }
-
-
-def _nada(sesion_bd) -> bool:
-    return all(filas == [] for filas in _foto(sesion_bd).values())
 
 
 def test_borrar_sin_datos_da_204_sin_cuerpo_y_el_resumen_sigue_a_cero(cliente, hoy_es):

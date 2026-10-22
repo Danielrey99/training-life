@@ -16,23 +16,9 @@ from sqlalchemy import func, select
 
 from app.fechas import hoy
 from app.models import RutinaSlot, Serie, SlotAlternativa
-from tests.ayudas import entrenar
+from tests.ayudas import crear_ejercicio, crear_rutina, entrenar
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def crear_rutina(cliente, nombre="Push") -> int:
-    respuesta = cliente.post("/rutinas", json={"nombre": nombre})
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
-
-
-def crear_ejercicio(cliente, grupo_muscular_id, nombre) -> int:
-    respuesta = cliente.post(
-        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def ocultar_ejercicio(cliente, ejercicio_id) -> None:
@@ -195,7 +181,7 @@ def test_el_orden_automatico_no_cuenta_los_huecos_de_otra_rutina(cliente, ejerci
 # --- La ruta tiene que cuadrar -------------------------------------------------
 
 
-def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, sesion_bd, ejercicios):
+def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, ejercicios):
     """El hueco es de Push: si la ruta no se comprobara, se podría editar o borrar
     "desde" Pull.
     """
@@ -233,7 +219,7 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     # Mostrar, con el hueco oculto: si colara, lo dejaría visible.
     assert cliente.delete(f"{por_push}?modo=ocultar").status_code == 204
     mostrar = cliente.post(f"{por_pull}/mostrar")
-    assert cliente.get(f"/rutinas/{push}").json()["slots"][0]["oculto_desde"] is not None
+    assert cliente.get(f"/rutinas/{push}").json()["slots"][0]["oculto_desde"] == hoy().isoformat()
     # Los comodines, con el hueco visible: así el 404 no puede ser el 409 de lo oculto.
     assert cliente.post(f"{por_push}/mostrar").status_code == 200
     anadir = cliente.post(f"{por_pull}/alternativas", json={"ejercicio_id": ejercicios["Cruces"]})
@@ -295,6 +281,7 @@ def test_un_hueco_nuevo_con_un_comodin_que_no_vale_da_404_y_no_se_crea(
     )
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
     assert huecos_guardados(sesion_bd) == (0, 0)
 
 
@@ -454,6 +441,7 @@ def test_un_comodin_ya_oculto_se_conserva_pero_no_se_puede_volver_a_poner(
 
     repuesto = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[cruces, fondos])
     assert repuesto.status_code == 404
+    assert repuesto.json()["detail"] == "Ejercicio no encontrado"
     assert comodines(cliente, rutina, slot) == [cruces]
 
 
@@ -500,8 +488,14 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
     assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
     filas = filas_de_comodines(sesion_bd, slot)
 
+    mensaje = {
+        "hueco": "Este hueco está oculto: muéstralo antes de cambiarlo.",
+        "rutina": "Esta rutina está oculta: muéstrala antes de cambiarla.",
+    }[que]
+
     for lista in ([], [ejercicios["Cruces"]]):
-        assert editar_hueco(cliente, rutina, slot, press, alternativa_ids=lista).status_code == 409
+        respuesta = editar_hueco(cliente, rutina, slot, press, alternativa_ids=lista)
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (409, mensaje)
 
     assert filas_de_comodines(sesion_bd, slot) == filas
 
@@ -545,5 +539,6 @@ def test_un_comodin_que_no_vale_en_la_lista_no_cambia_nada_del_hueco(
     )
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
     assert filas_de_comodines(sesion_bd, slot) == filas
     assert cliente.get(f"/rutinas/{rutina}").json()["slots"][0]["series_objetivo"] == 4

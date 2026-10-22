@@ -185,18 +185,19 @@ def test_un_dia_sale_igual_lo_pida_solo_o_dentro_de_un_rango(cliente, ppl, grupo
 
 
 @pytest.mark.parametrize(
-    "desde, hasta",
+    "desde, hasta, lo_que_dice",
     [
-        pytest.param(HOY, LUNES_14, id="invertido"),
-        pytest.param(HOY, HOY + timedelta(days=400), id="mas-de-400-dias"),
+        pytest.param(HOY, LUNES_14, "invertido", id="invertido"),
+        pytest.param(HOY, HOY + timedelta(days=400), "400 días", id="mas-de-400-dias"),
     ],
 )
-def test_un_rango_invalido_da_422(cliente, ppl, desde, hasta):
+def test_un_rango_invalido_da_422(cliente, ppl, desde, hasta, lo_que_dice):
     respuesta = cliente.get(
         "/plan/seguimiento", params={"desde": desde.isoformat(), "hasta": hasta.isoformat()}
     )
 
     assert respuesta.status_code == 422
+    assert lo_que_dice in respuesta.json()["detail"]
 
 
 def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):

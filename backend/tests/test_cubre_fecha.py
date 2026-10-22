@@ -153,6 +153,39 @@ def test_un_dia_que_no_se_puede_contar_da_422_aunque_la_fecha_este_ocupada(
     assert sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=MARTES_15).status_code == 422
 
 
+def test_una_peticion_mal_hecha_no_borra_la_cancelada_que_ocupaba_la_fecha(cliente, ppl):
+    """El POST valida en dos fases para que una petición que no vale nunca borre
+    nada: los 422 van antes de mirar la fecha, que es lo que borra una cancelada.
+    El martes es descanso, así que no se puede contar. (Que el error deshaga la
+    transacción también la salvaría: este test solo cae si fallan las dos cosas.)
+    """
+    cancelada = sesion(cliente, MARTES_15, ppl["Push"]).json()["id"]
+
+    respuesta = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=MARTES_15)
+
+    assert respuesta.status_code == 422
+    assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
+
+
+def test_un_409_por_el_dia_que_cuenta_no_borra_la_cancelada_que_ocupaba_la_fecha(
+    cliente, ppl, grupo_muscular_id
+):
+    """Aquí el orden no basta: la fecha ocupada por una cancelada se mira (y la
+    cancelada se borra) antes de saber que el día ya lo cuenta otra sesión. Lo que
+    la salva es que el 409 deshace la transacción entera.
+    """
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    con_una_serie(cliente, grupo_muscular_id, recuperada)
+    # La del propio lunes, vacía y de un día pasado: cancelada.
+    cancelada = sesion(cliente, LUNES_14, ppl["Push"]).json()["id"]
+
+    respuesta = sesion(cliente, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"]["entrenamiento_id"] == recuperada
+    assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
+
+
 # --- Un día lo cuenta una sesión como mucho ------------------------------
 
 

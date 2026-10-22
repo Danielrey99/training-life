@@ -9,18 +9,10 @@ from datetime import date
 import pytest
 
 from app.models import ProgramaDia
-from tests.ayudas import consultas_de
+from tests.ayudas import consultas_de, crear_ejercicio
 from tests.semana import HOY
 
 # --- Ayudantes ---------------------------------------------------------------
-
-
-def crear_ejercicio(cliente, grupo_muscular_id, nombre) -> int:
-    respuesta = cliente.post(
-        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def hueco(principal, *comodines) -> dict:
@@ -33,7 +25,7 @@ def hueco(principal, *comodines) -> dict:
     }
 
 
-def crear_rutina(cliente, nombre, *huecos) -> tuple[int, list[int]]:
+def rutina_con_huecos(cliente, nombre, *huecos) -> tuple[int, list[int]]:
     """La rutina con sus huecos, en ese orden; devuelve su id y los de los huecos."""
     respuesta = cliente.post("/rutinas", json={"nombre": nombre, "slots": list(huecos)})
     assert respuesta.status_code == 201, respuesta.text
@@ -85,8 +77,8 @@ def test_sale_cada_hueco_donde_es_principal_o_alternativa_ordenado_por_rutina(cl
         ejercicios["Press en máquina"],
         ejercicios["Remo"],
     )
-    push, [hueco_push] = crear_rutina(cliente, "Push", hueco(press, maquina))
-    pull, [hueco_pull] = crear_rutina(cliente, "Pull", hueco(remo, press))
+    push, [hueco_push] = rutina_con_huecos(cliente, "Push", hueco(press, maquina))
+    pull, [hueco_pull] = rutina_con_huecos(cliente, "Pull", hueco(remo, press))
 
     usos = donde_se_usa(cliente, press)
 
@@ -122,7 +114,7 @@ def test_dos_huecos_en_una_rutina_son_dos_filas_y_la_posicion_solo_cuenta_los_vi
     """
     hoy_es(HOY)
     press, fondos, remo = ejercicios["Press banca"], ejercicios["Fondos"], ejercicios["Remo"]
-    push, huecos = crear_rutina(
+    push, huecos = rutina_con_huecos(
         cliente, "Push", hueco(remo), hueco(press), hueco(fondos), hueco(press), hueco(press)
     )
     ocultar_hueco(cliente, push, huecos[0])
@@ -144,7 +136,7 @@ def test_un_hueco_de_una_rutina_oculta_va_plegado_pero_conserva_su_numero(
 ):
     hoy_es(HOY)
     press, fondos = ejercicios["Press banca"], ejercicios["Fondos"]
-    push, huecos = crear_rutina(cliente, "Push", hueco(fondos), hueco(press))
+    push, huecos = rutina_con_huecos(cliente, "Push", hueco(fondos), hueco(press))
     assert cliente.delete(f"/rutinas/{push}?modo=ocultar").status_code == 204
 
     [uso] = donde_se_usa(cliente, press)
@@ -162,8 +154,8 @@ def test_cada_uso_dice_en_que_programas_esta_su_rutina_y_sus_dias(
     """
     hoy_es(HOY)
     press, remo = ejercicios["Press banca"], ejercicios["Remo"]
-    push, _ = crear_rutina(cliente, "Push", hueco(press))
-    pull, _ = crear_rutina(cliente, "Pull", hueco(remo))
+    push, _ = rutina_con_huecos(cliente, "Push", hueco(press))
+    pull, _ = rutina_con_huecos(cliente, "Pull", hueco(remo))
     # Los días se mandan desordenados: el orden tiene que ponerlo la API.
     activo = crear_programa(cliente, "B activo", {5: push, 1: push, 3: pull}, activar=True)
     sin_activar = crear_programa(cliente, "A sin activar", {2: push})
@@ -188,8 +180,8 @@ def test_un_ejercicio_oculto_y_uno_predefinido_tienen_ficha(
     cliente, ejercicios, ejercicio_predefinido_id
 ):
     press = ejercicios["Press banca"]
-    _, [hueco_propio] = crear_rutina(cliente, "Push", hueco(press))
-    _, [hueco_predefinido] = crear_rutina(cliente, "Leg", hueco(ejercicio_predefinido_id))
+    _, [hueco_propio] = rutina_con_huecos(cliente, "Push", hueco(press))
+    _, [hueco_predefinido] = rutina_con_huecos(cliente, "Leg", hueco(ejercicio_predefinido_id))
     assert cliente.delete(f"/ejercicios/{press}?modo=ocultar").status_code == 204
 
     assert [uso["slot_id"] for uso in donde_se_usa(cliente, press)] == [hueco_propio]
@@ -198,13 +190,9 @@ def test_un_ejercicio_oculto_y_uno_predefinido_tienen_ficha(
 
 
 def test_un_ejercicio_sin_usar_no_sale_en_ninguna_rutina(cliente, ejercicios):
-    crear_rutina(cliente, "Push", hueco(ejercicios["Press banca"], ejercicios["Fondos"]))
+    rutina_con_huecos(cliente, "Push", hueco(ejercicios["Press banca"], ejercicios["Fondos"]))
 
     assert donde_se_usa(cliente, ejercicios["Remo"]) == []
-
-
-def test_la_ficha_de_un_ejercicio_inexistente_da_404(cliente):
-    assert cliente.get("/ejercicios/999999/donde-se-usa").status_code == 404
 
 
 def test_donde_se_usa_hace_las_mismas_consultas_con_un_uso_que_con_muchos(
@@ -213,12 +201,12 @@ def test_donde_se_usa_hace_las_mismas_consultas_con_un_uso_que_con_muchos(
     """Sin una consulta por uso, por rutina ni por programa."""
     hoy_es(HOY)
     press, fondos = ejercicios["Press banca"], ejercicios["Fondos"]
-    primera, _ = crear_rutina(cliente, "Rutina 0", hueco(press))
+    primera, _ = rutina_con_huecos(cliente, "Rutina 0", hueco(press))
     crear_programa(cliente, "Programa 0", {1: primera}, activar=True)
     con_uno = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/donde-se-usa"))
 
     for numero in range(1, 5):
-        rutina, huecos = crear_rutina(
+        rutina, huecos = rutina_con_huecos(
             cliente, f"Rutina {numero}", hueco(fondos, press), hueco(press), hueco(fondos)
         )
         ocultar_hueco(cliente, rutina, huecos[2])

@@ -14,15 +14,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import consultas_de
+from tests.ayudas import consultas_de, crear_ejercicio, crear_hueco, crear_rutina
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def crear_rutina(cliente, nombre="Push") -> int:
-    respuesta = cliente.post("/rutinas", json={"nombre": nombre})
-    assert respuesta.status_code == 201
-    return respuesta.json()["id"]
 
 
 def crear_programa(cliente, nombre="Push Pull Leg", dias=()) -> dict:
@@ -43,6 +37,9 @@ def rutinas_por_dia(programa) -> dict:
 
 def ocultar_programa(cliente, programa_id):
     assert cliente.delete(f"/programas/{programa_id}?modo=ocultar").status_code == 204
+
+
+PROGRAMA_OCULTO = "Este programa está oculto: muéstralo antes de cambiarlo."
 
 
 # --- Crear ---------------------------------------------------------------
@@ -81,6 +78,8 @@ def test_un_dia_no_puede_tener_dos_rutinas(cliente):
     )
 
     assert respuesta.status_code == 422
+    assert "hay días repetidos" in str(respuesta.json()["detail"])
+    assert cliente.get("/programas").json() == []
 
 
 @pytest.mark.parametrize("dia", [0, 8])
@@ -136,7 +135,7 @@ def test_una_rutina_puede_estar_en_varios_dias_y_en_varios_programas(cliente):
     assert rutina["num_programas"] == 2
 
 
-def test_num_programas_no_cuenta_los_programas_ocultos(cliente, sesion_bd):
+def test_num_programas_no_cuenta_los_programas_ocultos(cliente):
     push = crear_rutina(cliente)
     crear_programa(cliente, "Visible", dias=[(1, push)])
     oculto = crear_programa(cliente, "Oculto", dias=[(1, push)])
@@ -148,7 +147,7 @@ def test_num_programas_no_cuenta_los_programas_ocultos(cliente, sesion_bd):
 # --- Leer, editar y los días ---------------------------------------------
 
 
-def test_listar_separa_los_programas_visibles_de_los_ocultos(cliente, sesion_bd):
+def test_listar_separa_los_programas_visibles_de_los_ocultos(cliente):
     crear_programa(cliente, "Visible")
     oculto = crear_programa(cliente, "Oculto")
     ocultar_programa(cliente, oculto["id"])
@@ -167,7 +166,8 @@ def test_cambiar_el_nombre(cliente):
 
     respuesta = cliente.put(f"/programas/{programa['id']}", json={"nombre": "PPL de 5 días"})
 
-    assert respuesta.json()["nombre"] == "PPL de 5 días"
+    assert respuesta.status_code == 200, respuesta.text
+    assert cliente.get(f"/programas/{programa['id']}").json()["nombre"] == "PPL de 5 días"
 
 
 def test_poner_una_rutina_en_un_dia_de_descanso_y_sustituir_otra(cliente):
@@ -208,11 +208,17 @@ def test_un_programa_oculto_no_se_puede_editar(cliente):
     ocultar_programa(cliente, programa["id"])
     ruta = f"/programas/{programa['id']}"
 
-    assert cliente.put(ruta, json={"nombre": "Otro"}).status_code == 409
-    assert cliente.put(f"{ruta}/dias/2", json={"rutina_id": push}).status_code == 409
-    # Dejar un día en descanso también es editar.
-    assert cliente.delete(f"{ruta}/dias/1").status_code == 409
-    assert rutinas_por_dia(cliente.get(ruta).json()) == {1: "Push"}
+    respuestas = [
+        cliente.put(ruta, json={"nombre": "Otro"}),
+        cliente.put(f"{ruta}/dias/2", json={"rutina_id": push}),
+        # Dejar un día en descanso también es editar.
+        cliente.delete(f"{ruta}/dias/1"),
+    ]
+
+    for respuesta in respuestas:
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PROGRAMA_OCULTO)
+    guardado = cliente.get(ruta).json()
+    assert (guardado["nombre"], rutinas_por_dia(guardado)) == ("Push Pull Leg", {1: "Push"})
 
 
 def test_no_se_puede_poner_una_rutina_oculta_en_un_dia(cliente):
@@ -239,15 +245,7 @@ def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente
 
     assert respuesta.status_code == 200
     assert rutinas_por_dia(respuesta.json()) == {6: "Pull"}
-    assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] is not None
-
-
-def test_consultar_un_programa_inexistente_da_404(cliente):
-    """Los verbos que escriben, en `test_crud.py` («Lo que no existe»)."""
-    respuesta = cliente.get("/programas/999999")
-
-    assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Programa no encontrado"
+    assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] == hoy().isoformat()
 
 
 # --- Las rutinas ocultas o borradas y sus días ---------------------------
@@ -264,7 +262,7 @@ def test_ocultar_una_rutina_no_la_quita_de_los_dias_que_la_tienen(cliente):
 
     [dia] = cliente.get(f"/programas/{programa['id']}").json()["dias"]
     assert dia["rutina"]["id"] == push
-    assert dia["rutina"]["oculto_desde"] is not None
+    assert dia["rutina"]["oculto_desde"] == hoy().isoformat()
 
 
 def test_borrar_una_rutina_sin_historial_la_quita_de_sus_dias(cliente):
@@ -278,26 +276,16 @@ def test_borrar_una_rutina_sin_historial_la_quita_de_sus_dias(cliente):
 
 
 def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias(cliente, grupo_muscular_id):
-    ejercicio_id = cliente.post(
-        "/ejercicios", json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id}
-    ).json()["id"]
     push = crear_rutina(cliente)
-    cliente.post(
-        f"/rutinas/{push}/slots",
-        json={
-            "ejercicio_principal_id": ejercicio_id,
-            "orden": 1,
-            "series_objetivo": 4,
-            "reps_min": 6,
-            "reps_max": 10,
-        },
-    )
+    crear_hueco(cliente, push, crear_ejercicio(cliente, grupo_muscular_id))
     crear_programa(cliente, dias=[(1, push), (4, push)])
 
     respuesta = cliente.delete(f"/rutinas/{push}")
 
     assert respuesta.status_code == 409
-    assert "2 días de programa" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"].endswith(
+        " Además, está en 2 días de programa, que pasarían a descanso."
+    )
 
 
 # --- Activar y desactivar ------------------------------------------------
@@ -397,7 +385,10 @@ def test_un_programa_oculto_no_se_puede_activar(cliente, sesion_bd):
     programa = crear_programa(cliente)
     ocultar_programa(cliente, programa["id"])
 
-    assert cliente.post(f"/programas/{programa['id']}/activar").status_code == 409
+    respuesta = cliente.post(f"/programas/{programa['id']}/activar")
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PROGRAMA_OCULTO)
+    assert periodos(sesion_bd, programa["id"]) == []
 
 
 def test_la_base_de_datos_no_admite_dos_periodos_abiertos(cliente, sesion_bd):
@@ -692,9 +683,11 @@ def test_la_base_no_admite_dos_filas_vigentes_del_mismo_dia(cliente, sesion_bd):
     )
     sesion_bd.commit()
     sesion_bd.add(ProgramaDia(programa_id=programa["id"], dia_semana=1, rutina_id=leg))
-    with pytest.raises(IntegrityError):
+    with pytest.raises(IntegrityError) as error:
         sesion_bd.commit()
     sesion_bd.rollback()
+    # Que salte el índice que se prueba y no otra restricción.
+    assert "ix_programa_dias_programa_dia_abierto" in str(error.value)
 
 
 # --- El último periodo de uso (lo que pinta la lista de programas) ---------
