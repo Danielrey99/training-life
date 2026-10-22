@@ -408,14 +408,23 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado): cómo hará esos cálculos se decidirá al empezarla.
 
-Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios. Lo siguiente es un último repaso del diseño y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
+Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios. Lo siguiente son los ejercicios que no se apuntan con peso y repeticiones (ver más abajo), un repaso completo y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
 
 ## Por decidir
 
 Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
-- **Objetivo por ejercicio y no por puesto en la rutina.** Hoy las series objetivo y el rango de reps son del puesto, y la alternativa los hereda. Queda por ver si cada alternativa debería llevar los suyos. Se deja así porque el objetivo es una guía, no una regla, y duplicaría el formulario de P4 para un caso raro.
 - **Ocultar predefinidos**: de momento no se ve necesario, así que no se pueden ocultar.
 - **Temporizador de descanso** entre series, en E2, con el tiempo por defecto en Ajustes.
-- **Peso corporal**, para comparar con el peso levantado.
-- **Cardio**: la app está pensada para series de peso por repeticiones, y el cardio (cinta, bici, remo) se mide de otra forma, con tiempo, distancia o ritmo. Tendría sentido como grupo aparte, con su propio registro.
+- **Contar el peso corporal en los cálculos** (volumen y 1RM) de los ejercicios de peso corporal, con una casilla por ejercicio. De momento solo se guarda con cada serie.
+
+## En desarrollo: ejercicios que no son de peso y repeticiones
+
+Decidido con el autor y diseñado en los bocetos (cada pantalla que cambia tiene una vista por tipo). Cada ejercicio se apunta de una de cuatro formas, que se elige al crearlo y no se puede cambiar:
+
+- **Peso y repeticiones**, como hasta ahora.
+- **Peso corporal** (dominadas, fondos, flexiones): repeticiones y una carga opcional, de lastre o de ayuda, más el peso corporal de ese día, que no entra en ningún cálculo.
+- **Tiempo** (plancha, paseo del granjero): la duración, en minutos y segundos, y un peso opcional.
+- **Cardio** (cinta, bici, elíptica, remo): la duración, la distancia si se quiere y el ritmo que sale de las dos.
+
+Cada ejercicio de una rutina, y cada una de sus alternativas, lleva su propio objetivo en la unidad de su tipo (repeticiones o duración); las alternativas pueden ser de otro tipo (un crunch en polea o una plancha). En una sesión, cada ejercicio de la rutina se hace con uno solo: cambiar a otro con series ya apuntadas pide confirmar y las borra. Solo el volumen de peso y repeticiones suma kilos; las series de todos los tipos cuentan en las de cada grupo muscular. Ajustes lleva el peso corporal, el paso de los botones del tiempo, la unidad de distancia y el objetivo con el que empieza cada tipo.
