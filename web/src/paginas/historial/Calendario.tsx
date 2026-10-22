@@ -179,12 +179,7 @@ export function Calendario() {
         </Link>
       )}
 
-      {registrando && (
-        <HojaRegistrar
-          fecha={registrando}
-          alCerrar={() => setRegistrando(null)}
-        />
-      )}
+      {registrando && <HojaRegistrar fecha={registrando} alCerrar={() => setRegistrando(null)} />}
     </div>
   )
 }
