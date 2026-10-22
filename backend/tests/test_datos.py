@@ -89,6 +89,10 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     Los predefinidos: la sentadilla es principal; `comodin` solo comodín; `de_nota`
     solo tiene una nota; `de_serie` solo aparece en una serie (un comodín que se
     quitó) y `sin_usar` no lo usa nada.
+
+    En una sesión, cada hueco se hace con un solo ejercicio (si no, importar su
+    propio archivo daría 422): el press, el remo (comodín) y `de_serie` van cada uno
+    en un hueco o una sesión distintos.
     """
     (comodin, de_nota, de_serie, sin_usar) = _predefinidos(sesion_bd, 4)
     grupo_id, grupo = sesion_bd.execute(
@@ -257,9 +261,9 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
         push,
         [
             (h1, press, 1, "60", 8, {"variante": "agarre cerrado"}),
-            (h1, remo, 2, "50", 10),
             (h2, sentadilla_id, 1, "100", 5),
-            (h1, de_serie[0], 3, "40", 12),
+            # Un comodín que se quitó, en el hueco del remo (el oculto).
+            (h3, de_serie[0], 1, "40", 12),
         ],
         cubre_fecha=date(2026, 9, 7),
         notas="Buen día",
@@ -268,7 +272,8 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     sesion(
         date(2026, 9, 9),
         push,
-        [(h2, sentadilla_id, 1, "102.5", 5)],
+        # La sentadilla, la primera: los archivos malos de abajo estropean esa serie.
+        [(h2, sentadilla_id, 1, "102.5", 5), (h1, remo, 1, "50", 10)],
         cubre_fecha=date(2026, 9, 9),
         terminada_en=terminada,
     )
@@ -954,6 +959,13 @@ def _serie_en_un_hueco_que_no_esta(a):
     _sesion(a, "2026-09-09")["series"][0]["slot_id"] = 999_999
 
 
+def _dos_ejercicios_en_un_hueco(a):
+    # La del 9 tiene la sentadilla en su hueco y el remo en el del press: la
+    # sentadilla pasa al del remo.
+    sentadilla, remo = _sesion(a, "2026-09-09")["series"]
+    sentadilla["slot_id"], sentadilla["numero_serie"] = remo["slot_id"], 2
+
+
 def _predefinido_que_no_existe(a):
     a["predefinidos"][0]["nombre"] = "Press con kettlebell de cristal"
 
@@ -1039,6 +1051,7 @@ MALOS = [
     (_serie_de_un_ejercicio_que_no_esta, NO_SE_CAMBIA_NADA, "una serie de un ejercicio"),
     (_serie_en_un_hueco_de_otra_rutina, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
     (_serie_en_un_hueco_que_no_esta, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
+    (_dos_ejercicios_en_un_hueco, NO_SE_CAMBIA_NADA, "en el mismo ejercicio de"),
     (_predefinido_que_no_existe, NO_SE_CAMBIA_NADA, '"Press con kettlebell de cristal" no'),
     (_grupo_que_no_existe, NO_SE_CAMBIA_NADA, 'El grupo muscular "Orejas"'),
     (_sesiones_el_mismo_dia, NO_SE_CAMBIA_NADA, "Hay dos sesiones el 2026-09-10"),
@@ -1089,6 +1102,67 @@ def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):
     detalle = importar(cliente, archivo).json()["detail"]
 
     assert len(detalle["errores"]) == 3, detalle
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos, comprobar):
+    """En una sesión, cada hueco se hace con un solo ejercicio, también en un
+    archivo. La frase nombra los dos ejercicios (aquí uno propio y uno
+    predefinido), en el orden de sus series, y la rutina.
+    """
+    archivo = exportado(cliente)
+    _dos_ejercicios_en_un_hueco(archivo)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        'La sesión del 2026-09-09 tiene series de "Sentadilla con barra" y de "Remo en máquina'
+        ' vieja" en el mismo ejercicio de "Push": en una sesión, cada uno se hace con un solo'
+        " ejercicio."
+    ]
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente, datos, comprobar):
+    """Con tres o más ejercicios en el mismo hueco, la frase los separa con comas
+    y pone «y» solo antes del último, cada uno con su «de», en el orden de sus series.
+    """
+    archivo = exportado(cliente)
+    _dos_ejercicios_en_un_hueco(archivo)
+    series = _sesion(archivo, "2026-09-09")["series"]
+    press = copy.deepcopy(series[1])
+    press["ejercicio_id"], press["numero_serie"] = datos["press"], 3
+    series.append(press)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        'La sesión del 2026-09-09 tiene series de "Sentadilla con barra", de "Remo en máquina'
+        ' vieja" y de "Press inclinado con mancuernas" en el mismo ejercicio de "Push": en una'
+        " sesión, cada uno se hace con un solo ejercicio."
+    ]
+
+
+def test_el_mismo_hueco_con_otro_ejercicio_en_otra_sesion_si_se_importa(cliente, datos):
+    """El otro lado del anterior: el hueco del press se hizo con press el 7 y con el
+    remo el 9 (y en la del 7, cada hueco con el suyo). El escenario ya lo tiene, y
+    esto lo fija para que nadie lo «arregle» juntándolos.
+    """
+    archivo = exportado(cliente)
+    hueco_del_press = _rutina(archivo, "Push")["slots"][0]["id"]
+
+    def ejercicios_en(fecha):
+        return {
+            s["ejercicio_id"]
+            for s in _sesion(archivo, fecha)["series"]
+            if s["slot_id"] == hueco_del_press
+        }
+
+    assert ejercicios_en("2026-09-07") == {datos["press"]}
+    assert ejercicios_en("2026-09-09") == {datos["remo"]}
+    assert importar(cliente, archivo).status_code == 200
 
 
 def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):

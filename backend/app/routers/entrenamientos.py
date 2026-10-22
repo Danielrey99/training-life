@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.fechas import hoy
-from app.models import Entrenamiento, RutinaSlot, Serie
+from app.models import Ejercicio, Entrenamiento, RutinaSlot, Serie
 from app.plan import DiaPlan, dias_del_plan
 from app.routers.ejercicios import obtener_ejercicio_legible, obtener_ejercicio_visible
 from app.routers.rutinas import obtener_rutina_visible
@@ -341,6 +341,46 @@ def _validar_slot(
         )
 
 
+def _validar_un_ejercicio_por_hueco(
+    db: Session,
+    entrenamiento_id: int,
+    slot_id: int,
+    ejercicio_id: int,
+    excepto_serie_id: int | None = None,
+) -> None:
+    """En una sesión, cada hueco de la rutina se hace con un solo ejercicio.
+
+    Si ya hay series de otro ejercicio en ese hueco, apuntar o mover una más de
+    este mezclaría dos en el mismo (409): hay que borrar antes las otras. No va
+    en la base de datos porque haría falta una restricción entre filas (un
+    `EXCLUDE` o un trigger) que SQLite, la base del móvil, no tiene igual.
+
+    `excepto_serie_id` deja fuera la serie que se está cambiando: si es la única
+    del hueco, cambiarle el ejercicio no mezcla nada.
+    """
+    otras = select(Serie).where(
+        Serie.entrenamiento_id == entrenamiento_id,
+        Serie.slot_id == slot_id,
+        Serie.ejercicio_id != ejercicio_id,
+    )
+    if excepto_serie_id is not None:
+        otras = otras.where(Serie.id != excepto_serie_id)
+    series = db.scalars(otras).all()
+    if not series:
+        return
+    anterior = series[0].ejercicio
+    nuevo = db.get(Ejercicio, ejercicio_id)
+    cuantas = "la serie" if len(series) == 1 else f"las {len(series)} series"
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            f"Esta sesión ya tiene {cuantas} de {anterior.nombre} en ese ejercicio de la rutina, "
+            f"y en cada uno se hace un solo ejercicio por sesión: borra antes esas series "
+            f"para apuntar {nuevo.nombre}."
+        ),
+    )
+
+
 @router.post(
     "/{entrenamiento_id}/series", response_model=SerieOut, status_code=status.HTTP_201_CREATED
 )
@@ -352,6 +392,7 @@ def crear_serie(
     entrenamiento = _obtener_entrenamiento(db, entrenamiento_id)
     obtener_ejercicio_visible(db, datos.ejercicio_id)
     _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, datos.ejercicio_id)
+    _validar_un_ejercicio_por_hueco(db, entrenamiento_id, datos.slot_id, datos.ejercicio_id)
     serie = Serie(**datos.model_dump(), entrenamiento_id=entrenamiento_id)
     db.add(serie)
     db.commit()
@@ -382,6 +423,12 @@ def actualizar_serie(
         datos.ejercicio_id,
         actual=(serie.slot_id, serie.ejercicio_id),
     )
+    # Corregir peso, reps o variante no toca el par (hueco, ejercicio): solo si
+    # cambia hay que mirar que no se mezcle con lo que ya hay en el hueco.
+    if (datos.slot_id, datos.ejercicio_id) != (serie.slot_id, serie.ejercicio_id):
+        _validar_un_ejercicio_por_hueco(
+            db, entrenamiento_id, datos.slot_id, datos.ejercicio_id, excepto_serie_id=serie.id
+        )
     for campo, valor in datos.model_dump().items():
         setattr(serie, campo, valor)
     db.commit()

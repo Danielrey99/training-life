@@ -5,6 +5,7 @@ refactor rompe algo básico sin que te des cuenta.
 """
 
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -590,6 +591,305 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_
     respuesta = cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=cuerpo)
 
     assert respuesta.status_code == 404
+
+
+# --- Un solo ejercicio por hueco y sesión ---------------------------------
+#
+# En una sesión, todas las series de un hueco son del mismo ejercicio: apuntar o
+# mover una de otro da 409 y no guarda nada. Push tiene dos huecos: el A, de
+# Crunch en polea con Plancha de comodín, y el B, de Rueda abdominal con Crunch en
+# polea de comodín (para poder mover una serie de crunch de A a B).
+
+
+@pytest.fixture
+def abdominales(cliente, grupo_muscular_id) -> dict:
+    crunch = _ejercicio(cliente, grupo_muscular_id, "Crunch en polea")
+    plancha = _ejercicio(cliente, grupo_muscular_id, "Plancha")
+    rueda = _ejercicio(cliente, grupo_muscular_id, "Rueda abdominal")
+    push = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    a = cliente.post(
+        f"/rutinas/{push}/slots", json={**_hueco(crunch, orden=1), "alternativa_ids": [plancha]}
+    ).json()["id"]
+    b = cliente.post(
+        f"/rutinas/{push}/slots", json={**_hueco(rueda, orden=2), "alternativa_ids": [crunch]}
+    ).json()["id"]
+
+    def sesion(fecha=FECHA) -> int:
+        respuesta = cliente.post("/entrenamientos", json={"rutina_id": push, "fecha": fecha})
+        assert respuesta.status_code == 201, respuesta.text
+        return respuesta.json()["id"]
+
+    return SimpleNamespace(
+        crunch=crunch, plancha=plancha, rueda=rueda, push=push, a=a, b=b, sesion=sesion
+    )
+
+
+def _apuntar(cliente, sesion, ejercicio_id, slot_id, numero=1, peso=20):
+    return cliente.post(
+        f"/entrenamientos/{sesion}/series",
+        json=_serie(cliente, sesion, ejercicio_id, numero=numero, peso=peso, slot_id=slot_id),
+    )
+
+
+def _apuntadas(cliente, sesion, ejercicio_id, slot_id, cuantas) -> list[dict]:
+    series = []
+    for numero in range(1, cuantas + 1):
+        respuesta = _apuntar(cliente, sesion, ejercicio_id, slot_id, numero=numero)
+        assert respuesta.status_code == 201, respuesta.text
+        series.append(respuesta.json())
+    return series
+
+
+def _series_de(cliente, sesion) -> list[dict]:
+    return cliente.get(f"/entrenamientos/{sesion}").json()["series"]
+
+
+def test_no_se_apunta_una_serie_de_otro_ejercicio_en_un_hueco_que_ya_tiene_series(
+    cliente, abdominales
+):
+    """Con la serie del crunch apuntada, la plancha (comodín del mismo hueco) ya no
+    cabe en esa sesión: 409 con el texto que enseña la web, y no se guarda.
+    """
+    e = abdominales
+    sesion = e.sesion()
+    [crunch] = _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+
+    respuesta = _apuntar(cliente, sesion, e.plancha, e.a, numero=2)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"] == (
+        "Esta sesión ya tiene la serie de Crunch en polea en ese ejercicio de la rutina, y en "
+        "cada uno se hace un solo ejercicio por sesión: borra antes esas series para apuntar "
+        "Plancha."
+    )
+    assert _series_de(cliente, sesion) == [crunch]
+
+
+def test_el_409_de_mezclar_cuenta_las_series_en_plural(cliente, abdominales):
+    e = abdominales
+    sesion = e.sesion()
+    _apuntadas(cliente, sesion, e.crunch, e.a, 3)
+
+    respuesta = _apuntar(cliente, sesion, e.plancha, e.a, numero=4)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"].startswith(
+        "Esta sesión ya tiene las 3 series de Crunch en polea en ese ejercicio de la rutina,"
+    )
+    assert respuesta.json()["detail"].endswith("para apuntar Plancha.")
+    assert len(_series_de(cliente, sesion)) == 3
+
+
+def test_mas_series_del_mismo_ejercicio_en_el_hueco_si_se_apuntan(cliente, abdominales):
+    e = abdominales
+    sesion = e.sesion()
+
+    _apuntadas(cliente, sesion, e.plancha, e.a, 3)
+
+    assert [s["ejercicio_id"] for s in _series_de(cliente, sesion)] == [e.plancha] * 3
+
+
+def test_el_mismo_hueco_admite_otro_ejercicio_en_otra_sesion(cliente, abdominales):
+    """La regla es por sesión, y mira la de la ruta: el 5 se hace con plancha
+    aunque el 4 se hiciera con crunch, y después el crunch ya no cabe en la del 5
+    aunque sí estuviera en la del 4.
+    """
+    e = abdominales
+    dia_4, dia_5 = e.sesion("2026-09-04"), e.sesion("2026-09-05")
+    _apuntadas(cliente, dia_4, e.crunch, e.a, 2)
+
+    con_plancha = _apuntar(cliente, dia_5, e.plancha, e.a)
+    con_crunch = _apuntar(cliente, dia_5, e.crunch, e.a, numero=2)
+
+    assert con_plancha.status_code == 201, con_plancha.text
+    assert con_crunch.status_code == 409, con_crunch.text
+    assert "la serie de Plancha" in con_crunch.json()["detail"]
+
+
+def test_otro_hueco_de_la_misma_sesion_admite_otro_ejercicio(cliente, abdominales):
+    """La regla es por hueco: el crunch en A y la rueda en B conviven."""
+    e = abdominales
+    sesion = e.sesion()
+    _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+
+    respuesta = _apuntar(cliente, sesion, e.rueda, e.b)
+
+    assert respuesta.status_code == 201, respuesta.text
+
+
+def test_cambiar_el_ejercicio_de_la_unica_serie_del_hueco_si_se_puede(cliente, abdominales):
+    """No mezcla nada: la propia serie no cuenta. Después, el hueco es de plancha
+    en esa sesión, y el crunch ya no cabe.
+    """
+    e = abdominales
+    sesion = e.sesion()
+    [serie] = _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{serie['id']}",
+        json=_serie(cliente, sesion, e.plancha, slot_id=e.a),
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["ejercicio_id"] == e.plancha
+    assert _apuntar(cliente, sesion, e.crunch, e.a, numero=2).status_code == 409
+
+
+def test_cambiar_el_ejercicio_de_una_serie_con_mas_del_anterior_da_409(cliente, abdominales):
+    """Quedarían las otras dos de crunch con una de plancha: 409, que cuenta las
+    que quedan (no la que se cambia), y la serie se relee igual.
+    """
+    e = abdominales
+    sesion = e.sesion()
+    primera, *_ = _apuntadas(cliente, sesion, e.crunch, e.a, 3)
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{primera['id']}",
+        json=_serie(cliente, sesion, e.plancha, peso=99, slot_id=e.a),
+    )
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert "ya tiene las 2 series de Crunch en polea" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"].endswith("para apuntar Plancha.")
+    assert _series_de(cliente, sesion)[0] == primera
+
+
+def test_mover_una_serie_a_un_hueco_con_series_de_otro_ejercicio_da_409(cliente, abdominales):
+    """El crunch es comodín de B, así que el hueco vale (no es un 422), pero B ya
+    tiene la rueda en esa sesión. Se mira el hueco de destino, no el de origen.
+    """
+    e = abdominales
+    sesion = e.sesion()
+    [crunch] = _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+    _apuntadas(cliente, sesion, e.rueda, e.b, 1)
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{crunch['id']}",
+        json=_serie(cliente, sesion, e.crunch, slot_id=e.b),
+    )
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert "la serie de Rueda abdominal" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"].endswith("para apuntar Crunch en polea.")
+    assert _series_de(cliente, sesion)[0] == crunch
+
+
+def test_mover_una_serie_a_un_hueco_vacio_o_con_su_ejercicio_si_se_puede(cliente, abdominales):
+    """El otro lado del anterior: en B solo hay crunch (o nada), así que mover una
+    serie de crunch de A a B no mezcla nada, aunque A siga teniendo más crunch.
+    """
+    e = abdominales
+    sesion = e.sesion()
+    primera, segunda = _apuntadas(cliente, sesion, e.crunch, e.a, 2)
+    ruta = f"/entrenamientos/{sesion}/series"
+
+    a_vacio = cliente.put(
+        f"{ruta}/{primera['id']}", json=_serie(cliente, sesion, e.crunch, slot_id=e.b)
+    )
+    con_crunch = cliente.put(
+        f"{ruta}/{segunda['id']}", json=_serie(cliente, sesion, e.crunch, numero=2, slot_id=e.b)
+    )
+
+    assert a_vacio.status_code == 200, a_vacio.text
+    assert con_crunch.status_code == 200, con_crunch.text
+    assert {s["slot_id"] for s in _series_de(cliente, sesion)} == {e.b}
+
+
+def test_corregir_peso_reps_o_variante_de_una_serie_no_mira_el_hueco(cliente, abdominales):
+    e = abdominales
+    sesion = e.sesion()
+    primera, _ = _apuntadas(cliente, sesion, e.crunch, e.a, 2)
+    _apuntadas(cliente, sesion, e.rueda, e.b, 1)
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{primera['id']}",
+        json={
+            **_serie(cliente, sesion, e.crunch, peso=25, repeticiones=15, slot_id=e.a),
+            "variante": "con cuerda",
+        },
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    corregida = respuesta.json()
+    assert (Decimal(corregida["peso"]), corregida["repeticiones"], corregida["variante"]) == (
+        Decimal("25"),
+        15,
+        "con cuerda",
+    )
+
+
+def test_una_sesion_mezclada_de_antes_del_blindaje_se_sigue_pudiendo_corregir(
+    cliente, sesion_bd, abdominales
+):
+    """Datos de antes de la regla (la API ya no deja montarlos, así que van a mano
+    en la base): corregir el peso de una serie sin cambiar su hueco ni su ejercicio
+    no es mezclar nada nuevo, así que no da 409. Es lo único que distingue que el
+    PUT solo mire la regla cuando cambia el par (hueco, ejercicio).
+    """
+    from app.models import Serie
+
+    e = abdominales
+    sesion = e.sesion()
+    [crunch] = _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+    sesion_bd.add(
+        Serie(
+            entrenamiento_id=sesion,
+            slot_id=e.a,
+            ejercicio_id=e.plancha,
+            numero_serie=2,
+            peso=Decimal("0"),
+            repeticiones=30,
+        )
+    )
+    sesion_bd.commit()
+
+    respuesta = cliente.put(
+        f"/entrenamientos/{sesion}/series/{crunch['id']}",
+        json=_serie(cliente, sesion, e.crunch, peso=22.5, slot_id=e.a),
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert Decimal(respuesta.json()["peso"]) == Decimal("22.5")
+
+
+def test_un_ejercicio_que_no_es_del_hueco_da_422_y_no_409(cliente, grupo_muscular_id, abdominales):
+    """El orden de las comprobaciones: que el ejercicio no sea del hueco se dice
+    antes que la mezcla, al apuntar y al corregir. Si no, la web enseñaría «borra
+    antes esas series» para algo que no se arregla borrando nada.
+    """
+    e = abdominales
+    curl = _ejercicio(cliente, grupo_muscular_id, "Curl")
+    sesion = e.sesion()
+    [crunch] = _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+    _apuntadas(cliente, sesion, e.rueda, e.b, 1)
+
+    al_apuntar = _apuntar(cliente, sesion, curl, e.a, numero=2)
+    # La rueda no es del hueco A (que tiene crunch): 422, no el 409 de la mezcla.
+    al_corregir = cliente.put(
+        f"/entrenamientos/{sesion}/series/{crunch['id']}",
+        json=_serie(cliente, sesion, e.rueda, slot_id=e.a),
+    )
+
+    assert al_apuntar.status_code == 422, al_apuntar.text
+    assert al_corregir.status_code == 422, al_corregir.text
+    assert _series_de(cliente, sesion)[0] == crunch
+
+
+def test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409(
+    cliente, grupo_muscular_id, abdominales
+):
+    e = abdominales
+    sesion = e.sesion()
+    _apuntadas(cliente, sesion, e.crunch, e.a, 1)
+    pull = cliente.post("/rutinas", json={"nombre": "Pull"}).json()["id"]
+    hueco_de_pull = cliente.post(f"/rutinas/{pull}/slots", json=_hueco(e.plancha)).json()["id"]
+
+    de_otra_rutina = _apuntar(cliente, sesion, e.plancha, hueco_de_pull, numero=2)
+    cliente.delete(f"/ejercicios/{e.plancha}?modo=ocultar")
+    oculto = _apuntar(cliente, sesion, e.plancha, e.a, numero=2)
+
+    assert de_otra_rutina.status_code == 404, de_otra_rutina.text
+    assert oculto.status_code == 404, oculto.text
 
 
 # --- Límites de los números ----------------------------------------------

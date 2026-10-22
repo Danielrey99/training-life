@@ -1073,17 +1073,24 @@ def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_
 
 
 def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente, grupo_muscular_id):
-    """Si no, el historial del hueco mezclaría ejercicios que no son suyos."""
+    """Si no, el historial del hueco mezclaría ejercicios que no son suyos. El
+    principal y el comodín, en sesiones distintas: en una misma, cada hueco se hace
+    con un solo ejercicio.
+    """
     principal, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
     otro = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
-    entrenamiento_id = cliente.post(
-        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": FECHA}
-    ).json()["id"]
-    ruta = f"/entrenamientos/{entrenamiento_id}/series"
 
-    assert cliente.post(ruta, json=serie(otro, slot_id)).status_code == 422
-    assert cliente.post(ruta, json=serie(principal, slot_id)).status_code == 201
-    assert cliente.post(ruta, json=serie(comodin, slot_id)).status_code == 201
+    def ruta_de_sesion(fecha):
+        respuesta = cliente.post("/entrenamientos", json={"rutina_id": rutina_id, "fecha": fecha})
+        assert respuesta.status_code == 201, respuesta.text
+        return f"/entrenamientos/{respuesta.json()['id']}/series"
+
+    en_la_del_principal = ruta_de_sesion(FECHA)
+    en_la_del_comodin = ruta_de_sesion("2026-09-05")
+
+    assert cliente.post(en_la_del_principal, json=serie(otro, slot_id)).status_code == 422
+    assert cliente.post(en_la_del_principal, json=serie(principal, slot_id)).status_code == 201
+    assert cliente.post(en_la_del_comodin, json=serie(comodin, slot_id)).status_code == 201
 
 
 def test_una_serie_se_puede_corregir_aunque_su_ejercicio_ya_no_sea_comodin(
@@ -1744,8 +1751,9 @@ def ids_que_se_vacian(aviso) -> list[int]:
 def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
     """Press banca es el principal del hueco A de Push (con Press en máquina de
     alternativa; Fondos va en el B) y la alternativa del hueco C de Pull, cuyo
-    principal es Remo. Push se crea antes, para que el orden por nombre no salga del
-    de los ids. Sesiones, todas de días pasados y sin terminar:
+    principal es Remo; Pull tiene además el hueco D, de Jalón. Push se crea antes,
+    para que el orden por nombre no salga del de los ids. Sesiones, todas de días
+    pasados y sin terminar:
 
     - la del 11, solo con press en C (se crea la primera, para que el orden por
       fecha no salga del de los ids);
@@ -1754,7 +1762,8 @@ def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
       se borra entero con press;
     - la del 8, con press en A y fondos en B;
     - la del 10, solo con fondos en B;
-    - la del 12, con press y remo en C.
+    - la del 12, con press en C y jalón en D (en una sesión, cada hueco se hace con
+      un solo ejercicio: press y remo no pueden ir juntos en C).
 
     Con press se van 5 series (1 de la máquina) de 5 sesiones, y se vacían la del 1,
     la del 4 y la del 11.
@@ -1783,15 +1792,26 @@ def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
     )
     assert respuesta.status_code == 201, respuesta.text
     c = respuesta.json()["id"]
+    jalon = crear_ejercicio(cliente, grupo_muscular_id, "Jalón")
+    d = segundo_hueco(cliente, pull, jalon)
     sesiones = {
         "dia_11": sesion_con_series(cliente, pull, ONCE_DE_SEPTIEMBRE, (c, press)),
         "dia_1": sesion_con_series(cliente, push, PRIMERO_DE_SEPTIEMBRE, (a, press)),
         "dia_4": sesion_con_series(cliente, push, CUATRO_DE_SEPTIEMBRE, (a, maquina)),
         "dia_8": sesion_con_series(cliente, push, OCHO_DE_SEPTIEMBRE, (a, press), (b, fondos)),
         "dia_10": sesion_con_series(cliente, push, DIEZ_DE_SEPTIEMBRE, (b, fondos)),
-        "dia_12": sesion_con_series(cliente, pull, DOCE_DE_SEPTIEMBRE, (c, press), (c, remo)),
+        "dia_12": sesion_con_series(cliente, pull, DOCE_DE_SEPTIEMBRE, (c, press), (d, jalon)),
     }
-    return {"press": press, "push": push, "pull": pull, "a": a, "b": b, "c": c, **sesiones}
+    return {
+        "press": press,
+        "push": push,
+        "pull": pull,
+        "a": a,
+        "b": b,
+        "c": c,
+        "d": d,
+        **sesiones,
+    }
 
 
 def test_el_aviso_de_un_ejercicio_cuenta_lo_que_se_perderia(cliente, press_en_dos_rutinas):
@@ -2011,7 +2031,7 @@ def test_borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso
 
     En una sola petición, con sesiones que se van (la del 1; la del 4, que solo
     tenía la alternativa en un hueco de press; y la del 11, donde press era la
-    alternativa) y otras que se quedan (la del 8 y la del 12 con otra serie, la del
+    alternativa) y otras que se quedan (la del 8 y la del 12 con otro hueco, la del
     10 sin nada de press, una ya vacía y la abierta hoy).
     """
     e = press_en_dos_rutinas
@@ -2027,11 +2047,12 @@ def test_borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso
     borradas = {sesion for sesion in todas if series_de(cliente, sesion) is None}
     assert borradas == anunciadas == {e["dia_1"], e["dia_4"], e["dia_11"]}
     assert [s["slot_id"] for s in series_de(cliente, e["dia_8"])] == [e["b"]]
-    assert [s["slot_id"] for s in series_de(cliente, e["dia_12"])] == [e["c"]]
+    assert [s["slot_id"] for s in series_de(cliente, e["dia_12"])] == [e["d"]]
     assert len(series_de(cliente, e["dia_10"])) == 1
     # El hueco A se va entero; el C se queda con su principal y sin la alternativa.
     assert [h["id"] for h in cliente.get(f"/rutinas/{e['push']}").json()["slots"]] == [e["b"]]
-    [hueco_c] = cliente.get(f"/rutinas/{e['pull']}").json()["slots"]
+    hueco_c, hueco_d = cliente.get(f"/rutinas/{e['pull']}").json()["slots"]
+    assert (hueco_c["id"], hueco_d["id"]) == (e["c"], e["d"])
     assert hueco_c["alternativas"] == []
 
 

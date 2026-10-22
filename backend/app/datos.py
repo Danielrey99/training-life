@@ -313,6 +313,9 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     for fecha in _repetidos(x.fecha for x in datos.excepciones):
         errores.append(f"El día {fecha} está cambiado dos veces.")
 
+    nombre_de = {e.id: e.nombre for e in datos.ejercicios} | {
+        p.id: p.nombre for p in datos.predefinidos
+    }
     for sesion in datos.entrenamientos:
         rutina = rutinas.get(sesion.rutina_id)
         if rutina is None:
@@ -331,6 +334,19 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 errores.append(
                     f"La sesión del {sesion.fecha} tiene una serie fuera de los ejercicios de"
                     f' "{rutina.nombre}".'
+                )
+        # En una sesión, cada hueco se hace con un solo ejercicio.
+        ejercicios_de_hueco: dict[int, dict[int, None]] = {}
+        for serie in sesion.series:
+            ejercicios_de_hueco.setdefault(serie.slot_id, {})[serie.ejercicio_id] = None
+        for ids in ejercicios_de_hueco.values():
+            if len(ids) > 1:
+                partes = [f'de "{nombre_de.get(id_, id_)}"' for id_ in ids]
+                cuales = ", ".join(partes[:-1]) + " y " + partes[-1]
+                donde = f' de "{rutina.nombre}"' if rutina is not None else ""
+                errores.append(
+                    f"La sesión del {sesion.fecha} tiene series {cuales} en el mismo ejercicio"
+                    f"{donde}: en una sesión, cada uno se hace con un solo ejercicio."
                 )
     for fecha in _repetidos(s.fecha for s in datos.entrenamientos):
         errores.append(f"Hay dos sesiones el {fecha}.")
