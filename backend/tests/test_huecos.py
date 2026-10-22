@@ -206,14 +206,15 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     cliente, sesion_bd, ejercicios
 ):
     """El resto de acciones sobre un hueco también comprueban que es de la rutina
-    de la ruta: mostrarlo, añadirle un comodín y quitárselo. Por la de Pull, 404 y
-    el hueco de Push no cambia.
+    de la ruta: mostrarlo y cambiar o vaciar su lista de comodines (el PUT con
+    `alternativa_ids`). Por la de Pull, 404 y el hueco de Push no cambia.
     """
     push = crear_rutina(cliente, "Push")
     pull = crear_rutina(cliente, "Pull")
-    hueco = hueco_creado(
-        cliente, push, ejercicios["Press"], orden=1, alternativa_ids=[ejercicios["Fondos"]]
-    )["id"]
+    press = ejercicios["Press"]
+    hueco = hueco_creado(cliente, push, press, orden=1, alternativa_ids=[ejercicios["Fondos"]])[
+        "id"
+    ]
     por_push, por_pull = f"/rutinas/{push}/slots/{hueco}", f"/rutinas/{pull}/slots/{hueco}"
 
     # Mostrar, con el hueco oculto: si colara, lo dejaría visible.
@@ -222,33 +223,14 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     assert cliente.get(f"/rutinas/{push}").json()["slots"][0]["oculto_desde"] == hoy().isoformat()
     # Los comodines, con el hueco visible: así el 404 no puede ser el 409 de lo oculto.
     assert cliente.post(f"{por_push}/mostrar").status_code == 200
-    anadir = cliente.post(f"{por_pull}/alternativas", json={"ejercicio_id": ejercicios["Cruces"]})
-    quitar = cliente.delete(f"{por_pull}/alternativas/{ejercicios['Fondos']}")
+    anadir = editar_hueco(
+        cliente, pull, hueco, press, alternativa_ids=[ejercicios["Fondos"], ejercicios["Cruces"]]
+    )
+    quitar = editar_hueco(cliente, pull, hueco, press, alternativa_ids=[])
 
     assert [r.status_code for r in (mostrar, anadir, quitar)] == [404, 404, 404]
     assert all(r.json()["detail"] == "Hueco no encontrado" for r in (mostrar, anadir, quitar))
     assert filas_de_comodines(sesion_bd, hueco).keys() == {ejercicios["Fondos"]}
-
-
-def test_un_comodin_no_se_quita_por_la_ruta_de_otro_hueco(cliente, sesion_bd, ejercicios):
-    """Un comodín es del hueco de la ruta: quitar Fondos «del» hueco de Aperturas,
-    donde no es comodín, da 404 aunque lo sea del hueco de al lado, y no se lo
-    quita a ese.
-    """
-    rutina = crear_rutina(cliente)
-    press = hueco_creado(
-        cliente, rutina, ejercicios["Press"], orden=1, alternativa_ids=[ejercicios["Fondos"]]
-    )["id"]
-    aperturas = hueco_creado(cliente, rutina, ejercicios["Aperturas"], orden=2)["id"]
-
-    respuesta = cliente.delete(
-        f"/rutinas/{rutina}/slots/{aperturas}/alternativas/{ejercicios['Fondos']}"
-    )
-
-    assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ese ejercicio no es comodín de este hueco"
-    assert filas_de_comodines(sesion_bd, press).keys() == {ejercicios["Fondos"]}
-    assert filas_de_comodines(sesion_bd, aperturas) == {}
 
 
 # --- POST: con sus comodines --------------------------------------------------

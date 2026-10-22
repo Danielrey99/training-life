@@ -19,16 +19,10 @@ from tests.ayudas import (
     crear_hueco,
     crear_rutina,
     entrenar,
+    poner_alternativas,
 )
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def anadir_comodin(cliente, rutina_id, slot_id, ejercicio_id) -> None:
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": ejercicio_id}
-    )
-    assert respuesta.status_code == 201, respuesta.text
 
 
 def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
@@ -300,13 +294,12 @@ def test_la_copia_lleva_los_huecos_visibles_con_sus_comodines(cliente, grupo_mus
     }
     push = crear_rutina(cliente, "Push")
     primero = crear_hueco(cliente, push, ejercicio["Press"], orden=1, series=5, reps=(3, 5))
-    anadir_comodin(cliente, push, primero, ejercicio["Aperturas"])
+    poner_alternativas(cliente, push, primero, [ejercicio["Aperturas"]])
     oculto = crear_hueco(cliente, push, ejercicio["Fondos"], orden=2)
-    anadir_comodin(cliente, push, oculto, ejercicio["Aperturas"])
+    poner_alternativas(cliente, push, oculto, [ejercicio["Aperturas"]])
     ocultar_hueco(cliente, push, oculto)
     tercero = crear_hueco(cliente, push, ejercicio["Cruces"], orden=3, series=3, reps=(12, 15))
-    anadir_comodin(cliente, push, tercero, ejercicio["Elevaciones"])
-    anadir_comodin(cliente, push, tercero, ejercicio["Aperturas"])
+    poner_alternativas(cliente, push, tercero, [ejercicio["Elevaciones"], ejercicio["Aperturas"]])
     for nombre in ("Cruces", "Elevaciones"):
         assert cliente.delete(f"/ejercicios/{ejercicio[nombre]}?modo=ocultar").status_code == 204
 
@@ -367,7 +360,7 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
     fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
     push = crear_rutina(cliente, "Push")
     hueco = crear_hueco(cliente, push, press, orden=1)
-    anadir_comodin(cliente, push, hueco, aperturas)
+    poner_alternativas(cliente, push, hueco, [aperturas])
     antes = cliente.get(f"/rutinas/{push}").json()
     copia = duplicar(cliente, push).json()
     ruta = f"/rutinas/{copia['id']}"
@@ -387,7 +380,7 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
         ).status_code
         == 200
     )
-    assert cliente.delete(f"{ruta}/slots/{hueco_copia}/alternativas/{aperturas}").status_code == 204
+    assert poner_alternativas(cliente, copia["id"], hueco_copia, [])["alternativas"] == []
     crear_hueco(cliente, copia["id"], press, orden=1)
 
     despues = cliente.get(f"/rutinas/{push}").json()
@@ -539,7 +532,7 @@ def test_listar_rutinas_hace_las_mismas_consultas_con_una_que_con_cinco(cliente,
             principal = crear_ejercicio(cliente, grupo_muscular_id, f"Principal {numero}-{orden}")
             comodin = crear_ejercicio(cliente, grupo_muscular_id, f"Comodín {numero}-{orden}")
             hueco = crear_hueco(cliente, rutina, principal, orden)
-            anadir_comodin(cliente, rutina, hueco, comodin)
+            poner_alternativas(cliente, rutina, hueco, [comodin])
         cliente.post(
             "/programas",
             json={"nombre": f"Programa {numero}", "dias": [{"dia_semana": 1, "rutina_id": rutina}]},

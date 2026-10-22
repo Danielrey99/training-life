@@ -88,7 +88,6 @@ def test_sale_cada_hueco_donde_es_principal_o_alternativa_ordenado_por_rutina(cl
             "slot_id": hueco_pull,
             "rol": "comodin",
             "posicion": 1,
-            "hueco_oculto_desde": None,
             "oculto": False,
             "programas": [],
         },
@@ -97,7 +96,6 @@ def test_sale_cada_hueco_donde_es_principal_o_alternativa_ordenado_por_rutina(cl
             "slot_id": hueco_push,
             "rol": "principal",
             "posicion": 1,
-            "hueco_oculto_desde": None,
             "oculto": False,
             "programas": [],
         },
@@ -122,12 +120,10 @@ def test_dos_huecos_en_una_rutina_son_dos_filas_y_la_posicion_solo_cuenta_los_vi
 
     usos = donde_se_usa(cliente, press)
 
-    assert [
-        (uso["slot_id"], uso["posicion"], uso["hueco_oculto_desde"], uso["oculto"]) for uso in usos
-    ] == [
-        (huecos[1], 1, None, False),
-        (huecos[3], 3, None, False),
-        (huecos[4], None, "2026-09-16", True),
+    assert [(uso["slot_id"], uso["posicion"], uso["oculto"]) for uso in usos] == [
+        (huecos[1], 1, False),
+        (huecos[3], 3, False),
+        (huecos[4], None, True),
     ]
 
 
@@ -142,21 +138,18 @@ def test_un_hueco_de_una_rutina_oculta_va_plegado_pero_conserva_su_numero(
     [uso] = donde_se_usa(cliente, press)
 
     assert uso["rutina"]["oculto_desde"] == "2026-09-16"
-    assert (uso["posicion"], uso["hueco_oculto_desde"], uso["oculto"]) == (2, None, True)
+    assert (uso["posicion"], uso["oculto"]) == (2, True)
 
 
-def test_cada_uso_dice_en_que_programas_esta_su_rutina_y_sus_dias(
-    cliente, sesion_bd, hoy_es, ejercicios
-):
+def test_cada_uso_dice_en_que_programas_esta_su_rutina(cliente, sesion_bd, hoy_es, ejercicios):
     """Salen los programas visibles con algún día vigente de la rutina, por nombre,
-    con sus días ordenados y si es el activo. No salen uno oculto, ni uno donde la
-    rutina solo estuvo (fila cerrada), ni uno con otra rutina.
+    una vez cada uno aunque la tenga en varios días, y si es el activo. No salen uno
+    oculto, ni uno donde la rutina solo estuvo (fila cerrada), ni uno con otra rutina.
     """
     hoy_es(HOY)
     press, remo = ejercicios["Press banca"], ejercicios["Remo"]
     push, _ = rutina_con_huecos(cliente, "Push", hueco(press))
     pull, _ = rutina_con_huecos(cliente, "Pull", hueco(remo))
-    # Los días se mandan desordenados: el orden tiene que ponerlo la API.
     activo = crear_programa(cliente, "B activo", {5: push, 1: push, 3: pull}, activar=True)
     sin_activar = crear_programa(cliente, "A sin activar", {2: push})
     oculto = crear_programa(cliente, "C oculto", {4: push})
@@ -171,8 +164,8 @@ def test_cada_uso_dice_en_que_programas_esta_su_rutina_y_sus_dias(
     [uso] = donde_se_usa(cliente, press)
 
     assert uso["programas"] == [
-        {"id": sin_activar, "nombre": "A sin activar", "activo": False, "dias_semana": [2]},
-        {"id": activo, "nombre": "B activo", "activo": True, "dias_semana": [1, 5]},
+        {"id": sin_activar, "nombre": "A sin activar", "activo": False},
+        {"id": activo, "nombre": "B activo", "activo": True},
     ]
 
 

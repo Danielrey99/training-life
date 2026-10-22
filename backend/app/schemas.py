@@ -225,12 +225,6 @@ class RutinaOut(RutinaBase):
     slots: list[RutinaSlotOut]
 
 
-class ComodinCreate(BaseModel):
-    """Body para añadir un ejercicio comodín a un hueco."""
-
-    ejercicio_id: int
-
-
 class OrdenDeHuecos(BaseModel):
     """Body para reordenar los huecos de una rutina: todos los visibles, cada uno
     una vez, en el orden nuevo.
@@ -399,6 +393,10 @@ class EntrenamientoCreate(EntrenamientoBase):
     # otra rutina se borra el día y se registra de nuevo.
     rutina_id: int
     cubre_fecha: date | None = None
+    # Solo al empezar hoy lo que toca otro día: antes de crear la sesión, lo de hoy y
+    # lo de ese día se intercambian, todo en una sola transacción (ver
+    # `crear_entrenamiento`). No se guarda: la sesión no lo recuerda.
+    intercambiar_con: date | None = None
 
 
 class EntrenamientoUpdate(EntrenamientoBase):
@@ -445,9 +443,6 @@ class ProgramaDeUnUsoOut(BaseModel):
     nombre: str
     # Si es el programa en uso ahora.
     activo: bool
-    # Los días vigentes de esa rutina en el programa (1 = lunes), ordenados: con
-    # ellos se pinta el punto con el color de su día, sin pedir los programas.
-    dias_semana: list[int]
 
 
 class UsoEnRutinaOut(BaseModel):
@@ -462,7 +457,6 @@ class UsoEnRutinaOut(BaseModel):
     # Su número entre los huecos visibles de la rutina, desde 1; nulo si el hueco
     # está oculto (un hueco oculto no es un ejercicio de la rutina).
     posicion: int | None
-    hueco_oculto_desde: date | None
     # El hueco o su rutina están ocultos: la ficha lo enseña aparte, plegado. Lo
     # decide la API para que la web y el móvil no repitan la regla.
     oculto: bool
@@ -481,8 +475,6 @@ class AvisoDeBorrarEjercicioOut(BaseModel):
     con_historial: bool
     # Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
     series: int
-    # De esas, las hechas con otro ejercicio (una alternativa) en esos huecos.
-    series_de_comodines: int
     # Sesiones distintas con alguna de esas series.
     sesiones: int
     # La primera fecha con alguna de esas series; nula si no hay.
@@ -557,9 +549,8 @@ class ProgramaOut(BaseModel):
     id: int
     nombre: str
     oculto_desde: date | None
-    # Los dos se deducen de sus periodos (ver Programa.activo).
+    # Se deduce de sus periodos (ver Programa.activo).
     activo: bool
-    activo_desde: date | None
     # El abierto si está activo, si no el último que se cerró; nulo si nunca se usó.
     ultimo_periodo: PeriodoOut | None
     created_at: datetime
@@ -579,7 +570,6 @@ class DiaPlanOut(BaseModel):
 
     fecha: date
     origen: Literal["excepcion", "programa", "sin_programa"]
-    programa_id: int | None
     rutina: RutinaMinima | None
     descanso: bool
 
@@ -790,13 +780,6 @@ class ExcepcionOut(BaseModel):
 
     fecha: date
     rutina: RutinaMinima | None
-
-
-class IntercambioCreate(BaseModel):
-    """Dos días que intercambian lo que les toca: lo de uno pasa al otro."""
-
-    fecha_a: date
-    fecha_b: date
 
 
 class ActivarPrograma(BaseModel):

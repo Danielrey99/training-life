@@ -29,7 +29,6 @@ from app.routers.ejercicios import obtener_ejercicio_legible, obtener_ejercicio_
 from app.schemas import (
     AvisoDeBorrarHuecoOut,
     AvisoDeBorrarRutinaOut,
-    ComodinCreate,
     OrdenDeHuecos,
     RutinaCreate,
     RutinaOut,
@@ -468,13 +467,19 @@ def borrar_rutina(
 def _obtener_slot_modificable(
     db: Session, rutina_id: int, slot_id: int, admitir_oculto: bool = False
 ) -> RutinaSlot:
-    """Para modificar un hueco: los mismos códigos que `_obtener_rutina_modificable`, y
-    el 409 salta tanto si está oculto el hueco como si lo está su rutina.
+    """Para modificar un hueco: 404 si no existe él o su rutina, y 409 si la rutina está
+    oculta (cambiar lo de dentro de algo que no se ve no se permite: se muestra antes
+    la rutina). `admitir_oculto` deja pasar solo al hueco oculto, para mostrarlo o
+    borrarlo; con la rutina oculta no vale nunca.
+
+    Los 404 van antes que los 409: un hueco que no existe es 404 aunque su rutina
+    esté oculta.
     """
-    _obtener_rutina_modificable(db, rutina_id, admitir_oculta=admitir_oculto)
+    rutina = _obtener_rutina_modificable(db, rutina_id, admitir_oculta=True)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
+    exigir_visible(rutina, "Esta rutina está oculta: muéstrala antes de cambiarla.")
     if not admitir_oculto:
         exigir_visible(slot, "Este hueco está oculto: muéstralo antes de cambiarlo.")
     return slot
@@ -748,69 +753,3 @@ def historial_de_hueco(
         obtener_ejercicio_legible(db, ejercicio_id)
         filtro = and_(filtro, Serie.ejercicio_id == ejercicio_id)
     return sesiones_con_series(db, filtro, desde, hasta, limite)
-
-
-# --- Comodines (slot_alternativas) ---------------------------------------
-
-
-@router.post(
-    "/{rutina_id}/slots/{slot_id}/alternativas",
-    response_model=RutinaSlotOut,
-    status_code=status.HTTP_201_CREATED,
-)
-def anadir_comodin(
-    rutina_id: int,
-    slot_id: int,
-    datos: ComodinCreate,
-    db: Session = Depends(get_db),
-):
-    slot = _obtener_slot_modificable(db, rutina_id, slot_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_id)
-
-    if datos.ejercicio_id == slot.ejercicio_principal_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ese ejercicio ya es el principal de este hueco",
-        )
-    ya_existe = db.scalar(
-        select(SlotAlternativa).where(
-            SlotAlternativa.slot_id == slot_id,
-            SlotAlternativa.ejercicio_id == datos.ejercicio_id,
-        )
-    )
-    if ya_existe is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ese ejercicio ya es comodín de este hueco",
-        )
-
-    db.add(SlotAlternativa(slot_id=slot_id, ejercicio_id=datos.ejercicio_id))
-    db.commit()
-    db.refresh(slot)
-    return slot
-
-
-@router.delete(
-    "/{rutina_id}/slots/{slot_id}/alternativas/{ejercicio_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def quitar_comodin(
-    rutina_id: int,
-    slot_id: int,
-    ejercicio_id: int,
-    db: Session = Depends(get_db),
-):
-    _obtener_slot_modificable(db, rutina_id, slot_id)
-    comodin = db.scalar(
-        select(SlotAlternativa).where(
-            SlotAlternativa.slot_id == slot_id,
-            SlotAlternativa.ejercicio_id == ejercicio_id,
-        )
-    )
-    if comodin is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ese ejercicio no es comodín de este hueco",
-        )
-    db.delete(comodin)
-    db.commit()

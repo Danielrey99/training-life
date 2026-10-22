@@ -141,3 +141,18 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
         )
         fecha += timedelta(days=1)
     return plan
+
+
+def buscar_excepcion(db: Session, fecha: date) -> ExcepcionDelPlan | None:
+    return db.scalar(select(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha == fecha))
+
+
+def poner_excepcion(db: Session, fecha: date, rutina_id: int | None) -> None:
+    """Cambia a mano lo que toca un día (sin confirmar la transacción)."""
+    # Se busca antes y se actualiza, en vez de insertar y dejar que la unicidad de
+    # la fecha salte en la base de datos con un error crudo.
+    excepcion = buscar_excepcion(db, fecha)
+    if excepcion is None:
+        db.add(ExcepcionDelPlan(fecha=fecha, rutina_id=rutina_id))
+    else:
+        excepcion.rutina_id = rutina_id

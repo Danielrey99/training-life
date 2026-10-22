@@ -200,6 +200,17 @@ def test_un_rango_invalido_da_422(cliente, ppl, desde, hasta, lo_que_dice):
     assert lo_que_dice in respuesta.json()["detail"]
 
 
+def test_un_rango_de_justo_400_dias_vale(cliente, ppl):
+    """El borde del anterior: el tope incluye el día 400."""
+    respuesta = cliente.get(
+        "/plan/seguimiento",
+        params={"desde": HOY.isoformat(), "hasta": (HOY + timedelta(days=399)).isoformat()},
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert len(respuesta.json()) == 400
+
+
 def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
     """Una por día o por sesión haría lento el resumen del año: tienen que ser las
     mismas pida lo que pida y haya lo que haya.

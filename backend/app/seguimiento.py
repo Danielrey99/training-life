@@ -19,7 +19,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.fechas import hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
-from app.plan import DiaPlan, resolver_dias, validar_rango_del_plan
+from app.plan import (
+    DiaPlan,
+    dias_del_plan,
+    poner_excepcion,
+    resolver_dias,
+    validar_rango_del_plan,
+)
 
 # Lo más lejos que puede quedar una sesión del día que cuenta (ver `plazo`).
 MARGEN = timedelta(days=6)
@@ -356,7 +362,7 @@ def resumen_de_hoy(db: Session, fecha: date) -> ResumenDeHoy:
     - *Empezar*: la rutina del día, con `cubre_fecha` = `fecha`.
     - *Recuperar*: la rutina, con `cubre_fecha` = el día que se recupera.
     - *Adelantar* (solo hoy): la rutina, con `cubre_fecha` = el día ofrecido.
-    - *Intercambiar*: primero `POST /plan/intercambiar` y después *Empezar*.
+    - *Intercambiar*: *Empezar* con `intercambiar_con` (un `POST /entrenamientos` que intercambia y crea la sesión en una sola transacción).
     - Una rutina `sin_contar`: sin `cubre_fecha`.
     - Una ofrecida o un recuperable con `se_puede_hoy` falso: nada (es un recordatorio).
     """
@@ -591,3 +597,22 @@ def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
     for sesion in perdidas:
         sesion.cubre_fecha = destinos[sesion.id]
     db.flush()
+
+
+def intercambiar(db: Session, fecha_a: date, fecha_b: date) -> None:
+    """Lo que toca un día pasa al otro y al revés, sin confirmar la transacción: la
+    confirma quien llama, junto con lo que venga detrás (crear la sesión de hoy), para
+    que un fallo entre medias no deje un día cambiado y el otro no.
+
+    Una rutina que ese día contaba como descanso (porque está oculta) se intercambia
+    como descanso: lo oculto no se vuelve a planificar. Lo hecho por adelantado se
+    reubica como al planificar.
+    """
+    [dia_a] = dias_del_plan(db, fecha_a, fecha_a)
+    [dia_b] = dias_del_plan(db, fecha_b, fecha_b)
+    rutina_a = None if dia_a.descanso else dia_a.rutina.id
+    rutina_b = None if dia_b.descanso else dia_b.rutina.id
+    contaban = coberturas_en_juego(db)
+    poner_excepcion(db, fecha_a, rutina_b)
+    poner_excepcion(db, fecha_b, rutina_a)
+    reubicar_coberturas(db, contaban)

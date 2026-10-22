@@ -25,7 +25,14 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
-from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina, entrenar, serie_en
+from tests.ayudas import (
+    crear_ejercicio,
+    crear_hueco,
+    crear_rutina,
+    entrenar,
+    poner_alternativas,
+    serie_en,
+)
 
 
 @pytest.fixture
@@ -35,10 +42,7 @@ def rutina_con_hueco(cliente, grupo_muscular_id):
     comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
     rutina_id = crear_rutina(cliente)
     slot_id = crear_hueco(cliente, rutina_id, principal)
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas", json={"ejercicio_id": comodin}
-    )
-    assert respuesta.status_code == 201, respuesta.text
+    poner_alternativas(cliente, rutina_id, slot_id, [comodin])
     entrenamiento_id = entrenar(cliente, "2026-09-01", rutina_id).json()["id"]
     assert serie_en(cliente, entrenamiento_id, principal).status_code == 201
     return {"rutina_id": rutina_id, "slot_id": slot_id, "entrenamiento_id": entrenamiento_id}

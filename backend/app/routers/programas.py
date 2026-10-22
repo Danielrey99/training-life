@@ -56,12 +56,14 @@ def _cerrar_periodo_abierto(db: Session) -> None:
     """Deja sin programa activo.
 
     Si el periodo empezó hoy, no llegó a cubrir ningún día: se borra en vez de
-    cerrarse, para que activar y desactivar el mismo día no deje rastro.
+    cerrarse, para que activar y desactivar el mismo día no deje rastro. Lo mismo
+    si empieza después de hoy (un reloj que fue hacia atrás): cerrarlo hoy dejaría
+    un periodo que acaba antes de empezar, que la base rechaza.
     """
     periodo = db.scalar(select(ProgramaPeriodo).where(ProgramaPeriodo.hasta.is_(None)))
     if periodo is None:
         return
-    if periodo.desde == hoy():
+    if periodo.desde >= hoy():
         db.delete(periodo)
     else:
         periodo.hasta = hoy()

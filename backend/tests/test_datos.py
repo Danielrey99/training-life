@@ -359,7 +359,7 @@ def _nada(sesion_bd) -> bool:
 
 # --- Comparar sin los ids ----------------------------------------------------
 #
-# Importar asigna ids nuevos, así que dos exportaciones (o dos respuestas de /plan)
+# Importar asigna ids nuevos, así que dos exportaciones (o dos respuestas del plan)
 # solo se comparan cambiando cada id por su orden de aparición, por separado para
 # cada clase de cosa: así dos copias son iguales si y solo si enlazan lo mismo con
 # lo mismo.
@@ -416,12 +416,11 @@ def sin_ids(datos):
 
 
 def lo_que_se_ve(cliente) -> dict:
-    """Lo que enseñan las pantallas que dependen de todo a la vez: el plan, el
-    seguimiento del calendario y el resumen del mes.
+    """Lo que enseñan las pantallas que dependen de todo a la vez: el seguimiento del
+    plan (qué toca cada día y qué se hizo), la pantalla de hoy y el resumen del mes.
     """
     rango = {"desde": "2026-07-27", "hasta": "2026-09-27"}
     respuestas = {
-        "plan": cliente.get("/plan", params=rango),
         "seguimiento": cliente.get("/plan/seguimiento", params=rango),
         "resumen": cliente.get("/resumen", params={"mes": "2026-09"}),
         "hoy": cliente.get("/plan/hoy"),
@@ -644,7 +643,7 @@ def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos):
 def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, datos):
     antes = lo_que_se_ve(cliente)
     # Que la comparación no sea entre dos listas de descansos: hay de todo.
-    origenes = {dia["origen"] for dia in antes["plan"]}
+    origenes = {dia["origen"] for dia in antes["seguimiento"]}
     assert origenes == {"excepcion", "programa", "sin_programa"}
     assert {"hecho", "sin_hacer", "descanso", "proximo"} <= {
         dia["estado"] for dia in antes["seguimiento"]
@@ -861,39 +860,26 @@ def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio
 
 
 @pytest.mark.parametrize("accion", ["desactivarlo", "activar otro", "ocultarlo"])
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Fallo del código: importar acepta un periodo abierto que empieza después de hoy,"
-        " y `_cerrar_periodo_abierto` (routers/programas.py) le pone `hasta = hoy`, que"
-        " viola `programa_periodos_rango_check` (hasta >= desde): IntegrityError, un 500."
-    ),
-)
-def test_un_programa_importado_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
-    cliente, hoy_es, accion
+def test_un_programa_activo_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
+    cliente, sesion_bd, hoy_es, accion
 ):
-    """Importar no valida a propósito las fechas futuras (una copia de un teléfono con
-    otra fecha), pero un periodo abierto con `desde` posterior a hoy deja el programa
-    activo sin que se pueda desactivar, activar otro ni ocultarlo: los tres cierran
-    el periodo con `hasta = hoy`. Lo esperado (regla «toda restricción de la base con
-    su comprobación») es que funcione igual que con uno que empezó hoy, que se borra
-    al cerrarse porque no llegó a cubrir ningún día, o un 409/422 legible; nunca un 500.
+    """Un periodo abierto con `desde` posterior a hoy ya no entra por importar (422),
+    pero puede salir de un reloj que va hacia atrás (en el móvil, al cambiar la
+    fecha del teléfono): se mete directamente en la base. Desactivar, activar otro u
+    ocultar cierran el periodo, y cerrarlo hoy dejaría `hasta < desde`, que viola
+    `programa_periodos_rango_check`: antes daba un 500. Como no llegó a cubrir ningún
+    día, se borra, igual que uno que empezó hoy.
     """
     hoy_es(HOY)
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
-    archivo = {
-        "formato": "training-life",
-        "version": 1,
-        "exportado_en": _AHORA,
-        "programas": [
-            {"nombre": "PPL", **marca, "periodos": [{"desde": "2026-09-20", "hasta": None}]},
-            {"nombre": "Otro", **marca},
-        ],
+    ids = {
+        nombre: cliente.post("/programas", json={"nombre": nombre}).json()["id"]
+        for nombre in ("PPL", "Otro")
     }
-    assert importar(cliente, archivo).status_code == 200
-    ids = {p["nombre"]: p["id"] for p in cliente.get("/programas").json()}
-
+    sesion_bd.add(ProgramaPeriodo(programa_id=ids["PPL"], desde=date(2026, 9, 20)))
+    sesion_bd.commit()
     ruta = f"/programas/{ids['PPL']}"
+    assert cliente.get(ruta).json()["activo"] is True
+
     peticion, codigo = {
         "desactivarlo": (lambda: cliente.post(f"{ruta}/desactivar"), 200),
         "activar otro": (lambda: cliente.post(f"/programas/{ids['Otro']}/activar"), 200),
@@ -904,6 +890,12 @@ def test_un_programa_importado_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
 
     assert respuesta.status_code == codigo, respuesta.text
     assert cliente.get(ruta).json()["activo"] is False
+    sesion_bd.expire_all()
+    periodos = sesion_bd.execute(
+        select(ProgramaPeriodo.programa_id, ProgramaPeriodo.desde, ProgramaPeriodo.hasta)
+    ).all()
+    esperado = [(ids["Otro"], HOY, None)] if accion == "activar otro" else []
+    assert [tuple(p) for p in periodos] == esperado
 
 
 # --- El RPE de los archivos viejos -------------------------------------------
@@ -1119,6 +1111,45 @@ def _reps_al_reves(a):
     hueco["reps_min"], hueco["reps_max"] = 12, 6
 
 
+def _periodo_abierto(a):
+    return next(p for p in _programa(a, "PPL")["periodos"] if p["hasta"] is None)
+
+
+def _programa_que_empieza_despues_de_hoy(a):
+    _periodo_abierto(a)["desde"] = "2026-09-20"
+
+
+def _programa_que_se_deja_de_usar_despues_de_hoy(a):
+    _programa(a, "Viejo")["periodos"][0]["hasta"] = "2026-09-20"
+
+
+def _periodo_cerrado_entero_en_el_futuro(a):
+    periodo = _programa(a, "Viejo")["periodos"][0]
+    periodo["desde"], periodo["hasta"] = "2026-09-20", "2026-09-25"
+
+
+def _sesion_de_un_dia_que_no_ha_llegado(a):
+    _sesion(a, "2026-09-11")["fecha"] = "2026-09-17"
+
+
+def _cuenta_un_dia_antes_de_su_plazo(a):
+    # Lo del lunes 14 se puede hacer del 14 al 20: el lunes 7 es antes.
+    _sesion(a, "2026-09-07")["cubre_fecha"] = "2026-09-14"
+
+
+def _cuenta_un_dia_despues_de_su_plazo(a):
+    # Lo del miércoles 2 se puede hacer del lunes 31 de agosto al martes 8: el 9 es después.
+    _sesion(a, "2026-09-09")["cubre_fecha"] = "2026-09-02"
+
+
+EN_EL_FUTURO = (
+    ", un día que aquí todavía no ha llegado: comprueba la fecha del teléfono o del"
+    " ordenador que hizo la copia."
+)
+FUERA_DE_PLAZO = (
+    ", fuera de su plazo: lo de un día se entrena entre el lunes de su semana y seis días después."
+)
+
 MALOS = [
     (_sin_formato, NO_ES_UNA_COPIA, None),
     (_otro_formato, NO_ES_UNA_COPIA, None),
@@ -1156,6 +1187,37 @@ MALOS = [
     (_periodo_invertido, DANADO, "programas.0.periodos.0"),
     (_dia_semana_8, DANADO, "programas.0.dias.0.dia_semana"),
     (_reps_al_reves, DANADO, "rutinas.0.slots.0"),
+    (
+        _programa_que_empieza_despues_de_hoy,
+        NO_SE_CAMBIA_NADA,
+        'El programa "PPL" se empezó a usar el 2026-09-20' + EN_EL_FUTURO,
+    ),
+    (
+        _programa_que_se_deja_de_usar_despues_de_hoy,
+        NO_SE_CAMBIA_NADA,
+        'El programa "Viejo" se dejó de usar el 2026-09-20' + EN_EL_FUTURO,
+    ),
+    (
+        _periodo_cerrado_entero_en_el_futuro,
+        NO_SE_CAMBIA_NADA,
+        'El programa "Viejo" se empezó a usar el 2026-09-20' + EN_EL_FUTURO,
+    ),
+    (
+        _sesion_de_un_dia_que_no_ha_llegado,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del 2026-09-17 es de un día que aquí todavía no ha llegado: comprueba la"
+        " fecha del teléfono o del ordenador que hizo la copia.",
+    ),
+    (
+        _cuenta_un_dia_antes_de_su_plazo,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del 2026-09-07 cuenta como la del 2026-09-14" + FUERA_DE_PLAZO,
+    ),
+    (
+        _cuenta_un_dia_despues_de_su_plazo,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del 2026-09-09 cuenta como la del 2026-09-02" + FUERA_DE_PLAZO,
+    ),
 ]
 
 
@@ -1180,6 +1242,66 @@ def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
     else:
         assert any(error in e for e in detalle["errores"]), detalle["errores"]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def _programa_que_empezo_hoy(a):
+    _periodo_abierto(a)["desde"] = HOY.isoformat()
+
+
+def _programa_que_se_dejo_de_usar_hoy(a):
+    _periodo_abierto(a)["hasta"] = HOY.isoformat()
+
+
+def _sesion_de_hoy(a):
+    assert _sesion(a, HOY.isoformat())["cubre_fecha"] == HOY.isoformat()
+
+
+def _adelantada_dentro_de_su_plazo(a):
+    # Lo del domingo 13 se hace desde el lunes 7.
+    _sesion(a, "2026-09-07")["cubre_fecha"] = "2026-09-13"
+
+
+def _recuperada_el_ultimo_dia_de_su_plazo(a):
+    # Lo del jueves 3 se recupera hasta el miércoles 9.
+    _sesion(a, "2026-09-09")["cubre_fecha"] = "2026-09-03"
+
+
+def _dia_de_programa_que_empieza_dentro_de_tres_dias(a):
+    """La app las crea ella misma: cambiar un día que ya está hecho esta semana deja
+    el cambio para la semana siguiente (`desde` hasta hoy + 7).
+    """
+    _programa(a, "PPL")["dias"].append(
+        {
+            "dia_semana": 5,
+            "rutina_id": _rutina(a, "Push")["id"],
+            "desde": "2026-09-19",
+            "hasta": None,
+        }
+    )
+
+
+BUENOS = [
+    _programa_que_empezo_hoy,
+    _programa_que_se_dejo_de_usar_hoy,
+    _sesion_de_hoy,
+    _adelantada_dentro_de_su_plazo,
+    _recuperada_el_ultimo_dia_de_su_plazo,
+    _dia_de_programa_que_empieza_dentro_de_tres_dias,
+]
+
+
+@pytest.mark.parametrize("arreglar", BUENOS, ids=[f.__name__.lstrip("_") for f in BUENOS])
+def test_las_fechas_que_la_app_si_crea_se_importan(cliente, datos, arreglar):
+    """El borde de las fechas que no han llegado y del plazo de `cubre_fecha`: hoy
+    vale, y lo de un día dentro de su plazo también. La copia queda tal cual.
+    """
+    archivo = exportado(cliente)
+    arreglar(archivo)
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert sin_ids(sin_marca(exportado(cliente))) == sin_ids(sin_marca(archivo))
 
 
 def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):

@@ -102,37 +102,28 @@ def test_restablecer_la_semana_reubica_lo_que_contaba(cliente, ppl, grupo_muscul
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
 
 
-def test_intercambiar_reubica_lo_que_contaba(cliente, ppl, grupo_muscular_id):
-    """Hoy (Pull) se intercambia con el viernes (Leg, ya adelantado): el Leg pasa a
-    hoy, y la sesión del martes con él.
+def test_dos_adelantos_que_se_cruzan_el_dia_al_restablecer_la_semana(
+    cliente, ppl, grupo_muscular_id
+):
+    """Hoy se cambió a Leg y el viernes a Pull; el Leg de hoy se hizo el lunes y el
+    Pull del viernes el martes. Al restablecer la semana, hoy vuelve a Pull y el
+    viernes a Leg: cada sesión pasa al día de la otra. Asignarlas de una vez chocaría
+    a mitad de camino con la unicidad de `cubre_fecha` (por eso se reubican en dos
+    fases). Antes se probaba con `POST /plan/intercambiar`, que ya no existe; el
+    intercambio de la pantalla de hoy, en `test_intercambiar.py`.
     """
-    adelantada = leg_adelantado(cliente, ppl, grupo_muscular_id)
+    assert planificar(cliente, HOY, ppl["Leg"]).status_code == 200
+    assert planificar(cliente, VIERNES_18, ppl["Pull"]).status_code == 200
+    leg = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Leg"], cubre_fecha=HOY)
+    pull = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Pull"], cubre_fecha=VIERNES_18)
 
-    respuesta = cliente.post(
-        "/plan/intercambiar",
-        json={"fecha_a": HOY.isoformat(), "fecha_b": VIERNES_18.isoformat()},
+    respuesta = cliente.delete(
+        "/plan/excepciones", params={"desde": HOY.isoformat(), "hasta": VIERNES_18.isoformat()}
     )
 
-    assert respuesta.status_code == 200, respuesta.text
-    assert cubre(cliente, adelantada) == HOY.isoformat()
-
-
-def test_dos_adelantos_que_se_intercambian_el_dia(cliente, ppl, grupo_muscular_id):
-    """El Push del jueves (cambiado a mano) se hizo el lunes y el Leg del viernes el
-    martes. Al intercambiar jueves y viernes, cada sesión pasa al día de la otra.
-    """
-    assert planificar(cliente, JUEVES_17, ppl["Push"]).status_code == 200
-    push = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=JUEVES_17)
-    leg = leg_adelantado(cliente, ppl, grupo_muscular_id)
-
-    respuesta = cliente.post(
-        "/plan/intercambiar",
-        json={"fecha_a": JUEVES_17.isoformat(), "fecha_b": VIERNES_18.isoformat()},
-    )
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert cubre(cliente, push) == VIERNES_18.isoformat()
-    assert cubre(cliente, leg) == JUEVES_17.isoformat()
+    assert respuesta.status_code == 204, respuesta.text
+    assert cubre(cliente, leg) == VIERNES_18.isoformat()
+    assert cubre(cliente, pull) == HOY.isoformat()
 
 
 def test_cambiar_un_dia_que_ya_estaba_cambiado_a_mano(cliente, ppl, grupo_muscular_id):

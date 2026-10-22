@@ -22,7 +22,13 @@ from decimal import Decimal
 
 import pytest
 
-from tests.ayudas import consultas_de, crear_rutina, ejercicio_de_prueba, serie_en
+from tests.ayudas import (
+    consultas_de,
+    crear_rutina,
+    ejercicio_de_prueba,
+    poner_alternativas,
+    serie_en,
+)
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18
 
 SEPTIEMBRE = "2026-09"
@@ -876,10 +882,7 @@ def test_las_series_van_al_grupo_del_ejercicio_que_se_hizo(cliente, hoy_es):
     )
     assert respuesta.status_code == 201, respuesta.text
     hueco = respuesta.json()["id"]
-    respuesta = cliente.post(
-        f"/rutinas/{push}/slots/{hueco}/alternativas", json={"ejercicio_id": comodin}
-    )
-    assert respuesta.status_code == 201, respuesta.text
+    poner_alternativas(cliente, push, hueco, [comodin])
     sesion_con_series(cliente, date(2026, 9, 1), push, principal, (60, 8), (0, 8), slot_id=hueco)
     sesion_con_series(
         cliente, date(2026, 9, 2), push, comodin, (50, 8), (50, 8), (50, 8), slot_id=hueco

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.fechas import hoy
 from app.models import (
     Ejercicio,
     Entrenamiento,
@@ -33,6 +34,7 @@ from app.models import (
     SlotAlternativa,
 )
 from app.schemas import ArchivoDeDatos, ResumenDeDatos
+from app.seguimiento import plazo
 
 # Más no ayudan a arreglar nada y alargan la respuesta.
 MAXIMO_DE_ERRORES = 20
@@ -218,7 +220,10 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     predefinidos o grupos que no existen aquí y las restricciones de la base.
 
     No se valida a propósito lo que no rompe nada y podría venir de una copia legítima
-    (periodos solapados, sesiones con fecha futura, el plazo de `cubre_fecha`).
+    (periodos solapados). Sí las fechas que la app nunca crea: un periodo de programa o
+    una sesión que empieza después de hoy, y un día que cuenta una sesión fuera de su
+    plazo. Vienen de un dispositivo con la fecha mal puesta y rompen cosas más tarde
+    (desactivar el programa, el estado de los días).
     """
     errores: list[str] = []
     mapas = Mapas()
@@ -299,6 +304,17 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 f'El programa "{programa.nombre}" tiene dos rutinas a la vez el día {dia_semana}'
                 " de la semana."
             )
+    hoy_ = hoy()
+    for programa in datos.programas:
+        for periodo in programa.periodos:
+            if periodo.desde > hoy_ or (periodo.hasta is not None and periodo.hasta > hoy_):
+                cuando = "se empezó a usar" if periodo.desde > hoy_ else "se dejó de usar"
+                fecha = periodo.desde if periodo.desde > hoy_ else periodo.hasta
+                errores.append(
+                    f'El programa "{programa.nombre}" {cuando} el {fecha}, un día que aquí todavía'
+                    " no ha llegado: comprueba la fecha del teléfono o del ordenador que hizo"
+                    " la copia."
+                )
     abiertos = [
         p.nombre for p in datos.programas for periodo in p.periodos if periodo.hasta is None
     ]
@@ -323,6 +339,19 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 f"La sesión del {sesion.fecha} es de una rutina que no está en el archivo"
                 f" ({sesion.rutina_id})."
             )
+        if sesion.fecha > hoy_:
+            errores.append(
+                f"La sesión del {sesion.fecha} es de un día que aquí todavía no ha llegado:"
+                " comprueba la fecha del teléfono o del ordenador que hizo la copia."
+            )
+        if sesion.cubre_fecha is not None:
+            primero, ultimo = plazo(sesion.cubre_fecha)
+            if not primero <= sesion.fecha <= ultimo:
+                errores.append(
+                    f"La sesión del {sesion.fecha} cuenta como la del {sesion.cubre_fecha}, fuera"
+                    " de su plazo: lo de un día se entrena entre el lunes de su semana y seis días"
+                    " después."
+                )
         for serie in sesion.series:
             if serie.ejercicio_id not in ejercicios:
                 errores.append(

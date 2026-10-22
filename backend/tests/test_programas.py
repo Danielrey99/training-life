@@ -58,7 +58,7 @@ def test_crear_un_programa_con_sus_dias(cliente):
     # Ordenados por día, aunque lleguen desordenados. Los que faltan son descanso.
     assert rutinas_por_dia(programa) == {1: "Push", 3: "Pull", 5: "Leg"}
     assert programa["activo"] is False
-    assert programa["activo_desde"] is None
+    assert programa["ultimo_periodo"] is None
     assert programa["oculto_desde"] is None
 
 
@@ -321,7 +321,7 @@ def test_crear_un_programa_activo(cliente):
     respuesta = cliente.post("/programas", json={"nombre": "PPL", "activar": True})
 
     assert respuesta.json()["activo"] is True
-    assert respuesta.json()["activo_desde"] == hoy().isoformat()
+    assert respuesta.json()["ultimo_periodo"] == {"desde": hoy().isoformat(), "hasta": None}
 
 
 def test_activar_otro_programa_cierra_hoy_el_periodo_del_anterior(cliente, sesion_bd):
@@ -331,7 +331,7 @@ def test_activar_otro_programa_cierra_hoy_el_periodo_del_anterior(cliente, sesio
 
     respuesta = cliente.post(f"/programas/{nuevo['id']}/activar")
 
-    assert respuesta.json()["activo_desde"] == hoy().isoformat()
+    assert respuesta.json()["ultimo_periodo"] == {"desde": hoy().isoformat(), "hasta": None}
     assert cliente.get(f"/programas/{anterior['id']}").json()["activo"] is False
     # Hoy ya le toca al nuevo: el anterior cubre hasta ayer.
     assert periodos(sesion_bd, anterior["id"]) == [(hoy() - timedelta(days=30), hoy())]
@@ -509,13 +509,13 @@ def test_un_programa_oculto_que_estuvo_activo_sigue_pidiendo_modo_para_borrarlo(
 # --- Editar un programa no cambia el pasado ------------------------------
 #
 # Cada día de programa tiene vigencia: cambiarlo cierra la fila de antes y abre
-# otra desde hoy. Se comprueba mirando lo que devuelve /plan para los días
+# otra desde hoy. Se comprueba mirando lo que devuelve /plan/seguimiento para los días
 # pasados, que es lo que pinta el calendario.
 
 
 def rutina_del_dia(cliente, fecha):
     dia = cliente.get(
-        "/plan", params={"desde": fecha.isoformat(), "hasta": fecha.isoformat()}
+        "/plan/seguimiento", params={"desde": fecha.isoformat(), "hasta": fecha.isoformat()}
     ).json()[0]
     return dia["rutina"]["nombre"] if dia["rutina"] else None
 
@@ -722,7 +722,6 @@ def test_el_ultimo_periodo_de_un_programa_activo_es_el_abierto(cliente):
     programa = cliente.post("/programas", json={"nombre": "PPL", "activar": True}).json()
 
     assert programa["ultimo_periodo"] == periodo(0)
-    assert programa["ultimo_periodo"]["desde"] == programa["activo_desde"]
 
 
 def test_con_dos_periodos_cerrados_el_ultimo_es_el_mas_reciente(cliente, sesion_bd):

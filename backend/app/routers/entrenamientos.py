@@ -18,7 +18,7 @@ from app.schemas import (
     SerieOut,
     SerieUpdate,
 )
-from app.seguimiento import cuenta, esta_cancelada, plazo
+from app.seguimiento import cuenta, esta_cancelada, intercambiar, plazo
 
 router = APIRouter(prefix="/entrenamientos", tags=["entrenamientos"])
 
@@ -126,6 +126,33 @@ def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
     return dia
 
 
+def _validar_intercambio(db: Session, datos: EntrenamientoCreate) -> None:
+    """Empezar hoy lo que toca otro día (`intercambiar_con`): hoy y ese día
+    intercambian lo que les toca antes de crear la sesión. Todo da 422: es un error de
+    quien llama. Se mira antes de tocar el plan, para que un fallo no deje nada cambiado.
+    """
+    otro = datos.intercambiar_con
+    if datos.fecha != hoy():
+        detalle = "Solo se intercambia al empezar la sesión de hoy."
+    elif otro == datos.fecha:
+        detalle = "Para intercambiar hacen falta dos días distintos."
+    elif otro < hoy():
+        detalle = (
+            f"El {otro} ya ha pasado: solo se puede intercambiar con un día de hoy en adelante."
+        )
+    elif datos.cubre_fecha != datos.fecha:
+        detalle = (
+            "Al intercambiar, la sesión cuenta como la de hoy: "
+            f"cubre_fecha tiene que ser {datos.fecha}."
+        )
+    else:
+        [dia] = dias_del_plan(db, otro, otro)
+        if not dia.descanso and dia.rutina.id == datos.rutina_id:
+            return
+        detalle = f"El {otro} no toca esa rutina: intercambiar trae a hoy lo que toca ese día."
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detalle)
+
+
 def _dejar_sitio_en(db: Session, dia: DiaPlan) -> None:
     """Un día del plan lo cuenta una sesión como mucho.
 
@@ -217,16 +244,25 @@ def crear_entrenamiento(
     `cubre_fecha` es el día del plan que cuenta: el de hoy al empezar lo que toca,
     uno pasado al recuperar o uno de esta semana al adelantar. Sin él, la sesión
     queda en el historial pero no cuenta para ningún día.
+
+    Con `intercambiar_con`, antes de crear la sesión intercambia lo que toca hoy con lo
+    que toca ese día (*Intercambiar* y *Empezar* de la pantalla de hoy): todo o nada,
+    en una sola transacción, así que un fallo no deja los días cambiados.
     """
     _validar_fecha_no_futura(datos.fecha)
     obtener_rutina_visible(db, datos.rutina_id)
     # Primero todo lo que es un error de la petición (422), haya lo que haya en la
     # base; después lo que choca con otras sesiones, que puede borrar las canceladas.
+    if datos.intercambiar_con is not None:
+        _validar_intercambio(db, datos)
+        # Antes de tocar el plan: si hoy ya hay sesión, el plan se queda como está.
+        _validar_dia_libre(db, datos.fecha)
+        intercambiar(db, datos.fecha, datos.intercambiar_con)
     dia = _validar_cubre_fecha(db, datos) if datos.cubre_fecha else None
     _validar_dia_libre(db, datos.fecha)
     if dia is not None:
         _dejar_sitio_en(db, dia)
-    entrenamiento = Entrenamiento(**datos.model_dump())
+    entrenamiento = Entrenamiento(**datos.model_dump(exclude={"intercambiar_con"}))
     db.add(entrenamiento)
     db.commit()
     db.refresh(entrenamiento)

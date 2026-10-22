@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina, entrenar, serie_en
+from tests.ayudas import crear_ejercicio, crear_rutina, entrenar, serie_en
 from tests.ayudas import cuerpo_de_serie as _serie
 
 FECHA = "2026-09-04"
@@ -55,10 +55,8 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     principal = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
     rutina_id = crear_rutina(cliente)
-    slot_id = crear_hueco(cliente, rutina_id, principal, orden=1)
     respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas",
-        json={"ejercicio_id": comodin},
+        f"/rutinas/{rutina_id}/slots", json={**_hueco(principal), "alternativa_ids": [comodin]}
     )
     assert respuesta.status_code == 201, respuesta.text
 
@@ -405,26 +403,6 @@ def test_mover_un_hueco_al_orden_de_otro_da_409(cliente, grupo_muscular_id):
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"] == "Ya hay un hueco con orden=1 en esta rutina"
     assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"][1]["orden"] == 2
-
-
-def test_quitar_un_comodin_y_no_poder_repetirlo(cliente, grupo_muscular_id):
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    maquina = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
-    rutina_id = crear_rutina(cliente)
-    slot_id = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca)).json()["id"]
-    ruta = f"/rutinas/{rutina_id}/slots/{slot_id}/alternativas"
-
-    assert cliente.post(ruta, json={"ejercicio_id": maquina}).status_code == 201
-    # El mismo ejercicio dos veces como comodín del mismo hueco no tiene sentido: 409
-    # legible antes de que salte `UNIQUE(slot_id, ejercicio_id)`.
-    repetido = cliente.post(ruta, json={"ejercicio_id": maquina})
-    assert repetido.status_code == 409
-    assert repetido.json()["detail"] == "Ese ejercicio ya es comodín de este hueco"
-
-    assert cliente.delete(f"{ruta}/{maquina}").status_code == 204
-    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"][0]["alternativas"] == []
-    # Ya no era comodín: no hay nada que quitar.
-    assert cliente.delete(f"{ruta}/{maquina}").status_code == 404
 
 
 def test_un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo(cliente, grupo_muscular_id):
@@ -1231,15 +1209,11 @@ NO_HAY_SESION = "Entrenamiento no encontrado"
         ("post", "/rutinas/{X}/slots/{hueco}/mostrar", None, NO_HAY_RUTINA),
         ("get", "/rutinas/{X}/slots/{hueco}/historial", None, NO_HAY_RUTINA),
         ("get", "/rutinas/{X}/slots/{hueco}/aviso-de-borrado", None, NO_HAY_RUTINA),
-        ("post", "/rutinas/{X}/slots/{hueco}/alternativas", "comodin", NO_HAY_RUTINA),
-        ("delete", "/rutinas/{X}/slots/{hueco}/alternativas/{ejercicio}", None, NO_HAY_RUTINA),
         ("put", "/rutinas/{rutina}/slots/{X}", "hueco", NO_HAY_HUECO),
         ("delete", "/rutinas/{rutina}/slots/{X}", None, NO_HAY_HUECO),
         ("post", "/rutinas/{rutina}/slots/{X}/mostrar", None, NO_HAY_HUECO),
         ("get", "/rutinas/{rutina}/slots/{X}/historial", None, NO_HAY_HUECO),
         ("get", "/rutinas/{rutina}/slots/{X}/aviso-de-borrado", None, NO_HAY_HUECO),
-        ("post", "/rutinas/{rutina}/slots/{X}/alternativas", "comodin", NO_HAY_HUECO),
-        ("delete", "/rutinas/{rutina}/slots/{X}/alternativas/{ejercicio}", None, NO_HAY_HUECO),
         ("get", "/programas/{X}", None, "Programa no encontrado"),
         ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),
         ("put", "/entrenamientos/{X}", "sesion", NO_HAY_SESION),
@@ -1266,7 +1240,6 @@ def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
         "rutina": {"nombre": "Empuje"},
         "orden": {"slot_ids": []},
         "hueco": _hueco(hay["ejercicio"], orden=2),
-        "comodin": {"ejercicio_id": hay["ejercicio"]},
         "sesion": {"fecha": FECHA},
         "serie": {
             "ejercicio_id": hay["ejercicio"],

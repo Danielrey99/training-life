@@ -55,6 +55,37 @@ def crear_hueco(cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6,
     return respuesta.json()["id"]
 
 
+def cambiar_alternativas(cliente, rutina_id, slot_id, ids):
+    """PUT del hueco con esa lista de alternativas (comodines) y el resto de sus
+    campos tal cual: la lista sustituye a la que tenía. Es la única forma de
+    cambiarlas en un hueco que ya existe. Devuelve la respuesta entera, para mirar
+    el código; para montar datos, `poner_alternativas`.
+    """
+    [hueco] = [
+        h for h in cliente.get(f"/rutinas/{rutina_id}").json()["slots"] if h["id"] == slot_id
+    ]
+    return cliente.put(
+        f"/rutinas/{rutina_id}/slots/{slot_id}",
+        json={
+            "ejercicio_principal_id": hueco["ejercicio_principal"]["id"],
+            "orden": hueco["orden"],
+            "series_objetivo": hueco["series_objetivo"],
+            "reps_min": hueco["reps_min"],
+            "reps_max": hueco["reps_max"],
+            "alternativa_ids": list(ids),
+        },
+    )
+
+
+def poner_alternativas(cliente, rutina_id, slot_id, ids) -> dict:
+    """Deja en el hueco justo esas alternativas, en ese orden (`cambiar_alternativas`).
+    Falla si la API no da 200; devuelve el hueco.
+    """
+    respuesta = cambiar_alternativas(cliente, rutina_id, slot_id, ids)
+    assert respuesta.status_code == 200, respuesta.text
+    return respuesta.json()
+
+
 # --- Lo que se busca o se crea a demanda ------------------------------------
 
 

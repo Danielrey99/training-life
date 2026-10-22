@@ -189,10 +189,10 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int) -> list[UsoEnRutinaOut]:
         vistos[rutina_id] = vistos.get(rutina_id, 0) + 1
         posiciones[slot_id] = vistos[rutina_id]
 
-    # Los programas visibles donde la rutina tiene algún día vigente, con sus días.
+    # Los programas visibles donde la rutina tiene algún día vigente.
     programas: dict[int, dict[int, ProgramaDeUnUsoOut]] = {}
-    for rutina_id, dia_semana, programa, periodo_abierto in db.execute(
-        select(ProgramaDia.rutina_id, ProgramaDia.dia_semana, Programa, ProgramaPeriodo.id)
+    for rutina_id, programa, periodo_abierto in db.execute(
+        select(ProgramaDia.rutina_id, Programa, ProgramaPeriodo.id)
         .join(Programa, Programa.id == ProgramaDia.programa_id)
         .outerjoin(
             ProgramaPeriodo,
@@ -214,9 +214,7 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int) -> list[UsoEnRutinaOut]:
                 id=programa.id,
                 nombre=programa.nombre,
                 activo=periodo_abierto is not None,
-                dias_semana=[],
             )
-        del_programa[programa.id].dias_semana.append(dia_semana)
 
     return [
         UsoEnRutinaOut(
@@ -224,7 +222,6 @@ def _usos_en_rutinas(db: Session, ejercicio_id: int) -> list[UsoEnRutinaOut]:
             slot_id=slot.id,
             rol="principal" if slot.ejercicio_principal_id == ejercicio_id else "comodin",
             posicion=posiciones.get(slot.id),
-            hueco_oculto_desde=slot.oculto_desde,
             oculto=slot.oculto or rutina.oculto,
             programas=list(programas.get(rutina.id, {}).values()),
         )
@@ -294,10 +291,9 @@ def aviso_de_borrar_ejercicio(
     ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
-    series, series_de_comodines, sesiones, desde = db.execute(
+    series, sesiones, desde = db.execute(
         select(
             func.count(Serie.id),
-            func.count(Serie.id).filter(Serie.ejercicio_id != ejercicio_id),
             func.count(func.distinct(Serie.entrenamiento_id)),
             func.min(Entrenamiento.fecha),
         )
@@ -308,7 +304,6 @@ def aviso_de_borrar_ejercicio(
         # Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
         con_historial=bool(_usos_de_ejercicio(db, ejercicio_id)),
         series=series,
-        series_de_comodines=series_de_comodines,
         sesiones=sesiones,
         desde=desde,
         notas=_cuantas_notas(db, ejercicio_id),

@@ -350,10 +350,6 @@ class Programa(Ocultable, Base):
         return any(periodo.hasta is None for periodo in self.periodos)
 
     @property
-    def activo_desde(self) -> date | None:
-        return next((periodo.desde for periodo in self.periodos if periodo.hasta is None), None)
-
-    @property
     def ultimo_periodo(self) -> "ProgramaPeriodo | None":
         """El último tramo en uso: el abierto si está activo; si no, el último que
         se cerró. Nulo si nunca se ha usado. Es lo que dice la lista de programas

@@ -10,7 +10,7 @@ alcanza por la ruta de su rutina.
 
 import pytest
 
-from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina, serie_en
+from tests.ayudas import crear_ejercicio, crear_hueco, crear_rutina, poner_alternativas, serie_en
 from tests.ayudas import entrenar as entrenar_en
 
 # --- Ayudantes para montar escenarios ------------------------------------
@@ -183,11 +183,7 @@ def hueco_con_comodin(cliente, grupo_muscular_id, escenario):
     principal el 1, el comodín el 8 y otra vez el principal el 15.
     """
     comodin_id = crear_ejercicio(cliente, grupo_muscular_id, "Press banca en máquina")
-    respuesta = cliente.post(
-        f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}/alternativas",
-        json={"ejercicio_id": comodin_id},
-    )
-    assert respuesta.status_code == 201
+    poner_alternativas(cliente, escenario["rutina_id"], escenario["slot_id"], [comodin_id])
     for fecha, ejercicio_id in [
         ("2026-09-01", escenario["ejercicio_id"]),
         ("2026-09-08", comodin_id),

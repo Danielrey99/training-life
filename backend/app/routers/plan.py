@@ -7,15 +7,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.fechas import hoy
 from app.models import ExcepcionDelPlan
-from app.plan import dias_del_plan, validar_rango
+from app.plan import buscar_excepcion, poner_excepcion, validar_rango
 from app.routers.rutinas import obtener_rutina_visible
 from app.schemas import (
-    DiaPlanOut,
     DiaSeguimientoOut,
     ExcepcionOut,
     ExcepcionUpdate,
     HoyOut,
-    IntercambioCreate,
 )
 from app.seguimiento import (
     coberturas_en_juego,
@@ -34,34 +32,6 @@ def _exigir_hoy_o_despues(fecha: date) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"El {fecha} ya ha pasado: solo se puede planificar de hoy en adelante.",
         )
-
-
-def _buscar_excepcion(db: Session, fecha: date) -> ExcepcionDelPlan | None:
-    return db.scalar(select(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha == fecha))
-
-
-def _poner_excepcion(db: Session, fecha: date, rutina_id: int | None) -> None:
-    # Se busca antes y se actualiza, en vez de insertar y dejar que la unicidad de
-    # la fecha salte en la base de datos con un error crudo.
-    excepcion = _buscar_excepcion(db, fecha)
-    if excepcion is None:
-        db.add(ExcepcionDelPlan(fecha=fecha, rutina_id=rutina_id))
-    else:
-        excepcion.rutina_id = rutina_id
-
-
-@router.get("", response_model=list[DiaPlanOut])
-def obtener_plan(
-    desde: date,
-    hasta: date,
-    db: Session = Depends(get_db),
-):
-    """Qué toca cada día de `desde` a `hasta` (incluidos): lo que se haya cambiado
-    a mano para ese día o, si no, lo que diga el programa que estaba activo ese
-    día. Sirve igual para el pasado (el calendario) que para el futuro (los
-    próximos días). Como mucho, 400 días de una vez.
-    """
-    return dias_del_plan(db, desde, hasta)
 
 
 @router.get("/seguimiento", response_model=list[DiaSeguimientoOut])
@@ -144,10 +114,10 @@ def planificar_dia(
     if datos.rutina_id is not None:
         obtener_rutina_visible(db, datos.rutina_id)
     contaban = coberturas_en_juego(db)
-    _poner_excepcion(db, fecha, datos.rutina_id)
+    poner_excepcion(db, fecha, datos.rutina_id)
     reubicar_coberturas(db, contaban)
     db.commit()
-    return _buscar_excepcion(db, fecha)
+    return buscar_excepcion(db, fecha)
 
 
 @router.delete("/excepciones/{fecha}", status_code=status.HTTP_204_NO_CONTENT)
@@ -159,7 +129,7 @@ def restablecer_dia(
     adelantado se reubica como al planificar.
     """
     _exigir_hoy_o_despues(fecha)
-    excepcion = _buscar_excepcion(db, fecha)
+    excepcion = buscar_excepcion(db, fecha)
     if excepcion is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -191,39 +161,3 @@ def restablecer_rango(
     )
     reubicar_coberturas(db, contaban)
     db.commit()
-
-
-@router.post("/intercambiar", response_model=list[DiaPlanOut])
-def intercambiar_dias(
-    datos: IntercambioCreate,
-    db: Session = Depends(get_db),
-):
-    """Lo que toca un día pasa al otro y al revés, en una sola transacción: con dos
-    llamadas por separado, un fallo entre medias dejaría un día cambiado y el otro
-    no. Es lo que hace el intercambio de dos días en la pantalla de hoy.
-
-    Una rutina que ese día contaba como descanso (porque está oculta) se
-    intercambia como descanso: lo oculto no se vuelve a planificar. Lo hecho por
-    adelantado se reubica como al planificar.
-    """
-    if datos.fecha_a == datos.fecha_b:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Para intercambiar hacen falta dos días distintos.",
-        )
-    for fecha in (datos.fecha_a, datos.fecha_b):
-        _exigir_hoy_o_despues(fecha)
-
-    [dia_a] = dias_del_plan(db, datos.fecha_a, datos.fecha_a)
-    [dia_b] = dias_del_plan(db, datos.fecha_b, datos.fecha_b)
-    rutina_a = None if dia_a.descanso else dia_a.rutina.id
-    rutina_b = None if dia_b.descanso else dia_b.rutina.id
-    contaban = coberturas_en_juego(db)
-    _poner_excepcion(db, datos.fecha_a, rutina_b)
-    _poner_excepcion(db, datos.fecha_b, rutina_a)
-    reubicar_coberturas(db, contaban)
-    db.commit()
-    return [
-        *dias_del_plan(db, datos.fecha_a, datos.fecha_a),
-        *dias_del_plan(db, datos.fecha_b, datos.fecha_b),
-    ]

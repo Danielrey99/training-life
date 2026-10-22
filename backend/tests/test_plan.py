@@ -1,4 +1,5 @@
-"""Tests de `GET /plan`: qué toca cada día según el programa activo en esa fecha.
+"""Tests del plan: qué toca cada día según el programa activo en esa fecha (se mira
+en `GET /plan/seguimiento`), y los días cambiados a mano.
 
 La idea que más importa es que cada día se resuelve con el programa que estaba
 activo **ese día**: un mes pasado se compara con el plan de entonces, no con el
@@ -42,8 +43,9 @@ def periodo(sesion_bd, programa_id, desde, hasta=None) -> None:
 
 
 def plan(cliente, desde, hasta) -> dict:
+    """Qué toca cada día del rango, por fecha (lo que trae el seguimiento del plan)."""
     respuesta = cliente.get(
-        "/plan", params={"desde": desde.isoformat(), "hasta": hasta.isoformat()}
+        "/plan/seguimiento", params={"desde": desde.isoformat(), "hasta": hasta.isoformat()}
     )
     assert respuesta.status_code == 200, respuesta.text
     return {dia["fecha"]: dia for dia in respuesta.json()}
@@ -73,7 +75,7 @@ def test_con_un_programa_activo_cada_dia_de_la_semana_toma_su_rutina(cliente):
         esperado = {1: "Push", 3: "Pull"}.get(date.fromisoformat(fecha_iso).isoweekday())
         assert rutina_de(dia) == esperado
         assert dia["descanso"] is (esperado is None)
-        assert (dia["origen"], dia["programa_id"]) == ("programa", programa)
+        assert dia["origen"] == "programa"
 
 
 def test_un_dia_pasado_se_compara_con_el_programa_de_entonces(cliente, sesion_bd):
@@ -129,31 +131,6 @@ def test_un_programa_oculto_sigue_contando_para_los_dias_en_que_estuvo_activo(cl
     assert rutina_de(dias[(HOY - timedelta(days=7)).isoformat()]) == "Push"
 
 
-def test_el_rango_invertido_da_422(cliente):
-    respuesta = cliente.get(
-        "/plan", params={"desde": HOY.isoformat(), "hasta": (HOY - timedelta(days=1)).isoformat()}
-    )
-
-    assert respuesta.status_code == 422
-    assert "invertido" in respuesta.json()["detail"]
-
-
-def test_el_rango_no_puede_pasar_de_400_dias(cliente):
-    def pedir(dias):
-        return cliente.get(
-            "/plan",
-            params={
-                "desde": HOY.isoformat(),
-                "hasta": (HOY + timedelta(days=dias - 1)).isoformat(),
-            },
-        )
-
-    assert pedir(400).status_code == 200
-    demasiado = pedir(401)
-    assert demasiado.status_code == 422
-    assert demasiado.json()["detail"] == "El rango no puede pasar de 400 días."
-
-
 # --- Excepciones: días cambiados a mano ----------------------------------
 
 
@@ -185,8 +162,6 @@ def test_un_dia_cambiado_manda_sobre_el_programa(cliente, semana_push):
     assert rutina_de(dias[HOY.isoformat()]) == "Push"
     cambiado = dias[manana.isoformat()]
     assert (cambiado["origen"], rutina_de(cambiado)) == ("excepcion", "Pull")
-    # Sigue diciendo qué programa estaba activo, aunque ese día no mande.
-    assert cambiado["programa_id"] == semana_push["programa"]
 
 
 def test_un_dia_se_puede_cambiar_a_descanso(cliente, semana_push):
@@ -219,7 +194,7 @@ def test_un_dia_se_puede_cambiar_aunque_no_haya_programa(cliente):
 
     dia = plan(cliente, HOY, HOY)[HOY.isoformat()]
 
-    assert (dia["origen"], rutina_de(dia), dia["programa_id"]) == ("excepcion", "Push", None)
+    assert (dia["origen"], rutina_de(dia)) == ("excepcion", "Push")
 
 
 def test_el_pasado_no_se_planifica(cliente, sesion_bd, semana_push):
@@ -292,50 +267,6 @@ def test_restablecer_un_rango_invertido_da_422_y_no_borra_nada(cliente, semana_p
 
     assert respuesta.status_code == 422
     assert [e["fecha"] for e in cliente.get("/plan/excepciones").json()] == [manana.isoformat()]
-
-
-def test_intercambiar_dos_dias_cruza_lo_que_toca_cada_uno(cliente, semana_push):
-    """Hoy Push (del programa) y pasado mañana Pull (cambiado): quedan al revés."""
-    pasado = HOY + timedelta(days=2)
-    planificar(cliente, pasado, semana_push["pull"])
-
-    respuesta = cliente.post(
-        "/plan/intercambiar", json={"fecha_a": HOY.isoformat(), "fecha_b": pasado.isoformat()}
-    )
-
-    assert respuesta.status_code == 200
-    assert [rutina_de(dia) for dia in respuesta.json()] == ["Pull", "Push"]
-    dias = plan(cliente, HOY, pasado)
-    assert rutina_de(dias[HOY.isoformat()]) == "Pull"
-    assert rutina_de(dias[pasado.isoformat()]) == "Push"
-
-
-def test_intercambiar_con_un_descanso_lo_mueve(cliente, semana_push):
-    manana = HOY + timedelta(days=1)
-    planificar(cliente, manana, None)
-
-    cliente.post(
-        "/plan/intercambiar", json={"fecha_a": HOY.isoformat(), "fecha_b": manana.isoformat()}
-    )
-    dias = plan(cliente, HOY, manana)
-
-    assert dias[HOY.isoformat()]["descanso"] is True
-    assert rutina_de(dias[manana.isoformat()]) == "Push"
-
-
-def test_intercambiar_pide_dos_dias_distintos_y_de_hoy_en_adelante(cliente, semana_push):
-    ayer = HOY - timedelta(days=1)
-
-    def intercambiar(a, b):
-        return cliente.post(
-            "/plan/intercambiar", json={"fecha_a": a.isoformat(), "fecha_b": b.isoformat()}
-        )
-
-    assert intercambiar(HOY, HOY).status_code == 422
-    assert intercambiar(ayer, HOY).status_code == 422
-    # El pasado no se planifica, vaya en el primer día o en el segundo.
-    assert intercambiar(HOY, ayer).status_code == 422
-    assert cliente.get("/plan/excepciones").json() == []
 
 
 def test_activar_otro_programa_quitando_lo_planificado_solo_borra_desde_hoy(
@@ -446,29 +377,11 @@ def test_un_periodo_cubre_su_ultimo_dia_aunque_el_rango_empiece_justo_ahi(client
     dia_nuevo = plan(cliente, cambio, cambio)[cambio.isoformat()]
     antes_de_todo = HOY - timedelta(days=11)
 
-    assert (dia_viejo["programa_id"], rutina_de(dia_viejo)) == (viejo, "Pull")
-    assert (dia_nuevo["programa_id"], rutina_de(dia_nuevo)) == (nuevo, "Push")
+    assert (dia_viejo["origen"], rutina_de(dia_viejo)) == ("programa", "Pull")
+    assert (dia_nuevo["origen"], rutina_de(dia_nuevo)) == ("programa", "Push")
     assert plan(cliente, antes_de_todo, antes_de_todo)[antes_de_todo.isoformat()]["origen"] == (
         "sin_programa"
     )
-
-
-def test_intercambiar_un_dia_con_la_rutina_oculta_lo_mueve_como_descanso(cliente, semana_push):
-    """Lo promete el docstring de intercambiar: lo oculto no se vuelve a planificar.
-    Hoy toca Push (oculta, así que descanso) y mañana Pull (a mano).
-    """
-    manana = HOY + timedelta(days=1)
-    planificar(cliente, manana, semana_push["pull"])
-    cliente.delete(f"/rutinas/{semana_push['push']}?modo=ocultar")
-
-    respuesta = cliente.post(
-        "/plan/intercambiar", json={"fecha_a": HOY.isoformat(), "fecha_b": manana.isoformat()}
-    )
-
-    assert respuesta.status_code == 200
-    hoy_, despues = respuesta.json()
-    assert (rutina_de(hoy_), hoy_["descanso"]) == ("Pull", False)
-    assert (despues["rutina"], despues["descanso"], despues["origen"]) == (None, True, "excepcion")
 
 
 def test_ocultar_el_programa_activo_deja_hoy_sin_programa_pero_respeta_lo_planificado(
