@@ -292,6 +292,122 @@ def test_activar_otro_programa_sin_pedirlo_conserva_lo_planificado(cliente, sema
     assert len(cliente.get("/plan/excepciones").json()) == 1
 
 
+# Lo mismo al crear un programa ya activado: `POST /programas` con `activar` acepta
+# también `quitar_excepciones`, que hace lo mismo que al activar uno que ya existe.
+
+
+def crear_activado(cliente, rutina_id, **extra):
+    """POST /programas con `activar` y Pull todos los días; devuelve la respuesta."""
+    return cliente.post(
+        "/programas",
+        json={
+            "nombre": "Nuevo",
+            "activar": True,
+            "dias": [{"dia_semana": d, "rutina_id": rutina_id} for d in range(1, 8)],
+            **extra,
+        },
+    )
+
+
+def fechas_cambiadas(cliente) -> list[str]:
+    return [excepcion["fecha"] for excepcion in cliente.get("/plan/excepciones").json()]
+
+
+def nombres_de_programas(cliente) -> list[str]:
+    return sorted(programa["nombre"] for programa in cliente.get("/programas").json())
+
+
+def test_crear_un_programa_activado_quitando_lo_planificado_solo_borra_desde_hoy(
+    cliente, hoy_es, semana_push
+):
+    """Los días se cambian por la API y luego pasa un día: el que ya ha pasado se
+    queda; el de hoy (incluido) y los siguientes desaparecen.
+    """
+    for dias in (0, 1, 3):
+        assert (
+            planificar(cliente, HOY + timedelta(days=dias), semana_push["pull"]).status_code == 200
+        )
+    hoy_es(HOY + timedelta(days=1))
+
+    respuesta = crear_activado(cliente, semana_push["pull"], quitar_excepciones=True)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["activo"] is True
+    assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is False
+    assert fechas_cambiadas(cliente) == [HOY.isoformat()]
+    # Desde hoy, lo que toca es lo del programa nuevo, no lo cambiado a mano.
+    dia = plan(cliente, HOY + timedelta(days=3), HOY + timedelta(days=3))
+    assert [(d["origen"], rutina_de(d)) for d in dia.values()] == [("programa", "Pull")]
+
+
+@pytest.mark.parametrize("extra", [{}, {"quitar_excepciones": False}])
+def test_crear_un_programa_activado_sin_pedirlo_conserva_lo_planificado(
+    cliente, sesion_bd, semana_push, extra
+):
+    ayer = HOY - timedelta(days=1)
+    excepcion_a_mano(sesion_bd, ayer, semana_push["pull"])
+    planificar(cliente, HOY, None)
+    planificar(cliente, HOY + timedelta(days=3), semana_push["pull"])
+
+    respuesta = crear_activado(cliente, semana_push["pull"], **extra)
+
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["activo"] is True
+    assert fechas_cambiadas(cliente) == [
+        ayer.isoformat(),
+        HOY.isoformat(),
+        (HOY + timedelta(days=3)).isoformat(),
+    ]
+
+
+@pytest.mark.parametrize("activar", [None, False])
+def test_quitar_lo_planificado_sin_activar_da_422_y_no_crea_ni_borra_nada(
+    cliente, semana_push, activar
+):
+    planificar(cliente, HOY + timedelta(days=3), semana_push["pull"])
+    cuerpo = {
+        "nombre": "Nuevo",
+        "dias": [{"dia_semana": 1, "rutina_id": semana_push["pull"]}],
+        "quitar_excepciones": True,
+    }
+    if activar is not None:
+        cuerpo["activar"] = activar
+
+    respuesta = cliente.post("/programas", json=cuerpo)
+
+    assert respuesta.status_code == 422
+    assert "Solo se quitan los días cambiados a mano al activar el programa" in respuesta.text
+    assert nombres_de_programas(cliente) == ["Todo Push"]
+    assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is True
+    assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
+
+
+def test_crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado(cliente, semana_push):
+    """El 404 de la rutina llega antes de activar nada: ni se crea el programa, ni
+    deja de estar activo el anterior, ni se borra ningún día cambiado.
+    """
+    planificar(cliente, HOY, semana_push["pull"])
+    planificar(cliente, HOY + timedelta(days=3), semana_push["pull"])
+
+    respuesta = crear_activado(cliente, 999_999, quitar_excepciones=True)
+
+    assert respuesta.status_code == 404
+    assert nombres_de_programas(cliente) == ["Todo Push"]
+    assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is True
+    assert fechas_cambiadas(cliente) == [HOY.isoformat(), (HOY + timedelta(days=3)).isoformat()]
+
+
+def test_crear_un_programa_con_una_rutina_oculta_no_quita_lo_planificado(cliente, semana_push):
+    planificar(cliente, HOY + timedelta(days=3), semana_push["push"])
+    assert cliente.delete(f"/rutinas/{semana_push['pull']}?modo=ocultar").status_code == 204
+
+    respuesta = crear_activado(cliente, semana_push["pull"], quitar_excepciones=True)
+
+    assert respuesta.status_code == 404
+    assert nombres_de_programas(cliente) == ["Todo Push"]
+    assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
+
+
 def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, semana_push):
     planificar(cliente, HOY, semana_push["pull"])
 

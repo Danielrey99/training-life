@@ -52,6 +52,13 @@ def _obtener_programa_modificable(
 # `desde` = hoy, así que hoy le toca al nuevo y no se solapan.
 
 
+def _quitar_excepciones_desde_hoy(db: Session) -> None:
+    """Borra los días cambiados a mano de hoy en adelante, que se planificaron pensando
+    en el programa anterior. Los pasados se quedan: dicen qué tocaba entonces.
+    """
+    db.execute(delete(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha >= hoy()))
+
+
 def _cerrar_periodo_abierto(db: Session) -> None:
     """Deja sin programa activo.
 
@@ -126,7 +133,8 @@ def crear_programa(
     db: Session = Depends(get_db),
 ):
     """Crea el programa con sus días en una sola transacción: o se guarda todo, o
-    nada. Cada rutina tiene que existir y estar visible.
+    nada. Cada rutina tiene que existir y estar visible. Con `activar` y
+    `quitar_excepciones`, también quita los días cambiados a mano de hoy en adelante.
     """
     for dia in datos.dias:
         obtener_rutina_visible(db, dia.rutina_id)
@@ -139,6 +147,8 @@ def crear_programa(
     if datos.activar:
         db.flush()  # para que el programa tenga id antes de abrirle un periodo
         _activar(db, programa)
+        if datos.quitar_excepciones:
+            _quitar_excepciones_desde_hoy(db)
     db.commit()
     db.refresh(programa)
     return programa
@@ -173,7 +183,7 @@ def activar_programa(
     programa = _obtener_programa_modificable(db, programa_id)
     _activar(db, programa)
     if datos is not None and datos.quitar_excepciones:
-        db.execute(delete(ExcepcionDelPlan).where(ExcepcionDelPlan.fecha >= hoy()))
+        _quitar_excepciones_desde_hoy(db)
     db.commit()
     db.refresh(programa)
     return programa

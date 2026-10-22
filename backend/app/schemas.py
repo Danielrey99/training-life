@@ -517,12 +517,21 @@ class ProgramaCreate(BaseModel):
     dias: list[ProgramaDiaCreate] = []
     # "Activarlo al crearlo": deja de estar activo el que lo fuera hasta ahora.
     activar: bool = False
+    # Con `activar`: quita además los días cambiados a mano de hoy en adelante (como en
+    # `ActivarPrograma`). Sin `activar` no tiene sentido y da 422.
+    quitar_excepciones: bool = False
 
     @model_validator(mode="after")
     def _validar_dias_sin_repetir(self):
         dias = [dia.dia_semana for dia in self.dias]
         if len(dias) != len(set(dias)):
             raise ValueError("Un día no puede tener dos rutinas: hay días repetidos")
+        return self
+
+    @model_validator(mode="after")
+    def _validar_quitar_con_activar(self):
+        if self.quitar_excepciones and not self.activar:
+            raise ValueError("Solo se quitan los días cambiados a mano al activar el programa")
         return self
 
 
