@@ -65,6 +65,11 @@
   font-size: 15px;
 }
 
+/* Tres opciones: una debajo de otra, a 12 px. */
+.dialogo-botones.apilados {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* El aviso de un solo botón. */
 .dialogo-botones.solo {
   grid-template-columns: minmax(0, 1fr);

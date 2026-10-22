@@ -7,7 +7,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
 import { colorDelDia } from '../../utiles/colores'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { diaYMesConAnio, fechaEnFrase, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
@@ -25,10 +25,12 @@ import { HojaDeRutinas } from './HojaDeRutinas'
 import './programas.css'
 import {
   cuantosDias,
+  diasCambiadosAMano,
   ejercicios,
   enumerar,
   NOMBRES_DE_LOS_DIAS,
   nombreDelDiaSemana,
+  QUE_HACER_CON_ELLOS,
 } from './textos'
 import './semana.css'
 
@@ -101,6 +103,8 @@ export function Semana() {
   const [dias, setDias] = useState<DiasDelBorrador | null>(null)
   const [hojaDe, setHojaDe] = useState<DiaSemana | null>(null)
   const [pregunta, setPregunta] = useState<Pregunta | null>(null)
+  // Los días cambiados a mano de hoy en adelante, que se preguntan al activar otro programa.
+  const [cambiados, setCambiados] = useState<string[]>([])
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
@@ -150,6 +154,18 @@ export function Semana() {
   const ejerciciosDe = new Map(rutinas.map((rutina) => [rutina.id, ejercicios(rutina)]))
   const visibles = DIAS.filter((dia) => delDia[dia] && delDia[dia].oculto_desde === null)
   const conOculta = DIAS.filter((dia) => delDia[dia]?.oculto_desde)
+
+  /** Antes de preguntar, mira si hay días cambiados a mano de hoy en adelante. */
+  async function pedirActivar() {
+    try {
+      const lista = await api.excepciones({ desde: hoy() })
+      setCambiados(lista.map((una) => una.fecha))
+    } catch {
+      // Sin la lista se activa como antes: los días cambiados se quedan como están.
+      setCambiados([])
+    }
+    setPregunta('activar')
+  }
 
   function empezarAEditar() {
     setNombre(programa.nombre)
@@ -290,7 +306,7 @@ export function Semana() {
                   : 'Ningún programa marca ahora qué rutina toca cada día'
             }
             encendido={programa.activo}
-            alCambiar={() => setPregunta(programa.activo ? 'desactivar' : 'activar')}
+            alCambiar={() => (programa.activo ? setPregunta('desactivar') : void pedirActivar())}
             desactivado={guardando}
           />
         )
@@ -420,17 +436,34 @@ export function Semana() {
       {pregunta === 'activar' && (
         <Dialogo
           titulo={`¿Activar ${programa.nombre}?`}
-          cuerpo={
+          cuerpo={[
             activo
               ? `${activo.nombre} dejará de estar activo.`
-              : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.'
-          }
-          confirmar="Activar"
+              : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.',
+            ...(cambiados.length > 0
+              ? [
+                  `${diasCambiadosAMano(cambiados, (iso) => fechaEnFrase(iso, false))} ${QUE_HACER_CON_ELLOS}`,
+                ]
+              : []),
+          ].join('\n\n')}
+          confirmar={cambiados.length > 0 ? 'Activar y dejarlos' : 'Activar'}
           alConfirmar={async () => {
             await api.activarPrograma(id)
             await cargar()
             setPregunta(null)
           }}
+          otra={
+            cambiados.length > 0
+              ? {
+                  texto: 'Activar y quitarlos',
+                  alElegir: async () => {
+                    await api.activarPrograma(id, true)
+                    await cargar()
+                    setPregunta(null)
+                  },
+                }
+              : undefined
+          }
           alCancelar={() => setPregunta(null)}
         />
       )}

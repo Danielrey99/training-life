@@ -462,6 +462,8 @@ export type NuevoPrograma = {
   dias: { dia_semana: DiaSemana; rutina_id: number }[]
   // "Activarlo al crearlo": deja de estar activo el que lo fuera.
   activar: boolean
+  // Con `activar`: quita también los días cambiados a mano de hoy en adelante.
+  quitar_excepciones?: boolean
 }
 
 /** Al borrar algo con historial: ocultarlo o llevarse el historial con ello. */

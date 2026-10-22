@@ -5,6 +5,7 @@ import './Dialogo.css'
 type Comunes = {
   titulo: string
   // Qué pasará, si no se ve ya en la pregunta. Sin él, solo la pregunta y los botones.
+  // Varios párrafos, separados por una línea en blanco (siempre a la izquierda).
   cuerpo?: string
   alCancelar: () => void
 }
@@ -18,6 +19,9 @@ type Props = Comunes &
         // En rojo lo que no se puede deshacer; en verde lo demás.
         peligro?: boolean
         alConfirmar: () => Promise<void>
+        // Una segunda forma de seguir (con recuadro, entre las otras dos): los tres botones
+        // van apilados. «Activar y quitarlos», junto a «Activar y dejarlos».
+        otra?: { texto: string; alElegir: () => Promise<void> }
         soloAviso?: undefined
       }
     | {
@@ -27,6 +31,7 @@ type Props = Comunes &
         cancelar?: undefined
         peligro?: undefined
         alConfirmar?: undefined
+        otra?: undefined
       }
   )
 
@@ -45,6 +50,7 @@ export function Dialogo({
   cancelar = 'Cancelar',
   peligro = false,
   alConfirmar,
+  otra,
   alCancelar,
   soloAviso,
 }: Props) {
@@ -55,6 +61,7 @@ export function Dialogo({
   // líneas ocupa depende del ancho de la pantalla.
   const parrafo = useRef<HTMLParagraphElement>(null)
   const [unaLinea, setUnaLinea] = useState(false)
+  const parrafos = cuerpo ? cuerpo.split('\n\n') : []
 
   useLayoutEffect(() => {
     const elemento = parrafo.current
@@ -71,11 +78,11 @@ export function Dialogo({
     return () => window.removeEventListener('keydown', alPulsarTecla)
   }, [enCurso, alCancelar])
 
-  async function aceptar() {
+  async function aceptar(accion: (() => Promise<void>) | undefined) {
     setEnCurso(true)
     setFallo(null)
     try {
-      await alConfirmar?.()
+      await accion?.()
     } catch (error) {
       setFallo((error as Error).message)
       setEnCurso(false)
@@ -92,11 +99,17 @@ export function Dialogo({
         onClick={(evento) => evento.stopPropagation()}
       >
         <h2 id="dialogo-titulo">{titulo}</h2>
-        {cuerpo && (
+        {cuerpo && parrafos.length === 1 && (
           <p ref={parrafo} className={unaLinea ? 'dialogo-cuerpo corto' : 'dialogo-cuerpo'}>
             {cuerpo}
           </p>
         )}
+        {parrafos.length > 1 &&
+          parrafos.map((texto) => (
+            <p key={texto} className="dialogo-cuerpo">
+              {texto}
+            </p>
+          ))}
         {fallo && <p className="dialogo-fallo">{fallo}</p>}
         {soloAviso ? (
           <div className="dialogo-botones solo">
@@ -105,19 +118,36 @@ export function Dialogo({
             </button>
           </div>
         ) : (
-          <div className="dialogo-botones">
-            <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
-              {cancelar}
-            </button>
+          <div className={otra ? 'dialogo-botones apilados' : 'dialogo-botones'}>
+            {!otra && (
+              <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
+                {cancelar}
+              </button>
+            )}
             <button
               type="button"
               className={peligro ? 'boton boton-peligro' : 'boton boton-principal'}
-              onClick={() => void aceptar()}
+              onClick={() => void aceptar(alConfirmar)}
               disabled={enCurso}
               autoFocus
             >
               {confirmar}
             </button>
+            {otra && (
+              <>
+                <button
+                  type="button"
+                  className="boton"
+                  onClick={() => void aceptar(otra.alElegir)}
+                  disabled={enCurso}
+                >
+                  {otra.texto}
+                </button>
+                <button type="button" className="boton" onClick={alCancelar} disabled={enCurso}>
+                  {cancelar}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

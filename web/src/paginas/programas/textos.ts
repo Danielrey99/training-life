@@ -59,3 +59,18 @@ export function deDonde(
   const grupo = grupos.get(ejercicio.grupo_muscular_id) ?? 'Sin grupo'
   return `${grupo} · ${ejercicio.es_predefinido ? 'predefinido' : 'tuyo'}`
 }
+
+/**
+ * Lo que dice el aviso de activar un programa cuando hay días cambiados a mano de hoy en
+ * adelante: cuántos y entre qué fechas, sin enumerarlos (pueden ser muchos).
+ */
+export function diasCambiadosAMano(fechas: string[], enFrase: (iso: string) => string) {
+  const ordenadas = [...fechas].sort()
+  const primero = enFrase(ordenadas[0])
+  if (ordenadas.length === 1) return `Tienes 1 día cambiado a mano: ${primero}.`
+  const ultimo = enFrase(ordenadas[ordenadas.length - 1])
+  return `Tienes ${ordenadas.length} días cambiados a mano, entre ${primero} y ${ultimo}.`
+}
+
+export const QUE_HACER_CON_ELLOS =
+  'Puedes dejarlos como están o quitarlos para que esos días sigan el programa nuevo.'

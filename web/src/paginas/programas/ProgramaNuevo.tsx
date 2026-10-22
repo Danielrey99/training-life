@@ -6,6 +6,7 @@ import type { DiaSemana, Programa, Rutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
+import { fechaEnFrase, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
@@ -21,6 +22,7 @@ import {
 import { DiasEditables } from './DiasEditables'
 import { HojaDeRutinas } from './HojaDeRutinas'
 import './semana.css'
+import { diasCambiadosAMano, QUE_HACER_CON_ELLOS } from './textos'
 
 type Datos = { activo: Programa | undefined; rutinas: Rutina[] }
 
@@ -53,6 +55,8 @@ export function ProgramaNuevo() {
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
   // Crear un programa que se activa pregunta antes, como activar uno desde su semana.
   const [confirmando, setConfirmando] = useState(false)
+  // Los días cambiados a mano de hoy en adelante, que se preguntan al activar el programa.
+  const [cambiados, setCambiados] = useState<string[]>([])
 
   useEffect(() => {
     let vigente = true
@@ -103,16 +107,26 @@ export function ProgramaNuevo() {
    * el programa en lugar del que hubiera, y activar siempre pide confirmación. Apagado, no
    * cambia nada de lo que ya hay y crea directamente.
    */
-  function pedirCrear() {
+  async function pedirCrear() {
     if (!borrador!.nombre.trim()) {
       setFalloNombre('Ponle un nombre.')
       return
     }
-    if (borrador!.activar) setConfirmando(true)
-    else void crear()
+    if (!borrador!.activar) {
+      void crear()
+      return
+    }
+    try {
+      const lista = await api.excepciones({ desde: hoy() })
+      setCambiados(lista.map((una) => una.fecha))
+    } catch {
+      // Sin la lista se crea como antes: los días cambiados se quedan como están.
+      setCambiados([])
+    }
+    setConfirmando(true)
   }
 
-  async function crear() {
+  async function crear(quitarExcepciones = false) {
     const nombre = borrador!.nombre.trim()
     if (!nombre) {
       setFalloNombre('Ponle un nombre.')
@@ -124,6 +138,7 @@ export function ProgramaNuevo() {
       const programa = await api.crearPrograma({
         nombre,
         activar: borrador!.activar,
+        quitar_excepciones: quitarExcepciones,
         dias: DIAS.flatMap((dia) => {
           const rutina = borrador!.dias[dia]
           return rutina ? [{ dia_semana: dia, rutina_id: rutina.id }] : []
@@ -149,7 +164,7 @@ export function ProgramaNuevo() {
         <button
           type="button"
           className="dia-cabecera-boton"
-          onClick={pedirCrear}
+          onClick={() => void pedirCrear()}
           disabled={guardando}
         >
           Crear
@@ -215,16 +230,32 @@ export function ProgramaNuevo() {
       {confirmando && (
         <Dialogo
           titulo={`¿Crear y activar ${borrador.nombre.trim()}?`}
-          cuerpo={
+          cuerpo={[
             activo
               ? `${activo.nombre} dejará de estar activo.`
-              : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.'
-          }
-          confirmar="Crear"
+              : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.',
+            ...(cambiados.length > 0
+              ? [
+                  `${diasCambiadosAMano(cambiados, (iso) => fechaEnFrase(iso, false))} ${QUE_HACER_CON_ELLOS}`,
+                ]
+              : []),
+          ].join('\n\n')}
+          confirmar={cambiados.length > 0 ? 'Crear y dejarlos' : 'Crear'}
           alConfirmar={async () => {
             setConfirmando(false)
             await crear()
           }}
+          otra={
+            cambiados.length > 0
+              ? {
+                  texto: 'Crear y quitarlos',
+                  alElegir: async () => {
+                    setConfirmando(false)
+                    await crear(true)
+                  },
+                }
+              : undefined
+          }
           alCancelar={() => setConfirmando(false)}
         />
       )}
