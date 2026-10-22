@@ -85,8 +85,6 @@ export type ProgramaDeUnUso = {
   nombre: string
   // Si es el programa en uso ahora.
   activo: boolean
-  // Los días vigentes de esa rutina en el programa (1 = lunes), ordenados.
-  dias_semana: number[]
 }
 
 /** Un ejercicio (hueco) de una rutina donde aparece un ejercicio de la biblioteca. */
@@ -96,7 +94,6 @@ export type UsoEnRutina = {
   rol: 'principal' | 'comodin'
   // Su número entre los ejercicios visibles de la rutina; nulo si está oculto.
   posicion: number | null
-  hueco_oculto_desde: string | null
   // El hueco o su rutina están ocultos: va plegado en «Ver N ocultos».
   oculto: boolean
   // Los visibles donde la rutina tiene algún día.
@@ -109,8 +106,6 @@ export type AvisoDeBorrarEjercicio = {
   con_historial: boolean
   // Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
   series: number
-  // De esas, las hechas con una alternativa en esos huecos.
-  series_de_comodines: number
   // Sesiones con alguna de esas series.
   sesiones: number
   desde: string | null
@@ -220,7 +215,6 @@ export type Programa = {
   oculto_desde: string | null
   // El que usan Hoy y el calendario. Solo puede haber uno.
   activo: boolean
-  activo_desde: string | null
   // El abierto si está activo; si no, el último que se cerró. Nulo si nunca se usó.
   ultimo_periodo: Periodo | null
   created_at: string
@@ -241,7 +235,6 @@ export type DiaPlan = {
   fecha: string
   // De dónde sale: un cambio hecho a mano, la semana del programa, o nada.
   origen: 'excepcion' | 'programa' | 'sin_programa'
-  programa_id: number | null
   // Viene aunque esté oculta (para pintarla en gris); entonces `descanso` es verdadero.
   rutina: RutinaMinima | null
   descanso: boolean
@@ -445,6 +438,8 @@ export type NuevoEntrenamiento = {
   fecha: string
   notas: string | null
   cubre_fecha?: string | null
+  /** Solo al empezar hoy lo que toca otro día: se intercambian los dos días y se crea la sesión, de una vez. */
+  intercambiar_con?: string | null
 }
 
 /** Lo que se corrige de una sesión ya creada. */

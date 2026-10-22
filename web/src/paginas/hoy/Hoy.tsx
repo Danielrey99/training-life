@@ -64,6 +64,9 @@ export function Hoy() {
   const [sinTerminar, setSinTerminar] = useState<Entrenamiento[]>([])
   const [error, setError] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  // Cada vez que cambia, se vuelve a leer todo (al volver a la pestaña o si ha cambiado el día).
+  const [lectura, setLectura] = useState(0)
 
   useEffect(() => {
     let vigente = true
@@ -91,6 +94,16 @@ export function Hoy() {
     return () => {
       vigente = false
     }
+  }, [lectura])
+
+  // Con Entrenar abierto de un día para otro, lo que se ve ya no es lo de hoy: al volver a
+  // la pestaña se lee de nuevo.
+  useEffect(() => {
+    function alVolver() {
+      if (document.visibilityState === 'visible') setLectura((n) => n + 1)
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
   }, [])
 
   if (error) return <p className="aviso error">{error}</p>
@@ -119,12 +132,21 @@ export function Hoy() {
   }
 
   /** Crea la sesión que cuenta `cubre` (o ninguno) y abre E2. */
-  async function empezar(rutinaId: number, cubre: string | null) {
+  async function empezar(rutinaId: number, cubre: string | null, intercambiarCon?: string) {
+    // Por si la pantalla se quedó abierta pasada la medianoche: si ya es otro día, no se
+    // crea nada con la fecha vieja; se lee de nuevo y se avisa.
+    if ((await api.hoy()).fecha !== hoy) {
+      setAviso('Ha empezado otro día: esto es lo que toca ahora.')
+      setLectura((n) => n + 1)
+      return
+    }
+    setAviso(null)
     const creada = await api.crearEntrenamiento({
       rutina_id: rutinaId,
       fecha: hoy,
       notas: null,
       cubre_fecha: cubre,
+      intercambiar_con: intercambiarCon ?? null,
     })
     navegar(`/sesion/${creada.id}`)
   }
@@ -173,15 +195,13 @@ export function Hoy() {
       })
     } else {
       // Intercambiar cambia el plan de los dos días y empieza la sesión de hoy, que ya
-      // toca esta rutina.
+      // toca esta rutina: el servidor lo hace todo de una vez, y si algo falla no deja
+      // los días cambiados.
       setConfirmando({
         titulo: `¿Intercambiar con el ${nombreDelDia(fecha)}?`,
         cuerpo: `Hoy harías ${rutina.nombre} y el ${nombreDelDia(fecha)} pasaría a ser ${rutinaDeHoy?.nombre}.`,
         confirmar: 'Intercambiar',
-        alConfirmar: async () => {
-          await api.intercambiarDias(hoy, fecha)
-          await empezar(rutina.id, hoy)
-        },
+        alConfirmar: () => empezar(rutina.id, hoy, fecha),
       })
     }
   }
@@ -197,6 +217,12 @@ export function Hoy() {
           <Icono nombre="ajustes" />
         </Link>
       </header>
+
+      {aviso && (
+        <p className="aviso" role="status">
+          {aviso}
+        </p>
+      )}
 
       <div className="tira">
         {resumen.semana.map((uno, indice) => (

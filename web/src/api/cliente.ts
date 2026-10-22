@@ -13,7 +13,6 @@ import type {
   AvisoDeBorrarRutina,
   CambiosDeHueco,
   ComprobacionDeImportar,
-  DiaPlan,
   DiaSeguimiento,
   DiaSemana,
   Ejercicio,
@@ -222,13 +221,6 @@ export const api = {
     peticion<SesionHistorial<SerieHistorialHueco>[]>(
       `/rutinas/${rutinaId}/slots/${huecoId}/historial${consulta(filtro)}`,
     ),
-  anadirComodin: (rutinaId: number, huecoId: number, ejercicioId: number) =>
-    peticion<HuecoDeRutina>(
-      `/rutinas/${rutinaId}/slots/${huecoId}/alternativas`,
-      conCuerpo('POST', { ejercicio_id: ejercicioId }),
-    ),
-  quitarComodin: (rutinaId: number, huecoId: number, ejercicioId: number) =>
-    peticion<void>(`/rutinas/${rutinaId}/slots/${huecoId}/alternativas/${ejercicioId}`, BORRAR),
 
   // --- Entrenamientos y series ---
   /**
@@ -290,7 +282,6 @@ export const api = {
     peticion<void>(`/programas/${id}/dias/${dia}`, BORRAR),
 
   // --- Plan: qué toca cada día ---
-  plan: (desde: string, hasta: string) => peticion<DiaPlan[]>(`/plan${consulta({ desde, hasta })}`),
   /** Qué tocaba cada día y qué pasó: hecho, movido, sin hacer… */
   seguimiento: (desde: string, hasta: string) =>
     peticion<DiaSeguimiento[]>(`/plan/seguimiento${consulta({ desde, hasta })}`),
@@ -306,12 +297,6 @@ export const api = {
   /** *Restablecer la semana*: solo toca los días de hoy en adelante. */
   restablecerRango: (desde: string, hasta: string) =>
     peticion<void>(`/plan/excepciones${consulta({ desde, hasta })}`, BORRAR),
-  intercambiarDias: (fechaA: string, fechaB: string) =>
-    peticion<DiaPlan[]>(
-      '/plan/intercambiar',
-      conCuerpo('POST', { fecha_a: fechaA, fecha_b: fechaB }),
-    ),
-
   // --- Resumen ---
   /** `mes` como `2026-09`; sin él, el de hoy. */
   resumen: (mes?: string) => peticion<Resumen>(`/resumen${consulta({ mes })}`),
