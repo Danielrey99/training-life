@@ -162,10 +162,6 @@ function HuecoAbierto({
                     {pesoLegible(serie.peso)} {unidad()} × {serie.repeticiones} reps
                   </span>
                   {serie.variante && <span className="serie-variante">{serie.variante}</span>}
-                  {/* Con un comodín por medio, un mismo hueco mezcla ejercicios: se dice cuál. */}
-                  {serie.ejercicio_id !== idElegido && (
-                    <span className="serie-ejercicio">{serie.ejercicio.nombre}</span>
-                  )}
                 </span>
                 <button
                   type="button"

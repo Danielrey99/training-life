@@ -176,6 +176,11 @@ export function Dia() {
   const [seriesNuevas, setSeriesNuevas] = useState<Serie[]>([])
   const [guardando, setGuardando] = useState(false)
   const [aBorrar, setABorrar] = useState<Serie | null>(null)
+  // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
+  // se hace un solo ejercicio por día y cambiar quita las series que había (al guardar).
+  const [aCambiar, setACambiar] = useState<{ bloque: Bloque; ejercicio: Ejercicio } | null>(null)
+  // Los ejercicios elegidos en el borrador para huecos que se quedaron sin series al cambiar.
+  const [ejerciciosNuevos, setEjerciciosNuevos] = useState<Record<number, Ejercicio>>({})
   const [borrandoDia, setBorrandoDia] = useState(false)
   const [falloFecha, setFalloFecha] = useState<string | null>(null)
   const [falloGuardar, setFalloGuardar] = useState<string | null>(null)
@@ -248,7 +253,11 @@ export function Dia() {
   const cambioVolumen = anterior ? Math.round(volumen - enUnidad(volumenDe(anterior.series))) : null
   const actuales = bloques.map((bloque) => {
     const suyas = series.filter((serie) => serie.slot_id === bloque.hueco.id)
-    return { ...bloque, series: suyas, ejercicio: suyas[0]?.ejercicio ?? bloque.ejercicio }
+    return {
+      ...bloque,
+      series: suyas,
+      ejercicio: suyas[0]?.ejercicio ?? ejerciciosNuevos[bloque.hueco.id] ?? bloque.ejercicio,
+    }
   })
   const mejoras = actuales.map((bloque) => mejora(bloque.series, bloque.ultima))
   const mejorados = mejoras.filter((una) => una?.clase === 'mejor').length
@@ -264,6 +273,7 @@ export function Dia() {
     setFechaNueva(dia.fecha)
     setNotasNuevas(dia.notas)
     setSeriesNuevas(dia.series)
+    setEjerciciosNuevos({})
     setFalloFecha(null)
     setFalloGuardar(null)
     setAbierta(null)
@@ -366,6 +376,13 @@ export function Dia() {
       ),
     )
     setAbierta(null)
+  }
+
+  /** Confirmado el cambio: se quitan del borrador las series del hueco y se elige el nuevo. */
+  function cambiarDeEjercicio(bloque: Bloque, ejercicio: Ejercicio) {
+    setSeriesNuevas((previas) => previas.filter((serie) => serie.slot_id !== bloque.hueco.id))
+    setEjerciciosNuevos((previos) => ({ ...previos, [bloque.hueco.id]: ejercicio }))
+    setACambiar(null)
   }
 
   function anadirSerie(bloque: Bloque, ejercicio: Ejercicio, numero: number, datos: DatosDeSerie) {
@@ -498,7 +515,7 @@ export function Dia() {
         const numero = bloque.hueco ? huecosVisibles.indexOf(bloque.hueco) + 1 : 0
         return (
           <BloqueDelDia
-            key={`${bloque.clave}-${editando}`}
+            key={`${bloque.clave}-${editando}-${bloque.series.length === 0 ? bloque.ejercicio.id : ''}`}
             bloque={bloque}
             numero={numero}
             mejora={mejoras[indice]}
@@ -509,6 +526,7 @@ export function Dia() {
             alAbrir={setAbierta}
             alCerrar={() => setAbierta(null)}
             alBorrarSerie={setABorrar}
+            alPedirCambiar={(ejercicio) => setACambiar({ bloque, ejercicio })}
             alCambiarSerie={cambiarSerie}
             alAnadirSerie={(ejercicio, numeroSerie, datos) =>
               anadirSerie(bloque, ejercicio, numeroSerie, datos)
@@ -574,6 +592,21 @@ export function Dia() {
             setABorrar(null)
           }}
           alCancelar={() => setABorrar(null)}
+        />
+      )}
+
+      {aCambiar && (
+        <Dialogo
+          titulo={`¿Cambiar a ${aCambiar.ejercicio.nombre}?`}
+          cuerpo={`Se borrarán ${
+            aCambiar.bloque.series.length === 1
+              ? 'la serie'
+              : `las ${aCambiar.bloque.series.length} series`
+          } de ${aCambiar.bloque.ejercicio.nombre} de este día al guardar.`}
+          confirmar="Cambiar"
+          peligro
+          alConfirmar={async () => cambiarDeEjercicio(aCambiar.bloque, aCambiar.ejercicio)}
+          alCancelar={() => setACambiar(null)}
         />
       )}
 

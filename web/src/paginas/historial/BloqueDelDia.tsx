@@ -42,6 +42,8 @@ type Props = {
   alAbrir: (abierta: Abierta) => void
   alCerrar: () => void
   alBorrarSerie: (serie: Serie) => void
+  // Elegir otro ejercicio en un hueco que ya tiene series: lo confirma el día, que borra esas series.
+  alPedirCambiar: (ejercicio: Ejercicio) => void
   // Cambiar o añadir una serie solo toca el borrador del día: se guarda con Guardar arriba.
   alCambiarSerie: (serie: Serie, datos: DatosDeSerie) => void
   alAnadirSerie: (ejercicio: Ejercicio, numero: number, datos: DatosDeSerie) => void
@@ -68,6 +70,7 @@ export function BloqueDelDia({
   alAbrir,
   alCerrar,
   alBorrarSerie,
+  alPedirCambiar,
   alCambiarSerie,
   alAnadirSerie,
 }: Props) {
@@ -103,15 +106,15 @@ export function BloqueDelDia({
         </h2>
         {/* Elegir con qué ejercicio se hizo es parte de añadir la serie: la flecha sigue en
             el hueco al que se añade, y solo desaparece si lo abierto es otra cosa. */}
-        {vacio && admiteNuevas && (!bloqueado || anadiendo) && comodines.length > 0 && (
+        {admiteNuevas && (vacio ? !bloqueado || anadiendo : !bloqueado) && comodines.length > 0 && (
           <SelectorDeEjercicio
             rutinaId={rutinaId}
             huecoId={hueco.id}
             principal={principal}
             comodines={comodines}
-            elegido={elegido}
+            elegido={ejercicio}
             sesion={sesion}
-            elegir={setElegido}
+            elegir={(otro) => (vacio ? setElegido(otro) : alPedirCambiar(otro))}
           />
         )}
         {/* El objetivo arriba, con el nombre, y no junto a las mejoras: es lo que pide la

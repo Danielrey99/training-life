@@ -382,8 +382,7 @@
   white-space: nowrap;
 }
 
-.serie-variante,
-.serie-ejercicio {
+.serie-variante {
   font-size: 13px;
   color: var(--texto-tenue);
 }

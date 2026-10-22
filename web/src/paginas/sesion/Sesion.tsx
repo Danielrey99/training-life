@@ -54,6 +54,11 @@ export function Sesion() {
   const [abierto, setAbierto] = useState<number | null>(null)
   const [elegidos, setElegidos] = useState<Record<number, Ejercicio | null>>({})
   const [aBorrar, setABorrar] = useState<Serie | null>(null)
+  // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
+  // se hace un solo ejercicio por sesión y cambiar borra las series que había.
+  const [aCambiar, setACambiar] = useState<{ hueco: HuecoDeRutina; ejercicio: Ejercicio } | null>(
+    null,
+  )
   const [confirmando, setConfirmando] = useState<'terminar' | 'cancelar' | null>(null)
   // Las ediciones van de una en una: una serie o la nota, y mientras tanto el resto se
   // queda en gris (otros lápices, las ✕, los demás huecos, Terminar y Cancelar).
@@ -164,6 +169,36 @@ export function Sesion() {
     setABorrar(null)
   }
 
+  function elegirEjercicio(hueco: HuecoDeRutina, ejercicio: Ejercicio) {
+    setElegidos((previos) => ({ ...previos, [hueco.id]: ejercicio }))
+  }
+
+  function pedirElegir(hueco: HuecoDeRutina, ejercicio: Ejercicio) {
+    if (elegidos[hueco.id]?.id === ejercicio.id) return
+    // Sin series no hay nada que perder: se cambia sin preguntar.
+    if (deHueco(hueco).length === 0) elegirEjercicio(hueco, ejercicio)
+    else setACambiar({ hueco, ejercicio })
+  }
+
+  /** Borra las series que había en el hueco, una a una, y pasa al ejercicio elegido. */
+  async function cambiarDeEjercicio(hueco: HuecoDeRutina, ejercicio: Ejercicio) {
+    try {
+      for (const serie of deHueco(hueco)) {
+        await api.borrarSerie(activa.id, serie.id)
+        setSesion(
+          (previa) =>
+            previa && { ...previa, series: previa.series.filter((s) => s.id !== serie.id) },
+        )
+      }
+    } catch {
+      // Se vuelve a leer lo que quedó: no se sabe cuántas llegaron a borrarse.
+      setSesion(await api.entrenamiento(activa.id))
+      throw new Error('No se pudieron borrar todas las series. Inténtalo otra vez.')
+    }
+    elegirEjercicio(hueco, ejercicio)
+    setACambiar(null)
+  }
+
   function bloque(hueco: HuecoDeRutina, posicion: number) {
     const clave = hueco.id
     const elegido = elegidos[clave] ?? null
@@ -176,7 +211,7 @@ export function Sesion() {
         rutinaId={rutinaId}
         series={deHueco(hueco)}
         elegido={elegido}
-        elegir={(ejercicio) => setElegidos((previos) => ({ ...previos, [clave]: ejercicio }))}
+        elegir={(ejercicio) => pedirElegir(hueco, ejercicio)}
         abierto={abierto === clave}
         abrir={() => setAbierto(clave)}
         editandoId={editandoSerie}
@@ -279,6 +314,23 @@ export function Sesion() {
           peligro
           alConfirmar={() => borrar(aBorrar)}
           alCancelar={() => setABorrar(null)}
+        />
+      )}
+
+      {aCambiar && (
+        <Dialogo
+          titulo={`¿Cambiar a ${aCambiar.ejercicio.nombre}?`}
+          cuerpo={(() => {
+            const series = deHueco(aCambiar.hueco)
+            const cuantas = series.length === 1 ? 'la serie' : `las ${series.length} series`
+            return `Se borrarán ${cuantas} de ${series[0].ejercicio.nombre} de ${
+              deOtroDia ? 'este día' : 'hoy'
+            }.`
+          })()}
+          confirmar="Cambiar"
+          peligro
+          alConfirmar={() => cambiarDeEjercicio(aCambiar.hueco, aCambiar.ejercicio)}
+          alCancelar={() => setACambiar(null)}
         />
       )}
 
