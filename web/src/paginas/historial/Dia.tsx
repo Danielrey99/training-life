@@ -29,6 +29,7 @@ import {
   enUnidadDeDistancia,
   numeroLegible,
   pesoLegible,
+  ritmoEnTexto,
   unidad,
   unoRM,
 } from '../../utiles/numeros'
@@ -199,23 +200,45 @@ const suma = (
   campo: 'distancia_m' | 'duracion_s',
 ) => lista.reduce((total, serie) => total + (serie[campo] ?? 0), 0)
 
+/** El ritmo de las series de un día que llevan distancia: segundos por kilómetro (o milla); nulo sin distancia. */
+function ritmoDelDia(lista: { distancia_m?: number | null; duracion_s: number | null }[]) {
+  const con = lista.filter((serie) => (serie.distancia_m ?? 0) > 0)
+  const metros = suma(con, 'distancia_m')
+  return metros > 0 ? suma(con, 'duracion_s') / enUnidadDeDistancia(metros) : null
+}
+
+/** «0:07», sin unidad: lo que cambió un ritmo. */
+function minutosYSegundos(segundos: number) {
+  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`
+}
+
 /**
- * El cardio no cuenta como mejorado (la distancia y el tiempo van juntos, y a veces se
- * busca una cosa y a veces la otra): solo enseña lo de hoy con lo que cambió, en insignias
- * neutras. «5,2 km (+0,4)», «28 min 15 s (+1 min 35 s)».
+ * La mejora de un ejercicio de cardio, con el mismo criterio que los demás: cada insignia
+ * dice lo de hoy con lo que cambió y va en verde si mejoró y en gris si no. Lo que decide si
+ * el ejercicio mejoró, por orden: la distancia (más lejos es mejor); con la misma, el ritmo
+ * (más rápido es mejor); y sin distancia en alguna de las dos veces, el tiempo (más es
+ * mejor). El ritmo lleva su propia insignia con la flecha, como el 1RM.
+ * «5,2 km (+0,4)», «28 min 15 s (+1 min 35 s)», «↑ Ritmo 5:26 min/km (−0:07)».
  */
 function mejoraDeCardio(series: Serie[], ultima: SesionHistorial | null): Mejora {
   const distanciaHoy = suma(series, 'distancia_m')
   const tiempoHoy = suma(series, 'duracion_s')
+  const ritmoHoy = ritmoDelDia(series)
   const neutra = (texto: string): Insignia => ({ texto, clase: 'igual' })
   if (!ultima || ultima.series.length === 0) {
     const insignias = [neutra('nuevo')]
     if (distanciaHoy > 0) insignias.push(neutra(distanciaLegible(distanciaHoy)))
     insignias.push(neutra(duracionLegible(tiempoHoy)))
+    if (ritmoHoy !== null) insignias.push(neutra(`Ritmo ${ritmoEnTexto(ritmoHoy)}`))
     return { clase: 'igual', insignias }
   }
   const diferencia = (valor: number, texto: (positivo: number) => string) =>
     valor === 0 ? 'igual' : `${valor > 0 ? '+' : '−'}${texto(Math.abs(valor))}`
+  // Verde si subió, gris si no (igual o menos): como el resto de insignias de cambio.
+  const segunElCambio = (texto: string, cambio: number): Insignia => ({
+    texto,
+    clase: cambio > 0 ? 'mejor' : 'igual',
+  })
   const insignias: Insignia[] = []
   const distanciaAntes = suma(ultima.series, 'distancia_m')
   if (distanciaHoy > 0 || distanciaAntes > 0) {
@@ -223,16 +246,36 @@ function mejoraDeCardio(series: Serie[], ultima: SesionHistorial | null): Mejora
     const cambio = enUnidadDeDistancia(distanciaHoy) - enUnidadDeDistancia(distanciaAntes)
     const redondeado = Math.round(cambio * 100) / 100
     insignias.push(
-      neutra(
+      segunElCambio(
         `${distanciaLegible(distanciaHoy)} (${diferencia(redondeado, (n) => numeroLegible(n, 2))})`,
+        redondeado,
       ),
     )
   }
-  const cambioDeTiempo = tiempoHoy - suma(ultima.series, 'duracion_s')
+  const tiempoAntes = suma(ultima.series, 'duracion_s')
+  const cambioDeTiempo = tiempoHoy - tiempoAntes
   insignias.push(
-    neutra(`${duracionLegible(tiempoHoy)} (${diferencia(cambioDeTiempo, duracionLegible)})`),
+    segunElCambio(
+      `${duracionLegible(tiempoHoy)} (${diferencia(cambioDeTiempo, duracionLegible)})`,
+      cambioDeTiempo,
+    ),
   )
-  return { clase: 'igual', insignias }
+  // El ritmo, solo si las dos veces llevan distancia: un ritmo más bajo es mejor.
+  const ritmoAntes = ritmoDelDia(ultima.series)
+  let cambioDeRitmo = 0
+  if (ritmoHoy !== null && ritmoAntes !== null) {
+    cambioDeRitmo = Math.round(ritmoHoy) - Math.round(ritmoAntes)
+    const clase = claseDe(-cambioDeRitmo)
+    const flecha = clase === 'mejor' ? '↑ ' : clase === 'peor' ? '↓ ' : ''
+    const dif = diferencia(cambioDeRitmo, minutosYSegundos)
+    insignias.push({ texto: `${flecha}Ritmo ${ritmoEnTexto(ritmoHoy)} (${dif})`, clase })
+  }
+  // Lo que decide, por orden: la distancia, el ritmo y, sin distancia en las dos, el tiempo.
+  const comparable = distanciaHoy > 0 && distanciaAntes > 0
+  const clase = comparable
+    ? claseDe(distanciaHoy !== distanciaAntes ? distanciaHoy - distanciaAntes : -cambioDeRitmo)
+    : claseDe(cambioDeTiempo)
+  return { clase, insignias }
 }
 
 /** Cómo le fue al ejercicio, según cómo se apunta: cada tipo se mide con lo suyo. */
@@ -760,7 +803,8 @@ export function Dia() {
       {series.length > 0 && (
         <p className="dia-leyenda">
           La mejora, frente a la última vez con ese ejercicio: en peso y repeticiones, el 1RM; en
-          peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración.
+          peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración; en
+          cardio, la distancia y luego el ritmo.
           {anterior && hayVolumen && (
             <>
               <br />

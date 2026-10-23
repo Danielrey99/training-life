@@ -46,7 +46,7 @@ function tiempoYDistancia(serie: Medidas): string {
   return serie.distancia_m ? `${tiempo} · ${distanciaLegible(serie.distancia_m)}` : tiempo
 }
 
-/** «Ritmo 5:26 /km», en su línea debajo de una serie de cardio; nulo sin distancia. */
+/** «Ritmo 5:26 min/km», en su línea debajo de una serie de cardio; nulo sin distancia. */
 export function ritmoDeLaSerie(serie: Medidas): string | null {
   if (!serie.duracion_s || !serie.distancia_m) return null
   return `Ritmo ${ritmoLegible(serie.duracion_s, serie.distancia_m)}`

@@ -8,7 +8,6 @@ export type Punto = {
   valor: number
   // Lo que dice el globo debajo de la fecha: "20 kg", "720 kg en 4 series"…
   detalle: string
-  rutina: string | null
 }
 
 type Props = {
@@ -30,7 +29,18 @@ const ALTO = 176
 const IZQUIERDA = 32
 const ARRIBA = 20
 const ABAJO = 150
-const GLOBO = { ancho: 132, alto: 40 }
+// El alto del globo es fijo; el ancho se ajusta a lo que dice (`anchoDelGlobo`).
+const GLOBO = { alto: 40, relleno: 10 }
+
+let lienzoDeMedir: CanvasRenderingContext2D | null = null
+
+/** Cuánto ocupa un texto con esa fuente, para que el globo no deje hueco de más. */
+function anchoDeTexto(texto: string, fuente: string): number {
+  lienzoDeMedir ??= document.createElement('canvas').getContext('2d')
+  if (!lienzoDeMedir) return texto.length * 7
+  lienzoDeMedir.font = fuente
+  return lienzoDeMedir.measureText(texto).width
+}
 
 /**
  * El ancho real de la gráfica, siguiéndolo si cambia. Dibujar a ese ancho, y no
@@ -144,16 +154,21 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarc
           { texto: conAnio(ultimo), x: derecha },
         ]
 
-  // El globo, a la izquierda del punto si no cabe a la derecha y debajo si no cabe encima.
-  const globoX = Math.min(
-    Math.max(x(activo.fecha) - GLOBO.ancho / 2, IZQUIERDA),
-    ancho - GLOBO.ancho,
+  // El globo dice la fecha y el valor: tan ancho como el más largo de los dos, con un margen.
+  const titulo = fechaAbreviada(activo.fecha)
+  const globoAncho = Math.ceil(
+    Math.max(
+      anchoDeTexto(titulo, '11px system-ui, sans-serif'),
+      anchoDeTexto(activo.detalle, '600 12.5px system-ui, sans-serif'),
+    ) +
+      GLOBO.relleno * 2,
   )
+  // El globo, a la izquierda del punto si no cabe a la derecha y debajo si no cabe encima.
+  const globoX = Math.min(Math.max(x(activo.fecha) - globoAncho / 2, IZQUIERDA), ancho - globoAncho)
   const globoY =
     y(activo.valor) - GLOBO.alto - 12 >= 0
       ? y(activo.valor) - GLOBO.alto - 12
       : y(activo.valor) + 12
-  const titulo = `${fechaAbreviada(activo.fecha)}${activo.rutina ? ` · ${activo.rutina}` : ''}`
 
   return (
     <div ref={lienzo} className="progresion-grafica">
@@ -230,13 +245,13 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarc
             <rect
               x={globoX}
               y={globoY}
-              width={GLOBO.ancho}
+              width={globoAncho}
               height={GLOBO.alto}
               rx="6"
               fill="var(--texto)"
             />
             <text x={globoX + 10} y={globoY + 16} fontSize="11" fill="var(--globo-tenue)">
-              {titulo.length > 22 ? `${titulo.slice(0, 21)}…` : titulo}
+              {titulo}
             </text>
             <text
               x={globoX + 10}

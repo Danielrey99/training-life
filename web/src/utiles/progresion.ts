@@ -49,9 +49,6 @@ export function enKilos(valor: number): string {
 const conSigno = (diferencia: number, texto: string) =>
   `${diferencia > 0 ? '+' : diferencia < 0 ? '−' : ''}${texto}`
 
-const series = (sesion: SesionHistorial) =>
-  `${sesion.series.length} ${sesion.series.length === 1 ? 'serie' : 'series'}`
-
 const reps = (cuantas: number) => `${numeroLegible(cuantas, 1)} ${cuantas === 1 ? 'rep' : 'reps'}`
 
 const cambioDeKilos = (diferencia: number) => conSigno(diferencia, enKilos(Math.abs(diferencia)))
@@ -104,7 +101,7 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
     {
       clave: 'peso',
       texto: 'Peso',
-      rotulo: 'Por sesión',
+      rotulo: 'El más alto de la sesión',
       valor: (sesion) => Math.max(...conPesoYReps(sesion.series).map((s) => Number(s.peso))),
       enPeso: true,
       escribir: enKilos,
@@ -114,7 +111,7 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
     {
       clave: 'volumen',
       texto: 'Volumen',
-      rotulo: 'Por sesión',
+      rotulo: 'Suma de peso × reps',
       valor: (sesion) =>
         conPesoYReps(sesion.series).reduce(
           (total, serie) => total + Number(serie.peso) * serie.repeticiones,
@@ -123,18 +120,20 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       enPeso: true,
       escribir: enKilos,
       cambio: cambioDeKilos,
-      globo: (sesion, valor) => `${enKilos(valor)} en ${series(sesion)}`,
+      globo: (_, valor) => enKilos(valor),
     },
     {
       clave: 'rm',
       texto: '1RM',
-      rotulo: 'Por sesión',
+      // Lo que se calcula depende del ajuste: la media de las series o la mejor.
+      get rotulo() {
+        return ajustes().unoRM === 'media' ? 'Media de las series' : 'La mejor serie'
+      },
       valor: (sesion) => unoRM(sesion.series),
       enPeso: true,
       escribir: enKilos,
       cambio: cambioDeKilos,
-      // «de media» solo con la media: «en la mejor serie» no cabe en el globo.
-      globo: (_, valor) => `${enKilos(valor)}${ajustes().unoRM === 'media' ? ' de media' : ''}`,
+      globo: (_, valor) => enKilos(valor),
     },
   ],
   corporal: [
@@ -146,17 +145,17 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       enPeso: false,
       escribir: reps,
       cambio: cambioDeReps,
-      globo: (_, valor) => `${reps(valor)} de media`,
+      globo: (_, valor) => reps(valor),
     },
     {
       clave: 'total',
       texto: 'Reps totales',
-      rotulo: 'Suma por sesión',
+      rotulo: 'Suma de las series',
       valor: totalDeReps,
       enPeso: false,
       escribir: reps,
       cambio: cambioDeReps,
-      globo: (sesion, valor) => `${reps(valor)} en ${series(sesion)}`,
+      globo: (_, valor) => reps(valor),
     },
     {
       clave: 'carga',
@@ -178,17 +177,17 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       enPeso: false,
       escribir: (valor) => duracionLegible(Math.round(valor)),
       cambio: cambioDeTiempo,
-      globo: (_, valor) => `${duracionLegible(Math.round(valor))} de media`,
+      globo: (_, valor) => duracionLegible(Math.round(valor)),
     },
     {
       clave: 'total',
       texto: 'Tiempo total',
-      rotulo: 'Suma por sesión',
+      rotulo: 'Suma de las series',
       valor: totalDeTiempo,
       enPeso: false,
       escribir: (valor) => duracionLegible(Math.round(valor)),
       cambio: cambioDeTiempo,
-      globo: (sesion, valor) => `${duracionLegible(Math.round(valor))} en ${series(sesion)}`,
+      globo: (_, valor) => duracionLegible(Math.round(valor)),
     },
     {
       clave: 'peso',
@@ -205,7 +204,7 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
     {
       clave: 'distancia',
       texto: 'Distancia',
-      rotulo: 'Por sesión',
+      rotulo: 'Suma de la sesión',
       valor: distanciaTotal,
       enPeso: false,
       aplica: conDistancia,
@@ -216,17 +215,17 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
     {
       clave: 'tiempo',
       texto: 'Tiempo',
-      rotulo: 'Por sesión',
+      rotulo: 'Suma de la sesión',
       valor: totalDeTiempo,
       enPeso: false,
       escribir: (valor) => duracionLegible(Math.round(valor)),
       cambio: cambioDeTiempo,
-      globo: (sesion, valor) => `${duracionLegible(Math.round(valor))} en ${series(sesion)}`,
+      globo: (_, valor) => duracionLegible(Math.round(valor)),
     },
     {
       clave: 'ritmo',
       texto: 'Ritmo',
-      rotulo: 'Por sesión',
+      rotulo: 'Media de la sesión',
       valor: ritmoDeLaSesion,
       enPeso: false,
       aplica: conDistancia,

@@ -75,7 +75,7 @@ export function distanciaLegible(metros: number): string {
 }
 
 /**
- * El ritmo de una serie de cardio, «5:26 /km»: lo que se tarda en recorrer un kilómetro (o
+ * El ritmo de una serie de cardio, «5:26 min/km»: lo que se tarda en recorrer un kilómetro (o
  * una milla). Es la única medida con dos puntos. Nulo sin distancia.
  */
 export function ritmoLegible(segundos: number, metros: number | null): string | null {
@@ -83,12 +83,12 @@ export function ritmoLegible(segundos: number, metros: number | null): string | 
   return ritmoEnTexto(segundos / enUnidadDeDistancia(metros))
 }
 
-/** «5:26 /km» de lo que se tarda (en segundos) en recorrer un kilómetro o una milla. */
+/** «5:26 min/km» de lo que se tarda (en segundos) en recorrer un kilómetro o una milla. */
 export function ritmoEnTexto(segundosPorUnidad: number): string {
   const total = Math.round(segundosPorUnidad)
   const minutos = Math.floor(total / 60)
   const resto = String(total % 60).padStart(2, '0')
-  return `${minutos}:${resto} /${unidadDeDistancia()}`
+  return `${minutos}:${resto} min/${unidadDeDistancia()}`
 }
 
 /**

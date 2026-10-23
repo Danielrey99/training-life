@@ -103,7 +103,6 @@ export function Progresion() {
       fecha: sesion.fecha,
       valor,
       detalle: medida.globo(sesion, valor),
-      rutina: sesion.rutina,
     }
   })
   const ultimo = puntos.at(-1)
