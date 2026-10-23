@@ -15,8 +15,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
 import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
-import { pesoLegible, unidad } from '../../utiles/numeros'
-import { valorDe } from '../../utiles/progresion'
+import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { enumerar } from '../programas/textos'
 import '../historial/historial.css'
@@ -38,6 +37,12 @@ type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | null
 
 // La nota que se está escribiendo: una nueva, la de ese id o ninguna.
 type Escribiendo = 'nueva' | number | null
+
+/** La cifra de la tarjeta de progresión: la primera medida de su gráfica en la última sesión. */
+function cifraDeProgresion(tipo: Ejercicio['tipo_registro'], ultima: SesionHistorial) {
+  const medida = medidasDe(tipo, [ultima])[0]
+  return medida.escribir(valorEnPantalla(medida, ultima))
+}
 
 /** "Push · ejercicio 1"; uno oculto en su rutina no tiene número. */
 function queEjercicio(uso: UsoEnRutina) {
@@ -250,7 +255,7 @@ export function Ficha() {
           <Link to={`/progresion/${id}`} className="detalle-tarjeta detalle-progresion">
             <span className="detalle-progresion-texto">
               <span className="detalle-peso num">
-                {pesoLegible(valorDe(ultima, 'peso'))} {unidad()}
+                {cifraDeProgresion(ejercicio.tipo_registro, ultima)}
               </span>
               <span>Última vez {conArticulo(ultima.fecha)}</span>
             </span>

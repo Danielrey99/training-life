@@ -5,11 +5,8 @@ import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { diaYMesConAnio, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
-import { ajustes } from '../../utiles/ajustes'
-import { enUnidad, unidad } from '../../utiles/numeros'
-import { valorDe } from '../../utiles/progresion'
+import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
-import { conPesoYReps } from '../../utiles/medidas'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { Grafica, type Punto } from './Grafica'
 import '../sesion/sesion.css'
@@ -22,42 +19,8 @@ const RANGOS = [
   { clave: 'todo', texto: 'Todo', dias: null },
 ] as const
 
-const MEDIDAS = [
-  { clave: 'peso', texto: 'Peso' },
-  { clave: 'volumen', texto: 'Volumen' },
-  { clave: 'rm', texto: '1RM' },
-] as const
-
 // Las sesiones que se enseñan antes de "Ver N sesiones más".
 const VISIBLES = 4
-
-/** "26,7 kg": el valor, ya en la unidad elegida, con un decimal como mucho. */
-function enKilos(valor: number): string {
-  const redondeado = Math.round(valor * 10) / 10
-  return `${redondeado.toLocaleString('es-ES', { maximumFractionDigits: 1 })} ${unidad()}`
-}
-
-function conSigno(diferencia: number): string {
-  const texto = enKilos(Math.abs(diferencia))
-  return `${diferencia > 0 ? '+' : diferencia < 0 ? '−' : ''}${texto}`
-}
-
-/**
- * «10 reps»: las de la serie más pesada del día, la del punto de la gráfica de peso; con
- * varias de ese mismo peso, la de más repeticiones (decisión del autor: el globo dice qué se
- * consiguió con ese peso, y así se ve si se subió peso o se hicieron más reps con el mismo).
- */
-function repsDeLaMasPesada(sesion: SesionHistorial): string {
-  const conPeso = conPesoYReps(sesion.series)
-  if (conPeso.length === 0) return ''
-  const masPesada = conPeso.reduce((mejor, serie) =>
-    Number(serie.peso) > Number(mejor.peso) ||
-    (Number(serie.peso) === Number(mejor.peso) && serie.repeticiones > mejor.repeticiones)
-      ? serie
-      : mejor,
-  )
-  return masPesada.repeticiones === 1 ? '1 rep' : `${masPesada.repeticiones} reps`
-}
 
 function fechaFila(iso: string): string {
   const texto = fechaAbreviada(iso)
@@ -96,7 +59,6 @@ export function Progresion() {
   const [todas, setTodas] = useState(false)
 
   const rangoElegido = RANGOS.find((r) => r.clave === parametros.get('rango'))
-  const medida = MEDIDAS.find((m) => m.clave === parametros.get('medida'))?.clave ?? 'peso'
 
   useEffect(() => {
     const id = Number(ejercicioId)
@@ -124,23 +86,21 @@ export function Progresion() {
   if (error) return <p className="aviso error">{error}</p>
   if (!ejercicio || !sesiones) return <p className="aviso">Cargando…</p>
 
+  // Las medidas que tiene un ejercicio dependen de cómo se apunta; la de la URL, si no es
+  // una de ellas, es la primera.
+  const medidas = medidasDe(ejercicio.tipo_registro, sesiones)
+  const medida = medidas.find((m) => m.clave === parametros.get('medida')) ?? medidas[0]
   const rango = rangoElegido ?? rangoPorDefecto(sesiones)
   const desde = rango.dias === null ? null : sumarDias(hoy(), -rango.dias)
   const enRango = sesiones.filter((sesion) => desde === null || sesion.fecha >= desde)
   const puntos: Punto[] = [...enRango].reverse().map((sesion) => {
     // En la unidad elegida: la gráfica y los textos ya no convierten.
-    const valor = enUnidad(valorDe(sesion, medida))
-    // «de media» solo con la media: «en la mejor serie» no cabe en el globo.
+    const valor = valorEnPantalla(medida, sesion)
     return {
       id: sesion.entrenamiento_id,
       fecha: sesion.fecha,
       valor,
-      detalle:
-        medida === 'volumen'
-          ? `${enKilos(valor)} en ${sesion.series.length} ${sesion.series.length === 1 ? 'serie' : 'series'}`
-          : medida === 'rm'
-            ? `${enKilos(valor)}${ajustes().unoRM === 'media' ? ' de media' : ''}`
-            : `${enKilos(valor)} × ${repsDeLaMasPesada(sesion)}`,
+      detalle: medida.globo(sesion, valor),
       rutina: sesion.rutina,
     }
   })
@@ -196,12 +156,12 @@ export function Progresion() {
                 2025») no cabía en la misma línea que la cifra. */}
             <div className="progresion-medida">
               <div className="progresion-selector" role="group" aria-label="Medida">
-                {MEDIDAS.map((opcion) => (
+                {medidas.map((opcion) => (
                   <button
                     key={opcion.clave}
                     type="button"
-                    className={opcion.clave === medida ? 'activa' : undefined}
-                    aria-pressed={opcion.clave === medida}
+                    className={opcion.clave === medida.clave ? 'activa' : undefined}
+                    aria-pressed={opcion.clave === medida.clave}
                     onClick={() => cambiar('medida', opcion.clave)}
                   >
                     {opcion.texto}
@@ -211,13 +171,13 @@ export function Progresion() {
             </div>
             <div className="progresion-cifra">
               <div className="progresion-lado">
-                <span className="rotulo">Por sesión</span>
-                <span className="progresion-valor num">{enKilos(ultimo.valor)}</span>
+                <span className="rotulo">{medida.rotulo}</span>
+                <span className="progresion-valor num">{medida.escribir(ultimo.valor)}</span>
               </div>
               <div className="progresion-lado derecha">
                 {puntos.length > 1 && (
                   <span className="progresion-cambio num">
-                    {conSigno(ultimo.valor - primero.valor)} desde el{' '}
+                    {medida.cambio(ultimo.valor - primero.valor)} desde el{' '}
                     {diaYMesConAnio(primero.fecha)}
                   </span>
                 )}
