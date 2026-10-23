@@ -10,6 +10,7 @@ import '../sesion/sesion.css'
 import {
   guardarBorrador,
   leerBorrador,
+  leerBorradorDeRutina,
   PROGRAMA_NUEVO,
   RUTINA_NUEVA,
   tirarBorrador,
@@ -47,8 +48,7 @@ export function RutinaNueva() {
   const empezar = (ubicacion.state as { empezar?: boolean } | null)?.empezar === true
 
   const [borrador, setBorrador] = useState<BorradorDeRutina>(
-    () =>
-      (!empezar && leerBorrador<BorradorDeRutina>(RUTINA_NUEVA)) || { nombre: '', ejercicios: [] },
+    () => (!empezar && leerBorradorDeRutina()) || { nombre: '', ejercicios: [] },
   )
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -101,17 +101,11 @@ export function RutinaNueva() {
         nombre,
         slots: borrador.ejercicios.map((ejercicio) => ({
           ejercicio_principal_id: ejercicio.principal.id,
-          alternativas: ejercicio.alternativas.map((otro) => ({
-            ejercicio_id: otro.id,
-            series_objetivo: ejercicio.series,
-            reps_min: ejercicio.repsMin,
-            reps_max: ejercicio.repsMax,
-            duracion_min_s: null,
-            duracion_max_s: null,
+          ...ejercicio.objetivo,
+          alternativas: ejercicio.alternativas.map((otra) => ({
+            ejercicio_id: otra.ejercicio.id,
+            ...otra.objetivo,
           })),
-          series_objetivo: ejercicio.series,
-          reps_min: ejercicio.repsMin,
-          reps_max: ejercicio.repsMax,
         })),
       })
       tirarBorrador(RUTINA_NUEVA)
@@ -141,13 +135,7 @@ export function RutinaNueva() {
   const filas = ejercicios.map((ejercicio, indice) => ({
     clave: indice,
     nombre: ejercicio.principal.nombre,
-    objetivo: objetivo({
-      series_objetivo: ejercicio.series,
-      reps_min: ejercicio.repsMin,
-      reps_max: ejercicio.repsMax,
-      duracion_min_s: null,
-      duracion_max_s: null,
-    }),
+    objetivo: objetivo(ejercicio.objetivo),
     detalle: lineaDeAlternativas(ejercicio.alternativas.length),
     enlace: `/programas/rutinas/nueva/ejercicios/${indice}`,
   }))

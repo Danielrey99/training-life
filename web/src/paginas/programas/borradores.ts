@@ -1,4 +1,4 @@
-import type { DiaSemana, Ejercicio, RutinaMinima } from '../../api/tipos'
+import type { DiaSemana, Ejercicio, Objetivo, RutinaMinima } from '../../api/tipos'
 
 /**
  * Los borradores que viven entre varias pantallas: el programa nuevo (P5) y la rutina
@@ -29,10 +29,10 @@ export type BorradorDePrograma = DiasConNombre & { activar: boolean }
 /** Un ejercicio de la rutina nueva, tal y como lo deja su formulario. */
 export type EjercicioDelBorrador = {
   principal: Ejercicio
-  alternativas: Ejercicio[]
-  series: number
-  repsMin: number
-  repsMax: number
+  // Su objetivo, de su familia (reps o duración).
+  objetivo: Objetivo
+  // Cada alternativa con el suyo.
+  alternativas: { ejercicio: Ejercicio; objetivo: Objetivo }[]
 }
 
 export type BorradorDeRutina = {
@@ -94,4 +94,23 @@ export function tirarBorrador(clave: string) {
   } catch {
     // Nada que borrar si no se pudo guardar.
   }
+}
+
+/**
+ * El borrador de la rutina nueva. Uno guardado con la forma de antes de los objetivos por
+ * ejercicio (series, repsMin y repsMax sueltos) se tira: sin eso, la pantalla fallaría al
+ * abrirlo. Como mucho se pierde una rutina a medio crear.
+ */
+export function leerBorradorDeRutina(): BorradorDeRutina | null {
+  const borrador = leerBorrador<BorradorDeRutina>(RUTINA_NUEVA)
+  if (!borrador) return null
+  const vale = borrador.ejercicios.every(
+    (ejercicio) =>
+      ejercicio.objetivo !== undefined &&
+      Array.isArray(ejercicio.alternativas) &&
+      ejercicio.alternativas.every((alternativa) => alternativa.objetivo !== undefined),
+  )
+  if (vale) return borrador
+  tirarBorrador(RUTINA_NUEVA)
+  return null
 }

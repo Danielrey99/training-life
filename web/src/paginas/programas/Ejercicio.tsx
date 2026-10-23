@@ -11,22 +11,29 @@ import type {
 } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
-import { ajustes } from '../../utiles/ajustes'
 import { diaYMesConAnio } from '../../utiles/fechas'
-import { leerNumero } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
-import { CampoConPasos } from '../sesion/FormularioDeSerie'
 import '../sesion/sesion.css'
 import {
   guardarBorrador,
-  leerBorrador,
+  leerBorradorDeRutina,
   RUTINA_NUEVA,
   type BorradorDeRutina,
   type EjercicioDelBorrador,
 } from './borradores'
 import './ejercicio.css'
 import { HojaDeEjercicios } from './HojaDeEjercicios'
+import {
+  aObjetivo,
+  CamposDelObjetivo,
+  deAjustes,
+  enTexto,
+  familiaDe,
+  queFaltaDelObjetivo,
+  resumenDelObjetivo,
+  type ObjetivoEnTexto,
+} from './objetivos'
 import './semana.css'
 
 /**
@@ -39,72 +46,70 @@ type Origen =
   | { tipo: 'nuevo'; rutina: Rutina }
   | { tipo: 'existente'; rutina: Rutina; hueco: HuecoDeRutina; posicion: number | null }
 
+/** Una alternativa en el formulario, con su objetivo tecleado. */
+type AlternativaEnFormulario = { ejercicio: DatosEjercicio; objetivo: ObjetivoEnTexto }
+
 type Formulario = {
   principal: DatosEjercicio | null
-  alternativas: DatosEjercicio[]
-  series: string
-  repsMin: string
-  repsMax: string
+  objetivo: ObjetivoEnTexto
+  alternativas: AlternativaEnFormulario[]
 }
 
 type Datos = { origen: Origen; ejercicios: DatosEjercicio[]; grupos: GrupoMuscular[] }
 
 type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | 'quitar'
 
-// Lo habitual en doble progresión: 3 series de 8 a 12.
-/** Un ejercicio nuevo: sin elegir, con las series y reps por defecto de Ajustes. */
+/** Un ejercicio nuevo: sin elegir, con el objetivo de peso y repeticiones de Ajustes. */
 function vacio(): Formulario {
-  const { series, min: repsMin, max: repsMax } = ajustes().objetivoNuevo.peso_reps
-  return {
-    principal: null,
-    alternativas: [],
-    series: String(series),
-    repsMin: String(repsMin),
-    repsMax: String(repsMax),
-  }
+  return { principal: null, objetivo: deAjustes({ tipo_registro: 'peso_reps' }), alternativas: [] }
 }
 
 function desdeBorrador(ejercicio: EjercicioDelBorrador): Formulario {
   return {
     principal: ejercicio.principal,
-    alternativas: ejercicio.alternativas,
-    series: String(ejercicio.series),
-    repsMin: String(ejercicio.repsMin),
-    repsMax: String(ejercicio.repsMax),
+    objetivo: enTexto(ejercicio.objetivo),
+    alternativas: ejercicio.alternativas.map((alternativa) => ({
+      ejercicio: alternativa.ejercicio,
+      objetivo: enTexto(alternativa.objetivo),
+    })),
   }
 }
 
 function desdeHueco(hueco: HuecoDeRutina): Formulario {
   return {
     principal: hueco.ejercicio_principal,
-    alternativas: hueco.alternativas.map((alternativa) => alternativa.ejercicio),
-    series: String(hueco.series_objetivo),
-    repsMin: String(hueco.reps_min ?? ''),
-    repsMax: String(hueco.reps_max ?? ''),
+    objetivo: enTexto(hueco),
+    alternativas: hueco.alternativas.map((alternativa) => ({
+      ejercicio: alternativa.ejercicio,
+      objetivo: enTexto(alternativa),
+    })),
   }
 }
 
 /** Lo que no vale, dicho para quien lo rellena; nulo si todo está bien. */
 function queFalta(formulario: Formulario) {
-  const series = leerNumero(formulario.series)
-  const min = leerNumero(formulario.repsMin)
-  const max = leerNumero(formulario.repsMax)
   if (!formulario.principal) return 'Elige el ejercicio principal.'
-  if (series === null || !Number.isInteger(series) || series < 1 || series > 50) {
-    return 'Las series tienen que ser un número entero entre 1 y 50.'
+  const delPrincipal = queFaltaDelObjetivo(
+    formulario.principal.nombre,
+    familiaDe(formulario.principal),
+    formulario.objetivo,
+  )
+  if (delPrincipal) return delPrincipal
+  for (const alternativa of formulario.alternativas) {
+    const falta = queFaltaDelObjetivo(
+      alternativa.ejercicio.nombre,
+      familiaDe(alternativa.ejercicio),
+      alternativa.objetivo,
+    )
+    if (falta) return falta
   }
-  if (min === null || max === null || !Number.isInteger(min) || !Number.isInteger(max)) {
-    return 'Las repeticiones tienen que ser números enteros.'
-  }
-  if (min < 1 || max > 1000) return 'Las repeticiones tienen que estar entre 1 y 1000.'
-  if (max < min) return 'Las repeticiones máximas no pueden ser menos que las mínimas.'
   return null
 }
 
 async function leer(rutinaId: number | null, clave: string): Promise<Datos | 'sin-borrador'> {
   const [ejercicios, grupos] = await Promise.all([api.ejercicios(), api.gruposMusculares()])
   if (rutinaId === null) {
-    const borrador = leerBorrador<BorradorDeRutina>(RUTINA_NUEVA)
+    const borrador = leerBorradorDeRutina()
     if (!borrador) return 'sin-borrador'
     const indice = clave === 'nuevo' ? null : Number(clave)
     if (indice !== null && !borrador.ejercicios[indice]) return 'sin-borrador'
@@ -145,6 +150,8 @@ export function Ejercicio() {
   const [hoja, setHoja] = useState<'principal' | 'alternativa' | null>(null)
   const [pregunta, setPregunta] = useState<Pregunta | null>(null)
   const [aviso, setAviso] = useState<AvisoDeBorrarHueco | null>(null)
+  // La alternativa con su objetivo a la vista: una sola a la vez.
+  const [abierta, setAbierta] = useState<number | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
 
@@ -223,13 +230,27 @@ export function Ejercicio() {
 
   function elegir(ejercicio: DatosEjercicio) {
     if (hoja === 'principal') {
-      // Si era una alternativa, deja de serlo: no puede ser las dos cosas.
+      // Si era una alternativa, deja de serlo (no puede ser las dos cosas) y se lleva su
+      // objetivo. Si no, con la misma unidad que el principal de antes se conserva el
+      // objetivo; con otra, toma el de su tipo en Ajustes.
+      const eraAlternativa = formulario.alternativas.find(
+        (otra) => otra.ejercicio.id === ejercicio.id,
+      )
+      const mismaUnidad =
+        formulario.principal !== null && familiaDe(formulario.principal) === familiaDe(ejercicio)
       cambiar({
         principal: ejercicio,
-        alternativas: formulario.alternativas.filter((otro) => otro.id !== ejercicio.id),
+        objetivo:
+          eraAlternativa?.objetivo ?? (mismaUnidad ? formulario.objetivo : deAjustes(ejercicio)),
+        alternativas: formulario.alternativas.filter((otra) => otra.ejercicio.id !== ejercicio.id),
       })
+      setAbierta(null)
     } else {
-      cambiar({ alternativas: [...formulario.alternativas, ejercicio] })
+      // Una alternativa nueva nace con el objetivo de su tipo, no con el del principal.
+      cambiar({
+        alternativas: [...formulario.alternativas, { ejercicio, objetivo: deAjustes(ejercicio) }],
+      })
+      setAbierta(formulario.alternativas.length)
     }
     setHoja(null)
   }
@@ -240,17 +261,17 @@ export function Ejercicio() {
       setFallo(motivo)
       return
     }
-    const series = Number(leerNumero(formulario.series))
-    const repsMin = Number(leerNumero(formulario.repsMin))
-    const repsMax = Number(leerNumero(formulario.repsMax))
+    const objetivoDelPrincipal = aObjetivo(familiaDe(formulario.principal!), formulario.objetivo)
+    const alternativas = formulario.alternativas.map((alternativa) => ({
+      ejercicio: alternativa.ejercicio,
+      objetivo: aObjetivo(familiaDe(alternativa.ejercicio), alternativa.objetivo),
+    }))
 
     if (origen.tipo === 'borrador') {
       const ejercicio: EjercicioDelBorrador = {
         principal: formulario.principal!,
-        alternativas: formulario.alternativas,
-        series,
-        repsMin,
-        repsMax,
+        objetivo: objetivoDelPrincipal,
+        alternativas,
       }
       const lista = [...origen.borrador.ejercicios]
       if (origen.indice === null) lista.push(ejercicio)
@@ -260,23 +281,13 @@ export function Ejercicio() {
       return
     }
 
-    const objetivoDelPrincipal = {
-      series_objetivo: series,
-      reps_min: repsMin,
-      reps_max: repsMax,
-      duracion_min_s: null,
-      duracion_max_s: null,
-    }
-    // Las alternativas que ya estaban conservan su objetivo; las nuevas, el del principal.
-    const previas = origen.tipo === 'existente' ? origen.hueco.alternativas : []
     const cuerpo = {
       ejercicio_principal_id: formulario.principal!.id,
-      alternativas: formulario.alternativas.map((ejercicio) => {
-        const previa = previas.find((otra) => otra.ejercicio.id === ejercicio.id)
-        const { ejercicio: _, ...suyo } = previa ?? { ...objetivoDelPrincipal, ejercicio }
-        return { ejercicio_id: ejercicio.id, ...suyo }
-      }),
       ...objetivoDelPrincipal,
+      alternativas: alternativas.map((alternativa) => ({
+        ejercicio_id: alternativa.ejercicio.id,
+        ...alternativa.objetivo,
+      })),
     }
     setGuardando(true)
     try {
@@ -354,113 +365,125 @@ export function Ejercicio() {
 
       {fallo && <p className="aviso error">{fallo}</p>}
 
-      <div className="campo">
-        <div className="ejercicio-cabecera-campo">
-          <span className="campo-etiqueta">Ejercicio principal</span>
-          {grupo}
-        </div>
-        {soloLectura ? (
-          <div className="ejercicio-caja">{formulario.principal?.nombre}</div>
-        ) : (
-          <button
-            type="button"
-            className="ejercicio-caja"
-            onClick={() => setHoja('principal')}
-            disabled={guardando}
-          >
-            <span className={formulario.principal ? undefined : 'ejercicio-sin-elegir'}>
-              {formulario.principal?.nombre ?? 'Elige un ejercicio'}
-            </span>
-            {formulario.principal?.oculto_desde && <span className="etiqueta-chica">oculto</span>}
-            <Icono nombre="abajo" pequeno />
-          </button>
-        )}
-      </div>
-
-      <div className="campo">
-        <span className="campo-etiqueta">Alternativas</span>
-        <div className="ejercicio-chips">
-          {formulario.alternativas.map((ejercicio) => (
-            <span key={ejercicio.id} className="ejercicio-chip">
-              {ejercicio.nombre}
-              {ejercicio.oculto_desde && <span className="etiqueta-chica">oculto</span>}
-              {!soloLectura && (
-                <button
-                  type="button"
-                  className="ejercicio-chip-quitar"
-                  aria-label={`Quitar ${ejercicio.nombre}`}
-                  onClick={() =>
-                    cambiar({
-                      alternativas: formulario.alternativas.filter((otro) => otro !== ejercicio),
-                    })
-                  }
-                  disabled={guardando}
-                >
-                  <Icono nombre="quitar" pequeno />
-                </button>
-              )}
-            </span>
-          ))}
-          {!soloLectura && (
+      <section className="ejercicio-tarjeta">
+        <div className="campo">
+          <div className="ejercicio-cabecera-campo">
+            <span className="campo-etiqueta">Ejercicio principal</span>
+            {grupo}
+          </div>
+          {soloLectura ? (
+            <div className="ejercicio-caja">{formulario.principal?.nombre}</div>
+          ) : (
             <button
               type="button"
-              className="ejercicio-chip nueva"
-              onClick={() => setHoja('alternativa')}
+              className="ejercicio-caja"
+              onClick={() => setHoja('principal')}
               disabled={guardando}
             >
-              + Añadir alternativa
+              <span className={formulario.principal ? undefined : 'ejercicio-sin-elegir'}>
+                {formulario.principal?.nombre ?? 'Elige un ejercicio'}
+              </span>
+              {formulario.principal?.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+              <Icono nombre="abajo" pequeno />
             </button>
           )}
-          {soloLectura && formulario.alternativas.length === 0 && (
-            <span className="ejercicio-ayuda">Ninguna</span>
-          )}
         </div>
-      </div>
 
-      {soloLectura ? (
-        <>
-          <div className="campo">
-            <span className="campo-etiqueta">Series objetivo</span>
-            <div className="ejercicio-caja num">{formulario.series}</div>
-          </div>
-          <div className="ejercicio-reps">
-            <div className="campo">
-              <span className="campo-etiqueta">Reps mínimas</span>
-              <div className="ejercicio-caja num">{formulario.repsMin}</div>
-            </div>
-            <div className="campo">
-              <span className="campo-etiqueta">Reps máximas</span>
-              <div className="ejercicio-caja num">{formulario.repsMax}</div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <CampoConPasos
-            etiqueta="Series objetivo"
-            valor={formulario.series}
-            cambiar={(series) => cambiar({ series })}
-            paso={1}
-            minimo={1}
+        {formulario.principal && (
+          <CamposDelObjetivo
+            familia={familiaDe(formulario.principal)}
+            valor={formulario.objetivo}
+            cambiar={(cambios) => cambiar({ objetivo: { ...formulario.objetivo, ...cambios } })}
+            soloLectura={soloLectura}
           />
-          <div className="ejercicio-reps">
-            <CampoConPasos
-              etiqueta="Reps mínimas"
-              valor={formulario.repsMin}
-              cambiar={(repsMin) => cambiar({ repsMin })}
-              paso={1}
-              minimo={1}
-            />
-            <CampoConPasos
-              etiqueta="Reps máximas"
-              valor={formulario.repsMax}
-              cambiar={(repsMax) => cambiar({ repsMax })}
-              paso={1}
-              minimo={1}
-            />
+        )}
+      </section>
+
+      <section className="ejercicio-tarjeta">
+        <div className="campo">
+          <span className="campo-etiqueta">Alternativas</span>
+          {formulario.alternativas.length > 0 && (
+            <p className="ejercicio-ayuda">
+              Cada una tiene su propio objetivo.
+              {!soloLectura && ' Toca una para verlo o cambiarlo.'}
+            </p>
+          )}
+          <div className="ejercicio-alternativas">
+            {formulario.alternativas.map((alternativa, posicion) => {
+              const { ejercicio } = alternativa
+              const desplegada = !soloLectura && abierta === posicion
+              return (
+                <div
+                  key={ejercicio.id}
+                  className={desplegada ? 'ejercicio-alternativa abierta' : 'ejercicio-alternativa'}
+                >
+                  <div className="ejercicio-alternativa-fila">
+                    <button
+                      type="button"
+                      className="ejercicio-alternativa-cuerpo"
+                      aria-expanded={desplegada}
+                      onClick={() => setAbierta(desplegada ? null : posicion)}
+                      disabled={soloLectura || guardando}
+                    >
+                      <span className="ejercicio-alternativa-nombre">{ejercicio.nombre}</span>
+                      {ejercicio.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+                      <span className="rutina-objetivo num">
+                        {resumenDelObjetivo(ejercicio, alternativa.objetivo)}
+                      </span>
+                    </button>
+                    {!soloLectura && (
+                      <button
+                        type="button"
+                        className="ejercicio-chip-quitar"
+                        aria-label={`Quitar ${ejercicio.nombre}`}
+                        onClick={() => {
+                          cambiar({
+                            alternativas: formulario.alternativas.filter((_, i) => i !== posicion),
+                          })
+                          setAbierta(null)
+                        }}
+                        disabled={guardando}
+                      >
+                        <Icono nombre="quitar" pequeno />
+                      </button>
+                    )}
+                  </div>
+                  {desplegada && (
+                    <div className="ejercicio-alternativa-campos">
+                      <CamposDelObjetivo
+                        familia={familiaDe(ejercicio)}
+                        valor={alternativa.objetivo}
+                        cambiar={(cambios) =>
+                          cambiar({
+                            alternativas: formulario.alternativas.map((otra, i) =>
+                              i === posicion
+                                ? { ...otra, objetivo: { ...otra.objetivo, ...cambios } }
+                                : otra,
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {!soloLectura && (
+              <button
+                type="button"
+                className="ejercicio-chip nueva"
+                onClick={() => setHoja('alternativa')}
+                disabled={guardando}
+              >
+                + Añadir alternativa
+              </button>
+            )}
+            {soloLectura && formulario.alternativas.length === 0 && (
+              <span className="ejercicio-ayuda">Ninguna</span>
+            )}
           </div>
-        </>
-      )}
+        </div>
+      </section>
 
       <div className="ejercicio-acciones">
         {origen.tipo === 'borrador' && origen.indice !== null && (
@@ -520,7 +543,7 @@ export function Ejercicio() {
               ? []
               : [
                   ...(formulario.principal ? [formulario.principal.id] : []),
-                  ...formulario.alternativas.map((ejercicio) => ejercicio.id),
+                  ...formulario.alternativas.map((alternativa) => alternativa.ejercicio.id),
                 ]
           }
           elegido={hoja === 'principal' ? (formulario.principal?.id ?? null) : null}

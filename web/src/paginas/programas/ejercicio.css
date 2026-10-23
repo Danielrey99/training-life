@@ -251,3 +251,72 @@ button.ejercicio-caja .icono {
   color: var(--texto-tenue);
   text-align: center;
 }
+
+/* El principal con su objetivo, y las alternativas, cada una en su tarjeta. */
+.ejercicio-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.ejercicio-alternativas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ejercicio-alternativa {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+}
+
+.ejercicio-alternativa.abierta {
+  border-color: var(--acento);
+}
+
+.ejercicio-alternativa-fila {
+  display: flex;
+  align-items: center;
+}
+
+.ejercicio-alternativa-cuerpo {
+  flex-grow: 1;
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px 8px 12px;
+  background: none;
+  border: none;
+  color: var(--texto);
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ejercicio-alternativa-cuerpo:disabled {
+  cursor: default;
+}
+
+.ejercicio-alternativa-nombre {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.ejercicio-alternativa-cuerpo .rutina-objetivo {
+  flex-shrink: 0;
+}
+
+.ejercicio-alternativa-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 14px;
+}

@@ -1,4 +1,5 @@
 import type { HuecoDeRutina, Objetivo, Rutina } from '../../api/tipos'
+import { duracionLegible } from '../../utiles/numeros'
 
 /** 1 = lunes … 7 = domingo, en minúscula para ir dentro de una frase. */
 export const NOMBRES_DE_LOS_DIAS = [
@@ -36,14 +37,22 @@ export function ejercicios(rutina: Rutina) {
   return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
 }
 
-/** "4 × 6-10"; si las dos reps coinciden, "3 × 8"; en duración, "3 × 30-45 s". */
+/**
+ * Las dos duraciones de un objetivo: con las dos en segundos o las dos en minutos enteros,
+ * la unidad una sola vez («30-45 s», «20-30 min»); si no, cada cifra con la suya
+ * («30 s-1 min»). Con las dos iguales, un solo valor.
+ */
+function rangoDeDuracion(min: number, max: number): string {
+  if (min === max) return duracionLegible(min)
+  if (min < 60 && max < 60) return `${min}-${max} s`
+  if (min >= 60 && min % 60 === 0 && max % 60 === 0) return `${min / 60}-${max / 60} min`
+  return `${duracionLegible(min)}-${duracionLegible(max)}`
+}
+
+/** "4 × 6-10"; si las dos reps coinciden, "3 × 8"; en duración, "3 × 30-45 s", "1 × 20-30 min". */
 export function objetivo(hueco: Objetivo) {
-  if (hueco.duracion_min_s !== null) {
-    const tiempo =
-      hueco.duracion_min_s === hueco.duracion_max_s
-        ? hueco.duracion_min_s
-        : `${hueco.duracion_min_s}-${hueco.duracion_max_s}`
-    return `${hueco.series_objetivo} × ${tiempo} s`
+  if (hueco.duracion_min_s !== null && hueco.duracion_max_s !== null) {
+    return `${hueco.series_objetivo} × ${rangoDeDuracion(hueco.duracion_min_s, hueco.duracion_max_s)}`
   }
   const reps =
     hueco.reps_min === hueco.reps_max ? hueco.reps_min : `${hueco.reps_min}-${hueco.reps_max}`
