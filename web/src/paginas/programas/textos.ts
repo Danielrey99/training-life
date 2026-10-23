@@ -50,16 +50,25 @@ export function objetivo(hueco: Objetivo) {
   return `${hueco.series_objetivo} × ${reps}`
 }
 
-/** El objetivo del ejercicio que se hace en un hueco: el suyo si es una alternativa. */
-export function objetivoDelEjercicio(hueco: HuecoDeRutina, ejercicioId: number | undefined) {
-  const alternativa = hueco.alternativas.find((otra) => otra.ejercicio.id === ejercicioId)
-  return objetivo(alternativa ?? hueco)
+/**
+ * El objetivo del ejercicio que se hace en un hueco: el del principal o el de esa
+ * alternativa. Sin ejercicio, el del principal; con uno que ya no está en el hueco
+ * (se quitó después de hacerlo), ninguno.
+ */
+function objetivoDe(hueco: HuecoDeRutina, ejercicioId: number | undefined): Objetivo | null {
+  if (ejercicioId === undefined || ejercicioId === hueco.ejercicio_principal_id) return hueco
+  return hueco.alternativas.find((otra) => otra.ejercicio.id === ejercicioId) ?? null
 }
 
-/** Las series que pide el hueco con el ejercicio que se hace: las del principal o las de esa alternativa. */
+/** "3 × 8-12" del ejercicio que se hace en el hueco; nulo si ya no es uno de los suyos. */
+export function objetivoDelEjercicio(hueco: HuecoDeRutina, ejercicioId: number | undefined) {
+  const suyo = objetivoDe(hueco, ejercicioId)
+  return suyo ? objetivo(suyo) : null
+}
+
+/** Las series que pide el hueco con ese ejercicio; si ya no es uno de los suyos, las del principal. */
 export function seriesObjetivoDe(hueco: HuecoDeRutina, ejercicioId: number | undefined) {
-  const alternativa = hueco.alternativas.find((otra) => otra.ejercicio.id === ejercicioId)
-  return (alternativa ?? hueco).series_objetivo
+  return (objetivoDe(hueco, ejercicioId) ?? hueco).series_objetivo
 }
 
 /** "1 alternativa" o "3 alternativas", bajo el ejercicio en P3; sin ninguna, nada. */

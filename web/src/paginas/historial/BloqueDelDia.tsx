@@ -133,7 +133,9 @@ export function BloqueDelDia({
       </div>
       {/* El objetivo, debajo del nombre y aparte de las mejoras: es lo que pide la rutina,
           no cómo fue el día. En su línea, para que no se mueva con el largo del nombre. */}
-      <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
+      {objetivoDelEjercicio(hueco, ejercicio.id) && (
+        <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
+      )}
       {mejora && (
         <div className="dia-insignias">
           {mejora.insignias.map((insignia) => (

@@ -138,7 +138,9 @@ function HuecoAbierto({
         )}
       </div>
       <div className="hueco-datos">
-        <span className="objetivo num">{objetivoDelEjercicio(hueco, elegido?.id)}</span>
+        {objetivoDelEjercicio(hueco, elegido?.id) && (
+          <span className="objetivo num">{objetivoDelEjercicio(hueco, elegido?.id)}</span>
+        )}
         {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
       </div>
 

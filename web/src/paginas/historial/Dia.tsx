@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { api, ErrorDeApi } from '../../api/cliente'
-import type { Ejercicio, Entrenamiento, Rutina, Serie, SesionHistorial } from '../../api/tipos'
+import type {
+  Ejercicio,
+  Entrenamiento,
+  Rutina,
+  Serie,
+  SesionHistorial,
+  TipoRegistro,
+} from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
@@ -15,7 +22,15 @@ import {
   sumarDias,
 } from '../../utiles/fechas'
 import { conPesoYReps, kilos, serieLarga } from '../../utiles/medidas'
-import { enUnidad, numeroLegible, pesoLegible, unidad, unoRM } from '../../utiles/numeros'
+import {
+  duracionLegible,
+  enUnidad,
+  numeroLegible,
+  pesoLegible,
+  unidad,
+  unoRM,
+} from '../../utiles/numeros'
+import { seriesObjetivoDe } from '../programas/textos'
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Bloque, type Insignia, type Mejora } from './BloqueDelDia'
@@ -46,7 +61,7 @@ function cambioDe(diferencia: number, texto: string): Insignia {
  * con una sola medida. Con la media cuenta cualquier serie que mejore, no solo la mejor;
  * en Ajustes se puede elegir la mejor serie (`unoRM`).
  */
-function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null {
+function mejoraDePesoYReps(series: Serie[], ultima: SesionHistorial | null): Mejora | null {
   if (series.length === 0) return null
   const rmHoy = unoRM(series)
   if (!ultima || ultima.series.length === 0) {
@@ -89,12 +104,110 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
   return { clase, insignias }
 }
 
-/** Peso × reps de todas las series. */
-function volumenDe(series: Parameters<typeof conPesoYReps>[0]) {
-  return conPesoYReps(series).reduce(
-    (total, serie) => total + Number(serie.peso) * serie.repeticiones,
-    0,
+/** El signo de una diferencia como la clase de una insignia. */
+function claseDe(diferencia: number): Insignia['clase'] {
+  return diferencia > 0 ? 'mejor' : diferencia < 0 ? 'peor' : 'igual'
+}
+
+/** La carga más alta de un día (nula = 0): sin carga 0, con lastre positiva, con ayuda negativa. */
+const cargaMasAlta = (lista: { peso: string | number | null }[]) =>
+  Math.max(...lista.map((serie) => kilos(serie) ?? 0))
+
+/** Lo que media de repeticiones por serie, redondeado a centésimas para comparar. */
+const mediaDeReps = (lista: { repeticiones: number | null }[]) =>
+  Math.round(
+    (lista.reduce((total, serie) => total + (serie.repeticiones ?? 0), 0) / lista.length) * 100,
   )
+
+/** «+10 kg de lastre», «20 kg de ayuda» o «sin carga»: la carga de una serie nueva. */
+function cargaEnTexto(carga: number) {
+  if (carga === 0) return 'sin carga'
+  const peso = `${pesoLegible(Math.abs(carga))} ${unidad()}`
+  return carga > 0 ? `+${peso} de lastre` : `${peso} de ayuda`
+}
+
+/**
+ * La mejora de un ejercicio de peso corporal: primero la carga (la más alta del día)
+ * y, con la misma, la media de repeticiones por serie. El peso corporal no cuenta.
+ */
+function mejoraCorporal(series: Serie[], ultima: SesionHistorial | null): Mejora {
+  const cargaHoy = cargaMasAlta(series)
+  if (!ultima || ultima.series.length === 0) {
+    return {
+      clase: 'igual',
+      insignias: [
+        { texto: 'nuevo', clase: 'igual' },
+        { texto: cargaEnTexto(cargaHoy), clase: 'igual' },
+      ],
+    }
+  }
+  const insignias: Insignia[] = []
+  const cargaAntes = cargaMasAlta(ultima.series)
+  if (cargaHoy !== cargaAntes) {
+    const peso = `${pesoLegible(Math.abs(cargaHoy - cargaAntes))} ${unidad()}`
+    insignias.push(cambioDe(cargaHoy - cargaAntes, peso))
+  }
+  const reps = (lista: { repeticiones: number | null }[]) =>
+    lista.reduce((total, serie) => total + (serie.repeticiones ?? 0), 0)
+  const diferencia = reps(series) - reps(ultima.series)
+  if (diferencia !== 0) {
+    const unidadReps = Math.abs(diferencia) === 1 ? 'rep' : 'reps'
+    insignias.push(cambioDe(diferencia, `${Math.abs(diferencia)} ${unidadReps}`))
+  }
+  if (insignias.length === 0) insignias.push({ texto: 'igual', clase: 'igual' })
+  const clase = claseDe(
+    cargaHoy !== cargaAntes
+      ? cargaHoy - cargaAntes
+      : mediaDeReps(series) - mediaDeReps(ultima.series),
+  )
+  return { clase, insignias }
+}
+
+/** La duración media de las series de un día, en segundos. */
+const duracionMedia = (lista: { duracion_s: number | null }[]) =>
+  lista.reduce((total, serie) => total + (serie.duracion_s ?? 0), 0) / lista.length
+
+/**
+ * La mejora de un ejercicio de tiempo: si lleva peso, primero el más alto (nulo = 0)
+ * y, con el mismo, la duración media por serie.
+ */
+function mejoraDeTiempo(series: Serie[], ultima: SesionHistorial | null): Mejora {
+  const pesoHoy = cargaMasAlta(series)
+  if (!ultima || ultima.series.length === 0) {
+    const insignias: Insignia[] = [{ texto: 'nuevo', clase: 'igual' }]
+    if (pesoHoy > 0)
+      insignias.push({ texto: `${pesoLegible(pesoHoy)} ${unidad()}`, clase: 'igual' })
+    return { clase: 'igual', insignias }
+  }
+  const insignias: Insignia[] = []
+  const pesoAntes = cargaMasAlta(ultima.series)
+  if (pesoHoy !== pesoAntes) {
+    const peso = `${pesoLegible(Math.abs(pesoHoy - pesoAntes))} ${unidad()}`
+    insignias.push(cambioDe(pesoHoy - pesoAntes, peso))
+  }
+  const cambio = Math.round(duracionMedia(series) - duracionMedia(ultima.series))
+  if (cambio !== 0) insignias.push(cambioDe(cambio, duracionLegible(Math.abs(cambio))))
+  if (insignias.length === 0) insignias.push({ texto: 'igual', clase: 'igual' })
+  return { clase: claseDe(pesoHoy !== pesoAntes ? pesoHoy - pesoAntes : cambio), insignias }
+}
+
+/** Cómo le fue al ejercicio, según cómo se apunta: cada tipo se mide con lo suyo. */
+function mejora(
+  tipo: TipoRegistro,
+  series: Serie[],
+  ultima: SesionHistorial | null,
+): Mejora | null {
+  if (series.length === 0) return null
+  if (tipo === 'corporal') return mejoraCorporal(series, ultima)
+  if (tipo === 'tiempo') return mejoraDeTiempo(series, ultima)
+  return mejoraDePesoYReps(series, ultima)
+}
+
+/** Peso × reps de las series de peso y repeticiones: las demás no entran en el volumen. */
+function volumenDe(series: Serie[]) {
+  return conPesoYReps(
+    series.filter((serie) => serie.ejercicio.tipo_registro === 'peso_reps'),
+  ).reduce((total, serie) => total + Number(serie.peso) * serie.repeticiones, 0)
 }
 
 function contar(cuantos: number, singular: string, plural: string) {
@@ -248,7 +361,6 @@ export function Dia() {
   const dia = sesion
   const nombre = rutina.nombre
   const huecosVisibles = rutina.slots.filter((hueco) => !hueco.oculto_desde)
-  const objetivo = huecosVisibles.reduce((total, hueco) => total + hueco.series_objetivo, 0)
   // Editando, todo se pinta desde el borrador: las cifras y los bloques ya con los cambios.
   const series = editando ? seriesNuevas : dia.series
   const volumen = enUnidad(volumenDe(series))
@@ -263,7 +375,15 @@ export function Dia() {
       ejercicio: suyas[0]?.ejercicio ?? ejerciciosNuevos[bloque.hueco.id] ?? bloque.ejercicio,
     }
   })
-  const mejoras = actuales.map((bloque) => mejora(bloque.series, bloque.ultima))
+  // Lo que pide la rutina ese día: las series del ejercicio que se hizo en cada hueco
+  // visible (o del que se ofrece, si no tiene series).
+  const objetivo = actuales
+    .filter((bloque) => !bloque.hueco.oculto_desde)
+    .reduce((total, bloque) => total + seriesObjetivoDe(bloque.hueco, bloque.ejercicio.id), 0)
+  const hayVolumen = series.some((serie) => serie.ejercicio.tipo_registro === 'peso_reps')
+  const mejoras = actuales.map((bloque) =>
+    mejora(bloque.ejercicio.tipo_registro, bloque.series, bloque.ultima),
+  )
   const mejorados = mejoras.filter((una) => una?.clase === 'mejor').length
   // Con un formulario abierto, el resto se queda en gris: primero se guarda o se cancela.
   const hayAbierta = abierta !== null
@@ -490,7 +610,11 @@ export function Dia() {
 
       {falloGuardar && <p className="aviso error">{falloGuardar}</p>}
 
-      <div className="cifras">
+      <div
+        className="cifras"
+        // Sin volumen (un día solo de peso corporal, tiempo…), son dos cifras y no tres.
+        style={hayVolumen ? undefined : { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
+      >
         <div className="cifra">
           <span className="num cifra-valor destacada">
             {series.length}
@@ -498,23 +622,25 @@ export function Dia() {
           </span>
           <span>series</span>
         </div>
-        <div className="cifra">
-          <span className="num cifra-valor">
-            {volumen.toLocaleString('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' })}
-            <small> {unidad()}</small>
-          </span>
-          <span>volumen</span>
-          {cambioVolumen !== null && (
-            <span
-              className={`num cifra-cambio ${cambioVolumen > 0 ? 'mejor' : cambioVolumen < 0 ? 'peor' : ''}`}
-            >
-              {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
-              {cambioVolumen === 0
-                ? 'igual'
-                : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} ${unidad()}`}
+        {hayVolumen && (
+          <div className="cifra">
+            <span className="num cifra-valor">
+              {volumen.toLocaleString('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' })}
+              <small> {unidad()}</small>
             </span>
-          )}
-        </div>
+            <span>volumen</span>
+            {cambioVolumen !== null && (
+              <span
+                className={`num cifra-cambio ${cambioVolumen > 0 ? 'mejor' : cambioVolumen < 0 ? 'peor' : ''}`}
+              >
+                {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
+                {cambioVolumen === 0
+                  ? 'igual'
+                  : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} ${unidad()}`}
+              </span>
+            )}
+          </div>
+        )}
         <div className="cifra">
           <span className="num cifra-valor">{mejorados}</span>
           <span>{mejorados === 1 ? 'ejercicio mejorado' : 'ejercicios mejorados'}</span>
@@ -584,11 +710,13 @@ export function Dia() {
 
       {series.length > 0 && (
         <p className="dia-leyenda">
-          La mejora se mide con el 1RM, frente a la última vez con ese ejercicio.
-          {anterior && (
+          La mejora, frente a la última vez con ese ejercicio: en peso y repeticiones, el 1RM; en
+          peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración.
+          {anterior && hayVolumen && (
             <>
               <br />
-              El volumen, frente a la sesión anterior de esta rutina.
+              El volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta
+              rutina.
             </>
           )}
         </p>
