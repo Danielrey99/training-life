@@ -1,13 +1,22 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 
+import type { TipoRegistro } from '../../api/tipos'
+import { CampoDeDuracion } from '../../componentes/CampoDeDuracion'
 import { Icono } from '../../componentes/Icono'
 import { ajustes } from '../../utiles/ajustes'
-import { aKilos, leerNumero, numeroLegible, pesoLegible, unidad } from '../../utiles/numeros'
+import {
+  aKilos,
+  enUnidad,
+  leerNumero,
+  numeroLegible,
+  pesoLegible,
+  unidad,
+} from '../../utiles/numeros'
 
 export type DatosDeSerie = {
-  // En kg, como lo guarda la API, aunque se apunte en lb. Solo van las medidas del tipo
-  // del ejercicio; el resto, nulo.
+  // En kg y en segundos, como lo guarda la API, aunque se apunte en lb. Solo van las
+  // medidas del tipo del ejercicio; el resto, nulo.
   peso: number | null
   repeticiones: number | null
   duracion_s: number | null
@@ -15,12 +24,22 @@ export type DatosDeSerie = {
   variante: string | null
 }
 
+// Lo que vale un peso corporal, en kg (como en Ajustes).
+const MINIMO_PESO_CORPORAL = 20
+const MAXIMO_PESO_CORPORAL = 400
+
 type Props = {
   numero: number
-  // Con qué valores arranca: la serie anterior, la que se edita, o la última vez.
+  // Cómo se apunta el ejercicio: decide qué campos lleva el formulario.
+  tipo: TipoRegistro
+  // Con qué valores arranca: la serie anterior, la que se edita, o la última vez. Una
+  // serie de hoy trae su peso corporal (aunque sea nulo); la última vez, no: entonces
+  // arranca con el de Ajustes.
   semilla: {
     peso: string | number | null
     repeticiones: number | null
+    duracion_s?: number | null
+    peso_corporal?: string | number | null
     variante: string | null
   } | null
   editando: boolean
@@ -36,8 +55,12 @@ type Props = {
 }
 
 /**
- * El formulario de una serie, con peso y repeticiones en − / + para poder
- * usarlo con una mano y sin teclado.
+ * El formulario de una serie, con los campos del tipo de su ejercicio en − / + para
+ * poder usarlo con una mano y sin teclado:
+ *
+ * - peso y repeticiones: Peso y Reps;
+ * - peso corporal: Carga (con *Lastre* o *Ayuda*; 0 es sin carga), Reps y Peso corporal;
+ * - tiempo: Tiempo (minutos y segundos) y Peso, que es opcional.
  *
  * Arranca con los datos de la serie anterior porque en el gimnasio las series
  * de un hueco repiten ejercicio y peso: lo normal es cambiar solo las
@@ -46,6 +69,7 @@ type Props = {
  */
 export function FormularioDeSerie({
   numero,
+  tipo,
   semilla,
   editando,
   enLinea = false,
@@ -53,30 +77,99 @@ export function FormularioDeSerie({
   alGuardar,
   alCancelar,
 }: Props) {
-  const [peso, setPeso] = useState(semilla?.peso != null ? pesoLegible(semilla.peso) : '')
+  const corporal = tipo === 'corporal'
+  const sembrado = semilla?.peso != null ? Number(semilla.peso) : null
+  // El peso corporal con el que arranca, en kg. Solo cuenta si el formulario es de
+  // peso corporal.
+  const inicialCorporal =
+    semilla && 'peso_corporal' in semilla
+      ? semilla.peso_corporal != null
+        ? Number(semilla.peso_corporal)
+        : null
+      : ajustes().pesoCorporal
+
+  const [peso, setPeso] = useState(
+    corporal
+      ? pesoLegible(Math.abs(sembrado ?? 0))
+      : sembrado !== null
+        ? pesoLegible(sembrado)
+        : '',
+  )
+  // Con carga de ayuda, el peso guardado es negativo: aquí se escribe en positivo y el
+  // conmutador dice si es ayuda.
+  const [ayuda, setAyuda] = useState(corporal && sembrado !== null && sembrado < 0)
   const [repeticiones, setRepeticiones] = useState(
     semilla?.repeticiones != null ? String(semilla.repeticiones) : '',
+  )
+  const [segundos, setSegundos] = useState(semilla?.duracion_s ?? 0)
+  const [pesoCorporal, setPesoCorporal] = useState(
+    inicialCorporal !== null ? pesoLegible(inicialCorporal) : '',
   )
   const [variante, setVariante] = useState(semilla?.variante ?? '')
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
 
-  async function enviar(evento: FormEvent) {
-    evento.preventDefault()
+  /** Las medidas de la serie según el tipo, o el aviso de lo que falta. */
+  function leerMedidas(): Omit<DatosDeSerie, 'variante'> | string {
+    if (tipo === 'tiempo') {
+      if (segundos < 1) return 'Pon cuánto duró.'
+      const valor = leerNumero(peso)
+      if (peso.trim() !== '' && (valor === null || valor < 0)) return 'Pon el peso, o déjalo vacío.'
+      return {
+        peso: peso.trim() === '' || valor === null ? null : aKilos(valor),
+        repeticiones: null,
+        duracion_s: segundos,
+        peso_corporal: null,
+      }
+    }
     const valor = leerNumero(peso)
     const reps = leerNumero(repeticiones)
     if (valor === null || valor < 0 || reps === null || reps < 1 || !Number.isInteger(reps)) {
-      setFallo('Pon el peso y las repeticiones.')
+      return corporal ? 'Pon la carga y las repeticiones.' : 'Pon el peso y las repeticiones.'
+    }
+    if (!corporal) {
+      return { peso: aKilos(valor), repeticiones: reps, duracion_s: null, peso_corporal: null }
+    }
+    const carga = aKilos(valor)
+    const corporalKg = leerNumero(pesoCorporal)
+    if (pesoCorporal.trim() !== '' && corporalKg === null) return 'Pon tu peso corporal.'
+    const textoInicial = inicialCorporal !== null ? pesoLegible(inicialCorporal) : ''
+    const tocado = pesoCorporal.trim() !== textoInicial
+    const nuevoCorporal = !tocado
+      ? inicialCorporal
+      : corporalKg === null
+        ? null
+        : aKilos(corporalKg)
+    // Solo se comprueba el rango si se cambió: uno ya guardado fuera de él no impide
+    // corregir otra cosa.
+    if (
+      tocado &&
+      nuevoCorporal !== null &&
+      (nuevoCorporal < MINIMO_PESO_CORPORAL || nuevoCorporal > MAXIMO_PESO_CORPORAL)
+    ) {
+      return `Pon un peso corporal de ${numeroLegible(Math.ceil(enUnidad(MINIMO_PESO_CORPORAL)))} a ${numeroLegible(Math.floor(enUnidad(MAXIMO_PESO_CORPORAL)))} ${unidad()}.`
+    }
+    return {
+      peso: ayuda && carga > 0 ? -carga : carga,
+      repeticiones: reps,
+      duracion_s: null,
+      // Si no se tocó, el valor guardado en kg tal cual: pasarlo por lb y de vuelta lo movería.
+      peso_corporal: nuevoCorporal,
+    }
+  }
+
+  async function enviar(evento: FormEvent) {
+    evento.preventDefault()
+    const medidas = leerMedidas()
+    if (typeof medidas === 'string') {
+      setFallo(medidas)
       return
     }
     setGuardando(true)
     setFallo(null)
     try {
       await alGuardar({
-        peso: aKilos(valor),
-        repeticiones: reps,
-        duracion_s: null,
-        peso_corporal: null,
+        ...medidas,
         variante: variante.trim() === '' ? null : variante.trim(),
       })
     } catch (error) {
@@ -86,29 +179,89 @@ export function FormularioDeSerie({
     }
   }
 
+  const campoDePeso = (etiqueta: string, extra?: ReactNode) => (
+    <CampoConPasos
+      etiqueta={etiqueta}
+      extra={extra}
+      valor={peso}
+      cambiar={setPeso}
+      // Lo que sube o baja con − / +, en Ajustes (por defecto, 1). Un peso que no
+      // cae en el paso (17,5 con paso 1) se teclea en el propio campo, y a partir de
+      // ahí − / + lo mueven de paso en paso (16,5, 18,5).
+      paso={ajustes().pasoPeso}
+      minimo={0}
+      decimales
+    />
+  )
+
   return (
     <form className="formulario-serie" onSubmit={enviar}>
       {editando && <p className="editando-aviso">Editando la serie {numero}</p>}
-      <div className="campos-serie">
-        <CampoConPasos
-          etiqueta={`Peso (${unidad()})`}
-          valor={peso}
-          cambiar={setPeso}
-          // Lo que sube o baja con − / +, en Ajustes (por defecto, 1). Un peso que no
-          // cae en el paso (17,5 con paso 1) se teclea en el propio campo, y a partir de
-          // ahí − / + lo mueven de paso en paso (16,5, 18,5).
-          paso={ajustes().pasoPeso}
-          minimo={0}
-          decimales
-        />
-        <CampoConPasos
-          etiqueta="Reps"
-          valor={repeticiones}
-          cambiar={setRepeticiones}
-          paso={1}
-          minimo={1}
-        />
-      </div>
+      {tipo === 'peso_reps' && (
+        <div className="campos-serie">
+          {campoDePeso(`Peso (${unidad()})`)}
+          <CampoConPasos
+            etiqueta="Reps"
+            valor={repeticiones}
+            cambiar={setRepeticiones}
+            paso={1}
+            minimo={1}
+          />
+        </div>
+      )}
+      {corporal && (
+        <>
+          {campoDePeso(
+            `Carga (${unidad()})`,
+            <div className="carga-signo" role="group" aria-label="Tipo de carga">
+              <button
+                type="button"
+                className={ayuda ? undefined : 'activa'}
+                aria-pressed={!ayuda}
+                onClick={() => setAyuda(false)}
+              >
+                Lastre
+              </button>
+              <button
+                type="button"
+                className={ayuda ? 'activa' : undefined}
+                aria-pressed={ayuda}
+                onClick={() => setAyuda(true)}
+              >
+                Ayuda
+              </button>
+            </div>,
+          )}
+          <div className="campos-serie">
+            <CampoConPasos
+              etiqueta="Reps"
+              valor={repeticiones}
+              cambiar={setRepeticiones}
+              paso={1}
+              minimo={1}
+            />
+            <CampoConPasos
+              etiqueta={`Peso corporal (${unidad()})`}
+              valor={pesoCorporal}
+              cambiar={setPesoCorporal}
+              paso={ajustes().pasoPeso}
+              minimo={0}
+              decimales
+            />
+          </div>
+        </>
+      )}
+      {tipo === 'tiempo' && (
+        <>
+          <CampoDeDuracion
+            etiqueta="Tiempo"
+            segundos={segundos}
+            cambiar={setSegundos}
+            paso={ajustes().pasoTiempo}
+          />
+          {campoDePeso(`Peso (${unidad()}, opcional)`)}
+        </>
+      )}
       <label className="campo">
         <span className="campo-etiqueta">Variante (opcional)</span>
         <input
@@ -151,6 +304,7 @@ export function CampoConPasos({
   paso,
   minimo,
   decimales = false,
+  extra,
 }: {
   etiqueta: string
   valor: string
@@ -158,6 +312,8 @@ export function CampoConPasos({
   paso: number
   minimo: number
   decimales?: boolean
+  // Algo a la derecha de la etiqueta (el conmutador Lastre / Ayuda de la carga).
+  extra?: ReactNode
 }) {
   function sumar(cuanto: number) {
     const actual = leerNumero(valor) ?? (cuanto > 0 ? minimo - cuanto : minimo)
@@ -169,7 +325,14 @@ export function CampoConPasos({
 
   return (
     <div className="campo">
-      <span className="campo-etiqueta">{etiqueta}</span>
+      {extra ? (
+        <div className="campo-etiqueta-fila">
+          <span className="campo-etiqueta">{etiqueta}</span>
+          {extra}
+        </div>
+      ) : (
+        <span className="campo-etiqueta">{etiqueta}</span>
+      )}
       <div className="pasos">
         <button type="button" onClick={() => sumar(-paso)} aria-label={`Menos ${etiqueta}`}>
           <Icono nombre="menos" />

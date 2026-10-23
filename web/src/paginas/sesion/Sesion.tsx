@@ -8,6 +8,7 @@ import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { fechaCompleta, fechaTitulo, hoy } from '../../utiles/fechas'
 import { serieLarga } from '../../utiles/medidas'
+import { seriesObjetivoDe } from '../programas/textos'
 import { useVolver } from '../../utiles/volver'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
 import './sesion.css'
@@ -88,7 +89,8 @@ export function Sesion() {
           .sort((uno, otro) => uno.orden - otro.orden)
           .find(
             (hueco) =>
-              leida.series.filter((s) => s.slot_id === hueco.id).length < hueco.series_objetivo,
+              leida.series.filter((s) => s.slot_id === hueco.id).length <
+              seriesObjetivoDe(hueco, iniciales[hueco.id]?.id),
           )
 
         setSesion(leida)
@@ -129,7 +131,7 @@ export function Sesion() {
       .sort((una, otra) => una.numero_serie - otra.numero_serie)
   const visibles = huecos.filter((hueco) => !hueco.oculto_desde)
   const completos = visibles.filter(
-    (hueco) => deHueco(hueco).length >= hueco.series_objetivo,
+    (hueco) => deHueco(hueco).length >= seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
   ).length
 
   // La pantalla de la que cuelga, para cancelar y para la flecha si no hay pantalla

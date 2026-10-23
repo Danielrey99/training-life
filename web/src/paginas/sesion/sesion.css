@@ -528,3 +528,45 @@
   gap: 12px;
   margin-top: 6px;
 }
+
+/* El peso corporal de una serie, en su línea debajo de la carga. */
+.serie-corporal {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--texto-tenue);
+}
+
+/* La etiqueta de un campo con algo a su derecha (Lastre / Ayuda junto a la carga). */
+.campo-etiqueta-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.carga-signo {
+  display: flex;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.carga-signo button {
+  min-height: 28px;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--texto-tenue);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.carga-signo button.activa {
+  background: var(--acento);
+  color: var(--fondo);
+  font-weight: 600;
+}

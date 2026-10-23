@@ -1,8 +1,8 @@
 import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
-import { objetivoDelEjercicio } from '../programas/textos'
+import { objetivoDelEjercicio, seriesObjetivoDe } from '../programas/textos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
-import { serieLarga } from '../../utiles/medidas'
+import { pesoCorporalLegible, serieLarga } from '../../utiles/medidas'
 import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
@@ -41,7 +41,7 @@ type Props = {
 export function BloqueDeHueco(props: Props) {
   const { hueco, titulo, series, elegido, abierto, abrir, bloqueado } = props
   const hechas = series.length
-  const objetivo = hueco.series_objetivo
+  const objetivo = seriesObjetivoDe(hueco, elegido?.id)
   const completo = hechas >= objetivo
   const comodin = elegido !== null && elegido.id !== hueco.ejercicio_principal.id
 
@@ -164,6 +164,9 @@ function HuecoAbierto({
                     {serieLarga(serie.ejercicio.tipo_registro, serie)}
                   </span>
                   {serie.variante && <span className="serie-variante">{serie.variante}</span>}
+                  {pesoCorporalLegible(serie) && (
+                    <span className="serie-corporal">{pesoCorporalLegible(serie)}</span>
+                  )}
                 </span>
                 <button
                   type="button"
@@ -193,6 +196,7 @@ function HuecoAbierto({
         <FormularioDeSerie
           key={`${idElegido}-${editando?.id ?? 'nueva'}`}
           numero={editando?.numero_serie ?? siguiente}
+          tipo={(elegido ?? hueco.ejercicio_principal).tipo_registro}
           semilla={semilla}
           editando={editando !== null}
           alGuardar={guardarDesdeFormulario}

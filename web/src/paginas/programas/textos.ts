@@ -56,6 +56,12 @@ export function objetivoDelEjercicio(hueco: HuecoDeRutina, ejercicioId: number |
   return objetivo(alternativa ?? hueco)
 }
 
+/** Las series que pide el hueco con el ejercicio que se hace: las del principal o las de esa alternativa. */
+export function seriesObjetivoDe(hueco: HuecoDeRutina, ejercicioId: number | undefined) {
+  const alternativa = hueco.alternativas.find((otra) => otra.ejercicio.id === ejercicioId)
+  return (alternativa ?? hueco).series_objetivo
+}
+
 /** "1 alternativa" o "3 alternativas", bajo el ejercicio en P3; sin ninguna, nada. */
 export function lineaDeAlternativas(cuantas: number) {
   // Solo cuántas, no sus nombres (decisión del autor): con varias, la lista ocupaba tres
