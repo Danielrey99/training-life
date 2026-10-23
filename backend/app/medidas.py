@@ -3,11 +3,12 @@
 Cada ejercicio tiene un tipo (`Ejercicio.tipo_registro`) que se elige al crearlo y no
 cambia, y el tipo decide qué medidas lleva cada serie suya:
 
-| tipo        | peso                              | repeticiones | duración    | peso corporal |
-|-------------|-----------------------------------|--------------|-------------|---------------|
-| `peso_reps` | obligatorio, 0 o más              | obligatorio  | no          | no            |
-| `corporal`  | obligatorio: 0 sin carga, + lastre, − ayuda | obligatorio | no     | opcional      |
-| `tiempo`    | opcional, 0 o más                 | no           | obligatoria | no            |
+| tipo        | peso                              | repeticiones | duración    | distancia | peso corporal |
+|-------------|-----------------------------------|--------------|-------------|-----------|---------------|
+| `peso_reps` | obligatorio, 0 o más              | obligatorio  | no          | no        | no            |
+| `corporal`  | obligatorio: 0 sin carga, + lastre, − ayuda | obligatorio | no     | no        | opcional      |
+| `tiempo`    | opcional, 0 o más                 | no           | obligatoria | no        | no            |
+| `cardio`    | no                                | no           | obligatoria | opcional  | no            |
 
 «Sin carga» es 0 y no nulo: una sola forma de decirlo, y «mejoró por carga» compara
 números. La base de datos solo comprueba la forma de la serie (`series_medidas_check`):
@@ -25,16 +26,47 @@ COMO_SE_APUNTA = {
     "peso_reps": "con peso y repeticiones",
     "corporal": "con repeticiones y carga",
     "tiempo": "por tiempo",
+    "cardio": "por tiempo y, si se quiere, distancia",
 }
 
 # La familia decide en qué unidad va el objetivo del ejercicio en un hueco.
-FAMILIA = {"peso_reps": "repeticiones", "corporal": "repeticiones", "tiempo": "duracion"}
+FAMILIA = {
+    "peso_reps": "repeticiones",
+    "corporal": "repeticiones",
+    "tiempo": "duracion",
+    "cardio": "duracion",
+}
 
 # Qué campos son obligatorios (True), opcionales (None) o no valen (False) en cada tipo.
 REGLA: dict[str, dict[str, bool | None]] = {
-    "peso_reps": {"peso": True, "repeticiones": True, "duracion_s": False, "peso_corporal": False},
-    "corporal": {"peso": True, "repeticiones": True, "duracion_s": False, "peso_corporal": None},
-    "tiempo": {"peso": None, "repeticiones": False, "duracion_s": True, "peso_corporal": False},
+    "peso_reps": {
+        "peso": True,
+        "repeticiones": True,
+        "duracion_s": False,
+        "distancia_m": False,
+        "peso_corporal": False,
+    },
+    "corporal": {
+        "peso": True,
+        "repeticiones": True,
+        "duracion_s": False,
+        "distancia_m": False,
+        "peso_corporal": None,
+    },
+    "tiempo": {
+        "peso": None,
+        "repeticiones": False,
+        "duracion_s": True,
+        "distancia_m": False,
+        "peso_corporal": False,
+    },
+    "cardio": {
+        "peso": False,
+        "repeticiones": False,
+        "duracion_s": True,
+        "distancia_m": None,
+        "peso_corporal": False,
+    },
 }
 
 # Los campos que se dicen en plural («las repeticiones»), para conjugar el verbo.
@@ -45,6 +77,7 @@ NOMBRE_DEL_CAMPO = {
     "peso": "el peso",
     "repeticiones": "las repeticiones",
     "duracion_s": "la duración",
+    "distancia_m": "la distancia",
     "peso_corporal": "el peso corporal",
 }
 

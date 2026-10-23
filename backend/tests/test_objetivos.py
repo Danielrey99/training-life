@@ -45,6 +45,10 @@ EN_REPETICIONES = (
     "El objetivo de Dominadas va en repeticiones (reps_min y reps_max), no en duración: "
     "Dominadas se apunta con repeticiones y carga."
 )
+EN_SEGUNDOS_CARDIO = (
+    "El objetivo de Cinta va en segundos (duracion_min_s y duracion_max_s), no en "
+    "repeticiones: Cinta se apunta por tiempo y, si se quiere, distancia."
+)
 EN_SEGUNDOS_OBJ = objetivo(3, duracion=(30, 60))
 EN_REPS_OBJ = objetivo(3, (6, 10))
 
@@ -60,6 +64,7 @@ def e(cliente, grupo_muscular_id) -> SimpleNamespace:
         remo=crear_ejercicio(cliente, grupo_muscular_id, "Remo"),
         dominadas=crear_ejercicio(cliente, grupo_muscular_id, "Dominadas", tipo="corporal"),
         plancha=crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo"),
+        cinta=crear_ejercicio(cliente, grupo_muscular_id, "Cinta", tipo="cardio"),
         rutina=crear_rutina(cliente, "Mixta"),
     )
 
@@ -244,6 +249,13 @@ def _equivocados(e) -> dict:
             [alternativa(e.dominadas, duracion=(30, 60))],
             EN_REPETICIONES,
         ),
+        "principal-de-cardio-en-reps": (e.cinta, EN_REPS_OBJ, [], EN_SEGUNDOS_CARDIO),
+        "alternativa-de-cardio-en-reps": (
+            e.press,
+            EN_REPS_OBJ,
+            [alternativa(e.cinta)],
+            EN_SEGUNDOS_CARDIO,
+        ),
     }
 
 
@@ -254,6 +266,8 @@ def _equivocados(e) -> dict:
         "principal-corporal-en-segundos",
         "alternativa-de-tiempo-en-reps",
         "alternativa-corporal-en-segundos",
+        "principal-de-cardio-en-reps",
+        "alternativa-de-cardio-en-reps",
     ],
 )
 @pytest.mark.parametrize("via", VIAS)
@@ -272,6 +286,48 @@ def test_un_objetivo_de_otra_familia_da_422_que_nombra_el_ejercicio_y_no_cambia_
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == mensaje
     assert cliente.get("/rutinas", params={"ocultas": True}).json() == antes
+
+
+@pytest.mark.parametrize("via", VIAS)
+def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(
+    cliente, sesion_bd, e, via
+):
+    """Cardio es de la familia de la duración, como tiempo: su objetivo va en segundos,
+    de principal y de alternativa (de un hueco de peso y repeticiones).
+    """
+    e.existente = anadido(cliente, e.rutina, principal=e.remo, orden=1)["id"]
+
+    respuesta = via(
+        cliente,
+        e,
+        e.cinta,
+        objetivo(1, duracion=(900, 1800)),
+        [alternativa(e.press)],
+    )
+
+    assert respuesta.status_code in (200, 201), respuesta.text
+    # POST /rutinas crea otra rutina: se busca el hueco de la cinta en todas.
+    [hueco] = [
+        h
+        for r in cliente.get("/rutinas").json()
+        for h in r["slots"]
+        if h["ejercicio_principal"]["id"] == e.cinta
+    ]
+    assert objetivo_de(hueco) == objetivo(1, duracion=(900, 1800))
+    assert hueco["ejercicio_principal"]["tipo_registro"] == "cardio"
+    assert alternativas_de(hueco) == [(e.press, objetivo(3, (6, 10)))]
+
+
+def test_un_ejercicio_de_cardio_de_alternativa_lleva_su_objetivo_en_segundos(cliente, e):
+    hueco = anadido(
+        cliente,
+        e.rutina,
+        principal=e.press,
+        alternativas=[alternativa(e.cinta, 1, duracion=(600, 1200))],
+    )
+
+    assert alternativas_de(hueco) == [(e.cinta, objetivo(1, duracion=(600, 1200)))]
+    assert hueco_guardado(cliente, e.rutina, hueco["id"]) == hueco
 
 
 def test_una_alternativa_de_otra_familia_con_su_propio_objetivo_se_crea(cliente, e):

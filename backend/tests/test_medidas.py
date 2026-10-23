@@ -5,7 +5,9 @@ Cada ejercicio dice cómo se apunta, y eso decide qué medidas lleva cada serie 
 - peso y repeticiones (`peso_reps`): peso (0 o más) y repeticiones;
 - peso corporal (`corporal`): repeticiones y carga (0 sin carga, positiva de lastre,
   negativa de ayuda), y si se quiere el peso corporal de quien la hizo;
-- tiempo (`tiempo`): duración y, si se quiere, peso (0 o más).
+- tiempo (`tiempo`): duración y, si se quiere, peso (0 o más);
+- cardio (`cardio`): duración y, si se quiere, distancia en metros (sin peso, repeticiones
+  ni peso corporal).
 
 Lo que falta o sobra da 422 con el nombre del ejercicio, al apuntar y al corregir
 (con el ejercicio final: cambiar a una alternativa de otro tipo exige sus medidas).
@@ -191,7 +193,7 @@ def test_una_serie_con_las_medidas_de_su_tipo_se_guarda_tal_cual(
 
 
 def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e):
-    """El contrato de `SerieOut`: las cuatro medidas siempre (nulas si no van) y el
+    """El contrato de `SerieOut`: las cinco medidas siempre (nulas si no van) y el
     ejercicio entero, con su tipo.
     """
     serie = apuntada(cliente, e, "plancha", duracion_s=30)
@@ -203,6 +205,7 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         "slot_id",
         "numero_serie",
         *MEDIDAS,
+        "distancia_m",
         "variante",
         "created_at",
         "updated_at",
@@ -749,7 +752,7 @@ def test_la_base_admite_cada_forma_que_la_api_deja_apuntar(cliente, sesion_bd, e
     sesion_bd.rollback()
 
 
-@pytest.mark.parametrize("tipo", ["cardio", "PESO_REPS", ""])
+@pytest.mark.parametrize("tipo", ["natación", "CARDIO", "PESO_REPS", ""])
 def test_la_base_rechaza_un_tipo_de_ejercicio_que_no_existe(sesion_bd, grupo_muscular_id, tipo):
     from app.models import Ejercicio
 
@@ -781,4 +784,287 @@ def test_un_ejercicio_creado_en_la_base_sin_tipo_es_de_peso_y_repeticiones(
     )
 
     assert tipo == "peso_reps"
+    sesion_bd.rollback()
+
+
+# --- Cardio: duración y, si se quiere, distancia -----------------------------------
+#
+# Un hueco D de Cinta (cardio) con su objetivo en segundos, en la rutina del escenario.
+
+COMO_CARDIO = "Cinta se apunta por tiempo y, si se quiere, distancia"
+
+
+@pytest.fixture
+def c(cliente, grupo_muscular_id, e) -> SimpleNamespace:
+    """El escenario de siempre con un ejercicio de cardio, «Cinta», y su hueco D."""
+    cinta = crear_ejercicio(cliente, grupo_muscular_id, "Cinta", tipo="cardio")
+    respuesta = cliente.post(
+        f"/rutinas/{e.rutina}/slots",
+        json={"ejercicio_principal_id": cinta, "orden": 4, **objetivo(1, duracion=(900, 1800))},
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    e.ids["cinta"] = cinta
+    e.hueco_de["cinta"] = respuesta.json()["id"]
+    return e
+
+
+@pytest.mark.parametrize(
+    "medidas, guardado",
+    [
+        pytest.param(
+            {"duracion_s": 1800, "distancia_m": 5200},
+            {"duracion_s": 1800, "distancia_m": 5200},
+            id="con-distancia",
+        ),
+        pytest.param({"duracion_s": 600}, {"duracion_s": 600, "distancia_m": None}, id="sin-ella"),
+    ],
+)
+def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
+    cliente, c, medidas, guardado
+):
+    respuesta = apuntar(cliente, c, "cinta", **medidas)
+
+    assert respuesta.status_code == 201, respuesta.text
+    esperado = {"peso": None, "repeticiones": None, "peso_corporal": None, **guardado}
+    assert {k: respuesta.json()[k] for k in esperado} == esperado
+    [leida] = series_de(cliente, c)
+    assert {k: leida[k] for k in esperado} == esperado
+    assert leida["ejercicio"]["tipo_registro"] == "cardio"
+
+
+@pytest.mark.parametrize(
+    "medidas, mensaje",
+    [
+        pytest.param({}, f"{COMO_CARDIO}: falta la duración.", id="sin-nada"),
+        pytest.param(
+            {"distancia_m": 5000}, f"{COMO_CARDIO}: falta la duración.", id="solo-distancia"
+        ),
+        pytest.param(
+            {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}: sobra el peso.", id="con-peso"
+        ),
+        pytest.param(
+            {"duracion_s": 600, "repeticiones": 8},
+            f"{COMO_CARDIO}: sobran las repeticiones.",
+            id="con-repeticiones",
+        ),
+        pytest.param(
+            {"peso": 10, "repeticiones": 8},
+            f"{COMO_CARDIO}: falta la duración y sobran el peso y las repeticiones.",
+            id="como-peso-y-repeticiones",
+        ),
+        pytest.param(
+            {"duracion_s": 600, "peso_corporal": 80},
+            "El peso corporal solo se guarda en las series de ejercicios de peso corporal, "
+            "y Cinta no lo es.",
+            id="con-peso-corporal",
+        ),
+    ],
+)
+def test_en_cardio_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
+    cliente, c, medidas, mensaje
+):
+    respuesta = apuntar(cliente, c, "cinta", **medidas)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == mensaje
+    assert series_de(cliente, c) == []
+
+
+@pytest.mark.parametrize(
+    "ejercicio, medidas, mensaje",
+    [
+        pytest.param(
+            "press",
+            {"peso": 60, "repeticiones": 8, "distancia_m": 100},
+            "Press banca se apunta con peso y repeticiones: sobra la distancia.",
+            id="peso-y-repeticiones",
+        ),
+        pytest.param(
+            "dominadas",
+            {"peso": 0, "repeticiones": 8, "distancia_m": 100},
+            "Dominadas se apunta con repeticiones y carga: sobra la distancia.",
+            id="corporal",
+        ),
+        pytest.param(
+            "plancha",
+            {"duracion_s": 60, "distancia_m": 100},
+            "Plancha se apunta por tiempo: sobra la distancia.",
+            id="tiempo",
+        ),
+    ],
+)
+def test_la_distancia_en_un_ejercicio_que_no_es_de_cardio_da_422(
+    cliente, c, ejercicio, medidas, mensaje
+):
+    respuesta = apuntar(cliente, c, ejercicio, **medidas)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == mensaje
+    assert series_de(cliente, c) == []
+
+
+@pytest.mark.parametrize(
+    "distancia, codigo",
+    [(1, 201), (1_000_000, 201), (1_000_001, 422), (0, 422), (-500, 422)],
+)
+def test_la_distancia_va_de_un_metro_a_mil_kilometros(cliente, c, distancia, codigo):
+    respuesta = apuntar(cliente, c, "cinta", duracion_s=600, distancia_m=distancia)
+
+    assert respuesta.status_code == codigo, respuesta.text
+    if codigo == 422:
+        assert es_de_pydantic_por(respuesta, "distancia_m"), respuesta.text
+        assert series_de(cliente, c) == []
+
+
+@pytest.mark.parametrize("distancia", [5.5, "cinco", [5000]])
+def test_una_distancia_que_no_es_un_entero_de_metros_da_422(cliente, c, distancia):
+    respuesta = apuntar(cliente, c, "cinta", duracion_s=600, distancia_m=distancia)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert es_de_pydantic_por(respuesta, "distancia_m"), respuesta.text
+
+
+def test_corregir_una_serie_de_cardio_cambia_la_distancia_y_la_quita_si_no_se_manda(cliente, c):
+    serie = apuntada(cliente, c, "cinta", duracion_s=1200, distancia_m=3000)
+
+    cambiada = corregir(cliente, c, serie, "cinta", duracion_s=1500, distancia_m=4000)
+
+    assert cambiada.status_code == 200, cambiada.text
+    assert (cambiada.json()["duracion_s"], cambiada.json()["distancia_m"]) == (1500, 4000)
+    # El PUT es completo: sin distancia, queda nula.
+    sin = corregir(cliente, c, serie, "cinta", duracion_s=1500)
+    assert sin.status_code == 200, sin.text
+    assert sin.json()["distancia_m"] is None
+    [leida] = series_de(cliente, c)
+    assert (leida["duracion_s"], leida["distancia_m"]) == (1500, None)
+
+
+@pytest.mark.parametrize(
+    "medidas, mensaje",
+    [
+        pytest.param({"duracion_s": 600, "peso": 5}, f"{COMO_CARDIO}: sobra el peso.", id="peso"),
+        pytest.param(
+            {"duracion_s": 600, "repeticiones": 5},
+            f"{COMO_CARDIO}: sobran las repeticiones.",
+            id="repeticiones",
+        ),
+        pytest.param(
+            {"distancia_m": 3000}, f"{COMO_CARDIO}: falta la duración.", id="sin-duracion"
+        ),
+    ],
+)
+def test_corregir_una_serie_de_cardio_con_medidas_que_no_son_suyas_da_422_y_no_la_toca(
+    cliente, c, medidas, mensaje
+):
+    serie = apuntada(cliente, c, "cinta", duracion_s=1200, distancia_m=3000)
+
+    respuesta = corregir(cliente, c, serie, "cinta", **medidas)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == mensaje
+    [leida] = series_de(cliente, c)
+    assert (leida["duracion_s"], leida["distancia_m"]) == (1200, 3000)
+
+
+def test_corregir_una_serie_de_plancha_con_distancia_da_422(cliente, c):
+    serie = apuntada(cliente, c, "plancha", duracion_s=30)
+
+    respuesta = corregir(cliente, c, serie, "plancha", duracion_s=30, distancia_m=50)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == "Plancha se apunta por tiempo: sobra la distancia."
+
+
+def test_el_historial_trae_la_distancia_de_una_serie_de_cardio(cliente, c):
+    apuntada(cliente, c, "cinta", duracion_s=1800, distancia_m=5200)
+    apuntada(cliente, c, "cinta", numero=2, duracion_s=600)
+
+    del_ejercicio = cliente.get(f"/ejercicios/{c.ids['cinta']}/historial")
+    del_hueco = cliente.get(f"/rutinas/{c.rutina}/slots/{c.hueco_de['cinta']}/historial")
+
+    assert del_ejercicio.status_code == 200, del_ejercicio.text
+    assert del_hueco.status_code == 200, del_hueco.text
+    for respuesta in (del_ejercicio, del_hueco):
+        [dia] = respuesta.json()
+        assert [(s["duracion_s"], s["distancia_m"]) for s in dia["series"]] == [
+            (1800, 5200),
+            (600, None),
+        ]
+        assert all(s["peso"] is None and s["repeticiones"] is None for s in dia["series"])
+
+
+# --- Cardio: las restricciones de la base -------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "medidas, restriccion",
+    [
+        pytest.param(
+            {"duracion_s": 600, "peso": 5, "distancia_m": 1000},
+            "series_medidas_check",
+            id="duracion-con-peso-y-distancia-a-la-vez",
+        ),
+        pytest.param(
+            {"distancia_m": 1000}, "series_medidas_check", id="distancia-sin-duracion-ni-reps"
+        ),
+        pytest.param(
+            {"peso": 10, "repeticiones": 8, "distancia_m": 1000},
+            "series_medidas_check",
+            id="repeticiones-con-distancia",
+        ),
+        pytest.param(
+            {"duracion_s": 600, "distancia_m": 0}, "series_distancia_check", id="distancia-cero"
+        ),
+        pytest.param(
+            {"duracion_s": 600, "distancia_m": -5},
+            "series_distancia_check",
+            id="distancia-negativa",
+        ),
+    ],
+)
+def test_la_base_rechaza_una_serie_con_una_distancia_imposible(
+    cliente, sesion_bd, e, medidas, restriccion
+):
+    from app.models import Serie
+
+    sesion_bd.add(
+        Serie(
+            entrenamiento_id=e.sesion,
+            slot_id=e.a,
+            ejercicio_id=e.ids["press"],
+            numero_serie=1,
+            **medidas,
+        )
+    )
+
+    with pytest.raises(IntegrityError) as error:
+        sesion_bd.flush()
+
+    assert error.value.orig.diag.constraint_name == restriccion
+    sesion_bd.rollback()
+
+
+@pytest.mark.parametrize(
+    "medidas",
+    [
+        pytest.param({"duracion_s": 600, "distancia_m": 1000}, id="duracion-y-distancia"),
+        pytest.param({"duracion_s": 600, "distancia_m": 1}, id="un-metro"),
+        pytest.param({"duracion_s": 600, "peso": 5}, id="duracion-con-peso-sin-distancia"),
+    ],
+)
+def test_la_base_admite_la_duracion_con_distancia_o_con_peso_pero_no_con_las_dos(
+    cliente, sesion_bd, e, medidas
+):
+    from app.models import Serie
+
+    sesion_bd.add(
+        Serie(
+            entrenamiento_id=e.sesion,
+            slot_id=e.a,
+            ejercicio_id=e.ids["press"],
+            numero_serie=1,
+            **medidas,
+        )
+    )
+    sesion_bd.flush()
     sesion_bd.rollback()

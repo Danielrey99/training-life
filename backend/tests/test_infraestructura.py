@@ -43,7 +43,7 @@ def test_la_api_responde(cliente):
 
 def test_las_migraciones_sembraron_los_grupos_musculares(cliente):
     nombres = [grupo["nombre"] for grupo in cliente.get("/grupos-musculares").json()]
-    assert len(nombres) == 17
+    assert len(nombres) == 18
     assert {"Pecho", "Trapecio", "Aductores", "Abductores"} <= set(nombres)
 
 
@@ -53,6 +53,8 @@ def propios(cliente) -> list:
 
 
 SIEMBRA_POR_TIPO = "e8c4d1b97a36"
+CARDIO = "f9a2b6c83d15"
+CARDIO_PREDEFINIDOS = ["Cinta de correr", "Bicicleta estática", "Elíptica", "Remo ergómetro"]
 A_CORPORAL = [
     "Dominadas",
     "Fondos en paralelas",
@@ -71,7 +73,7 @@ NUEVOS_POR_TIPO = [
 
 def test_las_migraciones_sembraron_los_ejercicios_predefinidos(cliente):
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
-    assert len(predefinidos) == 62
+    assert len(predefinidos) == 66
     assert "Press banca con barra" in [e["nombre"] for e in predefinidos]
 
 
@@ -86,7 +88,7 @@ def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
 
 def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert propios(cliente) == []
-    assert len(cliente.get("/ejercicios").json()) == 62
+    assert len(cliente.get("/ejercicios").json()) == 66
 
 
 # --- La cadena entera de migraciones --------------------------------------
@@ -139,6 +141,7 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
                 "ejercicios.tipo_registro",
                 "series.duracion_s",
                 "series.peso_corporal",
+                "series.distancia_m",
             } <= columnas
             assert {
                 "ejercicios_tipo_registro_check",
@@ -146,6 +149,7 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
                 "series_peso_check",
                 "series_duracion_check",
                 "series_peso_corporal_check",
+                "series_distancia_check",
                 "rutina_slots_objetivo_check",
                 "slot_alternativas_objetivo_check",
             } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'c'")
@@ -166,7 +170,13 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
                 "SELECT column_name FROM information_schema.columns "
                 "WHERE table_name = 'series' AND is_nullable = 'YES'"
             )
-            assert {"peso", "repeticiones", "duracion_s", "peso_corporal"} <= nulables
+            assert {
+                "peso",
+                "repeticiones",
+                "duracion_s",
+                "peso_corporal",
+                "distancia_m",
+            } <= nulables
             assert {
                 "entrenamientos_fecha_key",
                 "entrenamientos_cubre_fecha_key",
@@ -185,8 +195,8 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
         command.upgrade(configuracion, "head")
 
     # Lo sembrado vuelve, y la API funciona sobre la base recién subida.
-    assert len(cliente.get("/grupos-musculares").json()) == 17
-    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 62
+    assert len(cliente.get("/grupos-musculares").json()) == 18
+    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 66
     assert cliente.post("/rutinas", json={"nombre": "Push"}).status_code == 201
 
 
@@ -648,7 +658,12 @@ def test_subir_los_tipos_con_datos_deja_cada_ejercicio_de_peso_y_repeticiones(cl
     ejercicios = cliente.get("/ejercicios").json()
     # Los predefinidos que la siembra posterior re-tipa dejan de ser de peso y repeticiones;
     # todo lo demás (el propio y el resto de predefinidos) sí.
-    re_tipados = set(A_CORPORAL) | set(A_TIEMPO) | {n for n, _, _ in NUEVOS_POR_TIPO}
+    re_tipados = (
+        set(A_CORPORAL)
+        | set(A_TIEMPO)
+        | {n for n, _, _ in NUEVOS_POR_TIPO}
+        | set(CARDIO_PREDEFINIDOS)
+    )
     assert {e["tipo_registro"] for e in ejercicios if e["nombre"] not in re_tipados} == {
         "peso_reps"
     }
@@ -797,8 +812,8 @@ def test_quitar_el_objetivo_por_ejercicio_se_niega_con_algo_en_segundos_y_no_toc
         )
         with engine.connect() as conexion:
             version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
-        # La bajada entera va en una transacción: tampoco se deshace la siembra de encima.
-        assert version == SIEMBRA_POR_TIPO
+        # La bajada entera va en una transacción: tampoco se deshace lo de encima.
+        assert version == CARDIO
     finally:
         engine.dispose()
         command.upgrade(configuracion, "head")
@@ -824,9 +839,9 @@ def _tipos_de_los_predefinidos(cliente) -> dict:
     }
 
 
-def test_la_siembra_deja_62_predefinidos_con_los_tipos_esperados(cliente):
+def test_la_siembra_deja_66_predefinidos_con_los_tipos_esperados(cliente):
     tipos = _tipos_de_los_predefinidos(cliente)
-    assert len(tipos) == 62
+    assert len(tipos) == 66
 
     for nombre, grupo, tipo in NUEVOS_POR_TIPO:
         assert tipos[nombre] == (tipo, grupo)
@@ -966,7 +981,7 @@ def test_subir_la_siembra_se_niega_si_plancha_tiene_algo_apuntado_y_no_toca_nada
         engine.dispose()
         command.upgrade(configuracion, "head")
 
-    assert len(_tipos_de_los_predefinidos(cliente)) == 62
+    assert len(_tipos_de_los_predefinidos(cliente)) == 66
 
 
 def _bajar_la_siembra_y_comprobar_que_se_niega(cliente, texto):
@@ -986,7 +1001,8 @@ def _bajar_la_siembra_y_comprobar_que_se_niega(cliente, texto):
         assert texto in str(error.value)
         with engine.connect() as conexion:
             version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
-        assert version == SIEMBRA_POR_TIPO
+        # La bajada va en una transacción: tampoco se deshace el cardio de encima.
+        assert version == CARDIO
     finally:
         engine.dispose()
         command.upgrade(configuracion, "head")
@@ -1079,7 +1095,7 @@ def test_bajar_la_siembra_devuelve_los_tipos_a_peso_y_repeticiones_y_borra_los_n
         command.upgrade(configuracion, "head")
 
     tipos = _tipos_de_los_predefinidos(cliente)
-    assert len(tipos) == 62
+    assert len(tipos) == 66
     assert tipos["Dominadas"][0] == "corporal"
 
 
@@ -1170,5 +1186,266 @@ def test_subir_la_siembra_se_niega_si_ya_hay_un_ejercicio_propio_con_el_nombre_d
         engine.dispose()
         with engine.begin() as conexion:
             conexion.execute(text("DELETE FROM ejercicios WHERE nombre = 'Flexiones'"))
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+
+# --- La migración del cardio -------------------------------------------------------
+#
+# `f9a2b6c83d15` añade el tipo `cardio`, la distancia de la serie (`series.distancia_m`),
+# el grupo «Cardio» y cuatro predefinidos. Subirla se niega si el grupo o un nombre ya
+# existen; bajarla, si los cuatro se usan o si hay un ejercicio propio de cardio o en el
+# grupo: no cabrían sin el tipo ni sin el grupo. Se niega, lo dice y no toca nada.
+
+
+def _estado_del_cardio(conexion) -> dict:
+    """Lo que la migración cambia, leído de la base."""
+    return {
+        "version": conexion.scalar(text("SELECT version_num FROM alembic_version")),
+        "predefinidos": conexion.scalar(
+            text("SELECT count(*) FROM ejercicios WHERE es_predefinido")
+        ),
+        "grupos": conexion.scalar(text("SELECT count(*) FROM grupos_musculares")),
+        "cardio": sorted(
+            conexion.scalars(
+                text("SELECT nombre FROM ejercicios WHERE tipo_registro = 'cardio'")
+            ).all()
+        ),
+        "distancia": conexion.scalar(
+            text(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'series' AND column_name = 'distancia_m'"
+            )
+        ),
+        "restricciones": sorted(
+            conexion.scalars(
+                text(
+                    "SELECT conname FROM pg_constraint WHERE conname IN "
+                    "('series_distancia_check', 'series_medidas_check', "
+                    "'ejercicios_tipo_registro_check')"
+                )
+            ).all()
+        ),
+    }
+
+
+def test_bajar_el_cardio_quita_el_grupo_y_los_cuatro_y_subirlo_los_devuelve(cliente):
+    """La bajada normal borra los cuatro predefinidos, el grupo y la columna de la
+    distancia, y vuelve a los CHECK de antes (el tipo cardio ya no cabe y una serie con
+    distancia tampoco); lo demás, como una serie de tiempo, se queda. La subida lo deja
+    como estaba: 66 predefinidos, 18 grupos y los cuatro de cardio, en su grupo.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, "Plancha", "serie", tiempo=True)
+        antes = _estado_del_cardio(conexion)
+    assert antes["predefinidos"] == 66 and antes["grupos"] == 18
+    assert antes["cardio"] == sorted(CARDIO_PREDEFINIDOS)
+    assert antes["distancia"] == 1
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, SIEMBRA_POR_TIPO)
+    try:
+        with engine.connect() as conexion:
+            abajo = _estado_del_cardio(conexion)
+            series = conexion.scalar(text("SELECT count(*) FROM series"))
+            definicion = conexion.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'series_medidas_check'"
+                )
+            )
+            nombres = set(conexion.scalars(text("SELECT nombre FROM ejercicios")).all())
+        assert abajo["version"] == SIEMBRA_POR_TIPO
+        assert (abajo["predefinidos"], abajo["grupos"]) == (62, 17)
+        assert abajo["cardio"] == [] and abajo["distancia"] == 0
+        assert abajo["restricciones"] == [
+            "ejercicios_tipo_registro_check",
+            "series_medidas_check",
+        ]
+        assert "distancia_m" not in definicion
+        assert nombres.isdisjoint(CARDIO_PREDEFINIDOS)
+        assert series == 1
+        with engine.begin() as conexion:
+            with pytest.raises(Exception) as error:
+                conexion.execute(
+                    text(
+                        "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                        "tipo_registro, created_at, updated_at) VALUES ('Spinning', "
+                        "(SELECT min(id) FROM grupos_musculares), false, 'cardio', now(), now())"
+                    )
+                )
+            assert "ejercicios_tipo_registro_check" in str(error.value)
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    with engine.connect() as conexion:
+        despues = _estado_del_cardio(conexion)
+        grupo = set(
+            conexion.scalars(
+                text(
+                    "SELECT g.nombre FROM ejercicios e JOIN grupos_musculares g "
+                    "ON g.id = e.grupo_muscular_id WHERE e.tipo_registro = 'cardio'"
+                )
+            ).all()
+        )
+        series = conexion.scalar(text("SELECT count(*) FROM series"))
+    assert despues == antes
+    assert grupo == {"Cardio"}
+    assert series == 1
+
+
+def _bajar_el_cardio_y_comprobar_que_se_niega(cliente, texto):
+    """Intenta bajar el cardio: se niega con `texto`, la base sigue en su versión, con
+    el grupo, los cuatro predefinidos y la columna de la distancia.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    with engine.connect() as conexion:
+        antes = _estado_del_cardio(conexion)
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        with pytest.raises(RuntimeError) as error:
+            command.downgrade(configuracion, SIEMBRA_POR_TIPO)
+        assert "No se puede deshacer el cardio" in str(error.value)
+        assert texto in str(error.value)
+        with engine.connect() as conexion:
+            despues = _estado_del_cardio(conexion)
+        assert despues == antes
+        assert despues["version"] == CARDIO
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+
+@pytest.mark.parametrize(
+    "nombre, donde",
+    [
+        pytest.param("Cinta de correr", "serie", id="con-una-serie"),
+        pytest.param("Bicicleta estática", "hueco", id="en-un-hueco"),
+        pytest.param("Elíptica", "alternativa", id="como-alternativa"),
+        pytest.param("Remo ergómetro", "nota", id="con-una-nota"),
+    ],
+)
+def test_bajar_el_cardio_se_niega_si_uno_de_sus_predefinidos_se_usa_y_no_toca_nada(
+    cliente, nombre, donde
+):
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, nombre, donde, tiempo=True)
+
+    _bajar_el_cardio_y_comprobar_que_se_niega(cliente, "sus ejercicios predefinidos ya se usan (1 ")
+
+
+def test_bajar_el_cardio_se_niega_si_hay_un_ejercicio_propio_de_cardio(cliente):
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        conexion.execute(
+            text(
+                "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                "tipo_registro, created_at, updated_at) VALUES ('Spinning', "
+                "(SELECT min(id) FROM grupos_musculares WHERE nombre <> 'Cardio'), false, "
+                "'cardio', now(), now())"
+            )
+        )
+
+    _bajar_el_cardio_y_comprobar_que_se_niega(cliente, "hay 1 ejercicio(s) propios de cardio")
+
+
+def test_bajar_el_cardio_se_niega_si_hay_un_ejercicio_propio_en_el_grupo_cardio(cliente):
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        conexion.execute(
+            text(
+                "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, created_at, "
+                "updated_at) VALUES ('Burpees', "
+                "(SELECT id FROM grupos_musculares WHERE nombre = 'Cardio'), false, now(), now())"
+            )
+        )
+
+    _bajar_el_cardio_y_comprobar_que_se_niega(cliente, 'en el grupo "Cardio"')
+
+
+@pytest.mark.parametrize("nombre", ["Cinta de correr", "cinta de CORRER"])
+def test_subir_el_cardio_se_niega_si_ya_hay_un_ejercicio_propio_con_el_nombre_de_uno_nuevo(
+    cliente, nombre
+):
+    """Un propio llamado «Cinta de correr» (con cualquier mayúscula) chocaría con el
+    predefinido: la migración se niega nombrándolo y no cambia nada: ni el tipo, ni la
+    columna, ni el grupo, ni los demás predefinidos.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, SIEMBRA_POR_TIPO)
+    try:
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                    "created_at, updated_at) VALUES (:n, "
+                    "(SELECT min(id) FROM grupos_musculares), false, now(), now())"
+                ),
+                {"n": nombre},
+            )
+            abajo = _estado_del_cardio(conexion)
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert nombre.lower() in str(error.value).lower()
+        with engine.connect() as conexion:
+            despues = _estado_del_cardio(conexion)
+        assert despues == abajo
+        assert (despues["predefinidos"], despues["grupos"], despues["distancia"]) == (62, 17, 0)
+    finally:
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("DELETE FROM ejercicios WHERE lower(nombre) = 'cinta de correr'"))
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+
+def test_subir_el_cardio_se_niega_si_ya_hay_un_grupo_muscular_cardio(cliente):
+    from alembic import command
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, SIEMBRA_POR_TIPO)
+    try:
+        with engine.begin() as conexion:
+            conexion.execute(text("INSERT INTO grupos_musculares (nombre) VALUES ('Cardio')"))
+            abajo = _estado_del_cardio(conexion)
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert 'Ya existe un grupo muscular llamado "Cardio"' in str(error.value)
+        with engine.connect() as conexion:
+            despues = _estado_del_cardio(conexion)
+        assert despues == abajo
+        assert (despues["predefinidos"], despues["distancia"]) == (62, 0)
+    finally:
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("DELETE FROM grupos_musculares WHERE nombre = 'Cardio'"))
         engine.dispose()
         command.upgrade(configuracion, "head")

@@ -981,6 +981,60 @@ def test_la_barra_en_curso_solo_de_series_por_tiempo_tampoco_da_un_500(cliente, 
         assert por_grupo(vista["en_curso"]) == [(tres_tipos["grupos"][2], 1)]
 
 
+def test_una_semana_solo_de_cardio_tiene_volumen_cero_y_no_da_un_500(cliente, hoy_es, tres_tipos):
+    """El cardio no lleva peso ni repeticiones (el producto es nulo en SQL): no suma
+    volumen, ni a la semana ni al mes, y no rompe la suma. Sus series cuentan en «Series
+    por grupo muscular», con y sin distancia, en el grupo de su ejercicio.
+    """
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    grupo_cardio = tres_tipos["grupos"][2]
+    cinta = crear_ejercicio(cliente, grupo_cardio, "Cinta", tipo="cardio")
+    sesion_con_medidas(
+        cliente, date(2026, 9, 15), push, (tres_tipos["press"], {"peso": 100, "repeticiones": 1})
+    )
+    sesion_con_medidas(
+        cliente,
+        date(2026, 9, 22),
+        push,
+        (cinta, {"duracion_s": 1800, "distancia_m": 5000}),
+        (cinta, {"duracion_s": 600}),
+    )
+
+    datos = pedir(cliente, SEPTIEMBRE)
+
+    semana = barra(datos["por_semana"], date(2026, 9, 21))
+    assert semana["volumen"] == "0.00"
+    assert cambio(semana) == (None, None)
+    assert por_rutina(semana) == []
+    assert por_grupo(semana) == [(grupo_cardio, 2)]
+    assert barra(datos["por_mes"], date(2026, 9, 1))["volumen"] == "100.00"
+
+
+def test_el_cardio_junto_a_peso_y_repeticiones_no_suma_su_tiempo_ni_su_distancia(
+    cliente, hoy_es, tres_tipos
+):
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    cinta = crear_ejercicio(cliente, tres_tipos["grupos"][2], "Cinta", tipo="cardio")
+    sesion_con_medidas(
+        cliente,
+        date(2026, 9, 22),
+        push,
+        (tres_tipos["press"], {"peso": 60, "repeticiones": 10}),
+        (cinta, {"duracion_s": 1800, "distancia_m": 5000}),
+    )
+
+    datos = pedir(cliente, SEPTIEMBRE)
+
+    semana = barra(datos["por_semana"], date(2026, 9, 21))
+    assert semana["volumen"] == "600.00"
+    assert por_rutina(semana) == [("Push", "600.00")]
+    assert sorted(por_grupo(semana)) == sorted(
+        [(tres_tipos["grupos"][0], 1), (tres_tipos["grupos"][2], 1)]
+    )
+
+
 def test_el_peso_corporal_y_el_tiempo_no_suman_volumen_pero_sus_series_cuentan(
     cliente, hoy_es, tres_tipos
 ):

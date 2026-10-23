@@ -237,7 +237,7 @@ def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, e
 # o tiempo. Se elige al crearlo y no cambia (una serie ya apuntada no se puede
 # reinterpretar): el PUT no lo toca aunque llegue en el cuerpo.
 
-TIPOS = ["peso_reps", "corporal", "tiempo"]
+TIPOS = ["peso_reps", "corporal", "tiempo", "cardio"]
 
 
 @pytest.mark.parametrize("tipo", TIPOS)
@@ -263,9 +263,9 @@ def test_sin_tipo_un_ejercicio_es_de_peso_y_repeticiones(cliente, grupo_muscular
     assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["tipo_registro"] == "peso_reps"
 
 
-@pytest.mark.parametrize("tipo", ["cardio", "Tiempo", "", None, 1])
+@pytest.mark.parametrize("tipo", ["natación", "Cardio", "Tiempo", "", None, 1])
 def test_un_tipo_que_no_existe_da_422_y_no_crea_nada(cliente, grupo_muscular_id, tipo):
-    """«cardio» todavía no es un tipo (llega en un paso posterior), y un nulo no es
+    """Solo valen los cuatro tipos, tal cual (ni «Cardio» con mayúscula), y un nulo no es
     «el de por defecto»: el campo se omite o trae uno de los tipos.
     """
     respuesta = cliente.post(

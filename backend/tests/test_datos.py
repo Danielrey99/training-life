@@ -333,7 +333,8 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
     alternativa (otra familia, con objetivo de repeticiones); el del remo, con la
     plancha de alternativa y un objetivo en segundos distinto del de su hueco. Dos sesiones (el 2 y el 3 de septiembre, días que `montar_datos`
     no usa) con dominadas con ayuda y con peso corporal, con lastre y sin carga, una
-    plancha sin peso y otra con peso, y la sentadilla.
+    plancha sin peso y otra con peso, y la sentadilla. Y un ejercicio de cardio con su
+    hueco (objetivo en segundos), con dos series el día 3: una con distancia y otra sin ella.
     """
     grupo_id = sesion_bd.scalar(select(GrupoMuscular.id).order_by(GrupoMuscular.id))
     marca = {
@@ -350,18 +351,19 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
     dominadas = ejercicio("Dominadas lastradas", "corporal")
     plancha = ejercicio("Plancha con disco", "tiempo")
     remo = ejercicio("Remo con barra", "peso_reps")
+    cinta = ejercicio("Cinta con inclinación", "cardio")
     core = Rutina(nombre="Core", **marca)
     sesion_bd.add(core)
     sesion_bd.flush()
     en_reps = {"series_objetivo": 3, "reps_min": 6, "reps_max": 10}
     en_segundos = {"series_objetivo": 3, "duracion_min_s": 30, "duracion_max_s": 60}
     huecos = {}
-    for orden, principal in enumerate((dominadas, plancha, remo, sentadilla_id), start=1):
+    for orden, principal in enumerate((dominadas, plancha, remo, sentadilla_id, cinta), start=1):
         fila = RutinaSlot(
             rutina_id=core.id,
             ejercicio_principal_id=principal,
             orden=orden,
-            **(en_segundos if principal == plancha else en_reps),
+            **(en_segundos if principal in (plancha, cinta) else en_reps),
             **marca,
         )
         sesion_bd.add(fila)
@@ -424,6 +426,8 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
         (dominadas, {"peso": Decimal("0"), "repeticiones": 12, "peso_corporal": Decimal("79")}),
         (plancha, {"duracion_s": 90, "peso": Decimal("10")}),
         (remo, {"peso": Decimal("70"), "repeticiones": 8}),
+        (cinta, {"duracion_s": 1800, "distancia_m": 5200}),
+        (cinta, {"duracion_s": 600}),
     )
     sesion_bd.commit()
     return {"core": core.id, "dominadas": dominadas, "plancha": plancha, "remo_con_barra": remo}
@@ -776,6 +780,7 @@ def test_exportar_escribe_la_version_2_con_el_tipo_y_las_medidas_de_cada_serie(
         "Dominadas lastradas": "corporal",
         "Plancha con disco": "tiempo",
         "Remo con barra": "peso_reps",
+        "Cinta con inclinación": "cardio",
     }
     # Los predefinidos no llevan tipo: vale el de la instalación que importa.
     assert all("tipo_registro" not in p for p in archivo["predefinidos"])
@@ -816,6 +821,37 @@ def test_la_ida_y_vuelta_conserva_los_tipos_y_las_medidas(cliente, sesion_bd, da
         ("Dominadas lastradas", "corporal", Decimal("0.00"), 12, None, Decimal("79.00")),
         ("Plancha con disco", "tiempo", Decimal("10.00"), None, 90, None),
     ]
+
+
+def test_exportar_e_importar_conservan_la_distancia_de_una_serie_de_cardio(
+    cliente, sesion_bd, datos_por_tipo
+):
+    """La distancia (en metros) sale en el archivo, es nula en la serie de cardio sin ella
+    y en las demás, y vuelve a la base tal cual tras importar.
+    """
+    antes = exportado(cliente)
+    series = _sesion(antes, "2026-09-03")["series"]
+    assert [s["distancia_m"] for s in series] == [None, None, None, 5200, None]
+    assert series[3]["duracion_s"] == 1800
+
+    assert importar(cliente, antes).status_code == 200
+
+    despues = exportado(cliente)
+    assert [s["distancia_m"] for s in _sesion(despues, "2026-09-03")["series"]] == [
+        None,
+        None,
+        None,
+        5200,
+        None,
+    ]
+    sesion_bd.expire_all()
+    guardadas = sesion_bd.execute(
+        select(Serie.duracion_s, Serie.distancia_m, Serie.peso, Serie.repeticiones)
+        .join(Ejercicio, Ejercicio.id == Serie.ejercicio_id)
+        .where(Ejercicio.nombre == "Cinta con inclinación")
+        .order_by(Serie.id)
+    ).all()
+    assert [tuple(s) for s in guardadas] == [(1800, 5200, None, None), (600, None, None, None)]
 
 
 def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, datos):
@@ -1215,7 +1251,7 @@ def _ejercicio_sin_tipo(a):
 
 
 def _ejercicio_de_un_tipo_que_no_existe(a):
-    a["ejercicios"][0]["tipo_registro"] = "cardio"
+    a["ejercicios"][0]["tipo_registro"] = "natación"
 
 
 def _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones(a):
@@ -1251,6 +1287,14 @@ def _peso_corporal_cero(a):
 def _duracion_de_mas_de_un_dia(a):
     serie = _sesion(a, "2026-09-07")["series"][0]
     serie["peso"], serie["repeticiones"], serie["duracion_s"] = None, None, 86401
+
+
+def _distancia_cero(a):
+    _sesion(a, "2026-09-07")["series"][0]["distancia_m"] = 0
+
+
+def _distancia_de_mas_de_mil_km(a):
+    _sesion(a, "2026-09-07")["series"][0]["distancia_m"] = 1_000_001
 
 
 MAL_APUNTADA = "La sesión del {} tiene una serie mal apuntada: "
@@ -1456,6 +1500,8 @@ MALOS = [
     (_ayuda_que_no_cabe, DANADO, "entrenamientos.0.series.0.peso"),
     (_peso_corporal_cero, DANADO, "entrenamientos.0.series.0.peso_corporal"),
     (_duracion_de_mas_de_un_dia, DANADO, "entrenamientos.0.series.0.duracion_s"),
+    (_distancia_cero, DANADO, "entrenamientos.0.series.0.distancia_m"),
+    (_distancia_de_mas_de_mil_km, DANADO, "entrenamientos.0.series.0.distancia_m"),
     (
         _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones,
         NO_SE_CAMBIA_NADA,
@@ -1747,7 +1793,64 @@ def _ayuda_en_un_ejercicio_que_pasa_a_peso_y_repeticiones(a):
     _de(a, "Dominadas lastradas")["tipo_registro"] = "peso_reps"
 
 
+def _cinta_con_repeticiones(a):
+    _sesion(a, "2026-09-03")["series"][3].update(peso="20.00", repeticiones=10)
+
+
+def _cinta_con_peso(a):
+    _sesion(a, "2026-09-03")["series"][4]["peso"] = "5.00"
+
+
+def _cinta_sin_duracion(a):
+    _sesion(a, "2026-09-03")["series"][3]["duracion_s"] = None
+
+
+def _distancia_en_una_serie_de_tiempo(a):
+    _sesion(a, "2026-09-03")["series"][1]["distancia_m"] = 100
+
+
+def _distancia_en_una_serie_de_peso_y_repeticiones(a):
+    _sesion(a, "2026-09-03")["series"][2]["distancia_m"] = 100
+
+
+def _cinta_por_tiempo(a):
+    # Un ejercicio de tiempo no lleva distancia: la de la serie sobra.
+    _de(a, "Cinta con inclinación")["tipo_registro"] = "tiempo"
+
+
 MAL_POR_TIPO = [
+    (
+        _cinta_con_repeticiones,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: sobran el peso"
+        " y las repeticiones.",
+    ),
+    (
+        _cinta_con_peso,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: sobra el peso.",
+    ),
+    (
+        _cinta_sin_duracion,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: falta la"
+        " duración.",
+    ),
+    (
+        _distancia_en_una_serie_de_tiempo,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Plancha con disco se apunta por tiempo: sobra la distancia.",
+    ),
+    (
+        _distancia_en_una_serie_de_peso_y_repeticiones,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Remo con barra se apunta con peso y repeticiones: sobra la distancia.",
+    ),
+    (
+        _cinta_por_tiempo,
+        MAL_APUNTADA.format("2026-09-03")
+        + "Cinta con inclinación se apunta por tiempo: sobra la distancia.",
+    ),
     (
         _dominadas_con_duracion,
         MAL_APUNTADA.format("2026-09-02")
@@ -2260,7 +2363,7 @@ def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos, que):
     assert importar(cliente, archivo).status_code == 200
 
     despues = _predefinidos_en_bd(sesion_bd)
-    assert len(despues) == 62
+    assert len(despues) == 66
     assert despues == antes
 
 
@@ -2576,7 +2679,7 @@ def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
     borrar(cliente)
 
     despues = _predefinidos_en_bd(sesion_bd)
-    assert len(despues) == 62
+    assert len(despues) == 66
     assert despues == antes
 
 

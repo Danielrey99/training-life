@@ -85,11 +85,15 @@ def alternativa(ejercicio_id, series=3, reps=(6, 10), duracion=None) -> dict:
 
 
 def es_de_tiempo(cliente, ejercicio_id) -> bool:
-    """Si el objetivo de ese ejercicio va en segundos. Uno que no existe, no: así el
-    test que lo usa a propósito recibe el 404 de la API y no un fallo de aquí.
+    """Si el objetivo de ese ejercicio va en segundos (los de tiempo y los de cardio).
+    Uno que no existe, no: así el test que lo usa a propósito recibe el 404 de la API
+    y no un fallo de aquí.
     """
     respuesta = cliente.get(f"/ejercicios/{ejercicio_id}")
-    return respuesta.status_code == 200 and respuesta.json()["tipo_registro"] == "tiempo"
+    return respuesta.status_code == 200 and respuesta.json()["tipo_registro"] in (
+        "tiempo",
+        "cardio",
+    )
 
 
 def crear_hueco(

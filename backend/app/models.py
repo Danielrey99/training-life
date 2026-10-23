@@ -67,7 +67,7 @@ class Ejercicio(Ocultable, Base):
     __tablename__ = "ejercicios"
     __table_args__ = (
         CheckConstraint(
-            "tipo_registro IN ('peso_reps', 'corporal', 'tiempo')",
+            "tipo_registro IN ('peso_reps', 'corporal', 'tiempo', 'cardio')",
             name="ejercicios_tipo_registro_check",
         ),
     )
@@ -312,13 +312,15 @@ class Serie(Base):
     """
 
     __tablename__ = "series"
-    # Solo la forma de la serie: o lleva repeticiones (con peso) o lleva duración. Qué
-    # medidas pide cada ejercicio lo decide su tipo (`app/medidas.py`), que está en otra
-    # tabla y por eso lo comprueba el endpoint.
+    # Solo la forma de la serie: o lleva repeticiones (con peso) o lleva duración (con peso
+    # o con distancia, no con las dos). Qué medidas pide cada ejercicio lo decide su tipo
+    # (`app/medidas.py`), que está en otra tabla y por eso lo comprueba el endpoint.
     __table_args__ = (
         CheckConstraint(
-            "(repeticiones IS NOT NULL AND peso IS NOT NULL AND duracion_s IS NULL)"
-            " OR (repeticiones IS NULL AND duracion_s IS NOT NULL)",
+            "(repeticiones IS NOT NULL AND peso IS NOT NULL AND duracion_s IS NULL"
+            " AND distancia_m IS NULL)"
+            " OR (repeticiones IS NULL AND duracion_s IS NOT NULL"
+            " AND (peso IS NULL OR distancia_m IS NULL))",
             name="series_medidas_check",
         ),
         # Una carga negativa (la ayuda de las dominadas) solo existe con repeticiones.
@@ -326,6 +328,7 @@ class Serie(Base):
             "peso IS NULL OR peso >= 0 OR repeticiones IS NOT NULL", name="series_peso_check"
         ),
         CheckConstraint("duracion_s IS NULL OR duracion_s > 0", name="series_duracion_check"),
+        CheckConstraint("distancia_m IS NULL OR distancia_m > 0", name="series_distancia_check"),
         CheckConstraint(
             "peso_corporal IS NULL OR (peso_corporal > 0 AND repeticiones IS NOT NULL)",
             name="series_peso_corporal_check",
@@ -347,6 +350,8 @@ class Serie(Base):
     repeticiones: Mapped[int | None] = mapped_column(default=None)
     # En segundos.
     duracion_s: Mapped[int | None] = mapped_column(default=None)
+    # En metros: la de una serie de cardio, si se apunta.
+    distancia_m: Mapped[int | None] = mapped_column(default=None)
     # Cuánto pesaba la persona al hacer una serie de peso corporal, en kg. Ningún cálculo
     # lo usa: es un dato de la serie, como la variante.
     peso_corporal: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=None)

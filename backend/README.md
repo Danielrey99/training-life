@@ -32,7 +32,7 @@ Sobre ese historial se consulta la **progresión**, en dos vistas que no se sust
 
 La API es de **una sola persona por instalación**: no hay usuarios, ni login, ni `usuario_id` en ninguna tabla. Cada teléfono o navegador guarda sus datos y se los pasa a otro dispositivo con un archivo (ver más abajo).
 
-La biblioteca viene con **62 ejercicios predefinidos**, sembrados por migración y repartidos por los 17 grupos musculares (cada uno con su forma de apuntarse: peso y repeticiones, peso corporal o tiempo), para que la app no arranque vacía: se puede montar una rutina sin crear ningún ejercicio antes. Son de todos y de nadie, así que no se pueden editar, ocultar ni borrar; las notas sobre ellos, en cambio, son tuyas.
+La biblioteca viene con **66 ejercicios predefinidos**, sembrados por migración y repartidos por los 18 grupos musculares (cada uno con su forma de apuntarse: peso y repeticiones, peso corporal, tiempo o cardio), para que la app no arranque vacía: se puede montar una rutina sin crear ningún ejercicio antes. Son de todos y de nadie, así que no se pueden editar, ocultar ni borrar; las notas sobre ellos, en cambio, son tuyas.
 
 Los **grupos musculares** tampoco se crean desde la API: son 17 fijos, sembrados por migración, los que se usan para clasificar ejercicios de gimnasio: Pecho, Espalda, Trapecio, Lumbar, Hombro, Bíceps, Tríceps, Antebrazo, Abdomen, Oblicuos, Cuádriceps, Isquiotibiales, Glúteo, Aductores, Abductores, Pantorrilla y Cuello. No se baja a músculos sueltos a propósito: cada ejercicio tiene un solo grupo, y con grupos muy finos cualquier elección sería engañosa.
 

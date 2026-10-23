@@ -41,7 +41,7 @@ class GrupoMuscularOut(BaseModel):
 
 
 # Cómo se apunta un ejercicio (ver `app/medidas.py`). Se elige al crearlo y no cambia.
-TipoRegistro = Literal["peso_reps", "corporal", "tiempo"]
+TipoRegistro = Literal["peso_reps", "corporal", "tiempo", "cardio"]
 
 
 class EjercicioBase(BaseModel):
@@ -340,6 +340,8 @@ class SerieBase(BaseModel):
     repeticiones: int | None = Field(default=None, gt=0, le=1000)
     # En segundos, hasta un día.
     duracion_s: int | None = Field(default=None, gt=0, le=86400)
+    # En metros, hasta mil kilómetros.
+    distancia_m: int | None = Field(default=None, gt=0, le=1_000_000)
     # `ge` y no `gt`: con 0,001 pasaría la validación y NUMERIC(5,2) lo redondea a 0,00.
     peso_corporal: Decimal | None = Field(default=None, ge=Decimal("0.01"), le=Decimal("500"))
     variante: TextoOpcional = Field(default=None, max_length=100)
@@ -396,6 +398,7 @@ class SerieHistorial(BaseModel):
     peso: Decimal | None
     repeticiones: int | None
     duracion_s: int | None
+    distancia_m: int | None
     variante: str | None
 
 
