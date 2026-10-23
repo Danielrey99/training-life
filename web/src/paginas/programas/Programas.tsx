@@ -195,7 +195,6 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
       <span className="programas-tarjeta-texto">
         <span className="programas-tarjeta-nombre">
           <strong>{programa.nombre}</strong>
-          {programa.activo && <span className="etiqueta">activo</span>}
         </span>
         {oculto ? (
           <>
@@ -211,6 +210,7 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
           </>
         )}
       </span>
+      {programa.activo && <span className="etiqueta etiqueta-activo">activo</span>}
       <Icono nombre="abrir" pequeno />
     </Link>
   )

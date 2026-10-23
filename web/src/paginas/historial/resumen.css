@@ -87,6 +87,15 @@
   column-gap: 10px;
 }
 
+/* La del volumen: la cifra y, debajo, cuánto ha cambiado, siempre en dos líneas y
+   centradas, sea cual sea lo largo del texto de la comparación. */
+.resumen-cifra.vertical {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
 .resumen-valor {
   font-size: 26px;
   font-weight: 700;

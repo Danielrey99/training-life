@@ -363,7 +363,7 @@ function Volumen({
           {elegida.series_por_grupo.length === 0 ? (
             <p className="resumen-sin-series">{vista.sinSeries}</p>
           ) : (
-            <div className="resumen-cifra">
+            <div className="resumen-cifra vertical">
               <span className="resumen-valor num">{enKilos(elegida.volumen)}</span>
               {elegida.cambio !== null && elegida.comparado_con !== null && (
                 <span
