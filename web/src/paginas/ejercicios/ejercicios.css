@@ -203,3 +203,91 @@
   font-size: 14px;
   border-radius: var(--radio-pequeno);
 }
+
+/* Cómo se apunta: una tarjeta por tipo, con la elegida marcada en verde. */
+.tipo-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.tipo-campo legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.tipo-opcion {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+
+.tipo-opcion.elegida {
+  border-color: var(--acento);
+}
+
+.tipo-opcion.fija {
+  cursor: default;
+}
+
+.tipo-opcion input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* El círculo: vacío, o con un punto verde cuando es el elegido. */
+.tipo-marca {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border: 2px solid var(--texto-tenue);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.tipo-opcion.elegida .tipo-marca {
+  border-color: var(--acento);
+  background: radial-gradient(var(--acento) 0 4px, transparent 5px);
+}
+
+.tipo-opcion input:focus-visible + .tipo-marca {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.tipo-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
+.tipo-texto strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.tipo-aviso {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-tenue);
+}

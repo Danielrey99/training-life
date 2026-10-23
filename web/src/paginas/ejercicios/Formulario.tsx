@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { api } from '../../api/cliente'
-import type { GrupoMuscular } from '../../api/tipos'
+import type { GrupoMuscular, TipoRegistro } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -12,9 +12,29 @@ import './ejercicios.css'
 
 type Falta = { nombre?: string; grupo?: string }
 
+/** Cómo se puede apuntar un ejercicio, con una línea que dice qué se pone en cada serie. */
+const TIPOS: { clave: TipoRegistro; nombre: string; ayuda: string }[] = [
+  {
+    clave: 'peso_reps',
+    nombre: 'Peso y repeticiones',
+    ayuda: 'Cuánto peso y cuántas repeticiones (press banca, sentadilla…)',
+  },
+  {
+    clave: 'corporal',
+    nombre: 'Peso corporal',
+    ayuda: 'Repeticiones con tu cuerpo, con lastre o con ayuda si la usas (dominadas, fondos…)',
+  },
+  {
+    clave: 'tiempo',
+    nombre: 'Tiempo',
+    ayuda: 'Cuánto aguantas, con peso si lo llevas (plancha, paseo del granjero…)',
+  },
+]
+
 /**
- * X3 · Ejercicio nuevo o editar uno tuyo: nombre, grupo muscular y una descripción
- * opcional. Lo que es de cada uno (un ajuste, cómo le sale mejor) va en las notas de
+ * X3 · Ejercicio nuevo o editar uno tuyo: nombre, grupo muscular, cómo se apunta y una
+ * descripción opcional. Cómo se apunta se elige al crearlo y no se puede cambiar: decide
+ * qué lleva cada serie, y cambiarlo dejaría series que no cuadran. Lo que es de cada uno (un ajuste, cómo le sale mejor) va en las notas de
  * la ficha, no aquí: la descripción es del ejercicio.
  *
  * Nada se guarda hasta pulsar *Guardar*. Un predefinido o uno oculto no se editan:
@@ -29,6 +49,7 @@ export function Formulario() {
   const [nombre, setNombre] = useState('')
   const [grupo, setGrupo] = useState('')
   const [descripcion, setDescripcion] = useState('')
+  const [tipo, setTipo] = useState<TipoRegistro>('peso_reps')
   const [error, setError] = useState<string | null>(null)
   const [falta, setFalta] = useState<Falta>({})
   const [guardando, setGuardando] = useState(false)
@@ -48,6 +69,7 @@ export function Formulario() {
           setNombre(ejercicio.nombre)
           setGrupo(String(ejercicio.grupo_muscular_id))
           setDescripcion(ejercicio.descripcion ?? '')
+          setTipo(ejercicio.tipo_registro)
         }
         setGrupos(todos.sort((uno, otro) => uno.nombre.localeCompare(otro.nombre, 'es')))
       })
@@ -82,7 +104,7 @@ export function Formulario() {
     }
     try {
       if (id === null) {
-        const creado = await api.crearEjercicio(datos)
+        const creado = await api.crearEjercicio({ ...datos, tipo_registro: tipo })
         // Con replace: volver desde la ficha lleva a la biblioteca, no al formulario.
         navegar(`/ejercicios/${creado.id}`, { replace: true })
       } else {
@@ -156,6 +178,45 @@ export function Formulario() {
         </select>
         {falta.grupo && <span className="fallo">{falta.grupo}</span>}
       </label>
+
+      <fieldset className="campo tipo-campo">
+        <legend className="campo-etiqueta">Cómo se apunta</legend>
+        {id === null ? (
+          <>
+            {TIPOS.map((opcion) => (
+              <label
+                key={opcion.clave}
+                className={opcion.clave === tipo ? 'tipo-opcion elegida' : 'tipo-opcion'}
+              >
+                <input
+                  type="radio"
+                  name="tipo"
+                  value={opcion.clave}
+                  checked={opcion.clave === tipo}
+                  onChange={() => setTipo(opcion.clave)}
+                />
+                <span className="tipo-marca" aria-hidden />
+                <span className="tipo-texto">
+                  <strong>{opcion.nombre}</strong>
+                  <span>{opcion.ayuda}</span>
+                </span>
+              </label>
+            ))}
+            <p className="tipo-aviso">Se elige al crearlo y no se puede cambiar después.</p>
+          </>
+        ) : (
+          <>
+            <div className="tipo-opcion fija">
+              <span className="tipo-texto">
+                <strong>{TIPOS.find((opcion) => opcion.clave === tipo)?.nombre}</strong>
+              </span>
+            </div>
+            <p className="tipo-aviso">
+              No se puede cambiar: si no es el que querías, crea otro ejercicio y borra este.
+            </p>
+          </>
+        )}
+      </fieldset>
 
       <label className="campo">
         <span className="campo-etiqueta">Descripción (opcional)</span>

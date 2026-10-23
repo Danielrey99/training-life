@@ -78,6 +78,8 @@ const VISTAS = {
         ? 'la semana anterior'
         : `la semana del ${diaConAnio(con, p.desde)}`,
     sinSeries: 'Sin series esta semana.',
+    // Hubo series, pero ninguna de peso y repeticiones, que son las que suman volumen.
+    sinPeso: 'Sin ejercicios con peso esta semana',
     vacio: 'No hay series en estas semanas.',
     leyenda: 'Toca una barra para ver esa semana.',
     enCurso: 'La rayada es la semana en curso, aún sin terminar.',
@@ -89,6 +91,7 @@ const VISTAS = {
     comparadoCon: (p: PeriodoDeVolumen, con: string) =>
       con === sumarMeses(p.desde, -1) ? 'el mes anterior' : mesConAnio(con, p.desde),
     sinSeries: 'Sin series este mes.',
+    sinPeso: 'Sin ejercicios con peso este mes',
     vacio: 'No hay series en estos meses.',
     leyenda: 'Toca una barra para ver ese mes.',
     enCurso: 'La rayada es el mes en curso, aún sin terminar.',
@@ -281,6 +284,8 @@ export function Resumen() {
           </h2>
           {!conSeries ? (
             <p className="resumen-vacio">{vista.sinSeries}</p>
+          ) : elegida.volumen_por_rutina.length === 0 ? (
+            <p className="resumen-vacio">{vista.sinPeso}</p>
           ) : (
             <Reparto
               filas={elegida.volumen_por_rutina.map(({ rutina, volumen }) => ({
@@ -347,12 +352,15 @@ function Volumen({
     ? [...evolucion.periodos, evolucion.en_curso]
     : evolucion.periodos
   const maximo = Math.max(...barras.map((barra) => Number(barra.volumen)))
+  // Sin ninguna serie en todo el rango no hay nada que enseñar; con series pero sin
+  // ejercicios con peso, la tarjeta sale con el volumen vacío.
+  const sinNada = barras.every((barra) => barra.series_por_grupo.length === 0)
   const enCurso = elegida === evolucion.en_curso
 
   return (
     <section className="resumen-tarjeta">
       <h2 className="rotulo resumen-titulo">{vista.titulo}</h2>
-      {maximo === 0 ? (
+      {maximo === 0 && sinNada ? (
         <p className="resumen-vacio">{vista.vacio}</p>
       ) : (
         <>
@@ -362,6 +370,8 @@ function Volumen({
           </p>
           {elegida.series_por_grupo.length === 0 ? (
             <p className="resumen-sin-series">{vista.sinSeries}</p>
+          ) : Number(elegida.volumen) === 0 ? (
+            <p className="resumen-sin-series">{vista.sinPeso}</p>
           ) : (
             <div className="resumen-cifra vertical">
               <span className="resumen-valor num">{enKilos(elegida.volumen)}</span>
@@ -394,7 +404,7 @@ function Volumen({
                   <span className="resumen-pista" style={{ height: ALTO_VOLUMEN }}>
                     <span
                       className={clases.join(' ')}
-                      style={{ height: (Number(barra.volumen) / maximo) * ALTO_VOLUMEN }}
+                      style={{ height: (Number(barra.volumen) / (maximo || 1)) * ALTO_VOLUMEN }}
                     />
                   </span>
                   <span className={esElegida ? 'resumen-eje elegida' : 'resumen-eje'}>
@@ -410,7 +420,7 @@ function Volumen({
       )}
       {/* Dentro de la tarjeta y bajo las barras (decisión del autor): al final de la pantalla
           no se veía a qué se refería. */}
-      {barras.some((barra) => Number(barra.volumen) > 0) && (
+      {!sinNada && (
         <p className="resumen-pie">
           {vista.leyenda}
           {evolucion.en_curso && (
@@ -419,6 +429,8 @@ function Volumen({
               {vista.enCurso}
             </>
           )}
+          <br />
+          Solo cuentan los ejercicios de peso y repeticiones.
         </p>
       )}
     </section>
