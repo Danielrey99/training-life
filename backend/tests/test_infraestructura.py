@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 
 from tests.ayudas import (
     alternativa,
@@ -51,9 +52,26 @@ def propios(cliente) -> list:
     return [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]]
 
 
+SIEMBRA_POR_TIPO = "e8c4d1b97a36"
+A_CORPORAL = [
+    "Dominadas",
+    "Fondos en paralelas",
+    "Elevación de piernas colgado",
+    "Hiperextensiones",
+    "Russian twist",
+    "Puente de glúteo",
+]
+A_TIEMPO = ["Plancha", "Paseo del granjero"]
+NUEVOS_POR_TIPO = [
+    ("Flexiones", "Pecho", "corporal"),
+    ("Crunch abdominal", "Abdomen", "corporal"),
+    ("Plancha lateral", "Oblicuos", "tiempo"),
+]
+
+
 def test_las_migraciones_sembraron_los_ejercicios_predefinidos(cliente):
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
-    assert len(predefinidos) == 59
+    assert len(predefinidos) == 62
     assert "Press banca con barra" in [e["nombre"] for e in predefinidos]
 
 
@@ -68,7 +86,7 @@ def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
 
 def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert propios(cliente) == []
-    assert len(cliente.get("/ejercicios").json()) == 59
+    assert len(cliente.get("/ejercicios").json()) == 62
 
 
 # --- La cadena entera de migraciones --------------------------------------
@@ -168,7 +186,7 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
 
     # Lo sembrado vuelve, y la API funciona sobre la base recién subida.
     assert len(cliente.get("/grupos-musculares").json()) == 17
-    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 59
+    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 62
     assert cliente.post("/rutinas", json={"nombre": "Push"}).status_code == 201
 
 
@@ -628,7 +646,12 @@ def test_subir_los_tipos_con_datos_deja_cada_ejercicio_de_peso_y_repeticiones(cl
         command.upgrade(configuracion, "head")
 
     ejercicios = cliente.get("/ejercicios").json()
-    assert {e["tipo_registro"] for e in ejercicios} == {"peso_reps"}
+    # Los predefinidos que la siembra posterior re-tipa dejan de ser de peso y repeticiones;
+    # todo lo demás (el propio y el resto de predefinidos) sí.
+    re_tipados = set(A_CORPORAL) | set(A_TIEMPO) | {n for n, _, _ in NUEVOS_POR_TIPO}
+    assert {e["tipo_registro"] for e in ejercicios if e["nombre"] not in re_tipados} == {
+        "peso_reps"
+    }
     assert [e["nombre"] for e in ejercicios if not e["es_predefinido"]] == ["Remo"]
     [serie] = cliente.get(f"/entrenamientos/{sesion}").json()["series"]
     assert (serie["peso"], serie["repeticiones"], serie["duracion_s"], serie["peso_corporal"]) == (
@@ -774,9 +797,378 @@ def test_quitar_el_objetivo_por_ejercicio_se_niega_con_algo_en_segundos_y_no_toc
         )
         with engine.connect() as conexion:
             version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
-        assert version == OBJETIVO_POR_EJERCICIO
+        # La bajada entera va en una transacción: tampoco se deshace la siembra de encima.
+        assert version == SIEMBRA_POR_TIPO
     finally:
         engine.dispose()
         command.upgrade(configuracion, "head")
 
     assert cliente.get(f"/rutinas/{respuesta.json()['id']}").json() == antes
+
+
+# --- La migración que siembra los ejercicios por tipo -----------------------
+#
+# `e8c4d1b97a36` añade tres predefinidos (Flexiones, Crunch abdominal, Plancha lateral) y
+# cambia el tipo de ocho de los que ya había. Pasar Plancha y Paseo del granjero a tiempo
+# no se puede deducir si tienen repeticiones apuntadas, y quitar los nuevos o devolver
+# los corporales a peso y repeticiones pierde datos: en esos casos se niega, cuenta lo
+# que hay y no toca nada.
+
+
+def _tipos_de_los_predefinidos(cliente) -> dict:
+    grupos = {g["id"]: g["nombre"] for g in cliente.get("/grupos-musculares").json()}
+    return {
+        e["nombre"]: (e["tipo_registro"], grupos[e["grupo_muscular_id"]])
+        for e in cliente.get("/ejercicios").json()
+        if e["es_predefinido"]
+    }
+
+
+def test_la_siembra_deja_62_predefinidos_con_los_tipos_esperados(cliente):
+    tipos = _tipos_de_los_predefinidos(cliente)
+    assert len(tipos) == 62
+
+    for nombre, grupo, tipo in NUEVOS_POR_TIPO:
+        assert tipos[nombre] == (tipo, grupo)
+    # Exactamente los de la lista, ni uno más de cada tipo.
+    assert {n for n, (t, _) in tipos.items() if t == "corporal"} == set(A_CORPORAL) | {
+        "Flexiones",
+        "Crunch abdominal",
+    }
+    assert {n for n, (t, _) in tipos.items() if t == "tiempo"} == set(A_TIEMPO) | {
+        "Plancha lateral"
+    }
+    # Parecidos que se quedan como estaban.
+    for nombre in ["Zancadas", "Sentadilla búlgara", "Crunch en polea", "Hip thrust"]:
+        assert tipos[nombre][0] == "peso_reps", nombre
+    talones = [(n, t) for n, (t, _) in tipos.items() if n.startswith("Elevación de talones")]
+    assert len(talones) == 2
+    assert {t for _, t in talones} == {"peso_reps"}
+
+
+def _usar(conexion, nombre, donde, tiempo=False):
+    """Mete, con SQL y sobre el esquema actual, un uso del predefinido `nombre`: como
+    `hueco` (principal), `alternativa`, `serie` o `nota`. Con `tiempo`, el objetivo y la
+    serie van en segundos; si no, en repeticiones (y la serie con peso, como las de un
+    ejercicio de peso y repeticiones).
+    """
+
+    def fila(sql, **valores):
+        return conexion.scalar(text(sql + " RETURNING id"), valores)
+
+    ejercicio = conexion.scalar(
+        text("SELECT id FROM ejercicios WHERE es_predefinido AND nombre = :n"), {"n": nombre}
+    )
+    assert ejercicio is not None, nombre
+    if donde == "nota":
+        fila(
+            "INSERT INTO notas_ejercicio (ejercicio_id, nota, created_at, updated_at) "
+            "VALUES (:e, 'una nota', now(), now())",
+            e=ejercicio,
+        )
+        return
+    grupo = conexion.scalar(text("SELECT min(id) FROM grupos_musculares"))
+    remo = fila(
+        "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, created_at, "
+        "updated_at) VALUES ('Remo', :g, false, now(), now())",
+        g=grupo,
+    )
+    rutina = fila(
+        "INSERT INTO rutinas (nombre, created_at, updated_at) VALUES ('Core', now(), now())"
+    )
+    objetivo_sql = (
+        {"s": 3, "rmin": None, "rmax": None, "dmin": 30, "dmax": 60}
+        if tiempo
+        else {"s": 3, "rmin": 6, "rmax": 10, "dmin": None, "dmax": None}
+    )
+    hueco = fila(
+        "INSERT INTO rutina_slots (rutina_id, ejercicio_principal_id, orden, series_objetivo, "
+        "reps_min, reps_max, duracion_min_s, duracion_max_s, created_at, updated_at) "
+        "VALUES (:r, :e, 1, :s, :rmin, :rmax, :dmin, :dmax, now(), now())",
+        r=rutina,
+        e=ejercicio if donde == "hueco" else remo,
+        **objetivo_sql,
+    )
+    if donde == "alternativa":
+        fila(
+            "INSERT INTO slot_alternativas (slot_id, ejercicio_id, series_objetivo, reps_min, "
+            "reps_max, duracion_min_s, duracion_max_s) VALUES (:h, :e, :s, :rmin, :rmax, :dmin, "
+            ":dmax)",
+            h=hueco,
+            e=ejercicio,
+            **objetivo_sql,
+        )
+    if donde == "serie":
+        sesion = fila(
+            "INSERT INTO entrenamientos (rutina_id, fecha, created_at, updated_at) "
+            "VALUES (:r, '2026-09-04', now(), now())",
+            r=rutina,
+        )
+        medidas = "NULL, NULL, 45" if tiempo else "20, 10, NULL"
+        fila(
+            "INSERT INTO series (entrenamiento_id, slot_id, ejercicio_id, numero_serie, peso, "
+            f"repeticiones, duracion_s, created_at, updated_at) VALUES (:s, :h, :e, 1, {medidas}, "
+            "now(), now())",
+            s=sesion,
+            h=hueco,
+            e=ejercicio,
+        )
+
+
+@pytest.mark.parametrize(
+    "donde, cuenta",
+    [
+        pytest.param("hueco", "1 huecos como principal", id="en-un-hueco"),
+        pytest.param("alternativa", "1 huecos como alternativa", id="como-alternativa"),
+        pytest.param("serie", "1 series", id="con-una-serie"),
+    ],
+)
+def test_subir_la_siembra_se_niega_si_plancha_tiene_algo_apuntado_y_no_toca_nada(
+    cliente, donde, cuenta
+):
+    """Plancha pasa a tiempo: con repeticiones apuntadas (en un hueco, como
+    alternativa o en una serie) no se puede deducir cuántos segundos son. La base sigue
+    en la versión anterior, sin los nuevos y con Plancha de peso y repeticiones.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, OBJETIVO_POR_EJERCICIO)
+    try:
+        with engine.begin() as conexion:
+            _usar(conexion, "Plancha", donde)
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert "Plancha o Paseo del granjero ya se usan" in str(error.value)
+        assert cuenta in str(error.value)
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            plancha = conexion.scalar(
+                text("SELECT tipo_registro FROM ejercicios WHERE nombre = 'Plancha'")
+            )
+            predefinidos = conexion.scalar(
+                text("SELECT count(*) FROM ejercicios WHERE es_predefinido")
+            )
+        assert version == OBJETIVO_POR_EJERCICIO
+        assert plancha == "peso_reps"
+        assert predefinidos == 59
+    finally:
+        # Con el dato dentro la subida se negaría otra vez: se vacía lo del usuario.
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("TRUNCATE rutinas, entrenamientos, notas_ejercicio CASCADE"))
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    assert len(_tipos_de_los_predefinidos(cliente)) == 62
+
+
+def _bajar_la_siembra_y_comprobar_que_se_niega(cliente, texto):
+    """Intenta bajar la siembra: se niega con `texto`, la base sigue en su versión y los
+    predefinidos, con los mismos tipos.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    antes = _tipos_de_los_predefinidos(cliente)
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        with pytest.raises(RuntimeError) as error:
+            command.downgrade(configuracion, OBJETIVO_POR_EJERCICIO)
+        assert texto in str(error.value)
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+        assert version == SIEMBRA_POR_TIPO
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+    assert _tipos_de_los_predefinidos(cliente) == antes
+
+
+@pytest.mark.parametrize("nuevo", ["Flexiones", "Crunch abdominal", "Plancha lateral"])
+@pytest.mark.parametrize("donde", ["hueco", "alternativa", "serie", "nota"])
+def test_bajar_la_siembra_se_niega_si_un_ejercicio_nuevo_se_usa_y_no_toca_nada(
+    cliente, nuevo, donde
+):
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, nuevo, donde, tiempo=nuevo == "Plancha lateral")
+
+    _bajar_la_siembra_y_comprobar_que_se_niega(cliente, "los ejercicios nuevos ya se usan")
+
+
+@pytest.mark.parametrize("donde", ["hueco", "alternativa", "serie"])
+def test_bajar_la_siembra_se_niega_si_plancha_se_usa_por_tiempo(cliente, donde):
+    """Plancha ya es de tiempo: con un objetivo o una serie en segundos no cabe como
+    ejercicio de peso y repeticiones.
+    """
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, "Plancha", donde, tiempo=True)
+
+    _bajar_la_siembra_y_comprobar_que_se_niega(cliente, "Plancha o Paseo del granjero ya se usan")
+
+
+@pytest.mark.parametrize(
+    "peso, peso_corporal",
+    [
+        pytest.param(-20, None, id="con-carga-de-ayuda"),
+        pytest.param(0, 80, id="con-peso-corporal"),
+    ],
+)
+def test_bajar_la_siembra_se_niega_si_una_serie_corporal_no_cabe_como_peso_y_reps(
+    cliente, peso, peso_corporal
+):
+    """Una serie de Dominadas con ayuda (peso negativo) o con el peso corporal apuntado
+    no cabe en un ejercicio de peso y repeticiones.
+    """
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, "Dominadas", "serie")
+        conexion.execute(
+            text("UPDATE series SET peso = :p, peso_corporal = :c"),
+            {"p": peso, "c": peso_corporal},
+        )
+
+    _bajar_la_siembra_y_comprobar_que_se_niega(cliente, "1 serie(s) de ejercicios de peso")
+
+
+def test_bajar_la_siembra_devuelve_los_tipos_a_peso_y_repeticiones_y_borra_los_nuevos(cliente):
+    """Una serie de Dominadas sin ayuda ni peso corporal sí cabe: la bajada devuelve los
+    ocho re-tipados a peso y repeticiones, borra los tres nuevos y deja la serie. Al
+    volver a subir, la siembra queda como antes.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, "Dominadas", "serie")
+        conexion.execute(text("UPDATE series SET peso = 0, repeticiones = 8"))
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, OBJETIVO_POR_EJERCICIO)
+    try:
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            tipos = dict(
+                conexion.execute(
+                    text("SELECT nombre, tipo_registro FROM ejercicios WHERE es_predefinido")
+                ).all()
+            )
+            series = conexion.scalar(text("SELECT count(*) FROM series"))
+        assert version == OBJETIVO_POR_EJERCICIO
+        assert len(tipos) == 59
+        assert {n for n, _, _ in NUEVOS_POR_TIPO}.isdisjoint(tipos)
+        assert set(tipos.values()) == {"peso_reps"}
+        assert series == 1
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    tipos = _tipos_de_los_predefinidos(cliente)
+    assert len(tipos) == 62
+    assert tipos["Dominadas"][0] == "corporal"
+
+
+def test_subir_la_siembra_se_niega_si_paseo_del_granjero_tiene_una_serie(cliente):
+    """Igual que Plancha: Paseo del granjero pasa a tiempo y sus repeticiones no se
+    pueden convertir en segundos.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, OBJETIVO_POR_EJERCICIO)
+    try:
+        with engine.begin() as conexion:
+            _usar(conexion, "Paseo del granjero", "serie")
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert "Plancha o Paseo del granjero ya se usan (1 series)" in str(error.value)
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            tipo = conexion.scalar(
+                text("SELECT tipo_registro FROM ejercicios WHERE nombre = 'Paseo del granjero'")
+            )
+        assert version == OBJETIVO_POR_EJERCICIO
+        assert tipo == "peso_reps"
+    finally:
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("TRUNCATE rutinas, entrenamientos, notas_ejercicio CASCADE"))
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+
+def test_bajar_la_siembra_se_niega_si_paseo_del_granjero_tiene_una_serie_de_tiempo(cliente):
+    from app.database import engine
+
+    with engine.begin() as conexion:
+        _usar(conexion, "Paseo del granjero", "serie", tiempo=True)
+
+    _bajar_la_siembra_y_comprobar_que_se_niega(cliente, "Plancha o Paseo del granjero ya se usan")
+
+
+def test_subir_la_siembra_se_niega_si_ya_hay_un_ejercicio_propio_con_el_nombre_de_un_nuevo(
+    cliente,
+):
+    """Un propio llamado «Flexiones» chocaría con el predefinido nuevo: la migración se
+    niega nombrándolo, no inserta ninguno de los tres y no cambia ningún tipo.
+    """
+    from alembic import command
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, OBJETIVO_POR_EJERCICIO)
+    try:
+        with engine.begin() as conexion:
+            conexion.execute(
+                text(
+                    "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                    "created_at, updated_at) VALUES ('Flexiones', "
+                    "(SELECT min(id) FROM grupos_musculares), false, now(), now())"
+                )
+            )
+
+        engine.dispose()
+        with pytest.raises(RuntimeError) as error:
+            command.upgrade(configuracion, "head")
+
+        assert "Flexiones" in str(error.value)
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+            nombres = set(conexion.scalars(text("SELECT nombre FROM ejercicios")).all())
+            tipos = set(
+                conexion.scalars(
+                    text("SELECT tipo_registro FROM ejercicios WHERE es_predefinido")
+                ).all()
+            )
+        assert version == OBJETIVO_POR_EJERCICIO
+        assert "Crunch abdominal" not in nombres and "Plancha lateral" not in nombres
+        assert tipos == {"peso_reps"}
+    finally:
+        engine.dispose()
+        with engine.begin() as conexion:
+            conexion.execute(text("DELETE FROM ejercicios WHERE nombre = 'Flexiones'"))
+        engine.dispose()
+        command.upgrade(configuracion, "head")
