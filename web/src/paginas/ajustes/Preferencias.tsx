@@ -1,10 +1,12 @@
 import { useState } from 'react'
 
+import type { TipoRegistro } from '../../api/tipos'
+import { CampoDeDuracion } from '../../componentes/CampoDeDuracion'
 import { Icono } from '../../componentes/Icono'
 import { cambiarAjustes, POR_DEFECTO, useAjustes } from '../../utiles/ajustes'
 import type { Ajustes } from '../../utiles/ajustes'
 import { colorDelDia } from '../../utiles/colores'
-import { leerNumero, numeroLegible } from '../../utiles/numeros'
+import { aKilos, enUnidad, leerNumero, numeroLegible, pesoLegible } from '../../utiles/numeros'
 import { nombreDelDiaSemana } from '../programas/textos'
 import { CampoConPasos } from '../sesion/FormularioDeSerie'
 import { HojaDeColor } from './HojaDeColor'
@@ -81,48 +83,145 @@ function CampoDePaso({ ajustes }: { ajustes: Ajustes }) {
 /** Lo que cabe en cada campo: los mismos límites que la API pone a un ejercicio de rutina. */
 const MAXIMO_SERIES = 50
 const MAXIMO_REPS = 1000
+const MAXIMO_SEGUNDOS = 86400
+// El peso corporal que vale, en kg.
+const MINIMO_PESO_CORPORAL = 20
+const MAXIMO_PESO_CORPORAL = 400
+
+/** Un número entero de 1 al máximo; lo demás no vale. */
+const entero = (valor: number | null, maximo: number): valor is number =>
+  valor !== null && Number.isInteger(valor) && valor >= 1 && valor <= maximo
 
 /**
- * Las series y reps con las que empieza un ejercicio nuevo de una rutina, con los mismos
- * campos − / + del formulario de la rutina. Se guardan cuando los tres valen; si no,
- * avisa y se quedan los de antes.
+ * El paso de los botones − / + de los segundos de una duración: un número entero de
+ * segundos, de 1 a 59. Se guarda al escribir uno que vale.
  */
-function CamposDeObjetivo({ ajustes }: { ajustes: Ajustes }) {
-  const [textos, setTextos] = useState({
-    series: String(ajustes.objetivo.series),
-    repsMin: String(ajustes.objetivo.repsMin),
-    repsMax: String(ajustes.objetivo.repsMax),
-  })
-  const series = leerNumero(textos.series)
-  const repsMin = leerNumero(textos.repsMin)
-  const repsMax = leerNumero(textos.repsMax)
-  const entero = (valor: number | null, maximo: number): valor is number =>
-    valor !== null && Number.isInteger(valor) && valor >= 1 && valor <= maximo
-  let fallo: string | null = null
-  if (!entero(series, MAXIMO_SERIES))
-    fallo = `Las series, un número entero del 1 al ${MAXIMO_SERIES}.`
-  else if (!entero(repsMin, MAXIMO_REPS) || !entero(repsMax, MAXIMO_REPS))
-    fallo = 'Las reps, números enteros mayores que 0.'
-  else if (repsMax < repsMin) fallo = 'Las reps máximas no pueden ser menos que las mínimas.'
+function CampoDePasoDelTiempo({ ajustes }: { ajustes: Ajustes }) {
+  const [texto, setTexto] = useState(String(ajustes.pasoTiempo))
+  const vale = entero(leerNumero(texto), 59)
 
-  function cambiar(cambios: Partial<typeof textos>) {
-    const nuevos = { ...textos, ...cambios }
-    setTextos(nuevos)
-    const s = leerNumero(nuevos.series)
-    const min = leerNumero(nuevos.repsMin)
-    const max = leerNumero(nuevos.repsMax)
-    if (
-      entero(s, MAXIMO_SERIES) &&
-      entero(min, MAXIMO_REPS) &&
-      entero(max, MAXIMO_REPS) &&
-      max >= min
-    ) {
-      cambiarAjustes({ objetivo: { series: s, repsMin: min, repsMax: max } })
+  return (
+    <div className="ajustes-paso">
+      <label>
+        <span>Suben o bajan</span>
+        <input
+          className="campo-texto num"
+          type="text"
+          inputMode="numeric"
+          value={texto}
+          aria-invalid={!vale}
+          onChange={(evento) => {
+            setTexto(evento.target.value)
+            const nuevo = leerNumero(evento.target.value)
+            if (entero(nuevo, 59)) cambiarAjustes({ pasoTiempo: nuevo })
+          }}
+          onFocus={(evento) => evento.target.select()}
+          onBlur={() => setTexto(String(ajustes.pasoTiempo))}
+        />
+        <span>segundos cada vez.</span>
+      </label>
+      {!vale && <p className="fallo">Pon un número entero de segundos, del 1 al 59.</p>}
+    </div>
+  )
+}
+
+/**
+ * Cuánto pesa la persona: con él arranca cada serie de los ejercicios de peso corporal.
+ * Vacío vale (no se sabe): las series arrancan sin él. Se guarda al escribir un peso que
+ * vale, de 20 a 400 kg o su equivalente en la unidad elegida.
+ */
+function CampoDePesoCorporal({ ajustes }: { ajustes: Ajustes }) {
+  const [texto, setTexto] = useState(
+    ajustes.pesoCorporal === null ? '' : pesoLegible(ajustes.pesoCorporal),
+  )
+  const valor = leerNumero(texto)
+  const minimo = Math.ceil(enUnidad(MINIMO_PESO_CORPORAL))
+  const maximo = Math.floor(enUnidad(MAXIMO_PESO_CORPORAL))
+  const vale = texto.trim() === '' || (valor !== null && valor >= minimo && valor <= maximo)
+
+  function cambiar(nuevoTexto: string) {
+    setTexto(nuevoTexto)
+    const nuevo = leerNumero(nuevoTexto)
+    if (nuevoTexto.trim() === '') cambiarAjustes({ pesoCorporal: null })
+    else if (nuevo !== null && nuevo >= minimo && nuevo <= maximo) {
+      cambiarAjustes({ pesoCorporal: aKilos(nuevo) })
     }
   }
 
   return (
     <>
+      <CampoConPasos
+        etiqueta={`Peso corporal (${ajustes.unidad})`}
+        valor={texto}
+        cambiar={cambiar}
+        paso={ajustes.pasoPeso}
+        minimo={minimo}
+        decimales
+      />
+      {!vale && (
+        <p className="fallo">
+          Pon un peso de {minimo} a {maximo} {ajustes.unidad}.
+        </p>
+      )}
+    </>
+  )
+}
+
+/**
+ * Con lo que empieza un ejercicio nuevo de una rutina según cómo se apunta, con los
+ * mismos campos del formulario del ejercicio: series y reps mínimas y máximas, o series
+ * y duración mínima y máxima. Se guarda cuando todo vale; si no, avisa y se queda lo de
+ * antes.
+ */
+function CamposDeObjetivo({
+  ajustes,
+  tipo,
+  titulo,
+}: {
+  ajustes: Ajustes
+  tipo: TipoRegistro
+  titulo: string
+}) {
+  const guardado = ajustes.objetivoNuevo[tipo]
+  const porDuracion = tipo === 'tiempo'
+  const maximo = porDuracion ? MAXIMO_SEGUNDOS : MAXIMO_REPS
+  const [textos, setTextos] = useState({
+    series: String(guardado.series),
+    min: String(guardado.min),
+    max: String(guardado.max),
+  })
+  const series = leerNumero(textos.series)
+  const min = leerNumero(textos.min)
+  const max = leerNumero(textos.max)
+  let fallo: string | null = null
+  if (!entero(series, MAXIMO_SERIES)) {
+    fallo = `Las series, un número entero del 1 al ${MAXIMO_SERIES}.`
+  } else if (!entero(min, maximo) || !entero(max, maximo)) {
+    fallo = porDuracion
+      ? 'La duración, de 1 segundo a 24 horas.'
+      : 'Las reps, números enteros mayores que 0.'
+  } else if (max < min) {
+    fallo = porDuracion
+      ? 'La duración máxima no puede ser menos que la mínima.'
+      : 'Las reps máximas no pueden ser menos que las mínimas.'
+  }
+
+  function cambiar(cambios: Partial<typeof textos>) {
+    const nuevos = { ...textos, ...cambios }
+    setTextos(nuevos)
+    const s = leerNumero(nuevos.series)
+    const n = leerNumero(nuevos.min)
+    const x = leerNumero(nuevos.max)
+    if (entero(s, MAXIMO_SERIES) && entero(n, maximo) && entero(x, maximo) && x >= n) {
+      cambiarAjustes({
+        objetivoNuevo: { ...ajustes.objetivoNuevo, [tipo]: { series: s, min: n, max: x } },
+      })
+    }
+  }
+
+  return (
+    <div className="ajustes-objetivo">
+      <h4>{titulo}</h4>
       <CampoConPasos
         etiqueta="Series objetivo"
         valor={textos.series}
@@ -130,24 +229,41 @@ function CamposDeObjetivo({ ajustes }: { ajustes: Ajustes }) {
         paso={1}
         minimo={1}
       />
-      <div className="ajustes-reps">
-        <CampoConPasos
-          etiqueta="Reps mínimas"
-          valor={textos.repsMin}
-          cambiar={(valor) => cambiar({ repsMin: valor })}
-          paso={1}
-          minimo={1}
-        />
-        <CampoConPasos
-          etiqueta="Reps máximas"
-          valor={textos.repsMax}
-          cambiar={(valor) => cambiar({ repsMax: valor })}
-          paso={1}
-          minimo={1}
-        />
-      </div>
+      {porDuracion ? (
+        <>
+          <CampoDeDuracion
+            etiqueta="Duración mínima"
+            segundos={min ?? 0}
+            cambiar={(segundos) => cambiar({ min: String(segundos) })}
+            paso={ajustes.pasoTiempo}
+          />
+          <CampoDeDuracion
+            etiqueta="Duración máxima"
+            segundos={max ?? 0}
+            cambiar={(segundos) => cambiar({ max: String(segundos) })}
+            paso={ajustes.pasoTiempo}
+          />
+        </>
+      ) : (
+        <div className="ajustes-reps">
+          <CampoConPasos
+            etiqueta="Reps mínimas"
+            valor={textos.min}
+            cambiar={(valor) => cambiar({ min: valor })}
+            paso={1}
+            minimo={1}
+          />
+          <CampoConPasos
+            etiqueta="Reps máximas"
+            valor={textos.max}
+            cambiar={(valor) => cambiar({ max: valor })}
+            paso={1}
+            minimo={1}
+          />
+        </div>
+      )}
       {fallo && <p className="fallo">{fallo}</p>}
-    </>
+    </div>
   )
 }
 
@@ -185,8 +301,20 @@ export function Preferencias() {
           />
         </div>
         <div className="ajustes-tarjeta">
+          <h3>Peso corporal</h3>
+          <p>
+            Se apunta con cada serie de los ejercicios de peso corporal (dominadas, fondos…), y ahí
+            lo puedes cambiar. Cambiarlo aquí no cambia las series que ya tienes apuntadas.
+          </p>
+          <CampoDePesoCorporal key={ajustes.unidad} ajustes={ajustes} />
+        </div>
+        <div className="ajustes-tarjeta">
           <h3>Botones − y + del peso</h3>
           <CampoDePaso key={ajustes.unidad} ajustes={ajustes} />
+        </div>
+        <div className="ajustes-tarjeta">
+          <h3>Botones − y + del tiempo</h3>
+          <CampoDePasoDelTiempo ajustes={ajustes} />
         </div>
         <div className="ajustes-tarjeta">
           <h3>Ejercicio nuevo en una rutina</h3>
@@ -194,7 +322,9 @@ export function Preferencias() {
             Con lo que empieza cada ejercicio que añadas a una rutina. Luego lo puedes cambiar en
             cada uno.
           </p>
-          <CamposDeObjetivo ajustes={ajustes} />
+          <CamposDeObjetivo ajustes={ajustes} tipo="peso_reps" titulo="Peso y repeticiones" />
+          <CamposDeObjetivo ajustes={ajustes} tipo="corporal" titulo="Peso corporal" />
+          <CamposDeObjetivo ajustes={ajustes} tipo="tiempo" titulo="Tiempo" />
         </div>
         <div className="ajustes-tarjeta">
           <h3>1RM estimado</h3>

@@ -219,3 +219,19 @@
 .color-volver {
   margin-top: 8px;
 }
+
+/* Un recuadro por tipo de ejercicio en «Ejercicio nuevo en una rutina». */
+.ajustes-objetivo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pequeno);
+}
+
+.ajustes-objetivo h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}

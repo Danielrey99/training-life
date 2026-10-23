@@ -14,6 +14,7 @@ import {
   hoy,
   sumarDias,
 } from '../../utiles/fechas'
+import { conPesoYReps, kilos, serieLarga } from '../../utiles/medidas'
 import { enUnidad, numeroLegible, pesoLegible, unidad, unoRM } from '../../utiles/numeros'
 import { useVolver } from '../../utiles/volver'
 import { type DatosDeSerie } from '../sesion/FormularioDeSerie'
@@ -21,8 +22,6 @@ import { BloqueDelDia, type Bloque, type Insignia, type Mejora } from './BloqueD
 import { HojaDeFecha } from './HojaDeFecha'
 import '../sesion/sesion.css'
 import './historial.css'
-
-type ConCarga = { peso: string | number; repeticiones: number }
 
 /** "56,7": un 1RM en kg, en la unidad elegida y con un decimal como mucho. */
 function conDecimal(kilos: number) {
@@ -61,13 +60,14 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
   }
 
   const insignias: Insignia[] = []
-  const pesoHoy = Math.max(...series.map((serie) => Number(serie.peso)))
-  const pesoAntes = Math.max(...ultima.series.map((serie) => Number(serie.peso)))
-  if (pesoHoy !== pesoAntes) {
+  const pesoHoy = Math.max(...conPesoYReps(series).map((serie) => Number(serie.peso)))
+  const pesoAntes = Math.max(...conPesoYReps(ultima.series).map((serie) => Number(serie.peso)))
+  if (Number.isFinite(pesoHoy) && Number.isFinite(pesoAntes) && pesoHoy !== pesoAntes) {
     const peso = `${pesoLegible(Math.abs(pesoHoy - pesoAntes))} ${unidad()}`
     insignias.push(cambioDe(pesoHoy - pesoAntes, peso))
   }
-  const reps = (lista: ConCarga[]) => lista.reduce((total, serie) => total + serie.repeticiones, 0)
+  const reps = (lista: { repeticiones: number | null }[]) =>
+    lista.reduce((total, serie) => total + (serie.repeticiones ?? 0), 0)
   const diferencia = reps(series) - reps(ultima.series)
   if (diferencia !== 0) {
     const unidad = Math.abs(diferencia) === 1 ? 'rep' : 'reps'
@@ -90,8 +90,11 @@ function mejora(series: Serie[], ultima: SesionHistorial | null): Mejora | null 
 }
 
 /** Peso × reps de todas las series. */
-function volumenDe(series: ConCarga[]) {
-  return series.reduce((total, serie) => total + Number(serie.peso) * serie.repeticiones, 0)
+function volumenDe(series: Parameters<typeof conPesoYReps>[0]) {
+  return conPesoYReps(series).reduce(
+    (total, serie) => total + Number(serie.peso) * serie.repeticiones,
+    0,
+  )
 }
 
 function contar(cuantos: number, singular: string, plural: string) {
@@ -100,7 +103,7 @@ function contar(cuantos: number, singular: string, plural: string) {
 
 /** "20 kg × 9 reps · sentado" (o en lb). */
 function carga(serie: Serie) {
-  const texto = `${pesoLegible(serie.peso)} ${unidad()} × ${serie.repeticiones} reps`
+  const texto = serieLarga(serie.ejercicio.tipo_registro, serie)
   return serie.variante ? `${texto} · ${serie.variante}` : texto
 }
 
@@ -321,15 +324,20 @@ export function Dia() {
           ejercicio_id: serie.ejercicio_id,
           slot_id: serie.slot_id,
           numero_serie: serie.numero_serie,
-          peso: Number(serie.peso),
+          peso: kilos(serie),
           repeticiones: serie.repeticiones,
+          duracion_s: serie.duracion_s,
+          peso_corporal: serie.peso_corporal === null ? null : Number(serie.peso_corporal),
           variante: serie.variante,
         }
         const antes = dia.series.find((otra) => otra.id === serie.id)
         if (!antes) await api.crearSerie(dia.id, datos)
         else if (
-          Number(antes.peso) !== datos.peso ||
+          kilos(antes) !== datos.peso ||
           antes.repeticiones !== datos.repeticiones ||
+          antes.duracion_s !== datos.duracion_s ||
+          (antes.peso_corporal === null ? null : Number(antes.peso_corporal)) !==
+            datos.peso_corporal ||
           antes.variante !== datos.variante
         ) {
           await api.actualizarSerie(dia.id, serie.id, datos)
@@ -369,8 +377,10 @@ export function Dia() {
         otra.id === serie.id
           ? {
               ...otra,
-              peso: String(datos.peso),
+              peso: datos.peso === null ? null : String(datos.peso),
               repeticiones: datos.repeticiones,
+              duracion_s: datos.duracion_s,
+              peso_corporal: datos.peso_corporal === null ? null : String(datos.peso_corporal),
               variante: datos.variante,
             }
           : otra,
@@ -396,8 +406,10 @@ export function Dia() {
         ejercicio,
         slot_id: bloque.hueco.id,
         numero_serie: numero,
-        peso: String(datos.peso),
+        peso: datos.peso === null ? null : String(datos.peso),
         repeticiones: datos.repeticiones,
+        duracion_s: datos.duracion_s,
+        peso_corporal: datos.peso_corporal === null ? null : String(datos.peso_corporal),
         variante: datos.variante,
         created_at: '',
         updated_at: '',

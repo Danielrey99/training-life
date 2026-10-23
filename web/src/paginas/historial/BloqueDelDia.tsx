@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import type { Ejercicio, HuecoDeRutina, Serie, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCompleta } from '../../utiles/fechas'
-import { pesoLegible, unidad } from '../../utiles/numeros'
+import { serieLarga } from '../../utiles/medidas'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { SelectorDeEjercicio } from '../sesion/SelectorDeEjercicio'
@@ -152,7 +152,7 @@ export function BloqueDelDia({
               <span className="serie-numero num">{serie.numero_serie}</span>
               <span className="serie-texto">
                 <span className="serie-carga num">
-                  {pesoLegible(serie.peso)} {unidad()} × {serie.repeticiones} reps
+                  {serieLarga(serie.ejercicio.tipo_registro, serie)}
                 </span>
                 {serie.variante && <span className="serie-variante">{serie.variante}</span>}
               </span>
@@ -221,7 +221,7 @@ export function BloqueDelDia({
           {bloque.ultima ? (
             <>
               <span className="rotulo">Última vez · {fechaCompleta(bloque.ultima.fecha)}</span>
-              <FichasUltimaVez series={bloque.ultima.series} />
+              <FichasUltimaVez tipo={ejercicio.tipo_registro} series={bloque.ultima.series} />
             </>
           ) : (
             <span className="rotulo dia-primera">

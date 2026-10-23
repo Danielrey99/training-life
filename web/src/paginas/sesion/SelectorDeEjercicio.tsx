@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Ejercicio } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
-import { pesoLegible } from '../../utiles/numeros'
+import { serieCorta } from '../../utiles/medidas'
 import { useUltimaVez } from './ultimaVez'
 
 type Props = {
@@ -121,7 +121,7 @@ function Opcion({
   if (oculto) detalle = 'Oculto'
   else if (vez === null) detalle = 'Todavía no lo has hecho en esta rutina'
   else if (vez && primera) {
-    detalle = `Última vez · ${pesoLegible(primera.peso)} × ${primera.repeticiones} · ${fechaCorta(vez.fecha)}`
+    detalle = `Última vez · ${serieCorta(ejercicio.tipo_registro, primera)} · ${fechaCorta(vez.fecha)}`
   }
 
   return (

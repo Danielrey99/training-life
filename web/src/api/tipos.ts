@@ -15,12 +15,19 @@ export type GrupoMuscular = {
   nombre: string
 }
 
+/**
+ * Cómo se apunta un ejercicio: lo decide quien lo crea y no cambia. Decide qué medidas
+ * lleva cada una de sus series (`utiles/medidas.ts`).
+ */
+export type TipoRegistro = 'peso_reps' | 'corporal' | 'tiempo'
+
 export type Ejercicio = {
   id: number
   nombre: string
   grupo_muscular_id: number
   descripcion: string | null
   es_predefinido: boolean
+  tipo_registro: TipoRegistro
   // Desde cuándo está oculto; nulo si está visible.
   oculto_desde: string | null
   created_at: string
@@ -31,6 +38,7 @@ export type Ejercicio = {
 export type EjercicioMinimo = {
   id: number
   nombre: string
+  tipo_registro: TipoRegistro
 }
 
 export type Nota = {
@@ -159,8 +167,13 @@ export type Serie = {
   ejercicio_id: number
   slot_id: number
   numero_serie: number
-  peso: string
-  repeticiones: number
+  // Las medidas que lleva dependen del tipo de su ejercicio: el resto, nulo. El peso
+  // llega como texto (DECIMAL) y siempre en kg; el tiempo, en segundos.
+  peso: string | null
+  repeticiones: number | null
+  duracion_s: number | null
+  // Cuánto pesaba la persona al hacerla (solo en las de peso corporal), en kg.
+  peso_corporal: string | null
   variante: string | null
   created_at: string
   updated_at: string
@@ -195,8 +208,9 @@ export type SerieHistorial = {
   id: number
   slot_id: number
   numero_serie: number
-  peso: string
-  repeticiones: number
+  peso: string | null
+  repeticiones: number | null
+  duracion_s: number | null
   variante: string | null
 }
 
@@ -419,6 +433,8 @@ export type NuevoEjercicio = {
   nombre: string
   grupo_muscular_id: number
   descripcion: string | null
+  // Sin él, de peso y repeticiones. Solo al crear: no se puede cambiar después.
+  tipo_registro?: TipoRegistro
 }
 
 /** Un ejercicio (hueco) de una rutina nueva: su orden es su posición en la lista. */
@@ -469,8 +485,12 @@ export type NuevaSerie = {
   ejercicio_id: number
   slot_id: number
   numero_serie: number
-  peso: number
-  repeticiones: number
+  // Solo las medidas de su tipo; el resto, nulo. En kg y en segundos.
+  peso: number | null
+  repeticiones: number | null
+  duracion_s: number | null
+  // En las de peso corporal, siempre (el valor o nulo); en las demás, nulo.
+  peso_corporal: number | null
   variante: string | null
 }
 

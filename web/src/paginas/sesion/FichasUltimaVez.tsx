@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import type { SerieHistorial } from '../../api/tipos'
-import { pesoLegible } from '../../utiles/numeros'
+import type { SerieHistorial, TipoRegistro } from '../../api/tipos'
+import { serieCorta } from '../../utiles/medidas'
 
 /**
  * La última vez en fichas, una por serie: cada una con su peso, porque las
@@ -13,7 +13,14 @@ import { pesoLegible } from '../../utiles/numeros'
  * era mantener pulsado, pero un gesto así no lo descubre nadie y en el móvil choca
  * con seleccionar texto.
  */
-export function FichasUltimaVez({ series }: { series: SerieHistorial[] }) {
+export function FichasUltimaVez({
+  tipo,
+  series,
+}: {
+  // El tipo del ejercicio de las series: decide cómo se escribe cada ficha.
+  tipo: TipoRegistro
+  series: SerieHistorial[]
+}) {
   const [abierta, setAbierta] = useState<number | null>(null)
   const fichas = useRef<HTMLDivElement>(null)
   const globo = useRef<HTMLSpanElement>(null)
@@ -73,7 +80,7 @@ export function FichasUltimaVez({ series }: { series: SerieHistorial[] }) {
             }}
           >
             <span className="ficha-numero">{serie.numero_serie}</span>
-            {pesoLegible(serie.peso)} × {serie.repeticiones}
+            {serieCorta(tipo, serie)}
             {serie.variante && <span className="ficha-punto" aria-label={serie.variante} />}
             {abierta === serie.id && (
               <span className="globo" ref={globo}>

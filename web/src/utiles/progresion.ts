@@ -1,4 +1,5 @@
 import type { SesionHistorial } from '../api/tipos'
+import { conPesoYReps } from './medidas'
 import { unoRM } from './numeros'
 
 /**
@@ -9,9 +10,12 @@ import { unoRM } from './numeros'
  */
 export function valorDe(sesion: SesionHistorial, medida: 'peso' | 'volumen' | 'rm'): number {
   const { series } = sesion
-  if (medida === 'peso') return Math.max(...series.map((serie) => Number(serie.peso)))
+  if (medida === 'peso') return Math.max(...conPesoYReps(series).map((serie) => Number(serie.peso)))
   if (medida === 'volumen') {
-    return series.reduce((total, serie) => total + Number(serie.peso) * serie.repeticiones, 0)
+    return conPesoYReps(series).reduce(
+      (total, serie) => total + Number(serie.peso) * serie.repeticiones,
+      0,
+    )
   }
   return unoRM(series)
 }

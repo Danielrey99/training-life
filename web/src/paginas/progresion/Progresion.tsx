@@ -9,6 +9,7 @@ import { ajustes } from '../../utiles/ajustes'
 import { enUnidad, unidad } from '../../utiles/numeros'
 import { valorDe } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
+import { conPesoYReps } from '../../utiles/medidas'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { Grafica, type Punto } from './Grafica'
 import '../sesion/sesion.css'
@@ -47,7 +48,9 @@ function conSigno(diferencia: number): string {
  * consiguió con ese peso, y así se ve si se subió peso o se hicieron más reps con el mismo).
  */
 function repsDeLaMasPesada(sesion: SesionHistorial): string {
-  const masPesada = sesion.series.reduce((mejor, serie) =>
+  const conPeso = conPesoYReps(sesion.series)
+  if (conPeso.length === 0) return ''
+  const masPesada = conPeso.reduce((mejor, serie) =>
     Number(serie.peso) > Number(mejor.peso) ||
     (Number(serie.peso) === Number(mejor.peso) && serie.repeticiones > mejor.repeticiones)
       ? serie
@@ -243,7 +246,7 @@ export function Progresion() {
                     <span className="progresion-relleno" />
                     <Icono nombre="abrir" pequeno />
                   </Link>
-                  <FichasUltimaVez series={sesion.series} />
+                  <FichasUltimaVez tipo={ejercicio.tipo_registro} series={sesion.series} />
                 </li>
               ))}
             </ul>

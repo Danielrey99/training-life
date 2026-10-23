@@ -6,9 +6,12 @@ import { ajustes } from '../../utiles/ajustes'
 import { aKilos, leerNumero, numeroLegible, pesoLegible, unidad } from '../../utiles/numeros'
 
 export type DatosDeSerie = {
-  // En kg, como lo guarda la API, aunque se apunte en lb.
-  peso: number
-  repeticiones: number
+  // En kg, como lo guarda la API, aunque se apunte en lb. Solo van las medidas del tipo
+  // del ejercicio; el resto, nulo.
+  peso: number | null
+  repeticiones: number | null
+  duracion_s: number | null
+  peso_corporal: number | null
   variante: string | null
 }
 
@@ -16,8 +19,8 @@ type Props = {
   numero: number
   // Con qué valores arranca: la serie anterior, la que se edita, o la última vez.
   semilla: {
-    peso: string | number
-    repeticiones: number
+    peso: string | number | null
+    repeticiones: number | null
     variante: string | null
   } | null
   editando: boolean
@@ -50,8 +53,10 @@ export function FormularioDeSerie({
   alGuardar,
   alCancelar,
 }: Props) {
-  const [peso, setPeso] = useState(semilla ? pesoLegible(semilla.peso) : '')
-  const [repeticiones, setRepeticiones] = useState(semilla ? String(semilla.repeticiones) : '')
+  const [peso, setPeso] = useState(semilla?.peso != null ? pesoLegible(semilla.peso) : '')
+  const [repeticiones, setRepeticiones] = useState(
+    semilla?.repeticiones != null ? String(semilla.repeticiones) : '',
+  )
   const [variante, setVariante] = useState(semilla?.variante ?? '')
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -70,6 +75,8 @@ export function FormularioDeSerie({
       await alGuardar({
         peso: aKilos(valor),
         repeticiones: reps,
+        duracion_s: null,
+        peso_corporal: null,
         variante: variante.trim() === '' ? null : variante.trim(),
       })
     } catch (error) {

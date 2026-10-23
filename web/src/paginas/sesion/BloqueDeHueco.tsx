@@ -2,7 +2,7 @@ import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
 import { objetivoDelEjercicio } from '../programas/textos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
-import { pesoLegible, unidad } from '../../utiles/numeros'
+import { serieLarga } from '../../utiles/medidas'
 import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
@@ -145,7 +145,10 @@ function HuecoAbierto({
       {ultima && ultima.series.length > 0 && (
         <div className="ultima-vez">
           <span className="rotulo">Última vez · {fechaCorta(ultima.fecha)}</span>
-          <FichasUltimaVez series={ultima.series} />
+          <FichasUltimaVez
+            tipo={(elegido ?? hueco.ejercicio_principal).tipo_registro}
+            series={ultima.series}
+          />
         </div>
       )}
 
@@ -158,7 +161,7 @@ function HuecoAbierto({
                 <span className="serie-numero num">{serie.numero_serie}</span>
                 <span className="serie-texto">
                   <span className="serie-carga num">
-                    {pesoLegible(serie.peso)} {unidad()} × {serie.repeticiones} reps
+                    {serieLarga(serie.ejercicio.tipo_registro, serie)}
                   </span>
                   {serie.variante && <span className="serie-variante">{serie.variante}</span>}
                 </span>

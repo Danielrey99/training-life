@@ -54,7 +54,7 @@ type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | 'quitar'
 // Lo habitual en doble progresión: 3 series de 8 a 12.
 /** Un ejercicio nuevo: sin elegir, con las series y reps por defecto de Ajustes. */
 function vacio(): Formulario {
-  const { series, repsMin, repsMax } = ajustes().objetivo
+  const { series, min: repsMin, max: repsMax } = ajustes().objetivoNuevo.peso_reps
   return {
     principal: null,
     alternativas: [],

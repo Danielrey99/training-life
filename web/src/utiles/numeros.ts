@@ -1,4 +1,5 @@
 import { ajustes } from './ajustes'
+import { conPesoYReps, type Medidas } from './medidas'
 
 const LIBRAS_POR_KILO = 2.20462
 
@@ -36,6 +37,22 @@ export function pesoLegible(kilos: string | number): string {
 }
 
 /**
+ * Una duración (la API va siempre en segundos) como se dice en voz alta: «45 s»,
+ * «1 min 30 s», «28 min 15 s», «1 h 5 min». Sin dos puntos: es lo que se teclea con el
+ * teclado numérico, y los dos puntos solo los lleva el ritmo.
+ */
+export function duracionLegible(segundos: number): string {
+  const horas = Math.floor(segundos / 3600)
+  const minutos = Math.floor((segundos % 3600) / 60)
+  const resto = segundos % 60
+  const partes = []
+  if (horas > 0) partes.push(`${horas} h`)
+  if (minutos > 0) partes.push(`${minutos} min`)
+  if (resto > 0 || partes.length === 0) partes.push(`${resto} s`)
+  return partes.join(' ')
+}
+
+/**
  * El 1RM estimado de un día, con la fórmula de Epley para cada serie:
  * peso × (1 + reps / 30). Es la medida de "si mejoró" en un día (H2) y la de la
  * gráfica de progresión (H3), y tiene que ser la misma en las dos. En kg, como el peso.
@@ -45,8 +62,10 @@ export function pesoLegible(kilos: string | number): string {
  * no ve. Y la media y no la suma, para que hacer una serie menos no cuente como
  * empeorar. En Ajustes se puede elegir la mejor serie, lo habitual en fuerza máxima.
  */
-export function unoRM(series: { peso: string | number; repeticiones: number }[]): number {
-  const estimados = series.map((serie) => Number(serie.peso) * (1 + serie.repeticiones / 30))
+export function unoRM(series: Medidas[]): number {
+  const estimados = conPesoYReps(series).map(
+    (serie) => Number(serie.peso) * (1 + serie.repeticiones / 30),
+  )
   if (ajustes().unoRM === 'mejor') return Math.max(...estimados)
   return estimados.reduce((total, valor) => total + valor, 0) / estimados.length
 }
