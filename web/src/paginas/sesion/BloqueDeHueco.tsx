@@ -6,6 +6,7 @@ import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
 import { useUltimaVez } from './ultimaVez'
+import { objetivoDelEjercicio } from '../programas/textos'
 
 export type SerieAGuardar = DatosDeSerie & {
   ejercicio_id: number
@@ -97,7 +98,7 @@ function HuecoAbierto({
   // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas.
   // Con otra edición abierta (la nota), el formulario de una nueva no se enseña.
   const admiteNuevas = elegido !== null && !hueco.oculto_desde && !bloqueado
-  const comodines = hueco.alternativas
+  const comodines = hueco.alternativas.map((alternativa) => alternativa.ejercicio)
 
   async function guardarDesdeFormulario(datos: DatosDeSerie) {
     if (editando) {
@@ -137,9 +138,7 @@ function HuecoAbierto({
             />
           )}
         </div>
-        <span className="objetivo num">
-          {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
-        </span>
+        <span className="objetivo num">{objetivoDelEjercicio(hueco, elegido?.id)}</span>
         {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
       </div>
 

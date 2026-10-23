@@ -9,6 +9,7 @@ import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { SelectorDeEjercicio } from '../sesion/SelectorDeEjercicio'
 import type { Abierta } from './Dia'
+import { objetivoDelEjercicio } from '../programas/textos'
 
 /** Un bloque del día: un hueco de la rutina. */
 export type Bloque = {
@@ -88,7 +89,9 @@ export function BloqueDelDia({
   const esComodin = principal.id !== ejercicio.id
   // Las series nuevas, solo en un hueco visible: el backend no las admite en uno oculto.
   const admiteNuevas = editando && !hueco.oculto_desde
-  const comodines = hueco.alternativas.filter((otro) => !otro.oculto_desde)
+  const comodines = hueco.alternativas
+    .map((alternativa) => alternativa.ejercicio)
+    .filter((otro) => !otro.oculto_desde)
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Arranca con la última serie del bloque o, si no tiene, con la última vez (si es
   // del ejercicio que se va a apuntar).
@@ -119,9 +122,7 @@ export function BloqueDelDia({
         )}
         {/* El objetivo arriba, con el nombre, y no junto a las mejoras: es lo que pide la
             rutina, no cómo fue el día. */}
-        <span className="dia-objetivo num">
-          {hueco.series_objetivo} × {hueco.reps_min}-{hueco.reps_max}
-        </span>
+        <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
         {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
         {!vacio && !editando && (
           <Link

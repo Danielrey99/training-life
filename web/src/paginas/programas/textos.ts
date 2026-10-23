@@ -1,4 +1,4 @@
-import type { Rutina } from '../../api/tipos'
+import type { HuecoDeRutina, Objetivo, Rutina } from '../../api/tipos'
 
 /** 1 = lunes … 7 = domingo, en minúscula para ir dentro de una frase. */
 export const NOMBRES_DE_LOS_DIAS = [
@@ -36,11 +36,24 @@ export function ejercicios(rutina: Rutina) {
   return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
 }
 
-/** "4 × 6-10"; si las dos reps coinciden, "3 × 8". */
-export function objetivo(hueco: { series_objetivo: number; reps_min: number; reps_max: number }) {
+/** "4 × 6-10"; si las dos reps coinciden, "3 × 8"; en duración, "3 × 30-45 s". */
+export function objetivo(hueco: Objetivo) {
+  if (hueco.duracion_min_s !== null) {
+    const tiempo =
+      hueco.duracion_min_s === hueco.duracion_max_s
+        ? hueco.duracion_min_s
+        : `${hueco.duracion_min_s}-${hueco.duracion_max_s}`
+    return `${hueco.series_objetivo} × ${tiempo} s`
+  }
   const reps =
     hueco.reps_min === hueco.reps_max ? hueco.reps_min : `${hueco.reps_min}-${hueco.reps_max}`
   return `${hueco.series_objetivo} × ${reps}`
+}
+
+/** El objetivo del ejercicio que se hace en un hueco: el suyo si es una alternativa. */
+export function objetivoDelEjercicio(hueco: HuecoDeRutina, ejercicioId: number | undefined) {
+  const alternativa = hueco.alternativas.find((otra) => otra.ejercicio.id === ejercicioId)
+  return objetivo(alternativa ?? hueco)
 }
 
 /** "1 alternativa" o "3 alternativas", bajo el ejercicio en P3; sin ninguna, nada. */

@@ -26,7 +26,10 @@ function contarSeries(cuantas: number) {
  * principal está oculto, el primer comodín visible. Nulo si no queda ninguno.
  */
 function ejercicioInicial(hueco: HuecoDeRutina, series: Serie[]): Ejercicio | null {
-  const opciones = [hueco.ejercicio_principal, ...hueco.alternativas]
+  const opciones = [
+    hueco.ejercicio_principal,
+    ...hueco.alternativas.map((alternativa) => alternativa.ejercicio),
+  ]
   const ultima = series.filter((serie) => serie.slot_id === hueco.id).at(-1)
   const deHoy = opciones.find((ejercicio) => ejercicio.id === ultima?.ejercicio_id)
   return deHoy ?? opciones.find((ejercicio) => ejercicio.oculto_desde === null) ?? null

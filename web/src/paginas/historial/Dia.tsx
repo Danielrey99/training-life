@@ -118,9 +118,10 @@ async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina): Promise<Blo
     if (series.length > 0) {
       bloques.push({ clave: `hueco-${hueco.id}`, hueco, ejercicio: series[0].ejercicio, series })
     } else if (!hueco.oculto_desde) {
-      const elegible = [hueco.ejercicio_principal, ...hueco.alternativas].find(
-        (ejercicio) => !ejercicio.oculto_desde,
-      )
+      const elegible = [
+        hueco.ejercicio_principal,
+        ...hueco.alternativas.map((alternativa) => alternativa.ejercicio),
+      ].find((ejercicio) => !ejercicio.oculto_desde)
       if (elegible) bloques.push({ clave: `hueco-${hueco.id}`, hueco, ejercicio: elegible, series })
     }
   }

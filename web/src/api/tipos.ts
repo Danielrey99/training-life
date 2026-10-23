@@ -48,17 +48,32 @@ export type HuecoDeRutina = {
   rutina_id: number
   ejercicio_principal_id: number
   orden: number
+  // El objetivo es de repeticiones o de duración (en segundos), según el ejercicio: un
+  // par completo y el otro nulo.
   series_objetivo: number
-  reps_min: number
-  reps_max: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s: number | null
+  duracion_max_s: number | null
   // Desde cuándo está oculto; nulo si está visible.
   oculto_desde: string | null
   created_at: string
   updated_at: string
   ejercicio_principal: Ejercicio
-  // Los comodines del hueco.
-  alternativas: Ejercicio[]
+  // Los comodines del hueco, cada uno con su objetivo en él.
+  alternativas: AlternativaDeHueco[]
 }
+
+export type Objetivo = {
+  series_objetivo: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s: number | null
+  duracion_max_s: number | null
+}
+
+/** Una alternativa de un hueco: el ejercicio y lo que se hace con él en ese hueco. */
+export type AlternativaDeHueco = Objetivo & { ejercicio: Ejercicio }
 
 export type Rutina = {
   id: number
@@ -409,11 +424,13 @@ export type NuevoEjercicio = {
 /** Un ejercicio (hueco) de una rutina nueva: su orden es su posición en la lista. */
 export type HuecoDeRutinaNueva = {
   ejercicio_principal_id: number
-  // Los comodines; ni el principal ni repetidos (422).
-  alternativa_ids: number[]
+  // Los comodines, cada uno con su objetivo; ni el principal ni repetidos (422).
+  alternativas: (Objetivo & { ejercicio_id: number })[]
   series_objetivo: number
-  reps_min: number
-  reps_max: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s?: number | null
+  duracion_max_s?: number | null
 }
 
 /** Una rutina nueva, vacía o con sus ejercicios: se crea todo de una vez o nada. */
@@ -425,10 +442,10 @@ export type NuevaRutina = {
 /** Sin `orden`, el hueco va al final de la rutina. */
 export type NuevoHueco = HuecoDeRutinaNueva & { orden?: number }
 
-/** Con `alternativa_ids`, la lista sustituye a los comodines actuales; sin ella, no se tocan. */
-export type CambiosDeHueco = Omit<HuecoDeRutinaNueva, 'alternativa_ids'> & {
+/** Con `alternativas`, la lista sustituye a los comodines actuales; sin ella, no se tocan. */
+export type CambiosDeHueco = Omit<HuecoDeRutinaNueva, 'alternativas'> & {
   orden: number
-  alternativa_ids?: number[]
+  alternativas?: HuecoDeRutinaNueva['alternativas']
 }
 
 // La rutina y el día que cuenta solo van al crear: los decide el botón pulsado

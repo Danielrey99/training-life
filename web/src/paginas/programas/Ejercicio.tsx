@@ -77,10 +77,10 @@ function desdeBorrador(ejercicio: EjercicioDelBorrador): Formulario {
 function desdeHueco(hueco: HuecoDeRutina): Formulario {
   return {
     principal: hueco.ejercicio_principal,
-    alternativas: hueco.alternativas,
+    alternativas: hueco.alternativas.map((alternativa) => alternativa.ejercicio),
     series: String(hueco.series_objetivo),
-    repsMin: String(hueco.reps_min),
-    repsMax: String(hueco.reps_max),
+    repsMin: String(hueco.reps_min ?? ''),
+    repsMax: String(hueco.reps_max ?? ''),
   }
 }
 
@@ -260,12 +260,23 @@ export function Ejercicio() {
       return
     }
 
-    const cuerpo = {
-      ejercicio_principal_id: formulario.principal!.id,
-      alternativa_ids: formulario.alternativas.map((ejercicio) => ejercicio.id),
+    const objetivoDelPrincipal = {
       series_objetivo: series,
       reps_min: repsMin,
       reps_max: repsMax,
+      duracion_min_s: null,
+      duracion_max_s: null,
+    }
+    // Las alternativas que ya estaban conservan su objetivo; las nuevas, el del principal.
+    const previas = origen.tipo === 'existente' ? origen.hueco.alternativas : []
+    const cuerpo = {
+      ejercicio_principal_id: formulario.principal!.id,
+      alternativas: formulario.alternativas.map((ejercicio) => {
+        const previa = previas.find((otra) => otra.ejercicio.id === ejercicio.id)
+        const { ejercicio: _, ...suyo } = previa ?? { ...objetivoDelPrincipal, ejercicio }
+        return { ejercicio_id: ejercicio.id, ...suyo }
+      }),
+      ...objetivoDelPrincipal,
     }
     setGuardando(true)
     try {
