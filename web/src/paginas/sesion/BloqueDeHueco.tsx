@@ -1,4 +1,5 @@
 import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
+import { objetivoDelEjercicio } from '../programas/textos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
 import { pesoLegible, unidad } from '../../utiles/numeros'
@@ -6,7 +7,6 @@ import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
 import { useUltimaVez } from './ultimaVez'
-import { objetivoDelEjercicio } from '../programas/textos'
 
 export type SerieAGuardar = DatosDeSerie & {
   ejercicio_id: number
@@ -124,20 +124,20 @@ function HuecoAbierto({
   return (
     <section className="hueco-abierto">
       <div className="hueco-cabecera">
-        <div className="hueco-nombre">
-          <span>{titulo}</span>
-          {elegido && comodines.length > 0 && !bloqueado && (
-            <SelectorDeEjercicio
-              rutinaId={rutinaId}
-              huecoId={hueco.id}
-              principal={hueco.ejercicio_principal}
-              comodines={comodines}
-              elegido={elegido}
-              sesion={sesion}
-              elegir={elegir}
-            />
-          )}
-        </div>
+        <span className="hueco-nombre">{titulo}</span>
+        {elegido && comodines.length > 0 && !bloqueado && (
+          <SelectorDeEjercicio
+            rutinaId={rutinaId}
+            huecoId={hueco.id}
+            principal={hueco.ejercicio_principal}
+            comodines={comodines}
+            elegido={elegido}
+            sesion={sesion}
+            elegir={elegir}
+          />
+        )}
+      </div>
+      <div className="hueco-datos">
         <span className="objetivo num">{objetivoDelEjercicio(hueco, elegido?.id)}</span>
         {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
       </div>

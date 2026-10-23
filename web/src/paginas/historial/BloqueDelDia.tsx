@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { objetivoDelEjercicio } from '../programas/textos'
 import { Link } from 'react-router-dom'
 
 import type { Ejercicio, HuecoDeRutina, Serie, SesionHistorial } from '../../api/tipos'
@@ -9,7 +10,6 @@ import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { SelectorDeEjercicio } from '../sesion/SelectorDeEjercicio'
 import type { Abierta } from './Dia'
-import { objetivoDelEjercicio } from '../programas/textos'
 
 /** Un bloque del día: un hueco de la rutina. */
 export type Bloque = {
@@ -120,9 +120,6 @@ export function BloqueDelDia({
             elegir={(otro) => (vacio ? setElegido(otro) : alPedirCambiar(otro))}
           />
         )}
-        {/* El objetivo arriba, con el nombre, y no junto a las mejoras: es lo que pide la
-            rutina, no cómo fue el día. */}
-        <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
         {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
         {!vacio && !editando && (
           <Link
@@ -134,6 +131,9 @@ export function BloqueDelDia({
           </Link>
         )}
       </div>
+      {/* El objetivo, debajo del nombre y aparte de las mejoras: es lo que pide la rutina,
+          no cómo fue el día. En su línea, para que no se mueva con el largo del nombre. */}
+      <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
       {mejora && (
         <div className="dia-insignias">
           {mejora.insignias.map((insignia) => (

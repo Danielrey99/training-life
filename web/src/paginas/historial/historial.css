@@ -479,20 +479,29 @@
   color: var(--texto-tenue);
 }
 
+/* Una sola fila: el nombre ocupa lo que sobra y, si es largo, es él quien pasa a otra
+   línea; lo que haya a la derecha (la flecha de cambiar de ejercicio al editar, la de la
+   progresión al ver) se queda arriba, a la altura de la primera línea. */
 .dia-hueco-cabecera {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
+  min-height: 32px;
 }
 
 .dia-hueco-cabecera h2 {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  /* La primera línea, centrada con la flecha (32 px). */
+  line-height: 1.3;
+  padding-top: 5px;
 }
 
-/* Con un nombre largo, el que se parte es el nombre, no el objetivo. */
-.dia-hueco-cabecera .dia-objetivo {
-  flex-shrink: 0;
+/* El objetivo, justo debajo del nombre (el hueco de la columna de 8 px se acorta). */
+.dia-hueco > .dia-objetivo {
+  align-self: flex-start;
+  margin-top: -6px;
 }
 
 /* Un hueco que ese día se quedó sin series: solo sale al editar, y discreto. */
@@ -509,5 +518,5 @@
 /* La flecha del hueco que lleva a la progresión de su ejercicio: 44 px para el dedo,
    sin que la cabecera del hueco crezca por ella. */
 .dia-hueco-cabecera .dia-progresion {
-  margin: -10px -12px -10px -6px;
+  margin: -6px -12px -10px -6px;
 }

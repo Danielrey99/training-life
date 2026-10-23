@@ -128,22 +128,32 @@
   border-radius: var(--radio);
 }
 
-/* Relativa porque de ella cuelga el desplegable de la flecha. */
+/* Relativa porque de ella cuelga el desplegable de la flecha. Una sola fila: el nombre
+   ocupa lo que sobra y, si es largo, es él quien pasa a otra línea; la flecha, si la hay,
+   se queda siempre arriba a la derecha. El objetivo va debajo, en su propia línea. */
 .hueco-cabecera {
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.hueco-nombre {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  /* La primera línea, centrada con la flecha (32 px). */
+  line-height: 1.3;
+  padding-top: 5px;
+}
+
+.hueco-datos {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px 10px;
-}
-
-.hueco-nombre {
-  flex-grow: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  margin-top: -2px;
 }
 
 .objetivo {
