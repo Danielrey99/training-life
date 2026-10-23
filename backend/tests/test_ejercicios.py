@@ -1,7 +1,9 @@
 """Tests de la ficha de un ejercicio: `GET /ejercicios/{id}/donde-se-usa`
-(«Rutinas donde se usa»), y que una nota solo se alcanza por la ruta de su ejercicio.
+(«Rutinas donde se usa»), que una nota solo se alcanza por la ruta de su ejercicio,
+y su tipo de registro (cómo se apunta: se elige al crearlo y no cambia).
 
-El aviso y el borrado de un ejercicio están en `test_borrados.py`.
+El aviso y el borrado de un ejercicio están en `test_borrados.py`; las medidas que
+pide cada tipo a sus series, en `test_medidas.py`.
 """
 
 from datetime import date
@@ -226,3 +228,129 @@ def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, e
     assert (editada.status_code, borrada.status_code) == (404, 404)
     assert cliente.get(f"/ejercicios/{press}/notas").json() == [nota]
     assert cliente.get(f"/ejercicios/{remo}/notas").json() == []
+
+
+# --- El tipo de registro ---------------------------------------------------------
+#
+# Cada ejercicio dice cómo se apuntan sus series: peso y repeticiones, peso corporal
+# o tiempo. Se elige al crearlo y no cambia (una serie ya apuntada no se puede
+# reinterpretar): el PUT no lo toca aunque llegue en el cuerpo.
+
+TIPOS = ["peso_reps", "corporal", "tiempo"]
+
+
+@pytest.mark.parametrize("tipo", TIPOS)
+def test_un_ejercicio_se_crea_con_cada_tipo_y_lo_dice_en_la_ficha_y_en_la_lista(
+    cliente, grupo_muscular_id, tipo
+):
+    creado = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Ejercicio", "grupo_muscular_id": grupo_muscular_id, "tipo_registro": tipo},
+    )
+
+    assert creado.status_code == 201, creado.text
+    assert creado.json()["tipo_registro"] == tipo
+    ejercicio_id = creado.json()["id"]
+    assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["tipo_registro"] == tipo
+    [en_la_lista] = [e for e in cliente.get("/ejercicios").json() if e["id"] == ejercicio_id]
+    assert en_la_lista["tipo_registro"] == tipo
+
+
+def test_sin_tipo_un_ejercicio_es_de_peso_y_repeticiones(cliente, grupo_muscular_id):
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+
+    assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["tipo_registro"] == "peso_reps"
+
+
+@pytest.mark.parametrize("tipo", ["cardio", "Tiempo", "", None, 1])
+def test_un_tipo_que_no_existe_da_422_y_no_crea_nada(cliente, grupo_muscular_id, tipo):
+    """«cardio» todavía no es un tipo (llega en un paso posterior), y un nulo no es
+    «el de por defecto»: el campo se omite o trae uno de los tipos.
+    """
+    respuesta = cliente.post(
+        "/ejercicios",
+        json={"nombre": "Cinta", "grupo_muscular_id": grupo_muscular_id, "tipo_registro": tipo},
+    )
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", "tipo_registro"]]
+    assert [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]] == []
+
+
+@pytest.mark.parametrize("otro", ["peso_reps", "tiempo", "cardio"])
+def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
+    cliente, grupo_muscular_id, otro
+):
+    """El PUT da 200 y cambia el nombre, pero el tipo se ignora: ni otro válido ni
+    uno que no existe (que tampoco da 422, porque el campo no es del PUT).
+    """
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas", tipo="corporal")
+
+    respuesta = cliente.put(
+        f"/ejercicios/{ejercicio_id}",
+        json={
+            "nombre": "Dominadas pronas",
+            "grupo_muscular_id": grupo_muscular_id,
+            "tipo_registro": otro,
+        },
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["tipo_registro"] == "corporal"
+    guardado = cliente.get(f"/ejercicios/{ejercicio_id}").json()
+    assert (guardado["nombre"], guardado["tipo_registro"]) == ("Dominadas pronas", "corporal")
+
+
+def test_un_predefinido_sigue_sin_poder_editarse_tambien_con_tipo(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    antes = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json()
+
+    respuesta = cliente.put(
+        f"/ejercicios/{ejercicio_predefinido_id}",
+        json={"nombre": "Otra", "grupo_muscular_id": grupo_muscular_id, "tipo_registro": "tiempo"},
+    )
+
+    assert respuesta.status_code == 403, respuesta.text
+    assert cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json() == antes
+    assert antes["tipo_registro"] == "peso_reps"
+
+
+def test_el_tipo_sale_con_el_ejercicio_en_rutinas_series_e_historial_del_hueco(
+    cliente, grupo_muscular_id
+):
+    """Donde se devuelve un ejercicio, va su tipo: en el principal y los comodines
+    de un hueco, en el ejercicio de cada serie y en el ejercicio mínimo del historial
+    de un hueco (que mezcla ejercicios: el cliente tiene que saber cómo pintar cada
+    serie sin cruzar datos).
+    """
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo")
+    rutina, [slot] = rutina_con_huecos(cliente, "Core", hueco(press, plancha))
+    sesiones = [
+        cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": fecha}).json()["id"]
+        for fecha in ("2026-09-01", "2026-09-02")
+    ]
+    cuerpo = {"slot_id": slot, "numero_serie": 1}
+    con_press = cliente.post(
+        f"/entrenamientos/{sesiones[0]}/series",
+        json={**cuerpo, "ejercicio_id": press, "peso": 60, "repeticiones": 8},
+    )
+    con_plancha = cliente.post(
+        f"/entrenamientos/{sesiones[1]}/series",
+        json={**cuerpo, "ejercicio_id": plancha, "duracion_s": 45},
+    )
+    assert con_press.status_code == con_plancha.status_code == 201, con_plancha.text
+
+    [en_la_rutina] = cliente.get(f"/rutinas/{rutina}").json()["slots"]
+    historial = cliente.get(f"/rutinas/{rutina}/slots/{slot}/historial").json()
+    sesion = cliente.get(f"/entrenamientos/{sesiones[1]}").json()
+
+    assert en_la_rutina["ejercicio_principal"]["tipo_registro"] == "peso_reps"
+    assert [a["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
+    assert con_press.json()["ejercicio"]["tipo_registro"] == "peso_reps"
+    assert sesion["series"][0]["ejercicio"]["tipo_registro"] == "tiempo"
+    assert [s["ejercicio"] for dia in historial for s in dia["series"]] == [
+        {"id": plancha, "nombre": "Plancha", "tipo_registro": "tiempo"},
+        {"id": press, "nombre": "Press banca", "tipo_registro": "peso_reps"},
+    ]

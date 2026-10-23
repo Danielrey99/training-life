@@ -40,6 +40,10 @@ class GrupoMuscularOut(BaseModel):
     nombre: str
 
 
+# Cómo se apunta un ejercicio (ver `app/medidas.py`). Se elige al crearlo y no cambia.
+TipoRegistro = Literal["peso_reps", "corporal", "tiempo"]
+
+
 class EjercicioBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar un ejercicio.
 
@@ -53,10 +57,11 @@ class EjercicioBase(BaseModel):
 
 
 class EjercicioCreate(EjercicioBase):
-    pass
+    tipo_registro: TipoRegistro = "peso_reps"
 
 
 class EjercicioUpdate(EjercicioBase):
+    # Sin `tipo_registro`: no se cambia. Si llega, Pydantic lo ignora.
     pass
 
 
@@ -69,6 +74,7 @@ class EjercicioOut(EjercicioBase):
 
     id: int
     es_predefinido: bool
+    tipo_registro: TipoRegistro
     oculto_desde: date | None
     created_at: datetime
     updated_at: datetime
@@ -292,10 +298,15 @@ class SerieBase(BaseModel):
     ejercicio_id: int
     slot_id: int
     numero_serie: int = Field(gt=0, le=100)
-    # 9999,99 es lo que cabe en la columna (NUMERIC(6,2)): sin este tope, un peso
-    # mayor llegaba a la base de datos y la respuesta era un 500.
-    peso: Decimal = Field(ge=0, le=Decimal("9999.99"))
-    repeticiones: int = Field(gt=0, le=1000)
+    # Qué medidas lleva cada serie lo decide el tipo de su ejercicio (`app/medidas.py`):
+    # aquí solo los rangos. 9999,99 es lo que cabe en la columna (NUMERIC(6,2)); el peso
+    # puede ser negativo porque la ayuda de las dominadas se guarda así.
+    peso: Decimal | None = Field(default=None, ge=Decimal("-9999.99"), le=Decimal("9999.99"))
+    repeticiones: int | None = Field(default=None, gt=0, le=1000)
+    # En segundos, hasta un día.
+    duracion_s: int | None = Field(default=None, gt=0, le=86400)
+    # `ge` y no `gt`: con 0,001 pasaría la validación y NUMERIC(5,2) lo redondea a 0,00.
+    peso_corporal: Decimal | None = Field(default=None, ge=Decimal("0.01"), le=Decimal("500"))
     variante: TextoOpcional = Field(default=None, max_length=100)
 
 
@@ -330,6 +341,7 @@ class EjercicioMinimo(BaseModel):
 
     id: int
     nombre: str
+    tipo_registro: TipoRegistro
 
 
 class SerieHistorial(BaseModel):
@@ -346,8 +358,9 @@ class SerieHistorial(BaseModel):
     id: int
     slot_id: int
     numero_serie: int
-    peso: Decimal
-    repeticiones: int
+    peso: Decimal | None
+    repeticiones: int | None
+    duracion_s: int | None
     variante: str | None
 
 
@@ -820,6 +833,9 @@ class EjercicioDeArchivo(BaseModel):
     nombre: Nombre
     # Por nombre, como los predefinidos: el catálogo de grupos es de cada instalación.
     grupo_muscular: str
+    # Obligatorio: sin compatibilidad con archivos de antes de los tipos, un valor por
+    # defecto solo escondería un archivo mal hecho.
+    tipo_registro: TipoRegistro
     descripcion: TextoOpcional = Field(default=None, max_length=500)
     oculto_desde: date | None = None
     created_at: AwareDatetime
@@ -900,9 +916,8 @@ class ExcepcionDeArchivo(BaseModel):
 
 
 class SerieDeArchivo(SerieBase):
-    # Los archivos exportados antes de quitar el RPE traen `rpe` en cada serie: Pydantic
-    # ignora los campos que no declara, así que se siguen importando y la versión del
-    # formato sigue siendo 1. Por eso ningún modelo del formato lleva `extra="forbid"`.
+    # Pydantic ignora los campos que no declara, y ningún modelo del formato lleva
+    # `extra="forbid"`: lo que sobre en un archivo no impide cargarlo.
     created_at: AwareDatetime
     updated_at: AwareDatetime
 
@@ -926,7 +941,7 @@ class ArchivoDeDatos(BaseModel):
     """
 
     formato: Literal["training-life"] = "training-life"
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     exportado_en: AwareDatetime
     predefinidos: list[PredefinidoDeArchivo] = []
     ejercicios: list[EjercicioDeArchivo] = []

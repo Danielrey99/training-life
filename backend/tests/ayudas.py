@@ -22,11 +22,14 @@ NOMBRE_DE_PRUEBA = "Rutina de prueba"
 # que no existe.
 
 
-def crear_ejercicio(cliente, grupo_muscular_id, nombre="Press banca") -> int:
-    """Un ejercicio propio nuevo; devuelve su id."""
-    respuesta = cliente.post(
-        "/ejercicios", json={"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
-    )
+def crear_ejercicio(cliente, grupo_muscular_id, nombre="Press banca", tipo=None) -> int:
+    """Un ejercicio propio nuevo; devuelve su id. Sin `tipo`, el de la API por
+    defecto (peso y repeticiones).
+    """
+    cuerpo = {"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
+    if tipo is not None:
+        cuerpo["tipo_registro"] = tipo
+    respuesta = cliente.post("/ejercicios", json=cuerpo)
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()["id"]
 

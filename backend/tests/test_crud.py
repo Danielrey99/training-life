@@ -872,6 +872,7 @@ def test_una_serie_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, 
     )
 
     assert respuesta.status_code == 422
+    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
 
 
 @pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_max"])
@@ -902,6 +903,7 @@ def test_una_serie_admite_su_tope_justo_y_no_uno_mas(cliente, grupo_muscular_id,
     )
 
     assert (justo.status_code, pasado.status_code) == (201, 422)
+    assert [error["loc"] for error in pasado.json()["detail"]] == [["body", campo]]
 
 
 @pytest.mark.parametrize(
@@ -933,25 +935,7 @@ def test_reps_min_tambien_tiene_tope(cliente, grupo_muscular_id):
     assert campos == {"reps_min", "reps_max"}
 
 
-def test_el_peso_puede_ser_cero_para_los_ejercicios_con_el_propio_cuerpo(
-    cliente, grupo_muscular_id
-):
-    """Dominadas o fondos sin lastre: 0 kg es un dato válido, no un error."""
-    dominadas = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json=_serie(cliente, entrenamiento_id, dominadas, peso=0),
-    )
-
-    assert respuesta.status_code == 201
-
-
-@pytest.mark.parametrize(
-    "campo, valor",
-    [("peso", -1), ("repeticiones", 0), ("numero_serie", 0)],
-)
+@pytest.mark.parametrize("campo, valor", [("repeticiones", 0), ("numero_serie", 0)])
 def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, campo, valor):
     banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
@@ -962,6 +946,26 @@ def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, 
     )
 
     assert respuesta.status_code == 422
+    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
+
+
+def test_un_peso_negativo_en_peso_y_repeticiones_da_422_con_su_mensaje(cliente, grupo_muscular_id):
+    """Antes lo rechazaba el esquema (`ge=0`); ahora el esquema admite negativos (la
+    ayuda de los ejercicios de peso corporal) y el 422 es el de las medidas del tipo.
+    """
+    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
+
+    respuesta = cliente.post(
+        f"/entrenamientos/{entrenamiento_id}/series",
+        json=_serie(cliente, entrenamiento_id, banca, peso=-1),
+    )
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == (
+        "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
+    )
+    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
 
 
 @pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_min"])

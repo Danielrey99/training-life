@@ -74,11 +74,16 @@ def importar_datos(
     if not isinstance(archivo, dict) or archivo.get("formato") != "training-life":
         raise _no_se_puede(NO_ES_UNA_COPIA)
     version = archivo.get("version")
-    if isinstance(version, int) and version > 1:
+    if isinstance(version, int) and version > 2:
         raise _no_se_puede(
             "Este archivo es de una versión más nueva de la app. Actualízala para cargarlo."
         )
-    if version != 1:
+    if version == 1:
+        # Sin tipos de ejercicio: no se convierte, la app todavía no se usaba (decisión del autor).
+        raise _no_se_puede(
+            "Este archivo es de una versión anterior de la app y ya no se puede cargar."
+        )
+    if version != 2:
         raise _no_se_puede(NO_ES_UNA_COPIA)
     try:
         datos = ArchivoDeDatos.model_validate(archivo)

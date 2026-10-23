@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.fechas import hoy
+from app.medidas import validar_medidas
 from app.models import Ejercicio, Entrenamiento, RutinaSlot, Serie
 from app.plan import DiaPlan, dias_del_plan
 from app.routers.ejercicios import obtener_ejercicio_legible, obtener_ejercicio_visible
@@ -377,6 +378,16 @@ def _validar_slot(
         )
 
 
+def _validar_medidas_de_la_serie(ejercicio: Ejercicio, datos: SerieCreate | SerieUpdate) -> None:
+    """Las medidas de la serie tienen que ser las que pide el tipo de su ejercicio (422):
+    una plancha no lleva repeticiones ni un press banca, duración. En un `PUT`, el
+    ejercicio es el final: cambiar de ejercicio exige las medidas del nuevo.
+    """
+    error = validar_medidas(ejercicio.nombre, ejercicio.tipo_registro, datos.model_dump())
+    if error is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error)
+
+
 def _validar_un_ejercicio_por_hueco(
     db: Session,
     entrenamiento_id: int,
@@ -426,8 +437,9 @@ def crear_serie(
     db: Session = Depends(get_db),
 ):
     entrenamiento = _obtener_entrenamiento(db, entrenamiento_id)
-    obtener_ejercicio_visible(db, datos.ejercicio_id)
+    ejercicio = obtener_ejercicio_visible(db, datos.ejercicio_id)
     _validar_slot(db, datos.slot_id, entrenamiento.rutina_id, datos.ejercicio_id)
+    _validar_medidas_de_la_serie(ejercicio, datos)
     _validar_un_ejercicio_por_hueco(db, entrenamiento_id, datos.slot_id, datos.ejercicio_id)
     serie = Serie(**datos.model_dump(), entrenamiento_id=entrenamiento_id)
     db.add(serie)
@@ -449,9 +461,9 @@ def actualizar_serie(
     # cambia, basta con que sea legible (puede estar oculto). Si cambia por otro,
     # ese otro tiene que estar visible, como al apuntar una serie nueva.
     if datos.ejercicio_id == serie.ejercicio_id:
-        obtener_ejercicio_legible(db, datos.ejercicio_id)
+        ejercicio = obtener_ejercicio_legible(db, datos.ejercicio_id)
     else:
-        obtener_ejercicio_visible(db, datos.ejercicio_id)
+        ejercicio = obtener_ejercicio_visible(db, datos.ejercicio_id)
     _validar_slot(
         db,
         datos.slot_id,
@@ -459,6 +471,7 @@ def actualizar_serie(
         datos.ejercicio_id,
         actual=(serie.slot_id, serie.ejercicio_id),
     )
+    _validar_medidas_de_la_serie(ejercicio, datos)
     # Corregir peso, reps o variante no toca el par (hueco, ejercicio): solo si
     # cambia hay que mirar que no se mezcle con lo que ya hay en el hueco.
     if (datos.slot_id, datos.ejercicio_id) != (serie.slot_id, serie.ejercicio_id):

@@ -14,7 +14,8 @@ una semana sin entrenar no deja a la siguiente sin con qué compararse.
 
 Qué cuenta en cada cifra:
 
-- **Volumen** (Σ peso × repeticiones, como en el día del historial) y **series**:
+- **Volumen** (Σ peso × repeticiones **solo de los ejercicios de peso y repeticiones**: peso por
+  segundos o el peso del cuerpo no es una cantidad comparable) y **series** (de todos los tipos):
   todas las sesiones por su fecha real, no por el día del plan que
   cuentan. También las que siguen abiertas, las que no cuentan para ningún día y
   las de rutinas o ejercicios ocultos: es historial. Las canceladas no tienen
@@ -218,7 +219,10 @@ def _referencia(db: Session, unidad: Unidad, antes_de: date) -> tuple[date, Deci
             (Serie.peso * Serie.repeticiones).label("volumen"),
         )
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Entrenamiento.fecha < antes_de)
+        .join(Ejercicio, Ejercicio.id == Serie.ejercicio_id)
+        # Solo el volumen de peso y repeticiones: peso por segundos o por el peso del
+        # cuerpo no es una cantidad comparable.
+        .where(Entrenamiento.fecha < antes_de, Ejercicio.tipo_registro == "peso_reps")
         .subquery()
     )
     # Se agrupa fuera de la subconsulta: dentro, la unidad iría como parámetro en el
@@ -313,7 +317,14 @@ def resumen(db: Session, primero: date) -> Resumen:
             Entrenamiento.fecha,
             Rutina,
             GrupoMuscular,
-            func.sum(Serie.peso * Serie.repeticiones),
+            # Sin series de peso y repeticiones en esa sesión y grupo la suma es nula, no 0:
+            # el `coalesce` evita sumarle `None` a una barra más abajo.
+            func.coalesce(
+                func.sum(Serie.peso * Serie.repeticiones).filter(
+                    Ejercicio.tipo_registro == "peso_reps"
+                ),
+                0,
+            ),
             func.count(Serie.id),
         )
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
@@ -336,9 +347,11 @@ def resumen(db: Session, primero: date) -> Resumen:
                 continue
             barra = barras[indice]
             barra.volumen += volumen
-            barra.rutinas.setdefault(
-                rutina.id, VolumenDeRutina(rutina, Decimal(0))
-            ).volumen += volumen
+            # Una rutina sin ningún ejercicio de peso y repeticiones esa semana no sale.
+            if volumen > 0:
+                barra.rutinas.setdefault(
+                    rutina.id, VolumenDeRutina(rutina, Decimal(0))
+                ).volumen += volumen
             barra.grupos.setdefault(grupo.id, SeriesDeGrupo(grupo, 0)).series += series
         referencia = _referencia(db, vista.unidad, vista.terminados[0][0])
         evoluciones.append(_evolucion(vista, barras, referencia))

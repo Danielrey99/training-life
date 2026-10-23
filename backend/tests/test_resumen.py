@@ -24,6 +24,7 @@ import pytest
 
 from tests.ayudas import (
     consultas_de,
+    crear_ejercicio,
     crear_rutina,
     ejercicio_de_prueba,
     poner_alternativas,
@@ -644,8 +645,10 @@ def test_la_referencia_anterior_respeta_los_limites_de_semana_y_de_mes(
 
 
 def test_una_barra_solo_con_series_sin_peso(cliente, hoy_es, ejercicio_id, grupo_muscular_id):
-    """Sus series cuentan y su rutina sale con 0 kg, pero no tiene cambio ni sirve
-    de referencia: la siguiente se compara con una anterior a ella.
+    """Sus series cuentan, pero no tiene cambio ni sirve de referencia: la siguiente
+    se compara con una anterior a ella. Su rutina no sale en el volumen por rutina:
+    una rutina sin volumen esa semana no tiene nada que enseñar ahí (antes salía con
+    0 kg; cambió con los tipos de ejercicio, que dejan semanas enteras sin volumen).
     """
     hoy_es(MARTES_6_OCT)
     push = crear_rutina(cliente, "Push")
@@ -658,7 +661,7 @@ def test_una_barra_solo_con_series_sin_peso(cliente, hoy_es, ejercicio_id, grupo
     vacia = barra(semanas, date(2026, 8, 31))
     assert vacia["volumen"] == "0.00"
     assert cambio(vacia) == (None, None)
-    assert por_rutina(vacia) == [("Push", "0.00")]
+    assert por_rutina(vacia) == []
     assert por_grupo(vacia) == [(grupo_muscular_id, 2)]
     assert cambio(barra(semanas, date(2026, 9, 7))) == (50.0, date(2026, 8, 17))
 
@@ -897,6 +900,168 @@ def test_las_series_van_al_grupo_del_ejercicio_que_se_hizo(cliente, hoy_es):
     assert septiembre["series_por_grupo"][0]["grupo_muscular"] == espalda
     semana = barra(datos["por_semana"], date(2026, 8, 31))
     assert por_grupo(semana) == [(pecho["id"], 7), (espalda["id"], 3)]
+
+
+# --- Tipos de ejercicio ------------------------------------------------------
+#
+# El volumen solo cuenta los ejercicios de peso y repeticiones: peso por segundos o
+# la carga de unas dominadas no son kilos levantados comparables. Las series de
+# todos los tipos cuentan en «Series por grupo muscular».
+
+
+def sesion_con_medidas(cliente, fecha, rutina_id, *series) -> int:
+    """Una sesión con una serie por cada `(ejercicio_id, medidas)`, en el hueco de
+    su ejercicio (lo crea si no está). Devuelve su id.
+    """
+    respuesta = cliente.post(
+        "/entrenamientos", json={"rutina_id": rutina_id, "fecha": fecha.isoformat()}
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    entrenamiento_id = respuesta.json()["id"]
+    for numero, (ejercicio, medidas) in enumerate(series, start=1):
+        # Sin peso ni repeticiones si no se dicen: `serie_en` pone unos por defecto.
+        medidas = {"peso": None, "repeticiones": None, **medidas}
+        respuesta = serie_en(cliente, entrenamiento_id, ejercicio, numero=numero, **medidas)
+        assert respuesta.status_code == 201, respuesta.text
+    return entrenamiento_id
+
+
+@pytest.fixture
+def tres_tipos(cliente) -> dict:
+    """Un ejercicio de cada tipo, cada uno en un grupo muscular distinto."""
+    grupos = [g["id"] for g in cliente.get("/grupos-musculares").json()[:3]]
+    return {
+        "press": crear_ejercicio(cliente, grupos[0], "Press banca"),
+        "dominadas": crear_ejercicio(cliente, grupos[1], "Dominadas", tipo="corporal"),
+        "plancha": crear_ejercicio(cliente, grupos[2], "Plancha", tipo="tiempo"),
+        "grupos": grupos,
+    }
+
+
+def test_una_semana_solo_de_series_por_tiempo_tiene_volumen_cero_y_no_da_un_500(
+    cliente, hoy_es, tres_tipos
+):
+    """Regresión: la suma del volumen de una barra sin ninguna serie de peso y
+    repeticiones es nula en SQL, no 0, y sumarla a la barra daba un 500. Aunque una
+    de las planchas lleve peso. La semana anterior tiene volumen: la de las planchas
+    no tiene cambio frente a ella, ni rutina en el volumen por rutina.
+    """
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    press, plancha = tres_tipos["press"], tres_tipos["plancha"]
+    sesion_con_medidas(cliente, date(2026, 9, 15), push, (press, {"peso": 100, "repeticiones": 1}))
+    sesion_con_medidas(
+        cliente,
+        date(2026, 9, 22),
+        push,
+        (plancha, {"duracion_s": 45}),
+        (plancha, {"duracion_s": 60, "peso": 10}),
+    )
+
+    datos = pedir(cliente, SEPTIEMBRE)
+
+    semana = barra(datos["por_semana"], date(2026, 9, 21))
+    assert semana["volumen"] == "0.00"
+    assert cambio(semana) == (None, None)
+    assert por_rutina(semana) == []
+    assert por_grupo(semana) == [(tres_tipos["grupos"][2], 2)]
+    assert barra(datos["por_mes"], date(2026, 9, 1))["volumen"] == "100.00"
+
+
+def test_la_barra_en_curso_solo_de_series_por_tiempo_tampoco_da_un_500(cliente, hoy_es, tres_tipos):
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    sesion_con_medidas(cliente, MARTES_6_OCT, push, (tres_tipos["plancha"], {"duracion_s": 45}))
+
+    datos = pedir(cliente, OCTUBRE)
+
+    for vista in (datos["por_semana"], datos["por_mes"]):
+        assert vista["en_curso"]["volumen"] == "0.00"
+        assert vista["en_curso"]["volumen_por_rutina"] == []
+        assert por_grupo(vista["en_curso"]) == [(tres_tipos["grupos"][2], 1)]
+
+
+def test_el_peso_corporal_y_el_tiempo_no_suman_volumen_pero_sus_series_cuentan(
+    cliente, hoy_es, tres_tipos
+):
+    """En la misma sesión: press 60 × 10 (600), dominadas con 20 kg de lastre y con
+    10 de ayuda (160 y −80 si contaran), una con su peso corporal, y una plancha con
+    10 kg durante 60 s. El volumen es solo el del press; las cinco series cuentan,
+    cada una en el grupo de su ejercicio. El peso corporal no cambia nada.
+    """
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    press, dominadas, plancha = (tres_tipos[n] for n in ("press", "dominadas", "plancha"))
+    sesion_con_medidas(
+        cliente,
+        date(2026, 9, 22),
+        push,
+        (press, {"peso": 60, "repeticiones": 10}),
+        (dominadas, {"peso": 20, "repeticiones": 8, "peso_corporal": 80}),
+        (dominadas, {"peso": -10, "repeticiones": 8}),
+        (plancha, {"duracion_s": 60, "peso": 10}),
+        (plancha, {"duracion_s": 45}),
+    )
+
+    datos = pedir(cliente, SEPTIEMBRE)
+
+    del_press, de_dominadas, de_plancha = tres_tipos["grupos"]
+    for periodo in (
+        barra(datos["por_semana"], date(2026, 9, 21)),
+        barra(datos["por_mes"], date(2026, 9, 1)),
+    ):
+        assert periodo["volumen"] == "600.00"
+        assert por_rutina(periodo) == [("Push", "600.00")]
+        assert sorted(por_grupo(periodo)) == sorted(
+            [(del_press, 1), (de_dominadas, 2), (de_plancha, 2)]
+        )
+
+
+def test_una_rutina_sin_volumen_esa_semana_no_sale_en_el_volumen_por_rutina(
+    cliente, hoy_es, tres_tipos
+):
+    """Core solo tiene planchas y dominadas: sus series cuentan, pero no tiene kilos
+    que enseñar al lado de Push.
+    """
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    core = crear_rutina(cliente, "Core")
+    sesion_con_medidas(
+        cliente, date(2026, 9, 22), push, (tres_tipos["press"], {"peso": 50, "repeticiones": 10})
+    )
+    sesion_con_medidas(
+        cliente,
+        date(2026, 9, 23),
+        core,
+        (tres_tipos["plancha"], {"duracion_s": 45}),
+        (tres_tipos["dominadas"], {"peso": 20, "repeticiones": 5}),
+    )
+
+    semana = barra(pedir(cliente, SEPTIEMBRE)["por_semana"], date(2026, 9, 21))
+
+    assert por_rutina(semana) == [("Push", "500.00")]
+    assert sum(series for _, series in por_grupo(semana)) == 3
+
+
+def test_la_referencia_anterior_solo_mira_el_volumen_de_peso_y_repeticiones(
+    cliente, hoy_es, tres_tipos
+):
+    """Antes de la gráfica: press el 21 de julio (100) y dominadas con 50 kg de
+    lastre el 4 de agosto (500 si contaran). La primera barra (150) se compara con la
+    semana del press, no con la de las dominadas.
+    """
+    hoy_es(MARTES_6_OCT)
+    push = crear_rutina(cliente, "Push")
+    press, dominadas = tres_tipos["press"], tres_tipos["dominadas"]
+    sesion_con_medidas(cliente, date(2026, 7, 21), push, (press, {"peso": 100, "repeticiones": 1}))
+    sesion_con_medidas(
+        cliente, date(2026, 8, 4), push, (dominadas, {"peso": 50, "repeticiones": 10})
+    )
+    sesion_con_medidas(cliente, LUNES_10_AGO, push, (press, {"peso": 150, "repeticiones": 1}))
+
+    semanas = pedir(cliente, SEPTIEMBRE)["por_semana"]
+
+    assert cambio(semanas["periodos"][0]) == (50.0, date(2026, 7, 20))
 
 
 # --- Constancia --------------------------------------------------------------

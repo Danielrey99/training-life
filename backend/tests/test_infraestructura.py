@@ -112,6 +112,23 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
             assert not {c for c in columnas if c.endswith((".usuario_id", ".visibilidad"))}
             assert "series.peso" in columnas and "series.rpe" not in columnas
             assert {
+                "ejercicios.tipo_registro",
+                "series.duracion_s",
+                "series.peso_corporal",
+            } <= columnas
+            assert {
+                "ejercicios_tipo_registro_check",
+                "series_medidas_check",
+                "series_peso_check",
+                "series_duracion_check",
+                "series_peso_corporal_check",
+            } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'c'")
+            nulables = nombres(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'series' AND is_nullable = 'YES'"
+            )
+            assert {"peso", "repeticiones", "duracion_s", "peso_corporal"} <= nulables
+            assert {
                 "entrenamientos_fecha_key",
                 "entrenamientos_cubre_fecha_key",
                 "excepciones_del_plan_fecha_key",
@@ -386,7 +403,9 @@ TODO_CON_ESE_NOMBRE = {"tabla": True, "secuencia": True, "pkey": True, "fkey": T
 NADA_CON_ESE_NOMBRE = {"tabla": False, "secuencia": False, "pkey": False, "fkey": False}
 
 
-def test_renombrar_las_notas_y_volver_atras_no_pierde_ninguna(cliente, ejercicio_predefinido_id):
+def test_renombrar_las_notas_y_volver_atras_no_pierde_ninguna(
+    cliente, sesion_bd, ejercicio_predefinido_id
+):
     """Al bajar, la tabla, su secuencia y sus restricciones recuperan el nombre de
     `notas_usuario_ejercicio`, con la nota dentro; al volver a subir, todo se llama
     `notas_ejercicio`, la nota sigue y se puede escribir otra (la secuencia renombrada
@@ -401,6 +420,10 @@ def test_renombrar_las_notas_y_volver_atras_no_pierde_ninguna(cliente, ejercicio
     creada = cliente.post(ruta, json={"nota": "Asiento en el 4"})
     assert creada.status_code == 201
     nota = creada.json()
+    # La fixture del predefinido deja abierta una transacción que lee `ejercicios`: el
+    # ALTER TABLE de la migración de los tipos, que se baja por el camino, la esperaría
+    # para siempre.
+    sesion_bd.close()
     configuracion = _configuracion_de_alembic()
     engine.dispose()
     try:
@@ -442,3 +465,138 @@ def test_renombrar_las_notas_y_volver_atras_no_pierde_ninguna(cliente, ejercicio
     assert otra.json()["id"] > nota["id"]
     textos = [n["nota"] for n in cliente.get(ruta).json()]
     assert sorted(textos) == ["Asiento en el 4", "Barra baja"]
+
+
+# --- La migración de los tipos de ejercicio --------------------------------
+#
+# `c5a91e7d3b24` da un tipo a cada ejercicio (el que ya había, peso y repeticiones,
+# por defecto) y deja el peso y las repeticiones de una serie poder ir nulos. Al
+# bajar, una serie por tiempo o con una carga de ayuda no cabe en las columnas de
+# antes: se niega, contando cuántas hay, y no toca nada.
+
+ANTES_DE_LOS_TIPOS = "b4e81d2c6f07"
+LOS_TIPOS = "c5a91e7d3b24"
+
+
+@pytest.mark.parametrize(
+    "tipo, medidas",
+    [
+        pytest.param("tiempo", {"duracion_s": 45}, id="una-serie-por-tiempo"),
+        pytest.param("corporal", {"peso": -20, "repeticiones": 8}, id="una-serie-con-ayuda"),
+    ],
+)
+def test_quitar_los_tipos_se_niega_si_hay_series_que_no_caben_y_no_toca_nada(
+    cliente, grupo_muscular_id, tipo, medidas
+):
+    """Con una serie que no cabe y otra de peso y repeticiones que sí: la migración
+    cuenta solo la que no cabe, la base sigue en la versión de los tipos y las dos
+    series siguen tal cual.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    otro = crear_ejercicio(cliente, grupo_muscular_id, "Otro", tipo=tipo)
+    rutina = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
+    sesion = cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": "2026-09-04"})
+    ruta = f"/entrenamientos/{sesion.json()['id']}/series"
+    for orden, (ejercicio, cuerpo) in enumerate(
+        [(press, {"peso": 60, "repeticiones": 8}), (otro, medidas)], start=1
+    ):
+        hueco = cliente.post(
+            f"/rutinas/{rutina}/slots",
+            json={
+                "ejercicio_principal_id": ejercicio,
+                "orden": orden,
+                "series_objetivo": 3,
+                "reps_min": 6,
+                "reps_max": 10,
+            },
+        ).json()["id"]
+        serie = {"ejercicio_id": ejercicio, "slot_id": hueco, "numero_serie": 1, **cuerpo}
+        assert cliente.post(ruta, json=serie).status_code == 201
+    antes = cliente.get(f"/entrenamientos/{sesion.json()['id']}").json()
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        with pytest.raises(RuntimeError) as error:
+            command.downgrade(configuracion, ANTES_DE_LOS_TIPOS)
+
+        assert "No se puede deshacer: hay 1 serie(s) que no son" in str(error.value)
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+        assert version == LOS_TIPOS
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    assert cliente.get(f"/entrenamientos/{sesion.json()['id']}").json() == antes
+
+
+def test_subir_los_tipos_con_datos_deja_cada_ejercicio_de_peso_y_repeticiones(cliente):
+    """El `server_default` rellena los ejercicios que ya existían (propios y
+    predefinidos) y las series de antes siguen igual, sin duración ni peso corporal.
+    Se baja a la versión anterior, se meten los datos con el esquema de entonces y se
+    vuelve a subir.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, ANTES_DE_LOS_TIPOS)
+    try:
+        with engine.begin() as conexion:
+
+            def fila(sql, **valores):
+                return conexion.scalar(text(sql + " RETURNING id"), valores)
+
+            grupo = conexion.scalar(text("SELECT min(id) FROM grupos_musculares"))
+            remo = fila(
+                "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, created_at, "
+                "updated_at) VALUES ('Remo', :g, false, now(), now())",
+                g=grupo,
+            )
+            rutina = fila(
+                "INSERT INTO rutinas (nombre, created_at, updated_at) VALUES ('Pull', now(), now())"
+            )
+            hueco = fila(
+                "INSERT INTO rutina_slots (rutina_id, ejercicio_principal_id, orden, "
+                "series_objetivo, reps_min, reps_max, created_at, updated_at) "
+                "VALUES (:r, :e, 1, 3, 6, 10, now(), now())",
+                r=rutina,
+                e=remo,
+            )
+            sesion = fila(
+                "INSERT INTO entrenamientos (rutina_id, fecha, created_at, updated_at) "
+                "VALUES (:r, '2026-09-04', now(), now())",
+                r=rutina,
+            )
+            fila(
+                "INSERT INTO series (entrenamiento_id, slot_id, ejercicio_id, numero_serie, peso, "
+                "repeticiones, created_at, updated_at) VALUES (:s, :h, :e, 1, 60, 8, now(), now())",
+                s=sesion,
+                h=hueco,
+                e=remo,
+            )
+
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    ejercicios = cliente.get("/ejercicios").json()
+    assert {e["tipo_registro"] for e in ejercicios} == {"peso_reps"}
+    assert [e["nombre"] for e in ejercicios if not e["es_predefinido"]] == ["Remo"]
+    [serie] = cliente.get(f"/entrenamientos/{sesion}").json()["series"]
+    assert (serie["peso"], serie["repeticiones"], serie["duracion_s"], serie["peso_corporal"]) == (
+        "60.00",
+        8,
+        None,
+        None,
+    )

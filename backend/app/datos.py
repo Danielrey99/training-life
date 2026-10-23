@@ -19,6 +19,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.fechas import hoy
+from app.medidas import validar_medidas
 from app.models import (
     Ejercicio,
     Entrenamiento,
@@ -118,6 +119,8 @@ def exportar(db: Session) -> ArchivoDeDatos:
                 "numero_serie": serie.numero_serie,
                 "peso": serie.peso,
                 "repeticiones": serie.repeticiones,
+                "duracion_s": serie.duracion_s,
+                "peso_corporal": serie.peso_corporal,
                 "variante": serie.variante,
                 "created_at": serie.created_at,
                 "updated_at": serie.updated_at,
@@ -133,6 +136,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
                     "id": e.id,
                     "nombre": e.nombre,
                     "grupo_muscular": grupos[e.grupo_muscular_id],
+                    "tipo_registro": e.tipo_registro,
                     "descripcion": e.descripcion,
                     "oculto_desde": e.oculto_desde,
                     "created_at": e.created_at,
@@ -241,8 +245,9 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     # Predefinidos y grupos de esta instalación, por nombre.
     nombres = {p.nombre for p in datos.predefinidos}
     existentes: dict[str, int] = {}
-    for id_, nombre in db.execute(
-        select(Ejercicio.id, Ejercicio.nombre)
+    tipo_del_predefinido: dict[str, str] = {}
+    for id_, nombre, tipo in db.execute(
+        select(Ejercicio.id, Ejercicio.nombre, Ejercicio.tipo_registro)
         .where(
             Ejercicio.es_predefinido.is_(True),
             Ejercicio.nombre.in_(nombres),
@@ -250,7 +255,9 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
         .order_by(Ejercicio.id)
     ):
         # Si hubiera dos con el mismo nombre, el más antiguo.
-        existentes.setdefault(nombre, id_)
+        if nombre not in existentes:
+            existentes[nombre] = id_
+            tipo_del_predefinido[nombre] = tipo
     for predefinido in datos.predefinidos:
         if predefinido.nombre in existentes:
             mapas.predefinidos[predefinido.id] = existentes[predefinido.nombre]
@@ -332,6 +339,13 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     nombre_de = {e.id: e.nombre for e in datos.ejercicios} | {
         p.id: p.nombre for p in datos.predefinidos
     }
+    # Solo con los ejercicios que se han podido resolver: un predefinido que no existe aquí
+    # ya dio su error, y buscar su tipo sería un `KeyError` y un 500 en vez de un 422.
+    tipo_de = {e.id: e.tipo_registro for e in datos.ejercicios} | {
+        p.id: tipo_del_predefinido[p.nombre]
+        for p in datos.predefinidos
+        if p.nombre in tipo_del_predefinido
+    }
     for sesion in datos.entrenamientos:
         rutina = rutinas.get(sesion.rutina_id)
         if rutina is None:
@@ -353,6 +367,15 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                     " después."
                 )
         for serie in sesion.series:
+            if serie.ejercicio_id in tipo_de:
+                # Las medidas que pide el tipo de su ejercicio (`app/medidas.py`).
+                mal = validar_medidas(
+                    nombre_de[serie.ejercicio_id], tipo_de[serie.ejercicio_id], serie.model_dump()
+                )
+                if mal:
+                    errores.append(
+                        f"La sesión del {sesion.fecha} tiene una serie mal apuntada: {mal}"
+                    )
             if serie.ejercicio_id not in ejercicios:
                 errores.append(
                     f"La sesión del {sesion.fecha} tiene una serie de un ejercicio que no está"
@@ -467,6 +490,7 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
             nombre=e.nombre,
             grupo_muscular_id=mapas.grupos[e.grupo_muscular],
             descripcion=e.descripcion,
+            tipo_registro=e.tipo_registro,
             es_predefinido=False,
             oculto_desde=e.oculto_desde,
             created_at=e.created_at,
@@ -594,6 +618,8 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
             numero_serie=x.numero_serie,
             peso=x.peso,
             repeticiones=x.repeticiones,
+            duracion_s=x.duracion_s,
+            peso_corporal=x.peso_corporal,
             variante=x.variante,
             created_at=x.created_at,
             updated_at=x.updated_at,

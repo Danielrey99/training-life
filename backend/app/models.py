@@ -65,12 +65,23 @@ class Ejercicio(Ocultable, Base):
     """
 
     __tablename__ = "ejercicios"
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_registro IN ('peso_reps', 'corporal', 'tiempo')",
+            name="ejercicios_tipo_registro_check",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100))
     grupo_muscular_id: Mapped[int] = mapped_column(ForeignKey("grupos_musculares.id"))
     descripcion: Mapped[str | None] = mapped_column(String(500), default=None)
     es_predefinido: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Cómo se apunta cada serie de este ejercicio (ver `app/medidas.py`). Se elige al
+    # crearlo y no cambia: una serie ya apuntada no se puede reinterpretar.
+    tipo_registro: Mapped[str] = mapped_column(
+        String(20), default="peso_reps", server_default="peso_reps"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -275,6 +286,25 @@ class Serie(Base):
     """
 
     __tablename__ = "series"
+    # Solo la forma de la serie: o lleva repeticiones (con peso) o lleva duración. Qué
+    # medidas pide cada ejercicio lo decide su tipo (`app/medidas.py`), que está en otra
+    # tabla y por eso lo comprueba el endpoint.
+    __table_args__ = (
+        CheckConstraint(
+            "(repeticiones IS NOT NULL AND peso IS NOT NULL AND duracion_s IS NULL)"
+            " OR (repeticiones IS NULL AND duracion_s IS NOT NULL)",
+            name="series_medidas_check",
+        ),
+        # Una carga negativa (la ayuda de las dominadas) solo existe con repeticiones.
+        CheckConstraint(
+            "peso IS NULL OR peso >= 0 OR repeticiones IS NOT NULL", name="series_peso_check"
+        ),
+        CheckConstraint("duracion_s IS NULL OR duracion_s > 0", name="series_duracion_check"),
+        CheckConstraint(
+            "peso_corporal IS NULL OR (peso_corporal > 0 AND repeticiones IS NOT NULL)",
+            name="series_peso_corporal_check",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # CASCADE: una serie no tiene sentido sin su entrenamiento (a diferencia
@@ -286,8 +316,14 @@ class Serie(Base):
     slot_id: Mapped[int] = mapped_column(ForeignKey("rutina_slots.id", ondelete="RESTRICT"))
     ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="RESTRICT"))
     numero_serie: Mapped[int] = mapped_column()
-    peso: Mapped[Decimal] = mapped_column(Numeric(6, 2))
-    repeticiones: Mapped[int] = mapped_column()
+    # Según el tipo del ejercicio, unas medidas valen y otras van nulas.
+    peso: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), default=None)
+    repeticiones: Mapped[int | None] = mapped_column(default=None)
+    # En segundos.
+    duracion_s: Mapped[int | None] = mapped_column(default=None)
+    # Cuánto pesaba la persona al hacer una serie de peso corporal, en kg. Ningún cálculo
+    # lo usa: es un dato de la serie, como la variante.
+    peso_corporal: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=None)
     variante: Mapped[str | None] = mapped_column(String(100), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(

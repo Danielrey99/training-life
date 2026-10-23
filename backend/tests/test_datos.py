@@ -48,6 +48,8 @@ HOY = date(2026, 9, 16)
 
 NO_ES_UNA_COPIA = "Este archivo no es una copia de los datos de Training Life."
 MAS_NUEVA = "Este archivo es de una versión más nueva de la app. Actualízala para cargarlo."
+ANTERIOR = "Este archivo es de una versión anterior de la app y ya no se puede cargar."
+NEGATIVO = "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
 DANADO = "El archivo está dañado."
 _AHORA = "2026-09-16T10:00:00+00:00"
 NO_SE_CAMBIA_NADA = "No se puede cargar el archivo: no se ha cambiado nada."
@@ -104,6 +106,11 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     En una sesión, cada hueco se hace con un solo ejercicio (si no, importar su
     propio archivo daría 422): el press, el remo (comodín) y `de_serie` van cada uno
     en un hueco o una sesión distintos.
+
+    Todo es de peso y repeticiones y sin peso corporal, a propósito: la migración de
+    los tipos se niega a bajar con series de otra forma y perdería el peso corporal, y
+    `test_infraestructura.py` baja por debajo de ella con este escenario. Los tipos
+    nuevos están en `montar_datos_por_tipo`.
     """
     (comodin, de_nota, de_serie, sin_usar) = _predefinidos(sesion_bd, 4)
     grupo_id, grupo = sesion_bd.execute(
@@ -313,6 +320,89 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     }
 
 
+def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
+    """Lo que solo existe con los tipos de ejercicio, para montar encima de
+    `montar_datos` (o solo): un ejercicio propio de cada tipo y una rutina «Core» con
+    un hueco de cada uno, más uno de la sentadilla (predefinido, de peso y
+    repeticiones). Dos sesiones (el 2 y el 3 de septiembre, días que `montar_datos`
+    no usa) con dominadas con ayuda y con peso corporal, con lastre y sin carga, una
+    plancha sin peso y otra con peso, y la sentadilla.
+    """
+    grupo_id = sesion_bd.scalar(select(GrupoMuscular.id).order_by(GrupoMuscular.id))
+    marca = {
+        "created_at": instante("2026-08-20T09:00:00.000123+00:00"),
+        "updated_at": instante("2026-08-21T09:00:00.000456+00:00"),
+    }
+
+    def ejercicio(nombre, tipo):
+        fila = Ejercicio(nombre=nombre, grupo_muscular_id=grupo_id, tipo_registro=tipo, **marca)
+        sesion_bd.add(fila)
+        sesion_bd.flush()
+        return fila.id
+
+    dominadas = ejercicio("Dominadas lastradas", "corporal")
+    plancha = ejercicio("Plancha con disco", "tiempo")
+    remo = ejercicio("Remo con barra", "peso_reps")
+    core = Rutina(nombre="Core", **marca)
+    sesion_bd.add(core)
+    sesion_bd.flush()
+    huecos = {}
+    for orden, principal in enumerate((dominadas, plancha, remo, sentadilla_id), start=1):
+        fila = RutinaSlot(
+            rutina_id=core.id,
+            ejercicio_principal_id=principal,
+            orden=orden,
+            series_objetivo=3,
+            reps_min=6,
+            reps_max=10,
+            **marca,
+        )
+        sesion_bd.add(fila)
+        sesion_bd.flush()
+        huecos[principal] = fila.id
+
+    def sesion(dia, *series):
+        fila = Entrenamiento(
+            rutina_id=core.id,
+            fecha=date(2026, 9, dia),
+            terminada_en=instante(f"2026-09-0{dia}T19:00:00+00:00"),
+            **marca,
+        )
+        sesion_bd.add(fila)
+        sesion_bd.flush()
+        for numero, (ejercicio_id, medidas) in enumerate(series, start=1):
+            sesion_bd.add(
+                Serie(
+                    entrenamiento_id=fila.id,
+                    slot_id=huecos[ejercicio_id],
+                    ejercicio_id=ejercicio_id,
+                    numero_serie=numero,
+                    **medidas,
+                    **marca,
+                )
+            )
+            sesion_bd.flush()
+
+    sesion(
+        2,
+        (
+            dominadas,
+            {"peso": Decimal("-20"), "repeticiones": 8, "peso_corporal": Decimal("78.5")},
+        ),
+        (dominadas, {"peso": Decimal("10"), "repeticiones": 6}),
+        (plancha, {"duracion_s": 45}),
+        (sentadilla_id, {"peso": Decimal("80"), "repeticiones": 5}),
+    )
+    sesion(
+        3,
+        (dominadas, {"peso": Decimal("0"), "repeticiones": 12, "peso_corporal": Decimal("79")}),
+        (plancha, {"duracion_s": 90, "peso": Decimal("10")}),
+        (remo, {"peso": Decimal("70"), "repeticiones": 8}),
+    )
+    sesion_bd.commit()
+    return {"core": core.id, "dominadas": dominadas, "plancha": plancha, "remo_con_barra": remo}
+
+
 def exportado(cliente) -> dict:
     respuesta = cliente.get("/datos/exportar")
     assert respuesta.status_code == 200, respuesta.text
@@ -440,6 +530,12 @@ def datos(sesion_bd, hoy_es, ejercicio_predefinido_id) -> dict:
     return montar_datos(sesion_bd, ejercicio_predefinido_id)
 
 
+@pytest.fixture
+def datos_por_tipo(sesion_bd, datos, ejercicio_predefinido_id) -> dict:
+    """Todo: el escenario de siempre y, encima, el de los tipos de ejercicio."""
+    return {**datos, **montar_datos_por_tipo(sesion_bd, ejercicio_predefinido_id)}
+
+
 # --- 1. Exportar sin datos -------------------------------------------------------
 
 
@@ -452,7 +548,7 @@ def test_exportar_sin_datos_da_el_formato_con_las_listas_vacias(cliente, hoy_es)
     archivo = respuesta.json()
     assert sin_marca(archivo) == {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "predefinidos": [],
         "ejercicios": [],
         "notas": [],
@@ -592,7 +688,7 @@ def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
     con_poco = consultas_de(lambda: cliente.get("/datos/exportar"))
 
     # Se vacía y se monta el mismo escenario con diez sesiones más.
-    vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/exportar"))
@@ -615,9 +711,9 @@ def test_exportar_importar_y_exportar_da_el_mismo_archivo(cliente, datos):
     assert {r["id"] for r in b["rutinas"]}.isdisjoint({r["id"] for r in a["rutinas"]})
 
 
-def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos):
+def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos_por_tipo):
     """Si un campo saliera siempre nulo o vacío, la ida y vuelta no vería que se
-    pierde. Esto obliga a que el escenario lo rellene en algún sitio.
+    pierde. Esto obliga a que el escenario (con los tipos) lo rellene en algún sitio.
     """
     archivo = exportado(cliente)
     rellenos: dict[str, bool] = {}
@@ -640,6 +736,61 @@ def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos):
     assert [ruta for ruta, relleno in rellenos.items() if not relleno] == []
 
 
+def test_exportar_escribe_la_version_2_con_el_tipo_y_las_medidas_de_cada_serie(
+    cliente, datos_por_tipo
+):
+    archivo = exportado(cliente)
+
+    assert archivo["version"] == 2
+    tipos = {e["nombre"]: e["tipo_registro"] for e in archivo["ejercicios"]}
+    assert tipos == {
+        "Press inclinado con mancuernas": "peso_reps",
+        "Remo en máquina vieja": "peso_reps",
+        "Dominadas lastradas": "corporal",
+        "Plancha con disco": "tiempo",
+        "Remo con barra": "peso_reps",
+    }
+    # Los predefinidos no llevan tipo: vale el de la instalación que importa.
+    assert all("tipo_registro" not in p for p in archivo["predefinidos"])
+    medidas = [
+        (s["peso"], s["repeticiones"], s["duracion_s"], s["peso_corporal"])
+        for s in _sesion(archivo, "2026-09-02")["series"]
+    ]
+    assert medidas == [
+        ("-20.00", 8, None, "78.50"),
+        ("10.00", 6, None, None),
+        (None, None, 45, None),
+        ("80.00", 5, None, None),
+    ]
+
+
+def test_la_ida_y_vuelta_conserva_los_tipos_y_las_medidas(cliente, sesion_bd, datos_por_tipo):
+    """Exportar, importar y exportar da el mismo archivo con los tipos, y en la base
+    quedan las mismas series, columna a columna (sin los ids, que cambian).
+    """
+    antes = exportado(cliente)
+
+    respuesta = importar(cliente, antes)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert sin_ids(exportado(cliente)) == sin_ids(antes)
+    sesion_bd.expire_all()
+    series = sesion_bd.execute(
+        select(Ejercicio.nombre, Ejercicio.tipo_registro, Serie.peso, Serie.repeticiones)
+        .add_columns(Serie.duracion_s, Serie.peso_corporal)
+        .join(Ejercicio, Ejercicio.id == Serie.ejercicio_id)
+        .where(Ejercicio.nombre.in_(["Dominadas lastradas", "Plancha con disco"]))
+        .order_by(Serie.id)
+    ).all()
+    assert [tuple(s) for s in series] == [
+        ("Dominadas lastradas", "corporal", Decimal("-20.00"), 8, None, Decimal("78.50")),
+        ("Dominadas lastradas", "corporal", Decimal("10.00"), 6, None, None),
+        ("Plancha con disco", "tiempo", None, None, 45, None),
+        ("Dominadas lastradas", "corporal", Decimal("0.00"), 12, None, Decimal("79.00")),
+        ("Plancha con disco", "tiempo", Decimal("10.00"), None, 90, None),
+    ]
+
+
 def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, datos):
     antes = lo_que_se_ve(cliente)
     # Que la comparación no sea entre dos listas de descansos: hay de todo.
@@ -648,6 +799,17 @@ def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, 
     assert {"hecho", "sin_hacer", "descanso", "proximo"} <= {
         dia["estado"] for dia in antes["seguimiento"]
     }
+
+    assert importar(cliente, exportado(cliente)).status_code == 200
+
+    assert lo_que_se_ve(cliente) == antes
+
+
+def test_con_los_tipos_la_ida_y_vuelta_tampoco_cambia_lo_que_se_ve(cliente, datos_por_tipo):
+    """El resumen, sobre todo: si un ejercicio volviera con otro tipo, su volumen
+    contaría (o dejaría de contar) y la gráfica cambiaría.
+    """
+    antes = lo_que_se_ve(cliente)
 
     assert importar(cliente, exportado(cliente)).status_code == 200
 
@@ -702,7 +864,7 @@ def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente,
     hoy_es(HOY)
     archivo = {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "rutinas": [
             {
@@ -727,10 +889,18 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     return {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": predefinido_id, "nombre": predefinido_nombre}],
-        "ejercicios": [{"id": 500, "nombre": "Fondos lastrados", "grupo_muscular": grupo, **marca}],
+        "ejercicios": [
+            {
+                "id": 500,
+                "nombre": "Fondos lastrados",
+                "grupo_muscular": grupo,
+                "tipo_registro": "corporal",
+                **marca,
+            }
+        ],
         "notas": [{"ejercicio_id": 500, "nota": "Con cinturón", **marca}],
         "rutinas": [
             {
@@ -808,7 +978,7 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
 
 
 def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos):
-    vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, vacio)
 
@@ -845,10 +1015,16 @@ def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "ejercicios": [
-            {"id": 3, "nombre": "Sentadilla con barra", "grupo_muscular": grupo, **marca}
+            {
+                "id": 3,
+                "nombre": "Sentadilla con barra",
+                "grupo_muscular": grupo,
+                "tipo_registro": "peso_reps",
+                **marca,
+            }
         ],
     }
 
@@ -898,17 +1074,17 @@ def test_un_programa_activo_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
     assert [tuple(p) for p in periodos] == esperado
 
 
-# --- El RPE de los archivos viejos -------------------------------------------
+# --- Campos que el formato no conoce -----------------------------------------
 #
-# Las series tenían RPE y se quitó sin subir la versión del formato: un archivo
-# exportado antes sigue siendo de la versión 1 y trae `rpe` en cada serie.
+# Ningún modelo del formato lleva `extra="forbid"`: lo que sobre en un archivo no
+# impide cargarlo. Los archivos de antes de quitar el RPE lo traían en cada serie;
+# esos ya no se cargan (son de la versión 1), pero el caso sirve igual.
 
 
-def test_un_archivo_viejo_con_rpe_se_importa_sin_perder_nada_mas(cliente, datos):
-    """Un archivo de antes de quitar el RPE se carga igual (y se comprueba igual):
-    el `rpe` se descarta, incluso uno que ya entonces estaba fuera de rango (11) o
-    nulo, y el resto de cada serie queda tal cual. Lo que se exporta después ya no
-    lo lleva.
+def test_un_campo_que_el_formato_no_conoce_se_descarta_sin_perder_nada_mas(cliente, datos):
+    """Un `rpe` en cada serie (incluso uno fuera de rango, 11, o nulo) se descarta, al
+    importar y al comprobar, y el resto de cada serie queda tal cual. Lo que se
+    exporta después ya no lo lleva.
     """
     archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
@@ -967,8 +1143,13 @@ def _otro_formato(a):
     a["formato"] = "otra-app"
 
 
-def _version_2(a):
-    a["version"] = 2
+def _version_3(a):
+    a["version"] = 3
+
+
+def _version_1(a):
+    """La de antes de los tipos de ejercicio: no se convierte (decisión del autor)."""
+    a["version"] = 1
 
 
 def _version_0(a):
@@ -976,11 +1157,69 @@ def _version_0(a):
 
 
 def _version_texto(a):
-    a["version"] = "1"
+    a["version"] = "2"
+
+
+def _version_x(a):
+    a["version"] = "x"
+
+
+def _version_nula(a):
+    a["version"] = None
+
+
+def _sin_version(a):
+    del a["version"]
 
 
 def _peso_roto(a):
     _sesion(a, "2026-09-07")["series"][0]["peso"] = "mucho"
+
+
+def _ejercicio_sin_tipo(a):
+    del a["ejercicios"][0]["tipo_registro"]
+
+
+def _ejercicio_de_un_tipo_que_no_existe(a):
+    a["ejercicios"][0]["tipo_registro"] = "cardio"
+
+
+def _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones(a):
+    # La primera del 7 es del press.
+    _sesion(a, "2026-09-07")["series"][0]["duracion_s"] = 30
+
+
+def _serie_sin_peso(a):
+    _sesion(a, "2026-09-07")["series"][0]["peso"] = None
+
+
+def _serie_por_tiempo_de_un_predefinido(a):
+    # La primera del 9 es de la sentadilla: su tipo es el de esta instalación.
+    _sesion(a, "2026-09-09")["series"][0]["duracion_s"] = 30
+
+
+def _peso_corporal_en_una_serie_de_peso_y_repeticiones(a):
+    _sesion(a, "2026-09-07")["series"][0]["peso_corporal"] = "80.00"
+
+
+def _ayuda_en_una_serie_de_peso_y_repeticiones(a):
+    _sesion(a, "2026-09-11")["series"][0]["peso"] = "-5.00"
+
+
+def _ayuda_que_no_cabe(a):
+    _sesion(a, "2026-09-07")["series"][0]["peso"] = "-10000"
+
+
+def _peso_corporal_cero(a):
+    _sesion(a, "2026-09-07")["series"][0]["peso_corporal"] = "0"
+
+
+def _duracion_de_mas_de_un_dia(a):
+    serie = _sesion(a, "2026-09-07")["series"][0]
+    serie["peso"], serie["repeticiones"], serie["duracion_s"] = None, None, 86401
+
+
+MAL_APUNTADA = "La sesión del {} tiene una serie mal apuntada: "
 
 
 def _hora_sin_zona(a):
@@ -1153,10 +1392,49 @@ FUERA_DE_PLAZO = (
 MALOS = [
     (_sin_formato, NO_ES_UNA_COPIA, None),
     (_otro_formato, NO_ES_UNA_COPIA, None),
-    (_version_2, MAS_NUEVA, None),
+    (_version_3, MAS_NUEVA, None),
+    (_version_1, ANTERIOR, None),
     (_version_0, NO_ES_UNA_COPIA, None),
     (_version_texto, NO_ES_UNA_COPIA, None),
+    (_version_x, NO_ES_UNA_COPIA, None),
+    (_version_nula, NO_ES_UNA_COPIA, None),
+    (_sin_version, NO_ES_UNA_COPIA, None),
     (_peso_roto, DANADO, "entrenamientos.0.series.0.peso"),
+    (_ejercicio_sin_tipo, DANADO, "ejercicios.0.tipo_registro"),
+    (_ejercicio_de_un_tipo_que_no_existe, DANADO, "ejercicios.0.tipo_registro"),
+    (_ayuda_que_no_cabe, DANADO, "entrenamientos.0.series.0.peso"),
+    (_peso_corporal_cero, DANADO, "entrenamientos.0.series.0.peso_corporal"),
+    (_duracion_de_mas_de_un_dia, DANADO, "entrenamientos.0.series.0.duracion_s"),
+    (
+        _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones,
+        NO_SE_CAMBIA_NADA,
+        MAL_APUNTADA.format("2026-09-07")
+        + "Press inclinado con mancuernas se apunta con peso y repeticiones: sobra la duración.",
+    ),
+    (
+        _serie_sin_peso,
+        NO_SE_CAMBIA_NADA,
+        MAL_APUNTADA.format("2026-09-07")
+        + "Press inclinado con mancuernas se apunta con peso y repeticiones: falta el peso.",
+    ),
+    (
+        _serie_por_tiempo_de_un_predefinido,
+        NO_SE_CAMBIA_NADA,
+        MAL_APUNTADA.format("2026-09-09")
+        + "Sentadilla con barra se apunta con peso y repeticiones: sobra la duración.",
+    ),
+    (
+        _peso_corporal_en_una_serie_de_peso_y_repeticiones,
+        NO_SE_CAMBIA_NADA,
+        MAL_APUNTADA.format("2026-09-07")
+        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
+        " Press inclinado con mancuernas no lo es.",
+    ),
+    (
+        _ayuda_en_una_serie_de_peso_y_repeticiones,
+        NO_SE_CAMBIA_NADA,
+        MAL_APUNTADA.format("2026-09-11") + NEGATIVO,
+    ),
     (_hora_sin_zona, DANADO, "rutinas.0.created_at"),
     (_nombre_vacio, DANADO, "rutinas.0.nombre"),
     (_rutina_con_id_repetido, NO_SE_CAMBIA_NADA, "Hay dos rutinas con el id"),
@@ -1381,12 +1659,130 @@ def test_el_mismo_hueco_con_otro_ejercicio_en_otra_sesion_si_se_importa(cliente,
     assert importar(cliente, archivo).status_code == 200
 
 
+def _de(archivo, nombre):
+    return next(e for e in archivo["ejercicios"] if e["nombre"] == nombre)
+
+
+def _dominadas_con_duracion(a):
+    # La primera del 2 es la de las dominadas con ayuda.
+    _sesion(a, "2026-09-02")["series"][0]["duracion_s"] = 30
+
+
+def _plancha_sin_duracion(a):
+    serie = _sesion(a, "2026-09-02")["series"][2]
+    serie["duracion_s"], serie["peso"] = None, "5.00"
+
+
+def _plancha_con_ayuda(a):
+    _sesion(a, "2026-09-03")["series"][1]["peso"] = "-5.00"
+
+
+def _plancha_con_peso_corporal(a):
+    _sesion(a, "2026-09-02")["series"][2]["peso_corporal"] = "78.00"
+
+
+def _dominadas_por_tiempo(a):
+    _de(a, "Dominadas lastradas")["tipo_registro"] = "tiempo"
+
+
+def _plancha_de_peso_y_repeticiones(a):
+    _de(a, "Plancha con disco")["tipo_registro"] = "peso_reps"
+
+
+def _ayuda_en_un_ejercicio_que_pasa_a_peso_y_repeticiones(a):
+    _de(a, "Dominadas lastradas")["tipo_registro"] = "peso_reps"
+
+
+MAL_POR_TIPO = [
+    (
+        _dominadas_con_duracion,
+        MAL_APUNTADA.format("2026-09-02")
+        + "Dominadas lastradas se apunta con repeticiones y carga: sobra la duración.",
+    ),
+    (
+        _plancha_sin_duracion,
+        MAL_APUNTADA.format("2026-09-02") + "Plancha con disco se apunta por tiempo: falta la"
+        " duración.",
+    ),
+    (_plancha_con_ayuda, MAL_APUNTADA.format("2026-09-03") + NEGATIVO),
+    (
+        _plancha_con_peso_corporal,
+        MAL_APUNTADA.format("2026-09-02")
+        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
+        " Plancha con disco no lo es.",
+    ),
+    # El tipo del archivo manda: las series de un ejercicio se miran con el suyo.
+    (
+        _dominadas_por_tiempo,
+        MAL_APUNTADA.format("2026-09-02")
+        + "Dominadas lastradas se apunta por tiempo: falta la duración",
+    ),
+    (
+        _plancha_de_peso_y_repeticiones,
+        MAL_APUNTADA.format("2026-09-02")
+        + "Plancha con disco se apunta con peso y repeticiones: faltan el peso y las"
+        " repeticiones y sobra la duración.",
+    ),
+    (
+        _ayuda_en_un_ejercicio_que_pasa_a_peso_y_repeticiones,
+        MAL_APUNTADA.format("2026-09-02") + NEGATIVO,
+    ),
+]
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+@pytest.mark.parametrize(
+    "estropear, error", MAL_POR_TIPO, ids=[f.__name__.lstrip("_") for f, _ in MAL_POR_TIPO]
+)
+def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
+    cliente, datos_por_tipo, estropear, error, comprobar
+):
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    estropear(archivo)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    detalle = respuesta.json()["detail"]
+    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
+    assert any(error in e for e in detalle["errores"]), detalle["errores"]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente, datos, comprobar):
+    """Regresión del plan: el tipo de un predefinido sale de esta instalación, y uno
+    que aquí no existe no tiene tipo. Buscarlo para mirar sus series era un
+    `KeyError` (un 500) en vez del 422 que dice que no existe. La sentadilla es
+    principal de un hueco y tiene series en dos sesiones.
+    """
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    [sentadilla] = [p for p in archivo["predefinidos"] if p["nombre"] == "Sentadilla con barra"]
+    sentadilla["nombre"] = "Sentadilla de cristal"
+    assert any(
+        s["ejercicio_id"] == sentadilla["id"]
+        for x in archivo["entrenamientos"]
+        for s in x["series"]
+    )
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    detalle = respuesta.json()["detail"]
+    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
+    assert any('"Sentadilla de cristal" no' in e for e in detalle["errores"]), detalle
+    assert not any("mal apuntada" in e for e in detalle["errores"]), detalle
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
 def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     hoy_es(HOY)
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "notas": [{"ejercicio_id": 1000 + n, "nota": "x", **marca} for n in range(30)],
     }
@@ -1478,7 +1874,7 @@ def test_comprobar_dice_que_hay_en_el_archivo_y_que_hay_ahora_sin_cambiar_nada(c
 
 def test_comprobar_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
     hoy_es(HOY)
-    vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, vacio, comprobar=True).json()
 
@@ -1608,7 +2004,7 @@ def test_tras_importar_el_resumen_coincide_con_la_respuesta_de_importar(cliente,
     elif que == "uno pequeño":
         archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
     else:
-        archivo = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+        archivo = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, archivo)
 
@@ -1624,7 +2020,7 @@ def test_el_resumen_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
     montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = consultas_de(lambda: cliente.get("/datos/resumen"))
 
-    vacio = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/resumen"))
@@ -1657,7 +2053,7 @@ def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos, que):
     antes = _predefinidos_en_bd(sesion_bd)
     archivo = exportado(cliente)
     if que == "uno vacío":
-        archivo = {"formato": "training-life", "version": 1, "exportado_en": _AHORA}
+        archivo = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
 
     assert importar(cliente, archivo).status_code == 200
 
@@ -1676,7 +2072,7 @@ def test_los_predefinidos_del_archivo_van_por_nombre_y_no_por_id(
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": 4242, "nombre": "Sentadilla con barra"}],
         "notas": [{"ejercicio_id": 4242, "nota": "Barra baja", **marca}],
@@ -1752,7 +2148,7 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": 7, "nombre": "Press del autor"}],
         "notas": [{"ejercicio_id": 7, "nota": "Con pausa", **marca}],
@@ -1873,7 +2269,7 @@ def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
 
     assert sin_marca(exportado(cliente)) == {
         "formato": "training-life",
-        "version": 1,
+        "version": 2,
         "predefinidos": [],
         "ejercicios": [],
         "notas": [],
