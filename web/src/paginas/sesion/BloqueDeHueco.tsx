@@ -2,7 +2,7 @@ import type { Ejercicio, HuecoDeRutina, Serie } from '../../api/tipos'
 import { objetivoDelEjercicio, seriesObjetivoDe } from '../programas/textos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCorta } from '../../utiles/fechas'
-import { pesoCorporalLegible, serieLarga } from '../../utiles/medidas'
+import { pesoCorporalLegible, ritmoDeLaSerie, serieLarga } from '../../utiles/medidas'
 import { FichasUltimaVez } from './FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from './FormularioDeSerie'
 import { SelectorDeEjercicio } from './SelectorDeEjercicio'
@@ -168,6 +168,9 @@ function HuecoAbierto({
                   {serie.variante && <span className="serie-variante">{serie.variante}</span>}
                   {pesoCorporalLegible(serie) && (
                     <span className="serie-corporal">{pesoCorporalLegible(serie)}</span>
+                  )}
+                  {ritmoDeLaSerie(serie) && (
+                    <span className="serie-corporal">{ritmoDeLaSerie(serie)}</span>
                   )}
                 </span>
                 <button

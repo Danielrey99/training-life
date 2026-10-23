@@ -7,11 +7,14 @@ import { Icono } from '../../componentes/Icono'
 import { ajustes } from '../../utiles/ajustes'
 import {
   aKilos,
+  aMetros,
   enUnidad,
+  enUnidadDeDistancia,
   leerNumero,
   numeroLegible,
   pesoLegible,
   unidad,
+  unidadDeDistancia,
 } from '../../utiles/numeros'
 
 export type DatosDeSerie = {
@@ -20,6 +23,8 @@ export type DatosDeSerie = {
   peso: number | null
   repeticiones: number | null
   duracion_s: number | null
+  // En metros: solo en el cardio, y si se apunta.
+  distancia_m: number | null
   peso_corporal: number | null
   variante: string | null
 }
@@ -39,6 +44,7 @@ type Props = {
     peso: string | number | null
     repeticiones: number | null
     duracion_s?: number | null
+    distancia_m?: number | null
     peso_corporal?: string | number | null
     variante: string | null
   } | null
@@ -102,6 +108,10 @@ export function FormularioDeSerie({
     semilla?.repeticiones != null ? String(semilla.repeticiones) : '',
   )
   const [segundos, setSegundos] = useState(semilla?.duracion_s ?? 0)
+  // La distancia, tal y como se teclea: en la unidad elegida, vacía si no se apuntó.
+  const [distancia, setDistancia] = useState(
+    semilla?.distancia_m ? numeroLegible(enUnidadDeDistancia(semilla.distancia_m), 2) : '',
+  )
   const [pesoCorporal, setPesoCorporal] = useState(
     inicialCorporal !== null ? pesoLegible(inicialCorporal) : '',
   )
@@ -111,6 +121,20 @@ export function FormularioDeSerie({
 
   /** Las medidas de la serie según el tipo, o el aviso de lo que falta. */
   function leerMedidas(): Omit<DatosDeSerie, 'variante'> | string {
+    if (tipo === 'cardio') {
+      if (segundos < 1) return 'Pon cuánto duró.'
+      const km = leerNumero(distancia)
+      if (distancia.trim() !== '' && (km === null || aMetros(km) < 1)) {
+        return 'Pon la distancia, o déjala vacía.'
+      }
+      return {
+        peso: null,
+        repeticiones: null,
+        duracion_s: segundos,
+        distancia_m: distancia.trim() === '' || km === null ? null : aMetros(km),
+        peso_corporal: null,
+      }
+    }
     if (tipo === 'tiempo') {
       if (segundos < 1) return 'Pon cuánto duró.'
       const valor = leerNumero(peso)
@@ -119,6 +143,7 @@ export function FormularioDeSerie({
         peso: peso.trim() === '' || valor === null ? null : aKilos(valor),
         repeticiones: null,
         duracion_s: segundos,
+        distancia_m: null,
         peso_corporal: null,
       }
     }
@@ -128,7 +153,13 @@ export function FormularioDeSerie({
       return corporal ? 'Pon la carga y las repeticiones.' : 'Pon el peso y las repeticiones.'
     }
     if (!corporal) {
-      return { peso: aKilos(valor), repeticiones: reps, duracion_s: null, peso_corporal: null }
+      return {
+        peso: aKilos(valor),
+        repeticiones: reps,
+        duracion_s: null,
+        distancia_m: null,
+        peso_corporal: null,
+      }
     }
     const carga = aKilos(valor)
     const corporalKg = leerNumero(pesoCorporal)
@@ -153,6 +184,7 @@ export function FormularioDeSerie({
       peso: ayuda && carga > 0 ? -carga : carga,
       repeticiones: reps,
       duracion_s: null,
+      distancia_m: null,
       // Si no se tocó, el valor guardado en kg tal cual: pasarlo por lb y de vuelta lo movería.
       peso_corporal: nuevoCorporal,
     }
@@ -249,6 +281,24 @@ export function FormularioDeSerie({
               decimales
             />
           </div>
+        </>
+      )}
+      {tipo === 'cardio' && (
+        <>
+          <CampoDeDuracion
+            etiqueta="Tiempo"
+            segundos={segundos}
+            cambiar={setSegundos}
+            paso={ajustes().pasoTiempo}
+          />
+          <CampoConPasos
+            etiqueta={`Distancia (${unidadDeDistancia()}, opcional)`}
+            valor={distancia}
+            cambiar={setDistancia}
+            paso={0.1}
+            minimo={0}
+            decimales
+          />
         </>
       )}
       {tipo === 'tiempo' && (

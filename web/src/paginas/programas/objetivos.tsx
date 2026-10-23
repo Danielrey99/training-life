@@ -12,7 +12,9 @@ import { objetivo as objetivoEnTexto } from './textos'
 export type Familia = 'repeticiones' | 'duracion'
 
 export const familiaDe = (ejercicio: Pick<Ejercicio, 'tipo_registro'>): Familia =>
-  ejercicio.tipo_registro === 'tiempo' ? 'duracion' : 'repeticiones'
+  ejercicio.tipo_registro === 'tiempo' || ejercicio.tipo_registro === 'cardio'
+    ? 'duracion'
+    : 'repeticiones'
 
 /** El objetivo de un ejercicio en su formulario, tal y como se teclea: mínimo y máximo son reps o segundos. */
 export type ObjetivoEnTexto = { series: string; min: string; max: string }

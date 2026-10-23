@@ -1,5 +1,5 @@
 import type { TipoRegistro } from '../api/tipos'
-import { duracionLegible, pesoLegible, unidad } from './numeros'
+import { distanciaLegible, duracionLegible, pesoLegible, ritmoLegible, unidad } from './numeros'
 
 /**
  * Las medidas que puede llevar una serie, según el tipo de su ejercicio: las que no le
@@ -10,11 +10,14 @@ import { duracionLegible, pesoLegible, unidad } from './numeros'
  * - `corporal`: repeticiones y una carga (`peso`): 0 sin carga, positiva con lastre y
  *   negativa con ayuda.
  * - `tiempo`: duración y, si se lleva, peso.
+ * - `cardio`: duración y, si se quiere, distancia.
  */
 export type Medidas = {
   peso: string | number | null
   repeticiones: number | null
   duracion_s: number | null
+  // Solo las de cardio, y si se apuntó.
+  distancia_m?: number | null
 }
 
 /** Una serie con peso y repeticiones: lo único que entra en el volumen y en el 1RM. */
@@ -37,6 +40,18 @@ function cargaLegible(valor: number): string {
   return `${pesoLegible(Math.abs(valor))} ${unidad()}`
 }
 
+/** «28 min 15 s · 5,2 km»; sin distancia, solo el tiempo. */
+function tiempoYDistancia(serie: Medidas): string {
+  const tiempo = duracionLegible(serie.duracion_s ?? 0)
+  return serie.distancia_m ? `${tiempo} · ${distanciaLegible(serie.distancia_m)}` : tiempo
+}
+
+/** «Ritmo 5:26 /km», en su línea debajo de una serie de cardio; nulo sin distancia. */
+export function ritmoDeLaSerie(serie: Medidas): string | null {
+  if (!serie.duracion_s || !serie.distancia_m) return null
+  return `Ritmo ${ritmoLegible(serie.duracion_s, serie.distancia_m)}`
+}
+
 /**
  * Una serie en una línea: «40 kg × 12 reps», «8 reps con 10 kg de lastre», «45 s»,
  * «40 s con 5 kg».
@@ -44,6 +59,7 @@ function cargaLegible(valor: number): string {
 export function serieLarga(tipo: TipoRegistro, serie: Medidas): string {
   const carga = kilos(serie)
   const reps = serie.repeticiones
+  if (tipo === 'cardio') return tiempoYDistancia(serie)
   if (tipo === 'tiempo') {
     const tiempo = duracionLegible(serie.duracion_s ?? 0)
     return carga ? `${tiempo} con ${cargaLegible(carga)}` : tiempo
@@ -63,6 +79,7 @@ export function serieLarga(tipo: TipoRegistro, serie: Medidas): string {
 export function serieCorta(tipo: TipoRegistro, serie: Medidas): string {
   const carga = kilos(serie)
   const reps = serie.repeticiones
+  if (tipo === 'cardio') return tiempoYDistancia(serie)
   if (tipo === 'tiempo') {
     const tiempo = duracionLegible(serie.duracion_s ?? 0)
     return carga ? `${tiempo} con ${pesoLegible(carga)} ${unidad()}` : tiempo

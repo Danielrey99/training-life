@@ -1,7 +1,16 @@
 import type { SesionHistorial, TipoRegistro } from '../api/tipos'
 import { ajustes } from './ajustes'
 import { conPesoYReps, kilos } from './medidas'
-import { duracionLegible, enUnidad, numeroLegible, unidad, unoRM } from './numeros'
+import {
+  duracionLegible,
+  enUnidad,
+  enUnidadDeDistancia,
+  numeroLegible,
+  ritmoEnTexto,
+  unidad,
+  unidadDeDistancia,
+  unoRM,
+} from './numeros'
 
 /**
  * Una medida que se puede ver en la gráfica de un ejercicio (H3): qué es, cómo se
@@ -24,6 +33,11 @@ export type Medida = {
   cambio: (diferencia: number) => string
   // Lo que dice el globo del punto de una sesión, debajo de la fecha.
   globo: (sesion: SesionHistorial, valor: number) => string
+  // Si la sesión cuenta en esta medida; sin esto, todas. La distancia y el ritmo, solo las
+  // sesiones de cardio que la apuntaron.
+  aplica?: (sesion: SesionHistorial) => boolean
+  // Cómo se escribe un valor en el eje de la gráfica, si no es como un número.
+  marca?: (valor: number) => string
 }
 
 /** «26,7 kg»: el valor, ya en la unidad elegida, con un decimal como mucho. */
@@ -67,6 +81,23 @@ function cargaEnTexto(valor: number): string {
   if (valor === 0) return 'sin carga'
   return `${enKilos(Math.abs(valor))}${valor < 0 ? ' de ayuda' : ''}`
 }
+
+const conDistancia = (sesion: SesionHistorial) =>
+  sesion.series.some((serie) => (serie.distancia_m ?? 0) > 0)
+
+/** La distancia de la sesión, ya en la unidad elegida. */
+const distanciaTotal = (sesion: SesionHistorial) =>
+  enUnidadDeDistancia(sesion.series.reduce((total, serie) => total + (serie.distancia_m ?? 0), 0))
+
+/** Lo que se tarda en recorrer un kilómetro (o una milla), solo con las series que llevan distancia. */
+function ritmoDeLaSesion(sesion: SesionHistorial): number {
+  const con = sesion.series.filter((serie) => (serie.distancia_m ?? 0) > 0)
+  const segundos = con.reduce((total, serie) => total + (serie.duracion_s ?? 0), 0)
+  const metros = con.reduce((total, serie) => total + (serie.distancia_m ?? 0), 0)
+  return segundos / enUnidadDeDistancia(metros)
+}
+
+const escribirDistancia = (valor: number) => `${numeroLegible(valor, 2)} ${unidadDeDistancia()}`
 
 const MEDIDAS: Record<TipoRegistro, Medida[]> = {
   peso_reps: [
@@ -170,6 +201,43 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       globo: (_, valor) => enKilos(valor),
     },
   ],
+  cardio: [
+    {
+      clave: 'distancia',
+      texto: 'Distancia',
+      rotulo: 'Por sesión',
+      valor: distanciaTotal,
+      enPeso: false,
+      aplica: conDistancia,
+      escribir: escribirDistancia,
+      cambio: (diferencia) => conSigno(diferencia, escribirDistancia(Math.abs(diferencia))),
+      globo: (_, valor) => escribirDistancia(valor),
+    },
+    {
+      clave: 'tiempo',
+      texto: 'Tiempo',
+      rotulo: 'Por sesión',
+      valor: totalDeTiempo,
+      enPeso: false,
+      escribir: (valor) => duracionLegible(Math.round(valor)),
+      cambio: cambioDeTiempo,
+      globo: (sesion, valor) => `${duracionLegible(Math.round(valor))} en ${series(sesion)}`,
+    },
+    {
+      clave: 'ritmo',
+      texto: 'Ritmo',
+      rotulo: 'Por sesión',
+      valor: ritmoDeLaSesion,
+      enPeso: false,
+      aplica: conDistancia,
+      escribir: ritmoEnTexto,
+      // El eje, sin la unidad: «5:26».
+      marca: (valor) => ritmoEnTexto(valor).split(' ')[0],
+      // Un ritmo más bajo es mejor: el signo es el de la diferencia, tal cual.
+      cambio: (diferencia) => conSigno(diferencia, ritmoEnTexto(Math.abs(diferencia))),
+      globo: (_, valor) => ritmoEnTexto(valor),
+    },
+  ],
 }
 
 /**
@@ -179,6 +247,9 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
 export function medidasDe(tipo: TipoRegistro, sesiones: SesionHistorial[]): Medida[] {
   const todas = MEDIDAS[tipo]
   if (tipo === 'peso_reps') return todas
+  // Sin distancia en ninguna sesión, el cardio solo tiene el tiempo.
+  if (tipo === 'cardio')
+    return todas.filter((medida) => !medida.aplica || sesiones.some(medida.aplica))
   const hubo = sesiones.some((sesion) => sesion.series.some((serie) => (kilos(serie) ?? 0) !== 0))
   return todas.filter((medida) => medida.clave !== (tipo === 'corporal' ? 'carga' : 'peso') || hubo)
 }

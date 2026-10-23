@@ -93,7 +93,9 @@ export function Progresion() {
   const rango = rangoElegido ?? rangoPorDefecto(sesiones)
   const desde = rango.dias === null ? null : sumarDias(hoy(), -rango.dias)
   const enRango = sesiones.filter((sesion) => desde === null || sesion.fecha >= desde)
-  const puntos: Punto[] = [...enRango].reverse().map((sesion) => {
+  // Las sesiones que cuentan en esta medida: la distancia y el ritmo, solo las que la apuntaron.
+  const paraLaMedida = enRango.filter((sesion) => medida.aplica?.(sesion) ?? true)
+  const puntos: Punto[] = [...paraLaMedida].reverse().map((sesion) => {
     // En la unidad elegida: la gráfica y los textos ya no convierten.
     const valor = valorEnPantalla(medida, sesion)
     return {
@@ -190,6 +192,7 @@ export function Progresion() {
               puntos={puntos}
               elegido={elegido}
               alElegir={setElegido}
+              formatoDeMarca={medida.marca}
               // Todo, a la escala de 6 meses: con más, se desliza de lado.
               diasVisibles={rango.dias === null ? 182 : undefined}
             />

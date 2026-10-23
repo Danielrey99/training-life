@@ -17,6 +17,8 @@ type Props = {
   // Qué punto tiene el globo; sin elegir, el último.
   elegido: number | null
   alElegir: (id: number) => void
+  // Cómo se escribe cada valor del eje; sin esto, como un número («5:26» para el ritmo).
+  formatoDeMarca?: (valor: number) => string
   // Cuántos días caben a lo ancho. Con más, la gráfica se desplaza de lado (con «Todo»:
   // la misma escala que 6 meses, para que los puntos y los meses no se apilen).
   diasVisibles?: number
@@ -76,7 +78,7 @@ function escala(minimo: number, maximo: number): number[] {
  * en el tiempo (dos sesiones muy separadas se ven separadas). El punto elegido lleva
  * un globo con su día y su valor; se elige tocando un punto.
  */
-export function Grafica({ puntos, elegido, alElegir, diasVisibles }: Props) {
+export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarca }: Props) {
   const [lienzo, visible] = useAncho()
   const desplazable = useRef<HTMLDivElement>(null)
   const marcas = escala(
@@ -254,7 +256,7 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles }: Props) {
         <g fill="var(--texto-tenue)" fontSize="11" textAnchor="end">
           {marcas.map((marca) => (
             <text key={marca} x={IZQUIERDA - 8} y={y(marca) + 4}>
-              {marca.toLocaleString('es-ES')}
+              {formatoDeMarca ? formatoDeMarca(marca) : marca.toLocaleString('es-ES')}
             </text>
           ))}
         </g>

@@ -52,6 +52,45 @@ export function duracionLegible(segundos: number): string {
   return partes.join(' ')
 }
 
+const METROS_POR_MILLA = 1609.344
+
+/** La unidad en que se enseñan y se apuntan las distancias: «km» o «mi». */
+export function unidadDeDistancia(): 'km' | 'mi' {
+  return ajustes().distancia
+}
+
+/** Una distancia de la base de datos (siempre en metros) en la unidad elegida. */
+export function enUnidadDeDistancia(metros: number): number {
+  return unidadDeDistancia() === 'mi' ? metros / METROS_POR_MILLA : metros / 1000
+}
+
+/** Lo que se ha apuntado en la unidad elegida, en metros para la base (sin decimales). */
+export function aMetros(valor: number): number {
+  return Math.round(valor * (unidadDeDistancia() === 'mi' ? METROS_POR_MILLA : 1000))
+}
+
+/** «5,2 km»: la distancia en la unidad elegida, con dos decimales como mucho. */
+export function distanciaLegible(metros: number): string {
+  return `${numeroLegible(enUnidadDeDistancia(metros), 2)} ${unidadDeDistancia()}`
+}
+
+/**
+ * El ritmo de una serie de cardio, «5:26 /km»: lo que se tarda en recorrer un kilómetro (o
+ * una milla). Es la única medida con dos puntos. Nulo sin distancia.
+ */
+export function ritmoLegible(segundos: number, metros: number | null): string | null {
+  if (!metros) return null
+  return ritmoEnTexto(segundos / enUnidadDeDistancia(metros))
+}
+
+/** «5:26 /km» de lo que se tarda (en segundos) en recorrer un kilómetro o una milla. */
+export function ritmoEnTexto(segundosPorUnidad: number): string {
+  const total = Math.round(segundosPorUnidad)
+  const minutos = Math.floor(total / 60)
+  const resto = String(total % 60).padStart(2, '0')
+  return `${minutos}:${resto} /${unidadDeDistancia()}`
+}
+
 /**
  * El 1RM estimado de un día, con la fórmula de Epley para cada serie:
  * peso × (1 + reps / 30). Es la medida de "si mejoró" en un día (H2) y la de la

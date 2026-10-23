@@ -23,8 +23,10 @@ import {
 } from '../../utiles/fechas'
 import { conPesoYReps, kilos, serieLarga } from '../../utiles/medidas'
 import {
+  distanciaLegible,
   duracionLegible,
   enUnidad,
+  enUnidadDeDistancia,
   numeroLegible,
   pesoLegible,
   unidad,
@@ -191,6 +193,48 @@ function mejoraDeTiempo(series: Serie[], ultima: SesionHistorial | null): Mejora
   return { clase: claseDe(pesoHoy !== pesoAntes ? pesoHoy - pesoAntes : cambio), insignias }
 }
 
+/** La suma de una medida de las series de un día. */
+const suma = (
+  lista: { distancia_m?: number | null; duracion_s: number | null }[],
+  campo: 'distancia_m' | 'duracion_s',
+) => lista.reduce((total, serie) => total + (serie[campo] ?? 0), 0)
+
+/**
+ * El cardio no cuenta como mejorado (la distancia y el tiempo van juntos, y a veces se
+ * busca una cosa y a veces la otra): solo enseña lo de hoy con lo que cambió, en insignias
+ * neutras. «5,2 km (+0,4)», «28 min 15 s (+1 min 35 s)».
+ */
+function mejoraDeCardio(series: Serie[], ultima: SesionHistorial | null): Mejora {
+  const distanciaHoy = suma(series, 'distancia_m')
+  const tiempoHoy = suma(series, 'duracion_s')
+  const neutra = (texto: string): Insignia => ({ texto, clase: 'igual' })
+  if (!ultima || ultima.series.length === 0) {
+    const insignias = [neutra('nuevo')]
+    if (distanciaHoy > 0) insignias.push(neutra(distanciaLegible(distanciaHoy)))
+    insignias.push(neutra(duracionLegible(tiempoHoy)))
+    return { clase: 'igual', insignias }
+  }
+  const diferencia = (valor: number, texto: (positivo: number) => string) =>
+    valor === 0 ? 'igual' : `${valor > 0 ? '+' : '−'}${texto(Math.abs(valor))}`
+  const insignias: Insignia[] = []
+  const distanciaAntes = suma(ultima.series, 'distancia_m')
+  if (distanciaHoy > 0 || distanciaAntes > 0) {
+    // Con la distancia en la unidad elegida y dos decimales, como se escribe.
+    const cambio = enUnidadDeDistancia(distanciaHoy) - enUnidadDeDistancia(distanciaAntes)
+    const redondeado = Math.round(cambio * 100) / 100
+    insignias.push(
+      neutra(
+        `${distanciaLegible(distanciaHoy)} (${diferencia(redondeado, (n) => numeroLegible(n, 2))})`,
+      ),
+    )
+  }
+  const cambioDeTiempo = tiempoHoy - suma(ultima.series, 'duracion_s')
+  insignias.push(
+    neutra(`${duracionLegible(tiempoHoy)} (${diferencia(cambioDeTiempo, duracionLegible)})`),
+  )
+  return { clase: 'igual', insignias }
+}
+
 /** Cómo le fue al ejercicio, según cómo se apunta: cada tipo se mide con lo suyo. */
 function mejora(
   tipo: TipoRegistro,
@@ -200,6 +244,7 @@ function mejora(
   if (series.length === 0) return null
   if (tipo === 'corporal') return mejoraCorporal(series, ultima)
   if (tipo === 'tiempo') return mejoraDeTiempo(series, ultima)
+  if (tipo === 'cardio') return mejoraDeCardio(series, ultima)
   return mejoraDePesoYReps(series, ultima)
 }
 
@@ -447,6 +492,7 @@ export function Dia() {
           peso: kilos(serie),
           repeticiones: serie.repeticiones,
           duracion_s: serie.duracion_s,
+          distancia_m: serie.distancia_m,
           peso_corporal: serie.peso_corporal === null ? null : Number(serie.peso_corporal),
           variante: serie.variante,
         }
@@ -456,6 +502,7 @@ export function Dia() {
           kilos(antes) !== datos.peso ||
           antes.repeticiones !== datos.repeticiones ||
           antes.duracion_s !== datos.duracion_s ||
+          antes.distancia_m !== datos.distancia_m ||
           (antes.peso_corporal === null ? null : Number(antes.peso_corporal)) !==
             datos.peso_corporal ||
           antes.variante !== datos.variante
@@ -500,6 +547,7 @@ export function Dia() {
               peso: datos.peso === null ? null : String(datos.peso),
               repeticiones: datos.repeticiones,
               duracion_s: datos.duracion_s,
+              distancia_m: datos.distancia_m,
               peso_corporal: datos.peso_corporal === null ? null : String(datos.peso_corporal),
               variante: datos.variante,
             }
@@ -529,6 +577,7 @@ export function Dia() {
         peso: datos.peso === null ? null : String(datos.peso),
         repeticiones: datos.repeticiones,
         duracion_s: datos.duracion_s,
+        distancia_m: datos.distancia_m,
         peso_corporal: datos.peso_corporal === null ? null : String(datos.peso_corporal),
         variante: datos.variante,
         created_at: '',

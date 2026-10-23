@@ -14,6 +14,8 @@ export type Ajustes = {
   // Cómo se calcula el 1RM de un día: la media de las series o la mejor.
   unoRM: 'media' | 'mejor'
   unidad: 'kg' | 'lb'
+  // En qué se enseñan y se apuntan las distancias del cardio.
+  distancia: 'km' | 'mi'
   // Lo que suben o bajan los botones − / + del peso, en la unidad elegida.
   pasoPeso: number
   // Lo que suben o bajan los botones − / + de los segundos de una duración.
@@ -32,6 +34,7 @@ export type Ajustes = {
 export const POR_DEFECTO: Ajustes = {
   unoRM: 'media',
   unidad: 'kg',
+  distancia: 'km',
   pasoPeso: 1,
   pasoTiempo: 1,
   pesoCorporal: null,
@@ -39,6 +42,8 @@ export const POR_DEFECTO: Ajustes = {
     peso_reps: { series: 3, min: 8, max: 12 },
     corporal: { series: 3, min: 6, max: 10 },
     tiempo: { series: 3, min: 30, max: 60 },
+    // 1 × 20-30 min, en segundos.
+    cardio: { series: 1, min: 1200, max: 1800 },
   },
   tema: 'sistema',
   colores: {},

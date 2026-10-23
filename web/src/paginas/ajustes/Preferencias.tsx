@@ -183,7 +183,7 @@ function CamposDeObjetivo({
   titulo: string
 }) {
   const guardado = ajustes.objetivoNuevo[tipo]
-  const porDuracion = tipo === 'tiempo'
+  const porDuracion = tipo === 'tiempo' || tipo === 'cardio'
   const maximo = porDuracion ? MAXIMO_SEGUNDOS : MAXIMO_REPS
   const [textos, setTextos] = useState({
     series: String(guardado.series),
@@ -301,6 +301,18 @@ export function Preferencias() {
           />
         </div>
         <div className="ajustes-tarjeta">
+          <h3>Unidad de distancia</h3>
+          <Selector
+            etiqueta="Unidad de distancia"
+            opciones={[
+              { clave: 'km', texto: 'Kilómetros (km)' },
+              { clave: 'mi', texto: 'Millas (mi)' },
+            ]}
+            valor={ajustes.distancia}
+            alCambiar={(distancia) => cambiarAjustes({ distancia })}
+          />
+        </div>
+        <div className="ajustes-tarjeta">
           <h3>Peso corporal</h3>
           <p>
             Se apunta con cada serie de los ejercicios de peso corporal (dominadas, fondos…), y ahí
@@ -325,6 +337,7 @@ export function Preferencias() {
           <CamposDeObjetivo ajustes={ajustes} tipo="peso_reps" titulo="Peso y repeticiones" />
           <CamposDeObjetivo ajustes={ajustes} tipo="corporal" titulo="Peso corporal" />
           <CamposDeObjetivo ajustes={ajustes} tipo="tiempo" titulo="Tiempo" />
+          <CamposDeObjetivo ajustes={ajustes} tipo="cardio" titulo="Cardio" />
         </div>
         <div className="ajustes-tarjeta">
           <h3>1RM estimado</h3>

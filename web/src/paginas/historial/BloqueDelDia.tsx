@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import type { Ejercicio, HuecoDeRutina, Serie, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { fechaCompleta } from '../../utiles/fechas'
-import { pesoCorporalLegible, serieLarga } from '../../utiles/medidas'
+import { pesoCorporalLegible, ritmoDeLaSerie, serieLarga } from '../../utiles/medidas'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { FormularioDeSerie, type DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { SelectorDeEjercicio } from '../sesion/SelectorDeEjercicio'
@@ -159,6 +159,9 @@ export function BloqueDelDia({
                 {serie.variante && <span className="serie-variante">{serie.variante}</span>}
                 {pesoCorporalLegible(serie) && (
                   <span className="serie-corporal">{pesoCorporalLegible(serie)}</span>
+                )}
+                {ritmoDeLaSerie(serie) && (
+                  <span className="serie-corporal">{ritmoDeLaSerie(serie)}</span>
                 )}
               </span>
               {editando && (

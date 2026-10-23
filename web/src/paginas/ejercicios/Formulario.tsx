@@ -29,6 +29,11 @@ const TIPOS: { clave: TipoRegistro; nombre: string; ayuda: string }[] = [
     nombre: 'Tiempo',
     ayuda: 'Cuánto aguantas, con peso si lo llevas (plancha, paseo del granjero…)',
   },
+  {
+    clave: 'cardio',
+    nombre: 'Cardio',
+    ayuda: 'Cuánto tiempo y, si quieres, qué distancia (cinta, bici…)',
+  },
 ]
 
 /**
@@ -165,6 +170,9 @@ export function Formulario() {
           onChange={(evento) => {
             setGrupo(evento.target.value)
             setFalta((antes) => ({ ...antes, grupo: undefined }))
+            // Elegir el grupo Cardio marca solo el tipo Cardio, y se puede cambiar antes de crear.
+            const elegido = grupos.find((uno) => String(uno.id) === evento.target.value)
+            if (id === null && elegido?.nombre === 'Cardio') setTipo('cardio')
           }}
         >
           <option value="" disabled>

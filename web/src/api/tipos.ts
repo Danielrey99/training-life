@@ -19,7 +19,7 @@ export type GrupoMuscular = {
  * Cómo se apunta un ejercicio: lo decide quien lo crea y no cambia. Decide qué medidas
  * lleva cada una de sus series (`utiles/medidas.ts`).
  */
-export type TipoRegistro = 'peso_reps' | 'corporal' | 'tiempo'
+export type TipoRegistro = 'peso_reps' | 'corporal' | 'tiempo' | 'cardio'
 
 export type Ejercicio = {
   id: number
@@ -172,6 +172,8 @@ export type Serie = {
   peso: string | null
   repeticiones: number | null
   duracion_s: number | null
+  // En metros: la distancia de una serie de cardio, si se apuntó.
+  distancia_m: number | null
   // Cuánto pesaba la persona al hacerla (solo en las de peso corporal), en kg.
   peso_corporal: string | null
   variante: string | null
@@ -211,6 +213,7 @@ export type SerieHistorial = {
   peso: string | null
   repeticiones: number | null
   duracion_s: number | null
+  distancia_m: number | null
   variante: string | null
 }
 
@@ -489,6 +492,8 @@ export type NuevaSerie = {
   peso: number | null
   repeticiones: number | null
   duracion_s: number | null
+  // En metros: solo en las de cardio, y si se apunta.
+  distancia_m: number | null
   // En las de peso corporal, siempre (el valor o nulo); en las demás, nulo.
   peso_corporal: number | null
   variante: string | null
