@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.ayudas import crear_ejercicio, crear_rutina, entrenar, serie_en
+from tests.ayudas import alternativa, crear_ejercicio, crear_rutina, entrenar, objetivo, serie_en
 from tests.ayudas import cuerpo_de_serie as _serie
 
 FECHA = "2026-09-04"
@@ -56,7 +56,8 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     comodin = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
     rutina_id = crear_rutina(cliente)
     respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots", json={**_hueco(principal), "alternativa_ids": [comodin]}
+        f"/rutinas/{rutina_id}/slots",
+        json={**_hueco(principal), "alternativas": [alternativa(comodin, series=2, reps=(10, 15))]},
     )
     assert respuesta.status_code == 201, respuesta.text
 
@@ -64,7 +65,11 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     hueco = rutina["slots"][0]
 
     assert hueco["ejercicio_principal"]["nombre"] == "Press banca"
-    assert [alternativa["nombre"] for alternativa in hueco["alternativas"]] == ["Press en máquina"]
+    # Cada alternativa trae su ejercicio entero y su propio objetivo, no el del principal.
+    [resuelta] = hueco["alternativas"]
+    assert resuelta["ejercicio"]["nombre"] == "Press en máquina"
+    assert resuelta["ejercicio"]["tipo_registro"] == "peso_reps"
+    assert {k: v for k, v in resuelta.items() if k != "ejercicio"} == objetivo(2, (10, 15))
 
 
 def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
@@ -541,10 +546,12 @@ def abdominales(cliente, grupo_muscular_id) -> dict:
     rueda = crear_ejercicio(cliente, grupo_muscular_id, "Rueda abdominal")
     push = crear_rutina(cliente)
     a = cliente.post(
-        f"/rutinas/{push}/slots", json={**_hueco(crunch, orden=1), "alternativa_ids": [plancha]}
+        f"/rutinas/{push}/slots",
+        json={**_hueco(crunch, orden=1), "alternativas": [alternativa(plancha)]},
     ).json()["id"]
     b = cliente.post(
-        f"/rutinas/{push}/slots", json={**_hueco(rueda, orden=2), "alternativa_ids": [crunch]}
+        f"/rutinas/{push}/slots",
+        json={**_hueco(rueda, orden=2), "alternativas": [alternativa(crunch)]},
     ).json()["id"]
 
     def sesion(fecha=FECHA) -> int:

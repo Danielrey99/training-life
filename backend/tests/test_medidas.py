@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from tests.ayudas import crear_ejercicio, crear_rutina
+from tests.ayudas import crear_ejercicio, crear_rutina, objetivo
 
 FECHA = "2026-09-04"
 NEGATIVO = "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
@@ -43,16 +43,18 @@ def e(cliente, grupo_muscular_id) -> SimpleNamespace:
     }
     rutina = crear_rutina(cliente, "Mixta")
 
+    def objetivo_de(nombre) -> dict:
+        # Plancha es de tiempo: su objetivo va en segundos; el de los demás, en reps.
+        return objetivo(3, (6, 10), (30, 60) if nombre == "plancha" else None)
+
     def hueco(principal, orden, *alternativas) -> int:
         respuesta = cliente.post(
             f"/rutinas/{rutina}/slots",
             json={
                 "ejercicio_principal_id": ids[principal],
                 "orden": orden,
-                "series_objetivo": 3,
-                "reps_min": 6,
-                "reps_max": 10,
-                "alternativa_ids": [ids[a] for a in alternativas],
+                **objetivo_de(principal),
+                "alternativas": [{"ejercicio_id": ids[a], **objetivo_de(a)} for a in alternativas],
             },
         )
         assert respuesta.status_code == 201, respuesta.text

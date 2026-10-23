@@ -10,7 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from tests.ayudas import crear_ejercicio
+from tests.ayudas import (
+    alternativa,
+    crear_ejercicio,
+    objetivo,
+    objetivo_de,
+    poner_alternativas,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -122,7 +128,22 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
                 "series_peso_check",
                 "series_duracion_check",
                 "series_peso_corporal_check",
+                "rutina_slots_objetivo_check",
+                "slot_alternativas_objetivo_check",
             } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'c'")
+            assert {
+                "rutina_slots.duracion_min_s",
+                "rutina_slots.duracion_max_s",
+            } | {
+                f"slot_alternativas.{columna}"
+                for columna in (
+                    "series_objetivo",
+                    "reps_min",
+                    "reps_max",
+                    "duracion_min_s",
+                    "duracion_max_s",
+                )
+            } <= columnas
             nulables = nombres(
                 "SELECT column_name FROM information_schema.columns "
                 "WHERE table_name = 'series' AND is_nullable = 'YES'"
@@ -489,34 +510,48 @@ def test_quitar_los_tipos_se_niega_si_hay_series_que_no_caben_y_no_toca_nada(
     cliente, grupo_muscular_id, tipo, medidas
 ):
     """Con una serie que no cabe y otra de peso y repeticiones que sí: la migración
-    cuenta solo la que no cabe, la base sigue en la versión de los tipos y las dos
-    series siguen tal cual.
+    cuenta solo la que no cabe, la base sigue en su versión y las dos series siguen
+    tal cual.
+
+    La que no cabe se apunta con una alternativa que después se quita del hueco (la
+    serie se queda): un hueco o una alternativa con el objetivo en segundos harían
+    que se negara antes la migración del objetivo por ejercicio, que va encima, y no
+    se llegaría a esta.
     """
     from alembic import command
+    from alembic.script import ScriptDirectory
     from sqlalchemy import text
 
     from app.database import engine
 
     press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
     otro = crear_ejercicio(cliente, grupo_muscular_id, "Otro", tipo=tipo)
     rutina = cliente.post("/rutinas", json={"nombre": "Push"}).json()["id"]
     sesion = cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": "2026-09-04"})
     ruta = f"/entrenamientos/{sesion.json()['id']}/series"
-    for orden, (ejercicio, cuerpo) in enumerate(
-        [(press, {"peso": 60, "repeticiones": 8}), (otro, medidas)], start=1
+    del_otro = alternativa(otro, duracion=(30, 60) if tipo == "tiempo" else None)
+    for orden, (principal, alternativas, ejercicio, cuerpo) in enumerate(
+        [
+            (press, [], press, {"peso": 60, "repeticiones": 8}),
+            (remo, [del_otro], otro, medidas),
+        ],
+        start=1,
     ):
-        hueco = cliente.post(
+        respuesta = cliente.post(
             f"/rutinas/{rutina}/slots",
             json={
-                "ejercicio_principal_id": ejercicio,
+                "ejercicio_principal_id": principal,
                 "orden": orden,
-                "series_objetivo": 3,
-                "reps_min": 6,
-                "reps_max": 10,
+                **objetivo(3, (6, 10)),
+                "alternativas": alternativas,
             },
-        ).json()["id"]
+        )
+        assert respuesta.status_code == 201, respuesta.text
+        hueco = respuesta.json()["id"]
         serie = {"ejercicio_id": ejercicio, "slot_id": hueco, "numero_serie": 1, **cuerpo}
         assert cliente.post(ruta, json=serie).status_code == 201
+    poner_alternativas(cliente, rutina, hueco, [])
     antes = cliente.get(f"/entrenamientos/{sesion.json()['id']}").json()
     configuracion = _configuracion_de_alembic()
     engine.dispose()
@@ -525,9 +560,11 @@ def test_quitar_los_tipos_se_niega_si_hay_series_que_no_caben_y_no_toca_nada(
             command.downgrade(configuracion, ANTES_DE_LOS_TIPOS)
 
         assert "No se puede deshacer: hay 1 serie(s) que no son" in str(error.value)
+        # La bajada entera va en una transacción: tampoco se deshacen las migraciones
+        # de encima, que sí podían bajar. La base sigue en la última.
         with engine.connect() as conexion:
             version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
-        assert version == LOS_TIPOS
+        assert version == ScriptDirectory.from_config(configuracion).get_current_head()
     finally:
         engine.dispose()
         command.upgrade(configuracion, "head")
@@ -600,3 +637,146 @@ def test_subir_los_tipos_con_datos_deja_cada_ejercicio_de_peso_y_repeticiones(cl
         None,
         None,
     )
+
+
+# --- La migración del objetivo por ejercicio --------------------------------
+#
+# `d7b3c2e91a58` da a cada alternativa su propio objetivo (hasta entonces usaba el
+# de su principal, así que se le copia) y deja el objetivo ir en segundos. Al bajar,
+# un hueco con el objetivo en segundos no cabe en las columnas de antes: se niega,
+# contando cuántos hay, y no toca nada.
+
+OBJETIVO_POR_EJERCICIO = "d7b3c2e91a58"
+
+
+def test_subir_el_objetivo_por_ejercicio_copia_a_cada_alternativa_el_de_su_principal(cliente):
+    """Se baja a la versión anterior, se mete un hueco con su objetivo y dos
+    alternativas con el esquema de entonces (sin objetivo) y otro hueco con otro
+    objetivo y una, y se vuelve a subir: cada alternativa tiene el de su hueco.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    command.downgrade(configuracion, LOS_TIPOS)
+    try:
+        with engine.begin() as conexion:
+
+            def fila(sql, **valores):
+                return conexion.scalar(text(sql + " RETURNING id"), valores)
+
+            grupo = conexion.scalar(text("SELECT min(id) FROM grupos_musculares"))
+            press, remo, fondos = (
+                fila(
+                    "INSERT INTO ejercicios (nombre, grupo_muscular_id, es_predefinido, "
+                    "created_at, updated_at) VALUES (:n, :g, false, now(), now())",
+                    n=nombre,
+                    g=grupo,
+                )
+                for nombre in ("Press", "Remo", "Fondos")
+            )
+            rutina = fila(
+                "INSERT INTO rutinas (nombre, created_at, updated_at) VALUES ('Push', now(), now())"
+            )
+
+            def hueco(principal, orden, series, reps_min, reps_max):
+                return fila(
+                    "INSERT INTO rutina_slots (rutina_id, ejercicio_principal_id, orden, "
+                    "series_objetivo, reps_min, reps_max, created_at, updated_at) "
+                    "VALUES (:r, :e, :o, :s, :rmin, :rmax, now(), now())",
+                    r=rutina,
+                    e=principal,
+                    o=orden,
+                    s=series,
+                    rmin=reps_min,
+                    rmax=reps_max,
+                )
+
+            a = hueco(press, 1, 4, 6, 8)
+            b = hueco(fondos, 2, 2, 12, 15)
+            for slot, ejercicio in ((a, remo), (a, fondos), (b, press)):
+                fila(
+                    "INSERT INTO slot_alternativas (slot_id, ejercicio_id) VALUES (:s, :e)",
+                    s=slot,
+                    e=ejercicio,
+                )
+
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    huecos = {h["id"]: h for h in cliente.get(f"/rutinas/{rutina}").json()["slots"]}
+    assert [(a["ejercicio"]["id"], objetivo_de(a)) for a in huecos[a]["alternativas"]] == [
+        (remo, objetivo(4, (6, 8))),
+        (fondos, objetivo(4, (6, 8))),
+    ]
+    assert [(a["ejercicio"]["id"], objetivo_de(a)) for a in huecos[b]["alternativas"]] == [
+        (press, objetivo(2, (12, 15)))
+    ]
+    assert objetivo_de(huecos[a]) == objetivo(4, (6, 8))
+
+
+@pytest.mark.parametrize(
+    "en_segundos, cuantos",
+    [
+        pytest.param({"hueco"}, 1, id="un-hueco"),
+        pytest.param({"alternativa"}, 1, id="una-alternativa"),
+        pytest.param({"hueco", "alternativa"}, 2, id="los-dos"),
+    ],
+)
+def test_quitar_el_objetivo_por_ejercicio_se_niega_con_algo_en_segundos_y_no_toca_nada(
+    cliente, grupo_muscular_id, en_segundos, cuantos
+):
+    """Un hueco o una alternativa con el objetivo en segundos no caben en las columnas
+    de antes. Con la alternativa sola, antes del arreglo bajaba sin decir nada y, al
+    volver a subir, se le copiaba el objetivo en repeticiones de su principal: un
+    ejercicio de tiempo con objetivo en repeticiones, que hacía que exportar e
+    importar la propia copia diera 422.
+
+    Junto a lo que está en segundos, un hueco y una alternativa en repeticiones, que
+    no se cuentan. La base sigue en esta versión y la rutina, igual.
+    """
+    from alembic import command
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo")
+    huecos = [
+        {
+            "ejercicio_principal_id": press,
+            **objetivo(4, (6, 10)),
+            "alternativas": [alternativa(remo, 3, (8, 12))]
+            + ([alternativa(plancha, duracion=(20, 40))] if "alternativa" in en_segundos else []),
+        }
+    ]
+    if "hueco" in en_segundos:
+        huecos.append({"ejercicio_principal_id": plancha, **objetivo(3, duracion=(30, 60))})
+    respuesta = cliente.post("/rutinas", json={"nombre": "Core", "slots": huecos})
+    assert respuesta.status_code == 201, respuesta.text
+    antes = cliente.get(f"/rutinas/{respuesta.json()['id']}").json()
+    configuracion = _configuracion_de_alembic()
+    engine.dispose()
+    try:
+        with pytest.raises(RuntimeError) as error:
+            command.downgrade(configuracion, LOS_TIPOS)
+
+        assert (
+            f"No se puede deshacer: hay {cuantos} hueco(s) o alternativa(s) con el objetivo"
+            " en duración" in str(error.value)
+        )
+        with engine.connect() as conexion:
+            version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
+        assert version == OBJETIVO_POR_EJERCICIO
+    finally:
+        engine.dispose()
+        command.upgrade(configuracion, "head")
+
+    assert cliente.get(f"/rutinas/{respuesta.json()['id']}").json() == antes

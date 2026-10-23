@@ -21,10 +21,12 @@ from app.models import (
     SlotAlternativa,
 )
 from tests.ayudas import (
+    alternativa,
     consultas_de,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
+    objetivo,
     poner_alternativas,
 )
 from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
@@ -1810,10 +1812,8 @@ def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
         f"/rutinas/{pull}/slots",
         json={
             "ejercicio_principal_id": remo,
-            "series_objetivo": 3,
-            "reps_min": 8,
-            "reps_max": 12,
-            "alternativa_ids": [press],
+            **objetivo(3, (8, 12)),
+            "alternativas": [alternativa(press, 3, (8, 12))],
         },
     )
     assert respuesta.status_code == 201, respuesta.text

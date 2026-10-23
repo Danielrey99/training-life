@@ -41,16 +41,68 @@ def crear_rutina(cliente, nombre="Push") -> int:
     return respuesta.json()["id"]
 
 
-def crear_hueco(cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6, 10)) -> int:
-    """Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines.
-    Sin `orden`, el backend lo pone al final. Devuelve su id.
-    """
-    cuerpo = {
-        "ejercicio_principal_id": ejercicio_id,
+# --- El objetivo de cada ejercicio en un hueco ------------------------------
+# Va en repeticiones o en segundos según la familia del tipo del ejercicio: los de
+# tiempo, en segundos; los demás, en repeticiones (`app/medidas.py`).
+
+CAMPOS_DEL_OBJETIVO = (
+    "series_objetivo",
+    "reps_min",
+    "reps_max",
+    "duracion_min_s",
+    "duracion_max_s",
+)
+DURACION_POR_DEFECTO = (30, 60)
+
+
+def objetivo(series=4, reps=(6, 10), duracion=None) -> dict:
+    """Los cinco campos del objetivo: con `duracion`, en segundos; si no, en repeticiones."""
+    if duracion is not None:
+        return {
+            "series_objetivo": series,
+            "reps_min": None,
+            "reps_max": None,
+            "duracion_min_s": duracion[0],
+            "duracion_max_s": duracion[1],
+        }
+    return {
         "series_objetivo": series,
         "reps_min": reps[0],
         "reps_max": reps[1],
+        "duracion_min_s": None,
+        "duracion_max_s": None,
     }
+
+
+def objetivo_de(fila: dict) -> dict:
+    """Los cinco campos del objetivo de un hueco o de una alternativa de la API."""
+    return {campo: fila[campo] for campo in CAMPOS_DEL_OBJETIVO}
+
+
+def alternativa(ejercicio_id, series=3, reps=(6, 10), duracion=None) -> dict:
+    """Una alternativa para el cuerpo de un hueco, con su objetivo."""
+    return {"ejercicio_id": ejercicio_id, **objetivo(series, reps, duracion)}
+
+
+def es_de_tiempo(cliente, ejercicio_id) -> bool:
+    """Si el objetivo de ese ejercicio va en segundos. Uno que no existe, no: así el
+    test que lo usa a propósito recibe el 404 de la API y no un fallo de aquí.
+    """
+    respuesta = cliente.get(f"/ejercicios/{ejercicio_id}")
+    return respuesta.status_code == 200 and respuesta.json()["tipo_registro"] == "tiempo"
+
+
+def crear_hueco(
+    cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6, 10), duracion=None
+) -> int:
+    """Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines.
+    Sin `orden`, el backend lo pone al final. El objetivo va en repeticiones, salvo
+    que se pase `duracion` o el ejercicio sea de tiempo (entonces, en segundos).
+    Devuelve su id.
+    """
+    if duracion is None and es_de_tiempo(cliente, ejercicio_id):
+        duracion = DURACION_POR_DEFECTO
+    cuerpo = {"ejercicio_principal_id": ejercicio_id, **objetivo(series, reps, duracion)}
     if orden is not None:
         cuerpo["orden"] = orden
     respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json=cuerpo)
@@ -58,35 +110,56 @@ def crear_hueco(cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6,
     return respuesta.json()["id"]
 
 
-def cambiar_alternativas(cliente, rutina_id, slot_id, ids):
+def cambiar_alternativas(cliente, rutina_id, slot_id, alternativas):
     """PUT del hueco con esa lista de alternativas (comodines) y el resto de sus
     campos tal cual: la lista sustituye a la que tenía. Es la única forma de
     cambiarlas en un hueco que ya existe. Devuelve la respuesta entera, para mirar
     el código; para montar datos, `poner_alternativas`.
+
+    Cada alternativa es un cuerpo entero (`alternativa(...)`) o solo un id de
+    ejercicio. Con solo el id: si ya es alternativa del hueco, conserva su objetivo;
+    si no, lleva el del principal cuando es de su misma unidad (repeticiones o
+    segundos), y uno por defecto cuando no.
     """
     [hueco] = [
         h for h in cliente.get(f"/rutinas/{rutina_id}").json()["slots"] if h["id"] == slot_id
     ]
+    actuales = {a["ejercicio"]["id"]: objetivo_de(a) for a in hueco["alternativas"]}
+    principal_en_segundos = hueco["duracion_min_s"] is not None
+
+    def cuerpo_de(elegida):
+        if isinstance(elegida, dict):
+            return elegida
+        if elegida in actuales:
+            return {"ejercicio_id": elegida, **actuales[elegida]}
+        en_segundos = es_de_tiempo(cliente, elegida)
+        if en_segundos == principal_en_segundos:
+            return {"ejercicio_id": elegida, **objetivo_de(hueco)}
+        return alternativa(elegida, duracion=DURACION_POR_DEFECTO if en_segundos else None)
+
     return cliente.put(
         f"/rutinas/{rutina_id}/slots/{slot_id}",
         json={
             "ejercicio_principal_id": hueco["ejercicio_principal"]["id"],
             "orden": hueco["orden"],
-            "series_objetivo": hueco["series_objetivo"],
-            "reps_min": hueco["reps_min"],
-            "reps_max": hueco["reps_max"],
-            "alternativa_ids": list(ids),
+            **objetivo_de(hueco),
+            "alternativas": [cuerpo_de(elegida) for elegida in alternativas],
         },
     )
 
 
-def poner_alternativas(cliente, rutina_id, slot_id, ids) -> dict:
+def poner_alternativas(cliente, rutina_id, slot_id, alternativas) -> dict:
     """Deja en el hueco justo esas alternativas, en ese orden (`cambiar_alternativas`).
     Falla si la API no da 200; devuelve el hueco.
     """
-    respuesta = cambiar_alternativas(cliente, rutina_id, slot_id, ids)
+    respuesta = cambiar_alternativas(cliente, rutina_id, slot_id, alternativas)
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()
+
+
+def ids_de_alternativas(hueco: dict) -> list[int]:
+    """Los ids de ejercicio de las alternativas de un hueco de la API, en su orden."""
+    return [a["ejercicio"]["id"] for a in hueco["alternativas"]]
 
 
 # --- Lo que se busca o se crea a demanda ------------------------------------
@@ -144,14 +217,13 @@ def hueco_para(cliente, rutina_id, ejercicio_id) -> int:
         f"El hueco del ejercicio {ejercicio_id} en la rutina {rutina_id} está oculto: "
         "pasa el slot_id explícito."
     )
+    duracion = DURACION_POR_DEFECTO if es_de_tiempo(cliente, ejercicio_id) else None
     respuesta = cliente.post(
         f"/rutinas/{rutina_id}/slots",
         json={
             "ejercicio_principal_id": ejercicio_id,
             "orden": max((h["orden"] for h in huecos), default=0) + 1,
-            "series_objetivo": 3,
-            "reps_min": 6,
-            "reps_max": 12,
+            **objetivo(series=3, reps=(6, 12), duracion=duracion),
         },
     )
     assert respuesta.status_code == 201, respuesta.text

@@ -27,6 +27,9 @@ COMO_SE_APUNTA = {
     "tiempo": "por tiempo",
 }
 
+# La familia decide en qué unidad va el objetivo del ejercicio en un hueco.
+FAMILIA = {"peso_reps": "repeticiones", "corporal": "repeticiones", "tiempo": "duracion"}
+
 # Qué campos son obligatorios (True), opcionales (None) o no valen (False) en cada tipo.
 REGLA: dict[str, dict[str, bool | None]] = {
     "peso_reps": {"peso": True, "repeticiones": True, "duracion_s": False, "peso_corporal": False},
@@ -88,5 +91,23 @@ def validar_medidas(nombre: str, tipo: str, datos: Mapping[str, Any]) -> str | N
         return (
             "El peso corporal solo se guarda en las series de ejercicios de peso corporal, "
             f"y {nombre} no lo es."
+        )
+    return None
+
+
+def validar_objetivo(nombre: str, tipo: str, objetivo: Mapping[str, Any]) -> str | None:
+    """El texto de un 422 si el objetivo de un ejercicio en un hueco no es de su familia
+    (repeticiones o duración), o `None` si vale.
+    """
+    con_reps = objetivo.get("reps_min") is not None
+    if FAMILIA[tipo] == "repeticiones" and not con_reps:
+        return (
+            f"El objetivo de {nombre} va en repeticiones (reps_min y reps_max), "
+            f"no en duración: {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
+        )
+    if FAMILIA[tipo] == "duracion" and con_reps:
+        return (
+            f"El objetivo de {nombre} va en segundos (duracion_min_s y duracion_max_s), "
+            f"no en repeticiones: {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
         )
     return None

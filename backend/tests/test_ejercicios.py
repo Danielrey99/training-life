@@ -11,19 +11,20 @@ from datetime import date
 import pytest
 
 from app.models import ProgramaDia
-from tests.ayudas import consultas_de, crear_ejercicio
+from tests.ayudas import alternativa, consultas_de, crear_ejercicio, objetivo
 from tests.semana import HOY
 
 # --- Ayudantes ---------------------------------------------------------------
 
 
 def hueco(principal, *comodines) -> dict:
+    """Un hueco de repeticiones. Cada comodín, un id (con objetivo de repeticiones) o
+    el cuerpo entero de su alternativa (`alternativa(...)`).
+    """
     return {
         "ejercicio_principal_id": principal,
-        "series_objetivo": 3,
-        "reps_min": 6,
-        "reps_max": 10,
-        "alternativa_ids": list(comodines),
+        **objetivo(3, (6, 10)),
+        "alternativas": [c if isinstance(c, dict) else alternativa(c) for c in comodines],
     }
 
 
@@ -326,7 +327,9 @@ def test_el_tipo_sale_con_el_ejercicio_en_rutinas_series_e_historial_del_hueco(
     """
     press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo")
-    rutina, [slot] = rutina_con_huecos(cliente, "Core", hueco(press, plancha))
+    rutina, [slot] = rutina_con_huecos(
+        cliente, "Core", hueco(press, alternativa(plancha, duracion=(30, 45)))
+    )
     sesiones = [
         cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": fecha}).json()["id"]
         for fecha in ("2026-09-01", "2026-09-02")
@@ -347,7 +350,7 @@ def test_el_tipo_sale_con_el_ejercicio_en_rutinas_series_e_historial_del_hueco(
     sesion = cliente.get(f"/entrenamientos/{sesiones[1]}").json()
 
     assert en_la_rutina["ejercicio_principal"]["tipo_registro"] == "peso_reps"
-    assert [a["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
+    assert [a["ejercicio"]["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
     assert con_press.json()["ejercicio"]["tipo_registro"] == "peso_reps"
     assert sesion["series"][0]["ejercicio"]["tipo_registro"] == "tiempo"
     assert [s["ejercicio"] for dia in historial for s in dia["series"]] == [

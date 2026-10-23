@@ -112,7 +112,38 @@ class NotaOut(NotaBase):
     updated_at: datetime
 
 
-class RutinaSlotBase(BaseModel):
+class ObjetivoBase(BaseModel):
+    """El objetivo de un ejercicio en un hueco: series, y repeticiones o duración.
+
+    Exactamente un par, completo. De cuál es lo decide el tipo del ejercicio (lo
+    comprueba el endpoint, que es quien conoce el ejercicio).
+    """
+
+    # Los topes no son de la base de datos (que admite mucho más), sino de lo que
+    # tiene sentido: un número fuera de ellos solo puede ser un error al teclear.
+    series_objetivo: int = Field(gt=0, le=50)
+    reps_min: int | None = Field(None, gt=0, le=1000)
+    reps_max: int | None = Field(None, gt=0, le=1000)
+    duracion_min_s: int | None = Field(None, gt=0, le=86400)
+    duracion_max_s: int | None = Field(None, gt=0, le=86400)
+
+    @model_validator(mode="after")
+    def _validar_objetivo(self):
+        con_reps = (self.reps_min is not None, self.reps_max is not None)
+        con_duracion = (self.duracion_min_s is not None, self.duracion_max_s is not None)
+        if len(set(con_reps)) != 1 or len(set(con_duracion)) != 1 or con_reps[0] == con_duracion[0]:
+            raise ValueError(
+                "El objetivo lleva repeticiones (reps_min y reps_max) o duración "
+                "(duracion_min_s y duracion_max_s): uno de los dos, completo"
+            )
+        if con_reps[0] and self.reps_max < self.reps_min:
+            raise ValueError("reps_max no puede ser menor que reps_min")
+        if con_duracion[0] and self.duracion_max_s < self.duracion_min_s:
+            raise ValueError("duracion_max_s no puede ser menor que duracion_min_s")
+        return self
+
+
+class RutinaSlotBase(ObjetivoBase):
     """Campos de un hueco que valen igual al crearlo que al editarlo.
 
     Sin `orden`: al crear es opcional (el backend lo pone al final) y al editar es
@@ -120,39 +151,35 @@ class RutinaSlotBase(BaseModel):
     """
 
     ejercicio_principal_id: int
-    # Los topes no son de la base de datos (que admite mucho más), sino de lo que
-    # tiene sentido: un número fuera de ellos solo puede ser un error al teclear.
-    series_objetivo: int = Field(gt=0, le=50)
-    reps_min: int = Field(gt=0, le=1000)
-    reps_max: int = Field(gt=0, le=1000)
-
-    @model_validator(mode="after")
-    def _validar_rango_reps(self):
-        if self.reps_max < self.reps_min:
-            raise ValueError("reps_max no puede ser menor que reps_min")
-        return self
 
 
-def _validar_comodines(principal_id: int, alternativa_ids: list[int] | None) -> None:
+class AlternativaDeHueco(ObjetivoBase):
+    """Una alternativa de un hueco al crearlo o editarlo, con su propio objetivo."""
+
+    ejercicio_id: int
+
+
+def _validar_comodines(principal_id: int, alternativas: list[AlternativaDeHueco] | None) -> None:
     """Lo incoherente dentro del propio cuerpo es un 422, no un 409: no choca con
     nada guardado (como `_validar_dias_sin_repetir` de `ProgramaCreate`).
     """
-    if alternativa_ids is None:
+    if alternativas is None:
         return
-    if principal_id in alternativa_ids:
+    ids = [alternativa.ejercicio_id for alternativa in alternativas]
+    if principal_id in ids:
         raise ValueError("Un comodín no puede ser el ejercicio principal del hueco")
-    if len(set(alternativa_ids)) != len(alternativa_ids):
+    if len(set(ids)) != len(ids):
         raise ValueError("Hay comodines repetidos")
 
 
 class SlotDeRutinaNueva(RutinaSlotBase):
     """Un hueco dentro de `RutinaCreate`: su orden es su posición en la lista."""
 
-    alternativa_ids: list[int] = []
+    alternativas: list[AlternativaDeHueco] = []
 
     @model_validator(mode="after")
     def _validar_alternativas(self):
-        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        _validar_comodines(self.ejercicio_principal_id, self.alternativas)
         return self
 
 
@@ -164,12 +191,20 @@ class RutinaSlotCreate(SlotDeRutinaNueva):
 class RutinaSlotUpdate(RutinaSlotBase):
     orden: int = Field(gt=0, le=100)
     # Sin ella (o nula), los comodines no se tocan; una lista sustituye a la actual.
-    alternativa_ids: list[int] | None = None
+    alternativas: list[AlternativaDeHueco] | None = None
 
     @model_validator(mode="after")
     def _validar_alternativas(self):
-        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        _validar_comodines(self.ejercicio_principal_id, self.alternativas)
         return self
+
+
+class AlternativaOut(ObjetivoBase):
+    """Una alternativa de un hueco: el ejercicio y su objetivo en él."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ejercicio: EjercicioOut
 
 
 class RutinaSlotOut(RutinaSlotBase):
@@ -187,7 +222,7 @@ class RutinaSlotOut(RutinaSlotBase):
     created_at: datetime
     updated_at: datetime
     ejercicio_principal: EjercicioOut
-    alternativas: list[EjercicioOut]
+    alternativas: list[AlternativaOut] = Field(validation_alias="slot_alternativas")
 
 
 class RutinaBase(BaseModel):
@@ -852,14 +887,14 @@ class NotaDeArchivo(BaseModel):
 class SlotDeArchivo(RutinaSlotBase):
     id: int
     orden: int = Field(gt=0, le=100)
-    alternativa_ids: list[int] = []
+    alternativas: list[AlternativaDeHueco] = []
     oculto_desde: date | None = None
     created_at: AwareDatetime
     updated_at: AwareDatetime
 
     @model_validator(mode="after")
     def _validar_alternativas(self):
-        _validar_comodines(self.ejercicio_principal_id, self.alternativa_ids)
+        _validar_comodines(self.ejercicio_principal_id, self.alternativas)
         return self
 
 

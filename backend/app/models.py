@@ -156,6 +156,15 @@ class Rutina(Ocultable, Base):
         )
 
 
+# Exactamente un par de objetivo, y completo: repeticiones o duración, nunca los dos
+# ni ninguno. Vale igual en SQLite, que es donde lo copiará el móvil.
+OBJETIVO_CHECK = (
+    "(reps_min IS NULL) = (reps_max IS NULL)"
+    " AND (duracion_min_s IS NULL) = (duracion_max_s IS NULL)"
+    " AND (reps_min IS NULL) <> (duracion_min_s IS NULL)"
+)
+
+
 class RutinaSlot(Ocultable, Base):
     """Un "hueco" dentro de una rutina (ej. "empuje horizontal", hueco 1 del
     Push) — no un ejercicio fijo: tiene un ejercicio principal y, aparte,
@@ -163,7 +172,10 @@ class RutinaSlot(Ocultable, Base):
     """
 
     __tablename__ = "rutina_slots"
-    __table_args__ = (UniqueConstraint("rutina_id", "orden"),)
+    __table_args__ = (
+        UniqueConstraint("rutina_id", "orden"),
+        CheckConstraint(OBJETIVO_CHECK, name="rutina_slots_objetivo_check"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # RESTRICT (no CASCADE): borrar una rutina con huecos no debe arrastrarlos
@@ -175,8 +187,12 @@ class RutinaSlot(Ocultable, Base):
     )
     orden: Mapped[int] = mapped_column()
     series_objetivo: Mapped[int] = mapped_column()
-    reps_min: Mapped[int] = mapped_column()
-    reps_max: Mapped[int] = mapped_column()
+    # El objetivo es de repeticiones o de duración, según el tipo del ejercicio: un par
+    # completo y el otro nulo (OBJETIVO_CHECK).
+    reps_min: Mapped[int | None] = mapped_column()
+    reps_max: Mapped[int | None] = mapped_column()
+    duracion_min_s: Mapped[int | None] = mapped_column()
+    duracion_max_s: Mapped[int | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
@@ -202,7 +218,10 @@ class SlotAlternativa(Base):
     """Un ejercicio comodín de un hueco de rutina."""
 
     __tablename__ = "slot_alternativas"
-    __table_args__ = (UniqueConstraint("slot_id", "ejercicio_id"),)
+    __table_args__ = (
+        UniqueConstraint("slot_id", "ejercicio_id"),
+        CheckConstraint(OBJETIVO_CHECK, name="slot_alternativas_objetivo_check"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # CASCADE (a diferencia de rutina_slots→rutinas): un comodín no es
@@ -210,6 +229,13 @@ class SlotAlternativa(Base):
     # verdad, sus comodines se van con él, sin necesidad de avisar aparte.
     slot_id: Mapped[int] = mapped_column(ForeignKey("rutina_slots.id", ondelete="CASCADE"))
     ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="RESTRICT"))
+    # El objetivo de esta alternativa en este hueco: no tiene por qué ser el del
+    # principal (Plancha puede ser 3 × 30-45 s donde el principal es de repeticiones).
+    series_objetivo: Mapped[int] = mapped_column()
+    reps_min: Mapped[int | None] = mapped_column()
+    reps_max: Mapped[int | None] = mapped_column()
+    duracion_min_s: Mapped[int | None] = mapped_column()
+    duracion_max_s: Mapped[int | None] = mapped_column()
 
     ejercicio: Mapped["Ejercicio"] = relationship()
 

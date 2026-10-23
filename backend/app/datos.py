@@ -19,7 +19,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.fechas import hoy
-from app.medidas import validar_medidas
+from app.medidas import validar_medidas, validar_objetivo
 from app.models import (
     Ejercicio,
     Entrenamiento,
@@ -42,6 +42,17 @@ MAXIMO_DE_ERRORES = 20
 
 
 # --- Exportar --------------------------------------------------------------------
+
+
+def _objetivo(origen) -> dict:
+    """Los cinco campos del objetivo de un hueco o de una alternativa."""
+    return {
+        "series_objetivo": origen.series_objetivo,
+        "reps_min": origen.reps_min,
+        "reps_max": origen.reps_max,
+        "duracion_min_s": origen.duracion_min_s,
+        "duracion_max_s": origen.duracion_max_s,
+    }
 
 
 def exportar(db: Session) -> ArchivoDeDatos:
@@ -76,9 +87,11 @@ def exportar(db: Session) -> ArchivoDeDatos:
         .order_by(Ejercicio.id)
     ).all()
 
-    alternativas_de: dict[int, list[int]] = {}
+    alternativas_de: dict[int, list[dict]] = {}
     for alternativa in alternativas:
-        alternativas_de.setdefault(alternativa.slot_id, []).append(alternativa.ejercicio_id)
+        alternativas_de.setdefault(alternativa.slot_id, []).append(
+            {"ejercicio_id": alternativa.ejercicio_id, **_objetivo(alternativa)}
+        )
     huecos_de: dict[int, list[dict]] = {}
     for hueco in huecos:
         huecos_de.setdefault(hueco.rutina_id, []).append(
@@ -86,10 +99,8 @@ def exportar(db: Session) -> ArchivoDeDatos:
                 "id": hueco.id,
                 "ejercicio_principal_id": hueco.ejercicio_principal_id,
                 "orden": hueco.orden,
-                "series_objetivo": hueco.series_objetivo,
-                "reps_min": hueco.reps_min,
-                "reps_max": hueco.reps_max,
-                "alternativa_ids": alternativas_de.get(hueco.id, []),
+                **_objetivo(hueco),
+                "alternativas": alternativas_de.get(hueco.id, []),
                 "oculto_desde": hueco.oculto_desde,
                 "created_at": hueco.created_at,
                 "updated_at": hueco.updated_at,
@@ -276,6 +287,16 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 f' "{ejercicio.nombre}" no existe en esta versión de la app.'
             )
 
+    # Solo con los ejercicios que se han podido resolver: un predefinido que no existe aquí
+    # ya dio su error, y buscar su tipo sería un `KeyError` y un 500 en vez de un 422.
+    tipo_de = {e.id: e.tipo_registro for e in datos.ejercicios} | {
+        p.id: tipo_del_predefinido[p.nombre]
+        for p in datos.predefinidos
+        if p.nombre in tipo_del_predefinido
+    }
+    nombre_de = {e.id: e.nombre for e in datos.ejercicios} | {
+        p.id: p.nombre for p in datos.predefinidos
+    }
     # Referencias dentro del archivo.
     ejercicios = set(ids_de_ejercicio)
     rutinas = {r.id: r for r in datos.rutinas}
@@ -286,12 +307,23 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 f"Una nota es de un ejercicio que no está en el archivo ({nota.ejercicio_id})."
             )
     for rutina, hueco in huecos:
-        for ejercicio_id in [hueco.ejercicio_principal_id, *hueco.alternativa_ids]:
+        elegidos = [(hueco.ejercicio_principal_id, hueco)]
+        elegidos += [(a.ejercicio_id, a) for a in hueco.alternativas]
+        for ejercicio_id, objetivo in elegidos:
             if ejercicio_id not in ejercicios:
                 errores.append(
                     f'La rutina "{rutina.nombre}" usa un ejercicio que no está en el archivo'
                     f" ({ejercicio_id})."
                 )
+            elif ejercicio_id in tipo_de:
+                # El objetivo es de la familia del ejercicio (`app/medidas.py`).
+                mal = validar_objetivo(
+                    nombre_de[ejercicio_id], tipo_de[ejercicio_id], objetivo.model_dump()
+                )
+                if mal:
+                    errores.append(
+                        f'La rutina "{rutina.nombre}" tiene un objetivo mal puesto: {mal}'
+                    )
     # UNIQUE(rutina_id, orden).
     for rutina in datos.rutinas:
         for orden in _repetidos(hueco.orden for hueco in rutina.slots):
@@ -336,16 +368,6 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     for fecha in _repetidos(x.fecha for x in datos.excepciones):
         errores.append(f"El día {fecha} está cambiado dos veces.")
 
-    nombre_de = {e.id: e.nombre for e in datos.ejercicios} | {
-        p.id: p.nombre for p in datos.predefinidos
-    }
-    # Solo con los ejercicios que se han podido resolver: un predefinido que no existe aquí
-    # ya dio su error, y buscar su tipo sería un `KeyError` y un 500 en vez de un 422.
-    tipo_de = {e.id: e.tipo_registro for e in datos.ejercicios} | {
-        p.id: tipo_del_predefinido[p.nombre]
-        for p in datos.predefinidos
-        if p.nombre in tipo_del_predefinido
-    }
     for sesion in datos.entrenamientos:
         rutina = rutinas.get(sesion.rutina_id)
         if rutina is None:
@@ -534,9 +556,7 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
                 rutina_id=rutina_nueva[r.id],
                 ejercicio_principal_id=ejercicio_nuevo[h.ejercicio_principal_id],
                 orden=h.orden,
-                series_objetivo=h.series_objetivo,
-                reps_min=h.reps_min,
-                reps_max=h.reps_max,
+                **_objetivo(h),
                 oculto_desde=h.oculto_desde,
                 created_at=h.created_at,
                 updated_at=h.updated_at,
@@ -549,9 +569,13 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
     db.flush()
     hueco_nuevo = {h.id: nuevo.id for h, nuevo in huecos}
     db.add_all(
-        SlotAlternativa(slot_id=hueco_nuevo[h.id], ejercicio_id=ejercicio_nuevo[ejercicio_id])
+        SlotAlternativa(
+            slot_id=hueco_nuevo[h.id],
+            ejercicio_id=ejercicio_nuevo[a.ejercicio_id],
+            **_objetivo(a),
+        )
         for h, _ in huecos
-        for ejercicio_id in h.alternativa_ids
+        for a in h.alternativas
     )
 
     programas = [

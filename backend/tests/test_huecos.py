@@ -16,7 +16,14 @@ from sqlalchemy import func, select
 
 from app.fechas import hoy
 from app.models import RutinaSlot, Serie, SlotAlternativa
-from tests.ayudas import crear_ejercicio, crear_rutina, entrenar
+from tests.ayudas import (
+    alternativa,
+    crear_ejercicio,
+    crear_rutina,
+    entrenar,
+    ids_de_alternativas,
+    objetivo,
+)
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -26,14 +33,15 @@ def ocultar_ejercicio(cliente, ejercicio_id) -> None:
 
 
 def cuerpo_de_hueco(principal, series=4, reps=(6, 10), **campos) -> dict:
-    """Sin `orden` ni `alternativa_ids` salvo que vengan en `campos`."""
-    return {
-        "ejercicio_principal_id": principal,
-        "series_objetivo": series,
-        "reps_min": reps[0],
-        "reps_max": reps[1],
-        **campos,
-    }
+    """Sin `orden` ni `alternativas` salvo que vengan en `campos`. En `alternativas`
+    vale poner solo el id de cada ejercicio: va con un objetivo de repeticiones
+    (`alternativa`), que es el de todos los ejercicios de este archivo.
+    """
+    if campos.get("alternativas") is not None:
+        campos["alternativas"] = [
+            a if isinstance(a, dict) else alternativa(a) for a in campos["alternativas"]
+        ]
+    return {"ejercicio_principal_id": principal, **objetivo(series, reps), **campos}
 
 
 def anadir_hueco(cliente, rutina_id, principal, **campos):
@@ -59,7 +67,7 @@ def comodines(cliente, rutina_id, slot_id) -> list[int]:
     hueco = next(
         h for h in cliente.get(f"/rutinas/{rutina_id}").json()["slots"] if h["id"] == slot_id
     )
-    return [c["id"] for c in hueco["alternativas"]]
+    return ids_de_alternativas(hueco)
 
 
 def filas_de_comodines(sesion_bd, slot_id) -> dict[int, int]:
@@ -150,7 +158,7 @@ def test_sin_orden_con_el_100_ocupado_da_409_y_no_crea_nada(cliente, sesion_bd, 
         assert cliente.delete(f"/rutinas/{rutina}/slots/{ultimo}?modo=ocultar").status_code == 204
 
     respuesta = anadir_hueco(
-        cliente, rutina, ejercicios["Aperturas"], alternativa_ids=[ejercicios["Fondos"]]
+        cliente, rutina, ejercicios["Aperturas"], alternativas=[ejercicios["Fondos"]]
     )
 
     assert respuesta.status_code == 409
@@ -207,14 +215,12 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
 ):
     """El resto de acciones sobre un hueco también comprueban que es de la rutina
     de la ruta: mostrarlo y cambiar o vaciar su lista de comodines (el PUT con
-    `alternativa_ids`). Por la de Pull, 404 y el hueco de Push no cambia.
+    `alternativas`). Por la de Pull, 404 y el hueco de Push no cambia.
     """
     push = crear_rutina(cliente, "Push")
     pull = crear_rutina(cliente, "Pull")
     press = ejercicios["Press"]
-    hueco = hueco_creado(cliente, push, press, orden=1, alternativa_ids=[ejercicios["Fondos"]])[
-        "id"
-    ]
+    hueco = hueco_creado(cliente, push, press, orden=1, alternativas=[ejercicios["Fondos"]])["id"]
     por_push, por_pull = f"/rutinas/{push}/slots/{hueco}", f"/rutinas/{pull}/slots/{hueco}"
 
     # Mostrar, con el hueco oculto: si colara, lo dejaría visible.
@@ -224,9 +230,9 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     # Los comodines, con el hueco visible: así el 404 no puede ser el 409 de lo oculto.
     assert cliente.post(f"{por_push}/mostrar").status_code == 200
     anadir = editar_hueco(
-        cliente, pull, hueco, press, alternativa_ids=[ejercicios["Fondos"], ejercicios["Cruces"]]
+        cliente, pull, hueco, press, alternativas=[ejercicios["Fondos"], ejercicios["Cruces"]]
     )
-    quitar = editar_hueco(cliente, pull, hueco, press, alternativa_ids=[])
+    quitar = editar_hueco(cliente, pull, hueco, press, alternativas=[])
 
     assert [r.status_code for r in (mostrar, anadir, quitar)] == [404, 404, 404]
     assert all(r.json()["detail"] == "Hueco no encontrado" for r in (mostrar, anadir, quitar))
@@ -242,9 +248,9 @@ def test_un_hueco_nuevo_se_crea_con_sus_comodines_en_el_orden_enviado(
     rutina = crear_rutina(cliente)
     lista = [ejercicios["Fondos"], ejercicio_predefinido_id, ejercicios["Aperturas"]]
 
-    hueco = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=lista)
+    hueco = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=lista)
 
-    assert [c["id"] for c in hueco["alternativas"]] == lista
+    assert ids_de_alternativas(hueco) == lista
     assert comodines(cliente, rutina, hueco["id"]) == lista
 
 
@@ -259,7 +265,7 @@ def test_un_hueco_nuevo_con_un_comodin_que_no_vale_da_404_y_no_se_crea(
         ocultar_ejercicio(cliente, malo)
 
     respuesta = anadir_hueco(
-        cliente, rutina, ejercicios["Press"], alternativa_ids=[ejercicios["Fondos"], malo]
+        cliente, rutina, ejercicios["Press"], alternativas=[ejercicios["Fondos"], malo]
     )
 
     assert respuesta.status_code == 404
@@ -281,7 +287,7 @@ def test_un_hueco_nuevo_con_comodines_incoherentes_da_422(
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
     lista = {"igual al principal": [fondos, press], "repetido": [fondos, fondos]}[caso]
 
-    respuesta = anadir_hueco(cliente, rutina, press, alternativa_ids=lista)
+    respuesta = anadir_hueco(cliente, rutina, press, alternativas=lista)
 
     assert respuesta.status_code == 422
     assert lo_que_dice in str(respuesta.json()["detail"])
@@ -291,18 +297,18 @@ def test_un_hueco_nuevo_con_comodines_incoherentes_da_422(
 # --- PUT: sin lista de comodines, como antes -------------------------------
 
 
-@pytest.mark.parametrize("campos", [{}, {"alternativa_ids": None}], ids=["sin lista", "nula"])
+@pytest.mark.parametrize("campos", [{}, {"alternativas": None}], ids=["sin lista", "nula"])
 def test_editar_un_hueco_sin_lista_de_comodines_no_los_toca(cliente, sesion_bd, ejercicios, campos):
     rutina = crear_rutina(cliente)
     lista = [ejercicios["Fondos"], ejercicios["Cruces"]]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=lista)["id"]
+    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=lista)["id"]
     filas = filas_de_comodines(sesion_bd, slot)
 
     respuesta = editar_hueco(cliente, rutina, slot, ejercicios["Aperturas"], series=2, **campos)
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["series_objetivo"] == 2
-    assert [c["id"] for c in respuesta.json()["alternativas"]] == lista
+    assert ids_de_alternativas(respuesta.json()) == lista
     assert filas_de_comodines(sesion_bd, slot) == filas
 
 
@@ -312,9 +318,9 @@ def test_con_la_lista_nula_sigue_sin_poder_pasar_un_comodin_a_principal(cliente,
     """
     rutina = crear_rutina(cliente)
     fondos = ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=[fondos])["id"]
 
-    respuesta = editar_hueco(cliente, rutina, slot, fondos, alternativa_ids=None)
+    respuesta = editar_hueco(cliente, rutina, slot, fondos, alternativas=None)
 
     assert respuesta.status_code == 409
     assert "ya es comodín" in respuesta.json()["detail"]
@@ -330,17 +336,17 @@ def test_la_lista_quita_conserva_y_anade_comodines(cliente, sesion_bd, ejercicio
     """
     rutina = crear_rutina(cliente)
     aperturas, fondos, cruces = ejercicios["Aperturas"], ejercicios["Fondos"], ejercicios["Cruces"]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=[aperturas, fondos])[
+    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=[aperturas, fondos])[
         "id"
     ]
     fila_de_fondos = filas_de_comodines(sesion_bd, slot)[fondos]
 
     respuesta = editar_hueco(
-        cliente, rutina, slot, ejercicios["Press"], alternativa_ids=[cruces, fondos]
+        cliente, rutina, slot, ejercicios["Press"], alternativas=[cruces, fondos]
     )
 
     assert respuesta.status_code == 200, respuesta.text
-    assert [c["id"] for c in respuesta.json()["alternativas"]] == [fondos, cruces]
+    assert ids_de_alternativas(respuesta.json()) == [fondos, cruces]
     assert comodines(cliente, rutina, slot) == [fondos, cruces]
     filas = filas_de_comodines(sesion_bd, slot)
     assert set(filas) == {fondos, cruces}
@@ -350,9 +356,9 @@ def test_la_lista_quita_conserva_y_anade_comodines(cliente, sesion_bd, ejercicio
 def test_la_lista_vacia_quita_todos_los_comodines(cliente, sesion_bd, ejercicios):
     rutina = crear_rutina(cliente)
     lista = [ejercicios["Aperturas"], ejercicios["Fondos"]]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=lista)["id"]
+    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=lista)["id"]
 
-    respuesta = editar_hueco(cliente, rutina, slot, ejercicios["Press"], alternativa_ids=[])
+    respuesta = editar_hueco(cliente, rutina, slot, ejercicios["Press"], alternativas=[])
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["alternativas"] == []
@@ -365,13 +371,13 @@ def test_intercambiar_principal_y_comodin_en_una_sola_peticion(cliente, ejercici
     """
     rutina = crear_rutina(cliente)
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
 
-    respuesta = editar_hueco(cliente, rutina, slot, fondos, alternativa_ids=[press])
+    respuesta = editar_hueco(cliente, rutina, slot, fondos, alternativas=[press])
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["ejercicio_principal"]["id"] == fondos
-    assert [c["id"] for c in respuesta.json()["alternativas"]] == [press]
+    assert ids_de_alternativas(respuesta.json()) == [press]
 
 
 @pytest.mark.parametrize("al_reves", [False, True], ids=["misma lista", "misma lista al revés"])
@@ -384,7 +390,7 @@ def test_mandar_los_mismos_comodines_conserva_sus_filas(cliente, sesion_bd, ejer
     """
     rutina = crear_rutina(cliente)
     lista = [ejercicios["Aperturas"], ejercicios["Fondos"], ejercicios["Cruces"]]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativa_ids=lista)["id"]
+    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=lista)["id"]
     filas = filas_de_comodines(sesion_bd, slot)
 
     respuesta = editar_hueco(
@@ -393,12 +399,12 @@ def test_mandar_los_mismos_comodines_conserva_sus_filas(cliente, sesion_bd, ejer
         slot,
         ejercicios["Press"],
         series=5,
-        alternativa_ids=lista[::-1] if al_reves else lista,
+        alternativas=lista[::-1] if al_reves else lista,
     )
 
     assert respuesta.status_code == 200, respuesta.text
     # El orden de la lista no reordena los que ya estaban.
-    assert [c["id"] for c in respuesta.json()["alternativas"]] == lista
+    assert ids_de_alternativas(respuesta.json()) == lista
     assert respuesta.json()["series_objetivo"] == 5
     assert filas_de_comodines(sesion_bd, slot) == filas
 
@@ -411,17 +417,17 @@ def test_un_comodin_ya_oculto_se_conserva_pero_no_se_puede_volver_a_poner(
     """
     rutina = crear_rutina(cliente)
     press, fondos, cruces = ejercicios["Press"], ejercicios["Fondos"], ejercicios["Cruces"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
     ocultar_ejercicio(cliente, fondos)
 
-    conservado = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[fondos, cruces])
+    conservado = editar_hueco(cliente, rutina, slot, press, alternativas=[fondos, cruces])
     assert conservado.status_code == 200, conservado.text
-    assert [c["id"] for c in conservado.json()["alternativas"]] == [fondos, cruces]
+    assert ids_de_alternativas(conservado.json()) == [fondos, cruces]
 
-    quitado = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[cruces])
+    quitado = editar_hueco(cliente, rutina, slot, press, alternativas=[cruces])
     assert quitado.status_code == 200, quitado.text
 
-    repuesto = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[cruces, fondos])
+    repuesto = editar_hueco(cliente, rutina, slot, press, alternativas=[cruces, fondos])
     assert repuesto.status_code == 404
     assert repuesto.json()["detail"] == "Ejercicio no encontrado"
     assert comodines(cliente, rutina, slot) == [cruces]
@@ -433,24 +439,24 @@ def test_con_el_principal_oculto_se_le_puede_anadir_un_comodin(cliente, ejercici
     slot = hueco_creado(cliente, rutina, press)["id"]
     ocultar_ejercicio(cliente, press)
 
-    respuesta = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[ejercicios["Fondos"]])
+    respuesta = editar_hueco(cliente, rutina, slot, press, alternativas=[ejercicios["Fondos"]])
 
     assert respuesta.status_code == 200, respuesta.text
-    assert [c["id"] for c in respuesta.json()["alternativas"]] == [ejercicios["Fondos"]]
+    assert ids_de_alternativas(respuesta.json()) == [ejercicios["Fondos"]]
 
 
 def test_quitar_un_comodin_con_series_no_borra_las_series(cliente, sesion_bd, ejercicios):
     """Las series apuntan al ejercicio y al hueco, no a la fila del comodín."""
     rutina = crear_rutina(cliente)
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
     sesion = entrenar(cliente, hoy(), rutina).json()["id"]
     serie = {"ejercicio_id": fondos, "slot_id": slot, "numero_serie": 1, "peso": 40}
     respuesta = cliente.post(f"/entrenamientos/{sesion}/series", json={**serie, "repeticiones": 10})
     assert respuesta.status_code == 201, respuesta.text
     serie_id = respuesta.json()["id"]
 
-    respuesta = editar_hueco(cliente, rutina, slot, press, alternativa_ids=[])
+    respuesta = editar_hueco(cliente, rutina, slot, press, alternativas=[])
 
     assert respuesta.status_code == 200, respuesta.text
     sesion_bd.expire_all()
@@ -465,7 +471,7 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
 ):
     rutina = crear_rutina(cliente)
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
     ruta = f"/rutinas/{rutina}/slots/{slot}" if que == "hueco" else f"/rutinas/{rutina}"
     assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
     filas = filas_de_comodines(sesion_bd, slot)
@@ -476,7 +482,7 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
     }[que]
 
     for lista in ([], [ejercicios["Cruces"]]):
-        respuesta = editar_hueco(cliente, rutina, slot, press, alternativa_ids=lista)
+        respuesta = editar_hueco(cliente, rutina, slot, press, alternativas=lista)
         assert (respuesta.status_code, respuesta.json()["detail"]) == (409, mensaje)
 
     assert filas_de_comodines(sesion_bd, slot) == filas
@@ -494,11 +500,11 @@ def test_editar_con_comodines_incoherentes_da_422(
 ):
     rutina = crear_rutina(cliente)
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
     filas = filas_de_comodines(sesion_bd, slot)
     lista = {"igual al principal": [fondos, press], "repetido": [fondos, fondos]}[caso]
 
-    respuesta = editar_hueco(cliente, rutina, slot, press, alternativa_ids=lista)
+    respuesta = editar_hueco(cliente, rutina, slot, press, alternativas=lista)
 
     assert respuesta.status_code == 422
     assert lo_que_dice in str(respuesta.json()["detail"])
@@ -513,11 +519,11 @@ def test_un_comodin_que_no_vale_en_la_lista_no_cambia_nada_del_hueco(
     """
     rutina = crear_rutina(cliente)
     press, fondos = ejercicios["Press"], ejercicios["Fondos"]
-    slot = hueco_creado(cliente, rutina, press, alternativa_ids=[fondos])["id"]
+    slot = hueco_creado(cliente, rutina, press, alternativas=[fondos])["id"]
     filas = filas_de_comodines(sesion_bd, slot)
 
     respuesta = editar_hueco(
-        cliente, rutina, slot, press, series=9, alternativa_ids=[ejercicios["Cruces"], 999_999]
+        cliente, rutina, slot, press, series=9, alternativas=[ejercicios["Cruces"], 999_999]
     )
 
     assert respuesta.status_code == 404

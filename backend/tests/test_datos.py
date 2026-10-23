@@ -30,6 +30,7 @@ from app.models import (
     SlotAlternativa,
 )
 from app.schemas import (
+    AlternativaDeHueco,
     ArchivoDeDatos,
     DiaDeArchivo,
     EjercicioDeArchivo,
@@ -107,10 +108,11 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     propio archivo daría 422): el press, el remo (comodín) y `de_serie` van cada uno
     en un hueco o una sesión distintos.
 
-    Todo es de peso y repeticiones y sin peso corporal, a propósito: la migración de
-    los tipos se niega a bajar con series de otra forma y perdería el peso corporal, y
-    `test_infraestructura.py` baja por debajo de ella con este escenario. Los tipos
-    nuevos están en `montar_datos_por_tipo`.
+    Todo es de peso y repeticiones y sin peso corporal, y cada comodín tiene el
+    objetivo de su principal, a propósito: la migración de los tipos se niega a bajar
+    con series de otra forma y perdería el peso corporal, la del objetivo por ejercicio
+    perdería el de cada comodín, y `test_infraestructura.py` baja por debajo de ellas
+    con este escenario. Los tipos nuevos están en `montar_datos_por_tipo`.
     """
     (comodin, de_nota, de_serie, sin_usar) = _predefinidos(sesion_bd, 4)
     grupo_id, grupo = sesion_bd.execute(
@@ -184,10 +186,13 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     h3 = hueco(push, remo, 3, oculto_desde=date(2026, 9, 1))
     h4 = hueco(pull, press, 1)
     # El remo (id alto, propio) antes que el predefinido (id bajo): el orden de los
-    # comodines es el de sus filas, no el de los ids de sus ejercicios.
-    sesion_bd.add(SlotAlternativa(slot_id=h1, ejercicio_id=remo))
+    # comodines es el de sus filas, no el de los ids de sus ejercicios. Con el mismo
+    # objetivo que su principal: bajar de la migración del objetivo por ejercicio lo
+    # pierde, y al volver a subir se copia el del principal.
+    objetivo_del_principal = {"series_objetivo": 4, "reps_min": 6, "reps_max": 10}
+    sesion_bd.add(SlotAlternativa(slot_id=h1, ejercicio_id=remo, **objetivo_del_principal))
     sesion_bd.flush()
-    sesion_bd.add(SlotAlternativa(slot_id=h1, ejercicio_id=comodin[0]))
+    sesion_bd.add(SlotAlternativa(slot_id=h1, ejercicio_id=comodin[0], **objetivo_del_principal))
     sesion_bd.flush()
 
     ppl = Programa(
@@ -324,7 +329,9 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
     """Lo que solo existe con los tipos de ejercicio, para montar encima de
     `montar_datos` (o solo): un ejercicio propio de cada tipo y una rutina «Core» con
     un hueco de cada uno, más uno de la sentadilla (predefinido, de peso y
-    repeticiones). Dos sesiones (el 2 y el 3 de septiembre, días que `montar_datos`
+    repeticiones). El de la plancha, con su objetivo en segundos y las dominadas de
+    alternativa (otra familia, con objetivo de repeticiones); el del remo, con la
+    plancha de alternativa y un objetivo en segundos distinto del de su hueco. Dos sesiones (el 2 y el 3 de septiembre, días que `montar_datos`
     no usa) con dominadas con ayuda y con peso corporal, con lastre y sin carga, una
     plancha sin peso y otra con peso, y la sentadilla.
     """
@@ -346,20 +353,39 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
     core = Rutina(nombre="Core", **marca)
     sesion_bd.add(core)
     sesion_bd.flush()
+    en_reps = {"series_objetivo": 3, "reps_min": 6, "reps_max": 10}
+    en_segundos = {"series_objetivo": 3, "duracion_min_s": 30, "duracion_max_s": 60}
     huecos = {}
     for orden, principal in enumerate((dominadas, plancha, remo, sentadilla_id), start=1):
         fila = RutinaSlot(
             rutina_id=core.id,
             ejercicio_principal_id=principal,
             orden=orden,
-            series_objetivo=3,
-            reps_min=6,
-            reps_max=10,
+            **(en_segundos if principal == plancha else en_reps),
             **marca,
         )
         sesion_bd.add(fila)
         sesion_bd.flush()
         huecos[principal] = fila.id
+    sesion_bd.add_all(
+        [
+            SlotAlternativa(
+                slot_id=huecos[plancha],
+                ejercicio_id=dominadas,
+                series_objetivo=2,
+                reps_min=5,
+                reps_max=8,
+            ),
+            SlotAlternativa(
+                slot_id=huecos[remo],
+                ejercicio_id=plancha,
+                series_objetivo=4,
+                duracion_min_s=20,
+                duracion_max_s=40,
+            ),
+        ]
+    )
+    sesion_bd.flush()
 
     def sesion(dia, *series):
         fila = Entrenamiento(
@@ -457,7 +483,6 @@ def _nada(sesion_bd) -> bool:
 ESPACIO_DE_CLAVE = {
     "ejercicio_id": "ejercicio",
     "ejercicio_principal_id": "ejercicio",
-    "alternativa_ids": "ejercicio",
     "rutina_id": "rutina",
     "slot_id": "hueco",
 }
@@ -466,7 +491,6 @@ ESPACIO_DEL_ID = {
     "predefinidos": "ejercicio",
     "ejercicio": "ejercicio",
     "ejercicio_principal": "ejercicio",
-    "alternativas": "ejercicio",
     "rutinas": "rutina",
     "rutina": "rutina",
     "slots": "hueco",
@@ -677,7 +701,10 @@ def test_cada_lista_va_por_id_tambien_dentro_de_cada_padre(cliente, datos):
     assert huecos == sorted(huecos)
     push = next(r for r in archivo["rutinas"] if r["nombre"] == "Push")
     # Los comodines, en el orden de sus filas: el remo se añadió antes.
-    assert push["slots"][0]["alternativa_ids"] == [datos["remo"], datos["comodin"][0]]
+    assert [a["ejercicio_id"] for a in push["slots"][0]["alternativas"]] == [
+        datos["remo"],
+        datos["comodin"][0],
+    ]
 
 
 def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
@@ -822,7 +849,7 @@ def test_la_ida_y_vuelta_conserva_el_orden_de_los_comodines(cliente, datos):
 
     push = next(r for r in cliente.get("/rutinas").json() if r["nombre"] == "Push")
     hueco = next(h for h in push["slots"] if h["orden"] == 1)
-    assert [e["nombre"] for e in hueco["alternativas"]] == [
+    assert [a["ejercicio"]["nombre"] for a in hueco["alternativas"]] == [
         "Remo en máquina vieja",
         datos["comodin"][1],
     ]
@@ -915,7 +942,14 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
                         "series_objetivo": 3,
                         "reps_min": 5,
                         "reps_max": 8,
-                        "alternativa_ids": [predefinido_id],
+                        "alternativas": [
+                            {
+                                "ejercicio_id": predefinido_id,
+                                "series_objetivo": 3,
+                                "reps_min": 5,
+                                "reps_max": 8,
+                            }
+                        ],
                         **marca,
                     }
                 ],
@@ -1251,7 +1285,8 @@ def _principal_que_no_esta(a):
 
 
 def _comodin_que_no_esta(a):
-    _rutina(a, "Push")["slots"][0]["alternativa_ids"].append(999_999)
+    hueco = _rutina(a, "Push")["slots"][0]
+    hueco["alternativas"].append({**hueco["alternativas"][0], "ejercicio_id": 999_999})
 
 
 def _dia_de_una_rutina_que_no_esta(a):
@@ -1324,12 +1359,14 @@ def _orden_repetido(a):
 
 def _comodin_repetido(a):
     hueco = _rutina(a, "Push")["slots"][0]
-    hueco["alternativa_ids"].append(hueco["alternativa_ids"][0])
+    hueco["alternativas"].append(copy.deepcopy(hueco["alternativas"][0]))
 
 
 def _comodin_igual_al_principal(a):
     hueco = _rutina(a, "Push")["slots"][0]
-    hueco["alternativa_ids"].append(hueco["ejercicio_principal_id"])
+    hueco["alternativas"].append(
+        {**hueco["alternativas"][0], "ejercicio_id": hueco["ejercicio_principal_id"]}
+    )
 
 
 def _dia_con_vigencia_invertida(a):
@@ -1348,6 +1385,20 @@ def _dia_semana_8(a):
 def _reps_al_reves(a):
     hueco = _rutina(a, "Push")["slots"][0]
     hueco["reps_min"], hueco["reps_max"] = 12, 6
+
+
+def _comodin_con_el_objetivo_a_medias(a):
+    alternativa = _rutina(a, "Push")["slots"][0]["alternativas"][0]
+    alternativa["reps_max"] = None
+
+
+def _comodin_con_los_dos_pares(a):
+    alternativa = _rutina(a, "Push")["slots"][0]["alternativas"][0]
+    alternativa["duracion_min_s"], alternativa["duracion_max_s"] = 30, 60
+
+
+def _comodin_sin_series_objetivo(a):
+    del _rutina(a, "Push")["slots"][0]["alternativas"][0]["series_objetivo"]
 
 
 def _periodo_abierto(a):
@@ -1465,6 +1516,9 @@ MALOS = [
     (_periodo_invertido, DANADO, "programas.0.periodos.0"),
     (_dia_semana_8, DANADO, "programas.0.dias.0.dia_semana"),
     (_reps_al_reves, DANADO, "rutinas.0.slots.0"),
+    (_comodin_con_el_objetivo_a_medias, DANADO, "rutinas.0.slots.0.alternativas.0"),
+    (_comodin_con_los_dos_pares, DANADO, "rutinas.0.slots.0.alternativas.0"),
+    (_comodin_sin_series_objetivo, DANADO, "rutinas.0.slots.0.alternativas.0.series_objetivo"),
     (
         _programa_que_empieza_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
@@ -1748,6 +1802,154 @@ def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
     assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
     assert any(error in e for e in detalle["errores"]), detalle["errores"]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def _hueco_de(archivo, rutina, principal):
+    return next(
+        h
+        for h in _rutina(archivo, rutina)["slots"]
+        if h["ejercicio_principal_id"] == _de(archivo, principal)["id"]
+    )
+
+
+def _en_reps(objetivo):
+    objetivo.update(reps_min=6, reps_max=10, duracion_min_s=None, duracion_max_s=None)
+
+
+def _en_segundos(objetivo):
+    objetivo.update(reps_min=None, reps_max=None, duracion_min_s=30, duracion_max_s=60)
+
+
+def _plancha_de_principal_en_reps(a):
+    _en_reps(_hueco_de(a, "Core", "Plancha con disco"))
+
+
+def _dominadas_de_alternativa_en_segundos(a):
+    [dominadas] = _hueco_de(a, "Core", "Plancha con disco")["alternativas"]
+    _en_segundos(dominadas)
+
+
+def _plancha_de_alternativa_en_reps(a):
+    [plancha] = _hueco_de(a, "Core", "Remo con barra")["alternativas"]
+    _en_reps(plancha)
+
+
+def _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo(a):
+    # El tipo del archivo manda también para el objetivo. Sus series se quedan sin
+    # repeticiones, que es otro error: se mira solo el del objetivo.
+    _de(a, "Plancha con disco")["tipo_registro"] = "corporal"
+
+
+MAL_OBJETIVO = 'La rutina "Core" tiene un objetivo mal puesto: '
+EN_SEGUNDOS = (
+    "El objetivo de Plancha con disco va en segundos (duracion_min_s y duracion_max_s), no"
+    " en repeticiones: Plancha con disco se apunta por tiempo."
+)
+OBJETIVOS_QUE_NO_CUADRAN = [
+    (_plancha_de_principal_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
+    (
+        _dominadas_de_alternativa_en_segundos,
+        MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones (reps_min y"
+        " reps_max), no en duración: Dominadas lastradas se apunta con repeticiones y carga.",
+    ),
+    (_plancha_de_alternativa_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
+    (
+        _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
+        MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones (reps_min y"
+        " reps_max), no en duración: Plancha con disco se apunta con repeticiones y carga.",
+    ),
+]
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+@pytest.mark.parametrize(
+    "estropear, error",
+    OBJETIVOS_QUE_NO_CUADRAN,
+    ids=[f.__name__.lstrip("_") for f, _ in OBJETIVOS_QUE_NO_CUADRAN],
+)
+def test_un_objetivo_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
+    cliente, datos_por_tipo, estropear, error, comprobar
+):
+    """El objetivo del principal y el de cada alternativa, cada uno con el tipo de su
+    ejercicio (no con el del principal): 422 que nombra la rutina y el ejercicio, y no
+    se cambia nada.
+    """
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    estropear(archivo)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    detalle = respuesta.json()["detail"]
+    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
+    assert error in detalle["errores"], detalle["errores"]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def test_exportar_escribe_el_objetivo_de_cada_alternativa(cliente, datos_por_tipo):
+    archivo = exportado(cliente)
+
+    def alternativas(principal):
+        return [
+            {k: v for k, v in a.items() if k != "ejercicio_id"}
+            for a in _hueco_de(archivo, "Core", principal)["alternativas"]
+        ]
+
+    assert alternativas("Plancha con disco") == [
+        {
+            "series_objetivo": 2,
+            "reps_min": 5,
+            "reps_max": 8,
+            "duracion_min_s": None,
+            "duracion_max_s": None,
+        }
+    ]
+    assert alternativas("Remo con barra") == [
+        {
+            "series_objetivo": 4,
+            "reps_min": None,
+            "reps_max": None,
+            "duracion_min_s": 20,
+            "duracion_max_s": 40,
+        }
+    ]
+
+
+def test_la_ida_y_vuelta_conserva_el_objetivo_de_cada_alternativa_en_la_base(
+    cliente, sesion_bd, datos_por_tipo
+):
+    """Columna a columna, sin los ids: cada alternativa vuelve con el suyo, no con el
+    de su principal ni con nada por defecto.
+    """
+
+    def objetivos():
+        sesion_bd.expire_all()
+        principal = Ejercicio.__table__.alias("principal")
+        comodin = Ejercicio.__table__.alias("comodin")
+        return sesion_bd.execute(
+            select(
+                principal.c.nombre,
+                comodin.c.nombre,
+                SlotAlternativa.series_objetivo,
+                SlotAlternativa.reps_min,
+                SlotAlternativa.reps_max,
+                SlotAlternativa.duracion_min_s,
+                SlotAlternativa.duracion_max_s,
+            )
+            .join(RutinaSlot, RutinaSlot.id == SlotAlternativa.slot_id)
+            .join(principal, principal.c.id == RutinaSlot.ejercicio_principal_id)
+            .join(comodin, comodin.c.id == SlotAlternativa.ejercicio_id)
+            .order_by(principal.c.nombre, comodin.c.nombre)
+        ).all()
+
+    antes = objetivos()
+    assert ("Plancha con disco", "Dominadas lastradas", 2, 5, 8, None, None) in antes
+    assert ("Remo con barra", "Plancha con disco", 4, None, None, 20, 40) in antes
+
+    assert importar(cliente, exportado(cliente)).status_code == 200
+
+    assert objetivos() == antes
 
 
 @pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
@@ -2173,6 +2375,7 @@ FORMATO_DE = {
     NotaEjercicio: NotaDeArchivo,
     Rutina: RutinaDeArchivo,
     RutinaSlot: SlotDeArchivo,
+    SlotAlternativa: AlternativaDeHueco,
     Programa: ProgramaDeArchivo,
     ProgramaDia: DiaDeArchivo,
     ProgramaPeriodo: PeriodoDeArchivo,
@@ -2195,8 +2398,8 @@ NO_SE_EXPORTA = {
     ExcepcionDelPlan: {"id": "nada la referencia"},
     Entrenamiento: {"id": "nada la referencia"},
     Serie: {"id": "nada la referencia", "entrenamiento_id": "va dentro de su sesión"},
-    # De los comodines solo cuenta el ejercicio, en `alternativa_ids` de su hueco.
-    SlotAlternativa: {"id": "", "slot_id": "", "ejercicio_id": ""},
+    # Cada comodín va en `alternativas` de su hueco, con su ejercicio y su objetivo.
+    SlotAlternativa: {"id": "nada la referencia", "slot_id": "va dentro de su hueco"},
 }
 
 # Tablas que no se exportan enteras.

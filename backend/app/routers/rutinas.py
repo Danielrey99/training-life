@@ -9,6 +9,7 @@ from app.database import get_db
 from app.fechas import hoy
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import (
+    Ejercicio,
     Entrenamiento,
     ExcepcionDelPlan,
     ProgramaDia,
@@ -18,6 +19,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
+from app.medidas import validar_objetivo
 from app.ocultos import exigir_visible
 from app.seguimiento import (
     aviso_de_sesiones_que_se_borran,
@@ -222,22 +224,19 @@ def crear_rutina(
     """
     _validar_ejercicios_elegidos(
         db,
-        [
-            id_
-            for hueco in datos.slots
-            for id_ in (hueco.ejercicio_principal_id, *hueco.alternativa_ids)
-        ],
+        [id_ for hueco in datos.slots for id_ in _ids_del_hueco(hueco)],
     )
+    _validar_objetivos(db, datos.slots)
     rutina = Rutina(nombre=datos.nombre)
     # Solo INSERT, todos en la misma relación: no hace falta flush() entre ellos.
     rutina.slots = [
         RutinaSlot(
             orden=posicion,
             ejercicio_principal_id=hueco.ejercicio_principal_id,
-            series_objetivo=hueco.series_objetivo,
-            reps_min=hueco.reps_min,
-            reps_max=hueco.reps_max,
-            slot_alternativas=[SlotAlternativa(ejercicio_id=id_) for id_ in hueco.alternativa_ids],
+            **_objetivo_de(hueco),
+            slot_alternativas=[
+                _alternativa_nueva(alternativa) for alternativa in hueco.alternativas
+            ],
         )
         for posicion, hueco in enumerate(datos.slots, start=1)
     ]
@@ -298,11 +297,9 @@ def duplicar_rutina(
         RutinaSlot(
             ejercicio_principal_id=slot.ejercicio_principal_id,
             orden=slot.orden,
-            series_objetivo=slot.series_objetivo,
-            reps_min=slot.reps_min,
-            reps_max=slot.reps_max,
+            **_objetivo_de(slot),
             slot_alternativas=[
-                SlotAlternativa(ejercicio_id=comodin.ejercicio_id)
+                SlotAlternativa(ejercicio_id=comodin.ejercicio_id, **_objetivo_de(comodin))
                 for comodin in slot.slot_alternativas
             ],
         )
@@ -524,6 +521,45 @@ def _validar_ejercicios_elegidos(db: Session, ids) -> None:
         obtener_ejercicio_visible(db, ejercicio_id)
 
 
+CAMPOS_DEL_OBJETIVO = (
+    "series_objetivo",
+    "reps_min",
+    "reps_max",
+    "duracion_min_s",
+    "duracion_max_s",
+)
+
+
+def _objetivo_de(origen) -> dict:
+    """Los cinco campos del objetivo de un hueco, una alternativa o un cuerpo."""
+    return {campo: getattr(origen, campo) for campo in CAMPOS_DEL_OBJETIVO}
+
+
+def _alternativa_nueva(alternativa) -> SlotAlternativa:
+    return SlotAlternativa(ejercicio_id=alternativa.ejercicio_id, **_objetivo_de(alternativa))
+
+
+def _ids_del_hueco(hueco) -> list[int]:
+    return [hueco.ejercicio_principal_id, *(a.ejercicio_id for a in hueco.alternativas)]
+
+
+def _validar_objetivos(db: Session, huecos) -> None:
+    """Cada ejercicio de un hueco (el principal y cada alternativa del cuerpo) lleva un
+    objetivo de su familia: repeticiones o duración. 422 con el primer fallo, que
+    nombra el ejercicio. Los ids ya se comprobaron: aquí solo se lee su tipo.
+    """
+    for hueco in huecos:
+        elegidos = [(hueco.ejercicio_principal_id, hueco)]
+        elegidos += [(a.ejercicio_id, a) for a in hueco.alternativas or []]
+        for ejercicio_id, objetivo in elegidos:
+            ejercicio = db.get(Ejercicio, ejercicio_id)
+            error = validar_objetivo(
+                ejercicio.nombre, ejercicio.tipo_registro, objetivo.model_dump()
+            )
+            if error:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=error)
+
+
 ORDEN_MAXIMO = 100
 
 
@@ -555,7 +591,8 @@ def crear_slot(
     db: Session = Depends(get_db),
 ):
     _obtener_rutina_modificable(db, rutina_id)
-    _validar_ejercicios_elegidos(db, [datos.ejercicio_principal_id, *datos.alternativa_ids])
+    _validar_ejercicios_elegidos(db, _ids_del_hueco(datos))
+    _validar_objetivos(db, [datos])
     if datos.orden is None:
         orden = _siguiente_orden(db, rutina_id)
     else:
@@ -565,10 +602,8 @@ def crear_slot(
         rutina_id=rutina_id,
         orden=orden,
         ejercicio_principal_id=datos.ejercicio_principal_id,
-        series_objetivo=datos.series_objetivo,
-        reps_min=datos.reps_min,
-        reps_max=datos.reps_max,
-        slot_alternativas=[SlotAlternativa(ejercicio_id=id_) for id_ in datos.alternativa_ids],
+        **_objetivo_de(datos),
+        slot_alternativas=[_alternativa_nueva(alternativa) for alternativa in datos.alternativas],
     )
     db.add(slot)
     db.commit()
@@ -583,42 +618,52 @@ def actualizar_slot(
     datos: RutinaSlotUpdate,
     db: Session = Depends(get_db),
 ):
-    """Cambia un hueco. Con `alternativa_ids`, la lista sustituye a los comodines
-    actuales (vacía, los quita todos); sin ella, los comodines no se tocan.
+    """Cambia un hueco. Con `alternativas`, la lista sustituye a las actuales (vacía,
+    las quita todas) y cada una lleva su objetivo; sin ella, las alternativas y sus
+    objetivos no se tocan.
     """
     slot = _obtener_slot_modificable(db, rutina_id, slot_id)
-    actuales = {fila.ejercicio_id for fila in slot.slot_alternativas}
+    actuales = {fila.ejercicio_id: fila for fila in slot.slot_alternativas}
     # El principal solo se valida si cambia: si se ocultó después, el hueco lo
     # sigue enseñando, y corregir sus series o reps no es elegirlo de nuevo.
     if datos.ejercicio_principal_id != slot.ejercicio_principal_id:
         obtener_ejercicio_visible(db, datos.ejercicio_principal_id)
-        # Con la lista nueva, el validador ya garantiza que el principal no está en
-        # ella: intercambiar principal y comodín en una sola petición vale.
-        if datos.alternativa_ids is None and datos.ejercicio_principal_id in actuales:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Ese ejercicio ya es comodín de este hueco: quítalo antes de hacerlo principal",
-            )
-    # Solo se validan los comodines que se añaden: uno ya oculto que se conserva no
+    # Solo se validan las alternativas que se añaden: una ya oculta que se conserva no
     # se está eligiendo de nuevo ("corregir sí, elegir algo oculto no").
-    if datos.alternativa_ids is not None:
+    if datos.alternativas is not None:
         _validar_ejercicios_elegidos(
-            db, [id_ for id_ in datos.alternativa_ids if id_ not in actuales]
+            db, [a.ejercicio_id for a in datos.alternativas if a.ejercicio_id not in actuales]
+        )
+    _validar_objetivos(db, [datos])
+    # Con la lista nueva, el validador ya garantiza que el principal no está en ella:
+    # intercambiar principal y alternativa en una sola petición vale.
+    if (
+        datos.alternativas is None
+        and datos.ejercicio_principal_id != slot.ejercicio_principal_id
+        and datos.ejercicio_principal_id in actuales
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ese ejercicio ya es comodín de este hueco: quítalo antes de hacerlo principal",
         )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
-    for campo, valor in datos.model_dump(exclude={"alternativa_ids"}).items():
+    for campo, valor in datos.model_dump(exclude={"alternativas"}).items():
         setattr(slot, campo, valor)
-    if datos.alternativa_ids is not None:
+    if datos.alternativas is not None:
         # Se conservan las filas de los que siguen. Reconstruir la lista entera
         # borraría y volvería a insertar el mismo par (hueco, ejercicio), y SQLAlchemy
         # emite los INSERT antes que los DELETE: UNIQUE(slot_id, ejercicio_id) daría 500.
-        nuevos = set(datos.alternativa_ids)
+        nuevos = {a.ejercicio_id for a in datos.alternativas}
         for fila in list(slot.slot_alternativas):
             if fila.ejercicio_id not in nuevos:
                 slot.slot_alternativas.remove(fila)
-        for id_ in datos.alternativa_ids:
-            if id_ not in actuales:
-                slot.slot_alternativas.append(SlotAlternativa(ejercicio_id=id_))
+        for alternativa in datos.alternativas:
+            fila = actuales.get(alternativa.ejercicio_id)
+            if fila is None:
+                slot.slot_alternativas.append(_alternativa_nueva(alternativa))
+            else:
+                for campo, valor in _objetivo_de(alternativa).items():
+                    setattr(fila, campo, valor)
     db.commit()
     db.refresh(slot)
     return slot

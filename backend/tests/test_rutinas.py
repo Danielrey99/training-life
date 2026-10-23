@@ -14,11 +14,14 @@ from sqlalchemy import func, select
 from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
 from tests.ayudas import (
+    alternativa,
     consultas_de,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
     entrenar,
+    ids_de_alternativas,
+    objetivo,
     poner_alternativas,
 )
 
@@ -58,20 +61,20 @@ def lo_que_tiene(rutina) -> list[tuple]:
             hueco["series_objetivo"],
             hueco["reps_min"],
             hueco["reps_max"],
-            [comodin["id"] for comodin in hueco["alternativas"]],
+            ids_de_alternativas(hueco),
         )
         for hueco in rutina["slots"]
     ]
 
 
-def hueco_nuevo(principal, comodines=(), series=4, reps=(6, 10)) -> dict:
-    """Un hueco dentro del cuerpo de `POST /rutinas`: sin `orden`, que es su posición."""
+def hueco_nuevo(principal, comodines=(), series=4, reps=(6, 10), duracion=None) -> dict:
+    """Un hueco dentro del cuerpo de `POST /rutinas`: sin `orden`, que es su posición.
+    Cada comodín, un id (con objetivo de repeticiones) o el cuerpo de su alternativa.
+    """
     return {
         "ejercicio_principal_id": principal,
-        "alternativa_ids": list(comodines),
-        "series_objetivo": series,
-        "reps_min": reps[0],
-        "reps_max": reps[1],
+        "alternativas": [c if isinstance(c, dict) else alternativa(c) for c in comodines],
+        **objetivo(series, reps, duracion),
     }
 
 
