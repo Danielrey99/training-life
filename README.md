@@ -68,7 +68,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Backend: `Entrenamiento` y `Serie` (registro real, con las medidas de su tipo de ejercicio y la variante, base del historial de progresión)
 - [x] Ejercicios de cuatro tipos: peso y repeticiones, peso corporal (con lastre o con ayuda), tiempo y cardio (tiempo y distancia), cada uno con su formulario, su objetivo, sus insignias de mejora y su gráfica. Cada alternativa de un ejercicio de una rutina lleva su propio objetivo
 - [x] Backend: notas personales por ejercicio (también sobre los ejercicios predefinidos)
-- [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
+- [x] Backend: historial de progresión de cada ejercicio (con filtros de fecha)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, restricciones de la base, CRUD)
 - [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
 - [x] Web: primera versión de registrar un entrenamiento (ya sustituida por la del diseño)

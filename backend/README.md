@@ -28,7 +28,7 @@ Cada sesión sabe si está **en curso**: abierta (sin `terminada_en`) y de hoy. 
 
 **Se entrena una rutina al día**: como mucho una sesión por día, sea de la rutina que sea, y la base de datos lo garantiza con una restricción única. Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada: no cuenta para ningún día ni ocupa el suyo, no cuenta como historial al borrar su rutina, y se borra en cuanto otra sesión necesita su fecha, al borrar su rutina, o al borrar el hueco o el ejercicio que la dejaron vacía. Nada la borra por su cuenta: la pantalla de hoy la avisa para que se complete o se cancele.
 
-Sobre ese historial se consulta la **progresión**, en dos vistas que no se sustituyen: la de un ejercicio concreto (`/ejercicios/{id}/historial`) y la de un hueco entero de una rutina (`/rutinas/{id}/slots/{slot_id}/historial`), que incluye también los días en que ese hueco se hizo con un comodín. Las dos siguen respondiendo aunque el ejercicio, el hueco o la rutina estén ocultados: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
+Sobre ese historial se consulta la **progresión** de un ejercicio (`/ejercicios/{id}/historial`): los días en que se hizo, en la rutina que fuera y como principal o como comodín. Es también la "última vez" con la que se compara al entrenar, y sigue respondiendo aunque el ejercicio esté ocultado: ocultar retira algo de circulación, no borra lo que ya entrenaste con ello.
 
 La API es de **una sola persona por instalación**: no hay usuarios, ni login, ni `usuario_id` en ninguna tabla. Cada teléfono o navegador guarda sus datos y se los pasa a otro dispositivo con un archivo (ver más abajo).
 
@@ -100,7 +100,7 @@ backend/
 │   ├── test_ejercicios.py   # dónde se usa cada ejercicio
 │   ├── test_rutinas.py      # duplicar, reordenar y crear una rutina con sus huecos
 │   ├── test_huecos.py       # el orden de un hueco nuevo y sustituir sus comodines
-│   ├── test_historial.py    # la progresión por ejercicio y por hueco
+│   ├── test_historial.py    # la progresión de un ejercicio
 │   ├── test_sesiones.py     # la sesión en curso y una sesión por día
 │   ├── test_programas.py    # programas, sus días y cómo conviven con las rutinas
 │   ├── test_relaciones.py   # borrar un padre con sus hijos ya cargados en memoria
@@ -221,7 +221,7 @@ No hay ningún paso previo que recordar:
 | `test_huecos.py` | El orden automático de un hueco nuevo, y sustituir sus comodines con una lista: que se conserven las filas de los que siguen, la lista repetida, un comodín oculto que se conserva y quitar uno con series |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
 | `test_ejercicios.py` | Dónde se usa un ejercicio: su número en cada rutina contando solo los visibles, los huecos y rutinas ocultos, los programas donde está y cuál es el activo, y que las consultas no crezcan con los datos |
-| `test_historial.py` | La progresión por ejercicio y por hueco: agrupación por sesión, límites y filtros de fecha y de ejercicio |
+| `test_historial.py` | La progresión de un ejercicio: agrupación por sesión, límite por sesiones, filtros de fecha, que cruce rutinas y papeles (principal o comodín) y que ocultar no la esconda |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos, y su último periodo de uso y que el listado no haga una consulta por programa |
 | `test_relaciones.py` | Qué pasa al borrar un padre con la lista de hijos ya cargada en memoria: que los hijos que se borran con él se borren, y que los que lo impiden lo sigan impidiendo |
@@ -317,7 +317,6 @@ No hay usuarios, login ni JWT, y no se prevén: la app es de una sola persona y 
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`, que borra también esas series y las sesiones que se quedan sin ninguna (la de hoy en curso se conserva). El 409 dice cuántas sesiones se irían. |
 | `GET` | `/rutinas/{id}/slots/{slot_id}/aviso-de-borrado` | Lo que se perdería al borrarlo: cuántas series, desde cuándo y qué sesiones se borrarían con ellas, con el día que contaban. También con el hueco oculto. |
 | `POST` | `/rutinas/{id}/slots/{slot_id}/mostrar` | Deshace un `?modo=ocultar`: el hueco vuelve a su rutina, en el mismo sitio. |
-| `GET` | `/rutinas/{id}/slots/{slot_id}/historial` | La progresión del hueco entero: los días en que se entrenó, con qué ejercicio se hizo cada serie (principal o comodín) y con cuánto peso. Mismos filtros que el historial de un ejercicio, más `?ejercicio_id=` para quedarse solo con las series de ese ejercicio en el hueco, sin las del comodín de otra semana. (La "última vez" con la que se compara al entrenar sale del historial del ejercicio, en la rutina que fuera.) También sigue funcionando con el hueco o la rutina ocultados. |
 
 ### Programas
 
@@ -368,7 +367,7 @@ El volumen va por la fecha real de cada sesión y cuenta también las abiertas, 
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/entrenamientos` | Lista los entrenamientos, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes; `?en_curso=true` para quedarse solo con la sesión en curso, si la hay; `?sin_terminar=true` para las de días pasados que se dejaron sin terminar, con series (cuentan como hechas, pero quizá se dejaron a medias sin querer) o sin ellas (canceladas: quizá se abrieron para apuntar ese día y se olvidaron); y `?rutina_id=` junto con `?limite=` (de 1 a 500) para las últimas sesiones de una rutina. |
+| `GET` | `/entrenamientos` | Lista los entrenamientos, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes; `?sin_terminar=true` para las de días pasados que se dejaron sin terminar, con series (cuentan como hechas, pero quizá se dejaron a medias sin querer) o sin ellas (canceladas: quizá se abrieron para apuntar ese día y se olvidaron); y `?rutina_id=` junto con `?limite=` (de 1 a 500) para las últimas sesiones de una rutina. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
 | `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía): siempre es de una rutina, así que `rutina_id` es obligatorio. `cubre_fecha` (opcional) es el día del plan que cuenta: hoy, uno pasado que se recupera o uno de esta semana que se adelanta. Ese día tiene que tocar esa rutina, estar en plazo y caer en el mismo programa (422 si no), y no puede contarlo ya otra sesión (409 con su `entrenamiento_id`); si lo retenía una que no lo contaba, se lo quita. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. `intercambiar_con` (opcional, solo al empezar hoy) intercambia antes lo que toca hoy con lo que toca ese día y crea la sesión, todo en una sola transacción: si algo falla, no queda ningún día cambiado (422 si el día no toca esa rutina, ya pasó o no es el de hoy; 409 si hoy ya hay sesión). |
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
