@@ -85,25 +85,6 @@
   border-color: var(--error);
 }
 
-.tarjetas {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-
-.tarjeta {
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: 8px;
-  padding: 0.9rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
 .etiqueta {
   align-self: flex-start;
   font-size: 0.78rem;
@@ -111,12 +92,6 @@
   border: 1px solid var(--borde);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
-}
-
-.descripcion {
-  margin: 0;
-  color: var(--texto-tenue);
-  font-size: 0.9rem;
 }
 
 /* --- Formularios ------------------------------------------------------- */
@@ -164,51 +139,4 @@ button {
 button:disabled {
   opacity: 0.6;
   cursor: default;
-}
-
-button.secundario {
-  color: var(--texto);
-  background: var(--superficie);
-  border-color: var(--borde);
-}
-
-button.borrar {
-  color: var(--texto-tenue);
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  line-height: 1;
-  padding: 0 0.4rem;
-}
-
-button.borrar:hover {
-  color: var(--error);
-}
-
-.formulario {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* 120px es lo que necesita un selector de fecha para no salir cortado; por
-   debajo de eso el navegador recorta el año. */
-.campos {
-  display: grid;
-  gap: 0.6rem;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-}
-
-.campos label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.78rem;
-  color: var(--texto-tenue);
-}
-
-/* Para los campos que no se entienden en una columna estrecha (un desplegable
-   de nombres largos, un texto libre): ocupan la fila entera. */
-.campos label.ancho {
-  grid-column: 1 / -1;
 }

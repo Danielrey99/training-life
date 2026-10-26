@@ -68,13 +68,6 @@ button.ejercicio-caja .icono {
   color: var(--texto-tenue);
 }
 
-.ejercicio-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 2px;
-}
-
 .ejercicio-chip {
   font: inherit;
   min-height: 40px;

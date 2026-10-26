@@ -253,12 +253,6 @@ export function medidasDe(tipo: TipoRegistro, sesiones: SesionHistorial[]): Medi
   return todas.filter((medida) => medida.clave !== (tipo === 'corporal' ? 'carga' : 'peso') || hubo)
 }
 
-/** El valor de una sesión en esa medida, sin convertir de unidad (kg, reps o segundos). */
-export function valorDe(tipo: TipoRegistro, sesion: SesionHistorial, clave: string): number {
-  const medida = MEDIDAS[tipo].find((otra) => otra.clave === clave) ?? MEDIDAS[tipo][0]
-  return medida.valor(sesion)
-}
-
 /** El valor que se enseña (y se dibuja): los kg, en la unidad elegida. */
 export function valorEnPantalla(medida: Medida, sesion: SesionHistorial): number {
   const valor = medida.valor(sesion)
