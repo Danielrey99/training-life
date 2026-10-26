@@ -352,3 +352,136 @@ def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["notas"] == "Hombro cargado"
+
+
+# --- Corregir la fecha entre programas (PUT) -----------------------------
+#
+# Como al crearla, la fecha de la sesión y el día que cuenta tienen que caer en el
+# mismo programa. En estos tests el programa viejo (`ppl`) llega hasta el martes 15 y
+# desde hoy, miércoles 16, manda otro.
+
+AVISO_OTRO_PROGRAMA = (
+    "El 2026-09-14 lo planificaba otro programa: lo que tocaba con un programa que ya"
+    " no está activo no se recupera."
+)
+
+
+def activar_otro_programa(cliente, ppl) -> None:
+    """Activa hoy un programa nuevo con el mismo Push los lunes: lo anterior al 16
+    queda en el programa viejo y lo posterior, en este.
+    """
+    respuesta = cliente.post(
+        "/programas",
+        json={
+            "nombre": "Otro",
+            "activar": True,
+            "dias": [{"dia_semana": 1, "rutina_id": ppl["Push"]}],
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+
+
+def fecha_guardada(cliente, entrenamiento_id) -> str:
+    return cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["fecha"]
+
+
+def test_no_se_mueve_a_un_dia_de_otro_programa_el_dia_que_se_recuperaba(cliente, ppl):
+    """Sin esta comprobación, el PUT dejaba mover a hoy (programa nuevo) una sesión que
+    cuenta el lunes del programa viejo, algo que el POST rechaza.
+    """
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    activar_otro_programa(cliente, ppl)
+
+    respuesta = corregir(cliente, recuperada, HOY)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == AVISO_OTRO_PROGRAMA
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
+
+
+def test_se_mueve_dentro_del_mismo_programa_aunque_haya_otro_activo(cliente, ppl):
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    activar_otro_programa(cliente, ppl)
+
+    respuesta = corregir(cliente, recuperada, LUNES_14)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["fecha"] == LUNES_14.isoformat()
+
+
+def test_una_sesion_sin_dia_que_contar_se_mueve_de_un_programa_a_otro(cliente, ppl):
+    suelta = sesion(cliente, MARTES_15, ppl["Push"]).json()["id"]
+    activar_otro_programa(cliente, ppl)
+
+    respuesta = corregir(cliente, suelta, HOY)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["fecha"] == HOY.isoformat()
+
+
+def test_no_se_mueve_a_un_dia_sin_programa_lo_que_contaba_el_programa_desactivado(cliente, ppl):
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    programa = cliente.get("/programas").json()[0]["id"]
+    assert cliente.post(f"/programas/{programa}/desactivar").status_code == 200
+
+    respuesta = corregir(cliente, recuperada, HOY)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == AVISO_OTRO_PROGRAMA
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
+
+
+def test_una_sesion_que_ya_cruzaba_programas_se_sigue_pudiendo_mover(cliente, ppl):
+    """Un adelanto del viernes 18 apuntado el martes 15, y después se activa otro
+    programa: la fecha (15) es del viejo y el día que cuenta (18), del nuevo. Moverla
+    entre dos días del viejo dentro del plazo no empeora nada, así que se permite.
+    """
+    adelantada = sesion(cliente, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18).json()["id"]
+    activar_otro_programa(cliente, ppl)
+
+    respuesta = corregir(cliente, adelantada, LUNES_14)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["fecha"] == LUNES_14.isoformat()
+    assert respuesta.json()["cubre_fecha"] == VIERNES_18.isoformat()
+
+
+def test_fuera_de_plazo_y_de_otro_programa_el_aviso_es_el_del_plazo(cliente, ppl, hoy_es):
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    activar_otro_programa(cliente, ppl)
+    hoy_es(MIERCOLES_23)
+
+    respuesta = corregir(cliente, recuperada, LUNES_21)
+
+    assert respuesta.status_code == 422
+    assert "del 2026-09-14 al 2026-09-20" in respuesta.json()["detail"]
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
+
+
+def test_de_otro_programa_y_con_el_dia_ocupado_es_422_y_no_toca_la_otra_sesion(cliente, ppl):
+    """El programa se mira antes que el día libre: un 409 invitaría a hacer sitio en
+    un día al que la sesión no puede ir de todas formas.
+    """
+    recuperada = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14).json()["id"]
+    activar_otro_programa(cliente, ppl)
+    ocupante = sesion(cliente, HOY, ppl["Pull"]).json()["id"]
+
+    respuesta = corregir(cliente, recuperada, HOY)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == AVISO_OTRO_PROGRAMA
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
+    ocupante_ahora = cliente.get(f"/entrenamientos/{ocupante}").json()
+    assert ocupante_ahora["fecha"] == HOY.isoformat()
+    assert ocupante_ahora["rutina_id"] == ppl["Pull"]
+
+
+def test_corregir_solo_las_notas_de_una_sesion_que_cruza_programas(cliente, ppl):
+    adelantada = sesion(cliente, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18).json()["id"]
+    activar_otro_programa(cliente, ppl)
+
+    respuesta = corregir(cliente, adelantada, MARTES_15, notas="Rodilla bien")
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["notas"] == "Rodilla bien"
+    assert respuesta.json()["fecha"] == MARTES_15.isoformat()

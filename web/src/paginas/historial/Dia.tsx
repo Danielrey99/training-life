@@ -542,7 +542,12 @@ export function Dia() {
     if (fallo instanceof ErrorDeApi && fallo.estado === 422 && dia.cubre_fecha && nueva <= hoy()) {
       const contado = dia.cubre_fecha
       const lunes = sumarDias(contado, 1 - diaDeLaSemana(contado))
-      const limite = nueva > contado ? sumarDias(contado, 6) : lunes
+      const ultimo = sumarDias(contado, 6)
+      // Dentro del plazo, el 422 solo puede ser el del programa.
+      if (nueva >= lunes && nueva <= ultimo) {
+        return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, y el ${fechaEnFrase(nueva, false)} no seguías el mismo programa que ese día: solo se puede mover a un día en que lo siguieras.`
+      }
+      const limite = nueva > contado ? ultimo : lunes
       const hacia = nueva > contado ? 'hasta' : 'desde'
       return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, así que solo puede ir ${hacia} el ${fechaEnFrase(limite, false)}.`
     }

@@ -116,7 +116,16 @@ def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"El {cubre} no toca esa rutina.",
         )
-    if dia.programa_id != plan[fecha].programa_id:
+    _validar_mismo_programa(cubre, plan, fecha)
+    return dia
+
+
+def _validar_mismo_programa(cubre: date, plan: dict[date, DiaPlan], fecha: date) -> None:
+    """La fecha de la sesión y el día que cuenta caen en el mismo programa (o los dos
+    sin programa), al crearla y al corregir su fecha: lo que tocaba con un programa que
+    ya no está activo no se recupera.
+    """
+    if plan[cubre].programa_id != plan[fecha].programa_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
@@ -124,7 +133,6 @@ def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
                 " no está activo no se recupera."
             ),
         )
-    return dia
 
 
 def _validar_intercambio(db: Session, datos: EntrenamientoCreate) -> None:
@@ -278,15 +286,25 @@ def actualizar_entrenamiento(
 ):
     """Corrige la fecha y las notas. La rutina y el día que cuenta se fijan al
     crear la sesión: para apuntar otra rutina se borra el día y se registra de nuevo.
+
+    La fecha solo se mueve dentro del plazo del día que cuenta y a un día del mismo
+    programa que él, como al crearla. Una sesión que ya cruzaba programas (se adelantó
+    un día y después se activó otro programa) se puede seguir corrigiendo: solo se
+    valida lo que cambia.
     """
     entrenamiento = _obtener_entrenamiento(db, entrenamiento_id)
     _validar_fecha_no_futura(datos.fecha)
     if datos.fecha != entrenamiento.fecha:
         # El día que cuenta no cambia al corregir la fecha: la sesión sigue siendo "la
-        # del lunes", así que solo se mueve dentro del plazo de ese día (422), y antes
-        # que mirar si el día nuevo está ocupado (409).
-        if entrenamiento.cubre_fecha is not None:
-            _validar_en_plazo(datos.fecha, entrenamiento.cubre_fecha)
+        # del lunes", así que solo se mueve dentro del plazo de ese día y de su programa
+        # (422), y antes que mirar si el día nuevo está ocupado (409).
+        cubre = entrenamiento.cubre_fecha
+        if cubre is not None:
+            _validar_en_plazo(datos.fecha, cubre)
+            fechas = (datos.fecha, entrenamiento.fecha, cubre)
+            plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fechas), max(fechas))}
+            if plan[entrenamiento.fecha].programa_id == plan[cubre].programa_id:
+                _validar_mismo_programa(cubre, plan, datos.fecha)
         _validar_dia_libre(db, datos.fecha, excepto_id=entrenamiento_id)
     for campo, valor in datos.model_dump().items():
         setattr(entrenamiento, campo, valor)

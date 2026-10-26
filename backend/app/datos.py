@@ -236,7 +236,9 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     predefinidos o grupos que no existen aquí y las restricciones de la base.
 
     No se valida a propósito lo que no rompe nada y podría venir de una copia legítima
-    (periodos solapados). Sí las fechas que la app nunca crea: un periodo de programa o
+    (periodos solapados), ni que la fecha de una sesión y el día que cuenta sean del
+    mismo programa: la app lo deja así al activar otro programa con un adelanto
+    pendiente. Sí las fechas que la app nunca crea: un periodo de programa o
     una sesión que empieza después de hoy, y un día que cuenta una sesión fuera de su
     plazo. Vienen de un dispositivo con la fecha mal puesta y rompen cosas más tarde
     (desactivar el programa, el estado de los días).
