@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.fechas import hoy
+from app.fechas import ZONA_HORARIA, hoy, hoy_en, zona_horaria
 from app.medidas import validar_medidas, validar_objetivo
 from app.models import (
     Ejercicio,
@@ -142,6 +142,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
     return ArchivoDeDatos.model_validate(
         {
             "exportado_en": datetime.now(timezone.utc),
+            "zona_horaria": ZONA_HORARIA.key,
             "predefinidos": [{"id": e.id, "nombre": e.nombre} for e in predefinidos],
             "ejercicios": [
                 {
@@ -241,7 +242,10 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     pendiente. Sí las fechas que la app nunca crea: un periodo de programa o
     una sesión que empieza después de hoy, y un día que cuenta una sesión fuera de su
     plazo. Vienen de un dispositivo con la fecha mal puesta y rompen cosas más tarde
-    (desactivar el programa, el estado de los días).
+    (desactivar el programa, el estado de los días). "Hoy" es el mayor entre hoy aquí y
+    hoy en la zona de quien exportó, con el reloj de ahora y no con `exportado_en`, que
+    lo escribió el mismo reloj que puede estar mal: así un archivo hecho pasada la
+    medianoche en una zona más adelantada no da error.
     """
     errores: list[str] = []
     mapas = Mapas()
@@ -347,13 +351,22 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 " de la semana."
             )
     hoy_ = hoy()
+    if datos.zona_horaria is not None:
+        zona = zona_horaria(datos.zona_horaria)
+        if zona is None:
+            errores.append(
+                f'La zona horaria del archivo ("{datos.zona_horaria}") no la conoce esta'
+                " versión de la app."
+            )
+        else:
+            hoy_ = max(hoy_, hoy_en(zona))
     for programa in datos.programas:
         for periodo in programa.periodos:
             if periodo.desde > hoy_ or (periodo.hasta is not None and periodo.hasta > hoy_):
                 cuando = "se empezó a usar" if periodo.desde > hoy_ else "se dejó de usar"
                 fecha = periodo.desde if periodo.desde > hoy_ else periodo.hasta
                 errores.append(
-                    f'El programa "{programa.nombre}" {cuando} el {fecha}, un día que aquí todavía'
+                    f'El programa "{programa.nombre}" {cuando} el {fecha}, un día que todavía'
                     " no ha llegado: comprueba la fecha del teléfono o del ordenador que hizo"
                     " la copia."
                 )
@@ -380,7 +393,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
             )
         if sesion.fecha > hoy_:
             errores.append(
-                f"La sesión del {sesion.fecha} es de un día que aquí todavía no ha llegado:"
+                f"La sesión del {sesion.fecha} es de un día que todavía no ha llegado:"
                 " comprueba la fecha del teléfono o del ordenador que hizo la copia."
             )
         if sesion.cubre_fecha is not None:

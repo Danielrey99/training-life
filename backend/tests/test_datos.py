@@ -585,6 +585,7 @@ def test_exportar_sin_datos_da_el_formato_con_las_listas_vacias(cliente, hoy_es)
     assert sin_marca(archivo) == {
         "formato": "training-life",
         "version": 2,
+        "zona_horaria": "Europe/Madrid",
         "predefinidos": [],
         "ejercicios": [],
         "notas": [],
@@ -1041,6 +1042,9 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
     # El archivo pasado por el formato, para que tenga sus valores por defecto y las
     # horas escritas igual que al exportar.
     normalizado = ArchivoDeDatos.model_validate(archivo).model_dump(mode="json")
+    # El archivo no lleva zona; al exportar se escribe siempre la de esta instalación.
+    assert normalizado["zona_horaria"] is None
+    normalizado["zona_horaria"] = "Europe/Madrid"
     assert sin_ids(exportado(cliente)) == sin_ids(normalizado)
     # Nada de lo de antes, tampoco la nota del predefinido que no se usaba en nada
     # (no se iría con ningún ejercicio).
@@ -1065,6 +1069,7 @@ def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos)
     assert respuesta.json()["rutinas"] == respuesta.json()["series"] == 0
     assert sin_marca(exportado(cliente)) == {
         **sin_marca(vacio),
+        "zona_horaria": "Europe/Madrid",
         "predefinidos": [],
         "ejercicios": [],
         "notas": [],
@@ -1475,6 +1480,27 @@ def _sesion_de_un_dia_que_no_ha_llegado(a):
     _sesion(a, "2026-09-11")["fecha"] = "2026-09-17"
 
 
+def _zona_que_no_existe(a):
+    a["zona_horaria"] = "Marte/Olympus"
+
+
+def _zona_vacia(a):
+    a["zona_horaria"] = ""
+
+
+def _zona_que_es_una_ruta(a):
+    # `ZoneInfo` lee archivos: un nombre con `..` no debe salir de su carpeta.
+    a["zona_horaria"] = "../../etc"
+
+
+def _zona_que_es_un_numero(a):
+    a["zona_horaria"] = 9
+
+
+def _zona_de_65_caracteres(a):
+    a["zona_horaria"] = "A" * 65
+
+
 def _cuenta_un_dia_antes_de_su_plazo(a):
     # Lo del lunes 14 se puede hacer del 14 al 20: el lunes 7 es antes.
     _sesion(a, "2026-09-07")["cubre_fecha"] = "2026-09-14"
@@ -1486,9 +1512,14 @@ def _cuenta_un_dia_despues_de_su_plazo(a):
 
 
 EN_EL_FUTURO = (
-    ", un día que aquí todavía no ha llegado: comprueba la fecha del teléfono o del"
+    ", un día que todavía no ha llegado: comprueba la fecha del teléfono o del"
     " ordenador que hizo la copia."
 )
+SESION_EN_EL_FUTURO = (
+    " es de un día que todavía no ha llegado: comprueba la fecha del teléfono o del"
+    " ordenador que hizo la copia."
+)
+ZONA_DESCONOCIDA = 'La zona horaria del archivo ("{}") no la conoce esta versión de la app.'
 FUERA_DE_PLAZO = (
     ", fuera de su plazo: lo de un día se entrena entre el lunes de su semana y seis días después."
 )
@@ -1592,9 +1623,13 @@ MALOS = [
     (
         _sesion_de_un_dia_que_no_ha_llegado,
         NO_SE_CAMBIA_NADA,
-        "La sesión del 2026-09-17 es de un día que aquí todavía no ha llegado: comprueba la"
-        " fecha del teléfono o del ordenador que hizo la copia.",
+        "La sesión del 2026-09-17" + SESION_EN_EL_FUTURO,
     ),
+    (_zona_que_no_existe, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("Marte/Olympus")),
+    (_zona_vacia, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("")),
+    (_zona_que_es_una_ruta, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("../../etc")),
+    (_zona_que_es_un_numero, DANADO, "zona_horaria"),
+    (_zona_de_65_caracteres, DANADO, "zona_horaria"),
     (
         _cuenta_un_dia_antes_de_su_plazo,
         NO_SE_CAMBIA_NADA,
@@ -1689,6 +1724,138 @@ def test_las_fechas_que_la_app_si_crea_se_importan(cliente, datos, arreglar):
 
     assert respuesta.status_code == 200, respuesta.text
     assert sin_ids(sin_marca(exportado(cliente))) == sin_ids(sin_marca(archivo))
+
+
+# --- La zona horaria del archivo ---------------------------------------------
+#
+# A las 17:30 del miércoles 16 en Madrid (15:30 en UTC) ya son las 00:30 del jueves
+# 17 en Tokio: quien exportó allí pudo entrenar "hoy" el 17. Las fechas del futuro se
+# miden con el mayor de los dos "hoy", y siempre con el reloj de ahora.
+
+
+def reloj_a_las_17_30_del_16_en_madrid(monkeypatch):
+    from app import fechas
+
+    ahora = datetime(2026, 9, 16, 17, 30, tzinfo=fechas.ZONA_HORARIA)
+
+    class Reloj(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return ahora.astimezone(tz)
+
+    monkeypatch.setattr(fechas, "datetime", Reloj)
+
+
+def _con_una_sesion_y_un_periodo_del(archivo, dia, zona):
+    """La sesión del viernes 11 pasa a `dia` y el programa activo empieza ese día."""
+    if zona is not None:
+        archivo["zona_horaria"] = zona
+    else:
+        archivo.pop("zona_horaria")
+    _sesion(archivo, "2026-09-11")["fecha"] = dia
+    _periodo_abierto(archivo)["desde"] = dia
+    return archivo
+
+
+def _errores_del_futuro(dia):
+    return [
+        f'El programa "PPL" se empezó a usar el {dia}' + EN_EL_FUTURO,
+        f"La sesión del {dia}" + SESION_EN_EL_FUTURO,
+    ]
+
+
+def test_exportar_escribe_la_zona_horaria_de_madrid(cliente, datos):
+    assert exportado(cliente)["zona_horaria"] == "Europe/Madrid"
+
+
+def test_lo_de_hoy_en_la_zona_del_archivo_se_importa_aunque_aqui_sea_manana(
+    cliente, datos, monkeypatch
+):
+    """Con el reloj de antes (`hoy()` a secas, el 16 en Madrid), la sesión y el
+    periodo del 17 daban 422; en Tokio ya es el 17, así que valen. Comprobar dice lo
+    mismo que importar, y la copia queda tal cual (salvo la zona, que al exportar es
+    siempre la de aquí).
+    """
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    antes = exportado(cliente)
+    archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", "Asia/Tokyo")
+
+    comprobado = importar(cliente, archivo, comprobar=True)
+    assert comprobado.status_code == 200, comprobado.text
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 200, respuesta.text
+    despues = exportado(cliente)
+    assert despues["zona_horaria"] == "Europe/Madrid"
+    assert sin_ids(sin_marca(despues)) == sin_ids(
+        sin_marca({**archivo, "zona_horaria": "Europe/Madrid"})
+    )
+
+
+@pytest.mark.parametrize("zona", [None, "Europe/Madrid", "America/New_York"])
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+def test_sin_zona_o_con_una_que_no_va_por_delante_mañana_sigue_sin_valer(
+    cliente, datos, monkeypatch, zona, comprobar
+):
+    """En Nueva York son las 11:30 del 16: no adelanta nada a Madrid."""
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    antes = exportado(cliente)
+    archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", zona)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == _errores_del_futuro("2026-09-17")
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def test_con_la_zona_de_tokio_pasado_mañana_sigue_sin_valer(cliente, datos, monkeypatch):
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    antes = exportado(cliente)
+    archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-18", "Asia/Tokyo")
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == _errores_del_futuro("2026-09-18")
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize("exportado_en", ["2026-09-17T00:30:00+09:00", "2026-09-30T12:00:00+00:00"])
+def test_un_exportado_en_del_futuro_no_relaja_las_fechas(cliente, datos, monkeypatch, exportado_en):
+    """`exportado_en` lo escribió el mismo reloj que puede estar mal: no cuenta como
+    "hoy" de quien exportó, ni con su zona ni sin ella.
+    """
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    antes = exportado(cliente)
+    archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", None)
+    archivo["exportado_en"] = exportado_en
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == _errores_del_futuro("2026-09-17")
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def test_con_una_zona_desconocida_el_resto_se_mide_con_el_hoy_de_aqui(cliente, datos, monkeypatch):
+    """La zona que no se conoce es un error más de la lista, y las fechas se siguen
+    comprobando con el "hoy" de Madrid: el 17 no vale.
+    """
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    antes = exportado(cliente)
+    archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", "Marte/Olympus")
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        ZONA_DESCONOCIDA.format("Marte/Olympus"),
+        *_errores_del_futuro("2026-09-17"),
+    ]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
 def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):
@@ -2645,6 +2812,7 @@ def test_el_formato_de_alto_nivel_tiene_una_lista_por_cada_cosa():
         "formato",
         "version",
         "exportado_en",
+        "zona_horaria",
         "predefinidos",
         "ejercicios",
         "notas",
@@ -2689,6 +2857,7 @@ def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
     assert sin_marca(exportado(cliente)) == {
         "formato": "training-life",
         "version": 2,
+        "zona_horaria": "Europe/Madrid",
         "predefinidos": [],
         "ejercicios": [],
         "notas": [],

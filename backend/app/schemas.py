@@ -954,6 +954,9 @@ class ArchivoDeDatos(BaseModel):
     formato: Literal["training-life"] = "training-life"
     version: Literal[2] = 2
     exportado_en: AwareDatetime
+    # La zona horaria de quien exportó (`Europe/Madrid`): al importar, una fecha de
+    # mañana aquí puede ser de hoy allí. Opcional: un archivo sin ella vale igual.
+    zona_horaria: str | None = Field(default=None, max_length=64)
     predefinidos: list[PredefinidoDeArchivo] = []
     ejercicios: list[EjercicioDeArchivo] = []
     notas: list[NotaDeArchivo] = []
