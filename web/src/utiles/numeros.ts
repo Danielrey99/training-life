@@ -114,7 +114,12 @@ export function unoRM(series: Medidas[]): number {
  * teclado del móvil en español pone coma). Devuelve `null` si no es un número.
  */
 export function leerNumero(texto: string): number | null {
-  const limpio = texto.trim().replace(',', '.')
+  let limpio = texto.trim()
+  // «22.045» es como escribe `numeroLegible` un número de cinco cifras (en lb, un peso
+  // grande), y el punto ahí separa miles. Un peso nunca lleva tres decimales, así que
+  // «22.5» o «22,5» no se confunden con él.
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(limpio)) limpio = limpio.replaceAll('.', '')
+  limpio = limpio.replace(',', '.')
   if (limpio === '') return null
   const numero = Number(limpio)
   return Number.isFinite(numero) ? numero : null
