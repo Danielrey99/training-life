@@ -122,13 +122,21 @@ export function FormularioDeSerie({
         : null
       : ajustes().pesoCorporal
 
-  const [peso, setPeso] = useState(
-    corporal
-      ? pesoLegible(Math.abs(sembrado ?? 0))
-      : sembrado !== null
-        ? pesoLegible(sembrado)
-        : '',
-  )
+  const textoPesoInicial = corporal
+    ? pesoLegible(Math.abs(sembrado ?? 0))
+    : sembrado !== null
+      ? pesoLegible(sembrado)
+      : ''
+  const [peso, setPeso] = useState(textoPesoInicial)
+  /**
+   * Lo tecleado en kg, sin signo. Si el campo sigue como arrancó, el peso guardado tal
+   * cual: en lb, pasarlo por libras y de vuelta lo movería unos céntimos (61,25 → 61,23).
+   */
+  function pesoEnKilos(valor: number): number {
+    return sembrado !== null && peso.trim() === textoPesoInicial
+      ? Math.abs(sembrado)
+      : aKilos(valor)
+  }
   // Con carga de ayuda, el peso guardado es negativo: aquí se escribe en positivo y el
   // conmutador dice si es ayuda.
   const [ayuda, setAyuda] = useState(corporal && sembrado !== null && sembrado < 0)
@@ -168,7 +176,7 @@ export function FormularioDeSerie({
       const valor = leerNumero(peso)
       if (peso.trim() !== '' && (valor === null || valor < 0)) return 'Pon el peso, o déjalo vacío.'
       return {
-        peso: peso.trim() === '' || valor === null ? null : aKilos(valor),
+        peso: peso.trim() === '' || valor === null ? null : pesoEnKilos(valor),
         repeticiones: null,
         duracion_s: segundos,
         distancia_m: null,
@@ -182,14 +190,14 @@ export function FormularioDeSerie({
     }
     if (!corporal) {
       return {
-        peso: aKilos(valor),
+        peso: pesoEnKilos(valor),
         repeticiones: reps,
         duracion_s: null,
         distancia_m: null,
         peso_corporal: null,
       }
     }
-    const carga = aKilos(valor)
+    const carga = pesoEnKilos(valor)
     const corporalKg = leerNumero(pesoCorporal)
     if (pesoCorporal.trim() !== '' && corporalKg === null) return 'Pon tu peso corporal.'
     const textoInicial = inicialCorporal !== null ? pesoLegible(inicialCorporal) : ''
