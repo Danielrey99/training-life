@@ -203,10 +203,14 @@ export function Sesion() {
     setACambiar(null)
   }
 
-  function bloque(hueco: HuecoDeRutina, posicion: number) {
+  function bloque(hueco: HuecoDeRutina) {
     const clave = hueco.id
     const elegido = elegidos[clave] ?? null
-    const titulo = `${posicion} · ${elegido?.nombre ?? hueco.ejercicio_principal.nombre}`
+    // La posición entre los visibles, como en el día del historial: uno oculto que ya
+    // tiene series sale sin número y no mueve el de los demás.
+    const posicion = visibles.indexOf(hueco) + 1
+    const nombre = elegido?.nombre ?? hueco.ejercicio_principal.nombre
+    const titulo = posicion > 0 ? `${posicion} · ${nombre}` : nombre
     return (
       <BloqueDeHueco
         key={clave}
@@ -265,7 +269,7 @@ export function Sesion() {
         <span className="sesion-hueco-derecho" />
       </header>
 
-      <div className="huecos">{huecos.map((hueco, indice) => bloque(hueco, indice + 1))}</div>
+      <div className="huecos">{huecos.map((hueco) => bloque(hueco))}</div>
 
       {/* La nota se puede escribir en cualquier momento, no solo al terminar: si hay que
           esperar al final, se olvida lo que se quería apuntar. */}
