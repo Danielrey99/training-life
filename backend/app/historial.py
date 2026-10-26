@@ -1,8 +1,5 @@
-"""Consulta compartida del historial de progresión.
-
-La usan dos endpoints con filtros distintos —las series de un ejercicio concreto y
-las de un hueco de rutina— pero el resto del trabajo es el mismo: quedarse con las
-últimas sesiones y agrupar sus series por día.
+"""Consulta del historial de progresión de un ejercicio: quedarse con las últimas
+sesiones en que se hizo y agrupar sus series por día.
 """
 
 from collections import defaultdict
@@ -10,7 +7,7 @@ from datetime import date
 
 from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.models import Entrenamiento, Rutina, Serie
 
@@ -63,7 +60,6 @@ def sesiones_con_series(
     series = db.scalars(
         select(Serie)
         .where(Serie.entrenamiento_id.in_([fila[0] for fila in filas]), filtro)
-        .options(selectinload(Serie.ejercicio))
         # El id desempata: si un ejercicio ocupa dos huecos de la misma rutina,
         # el mismo día trae dos series con el mismo numero_serie, y sin
         # desempate Postgres puede devolverlas en cualquier orden.

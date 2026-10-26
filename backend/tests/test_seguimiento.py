@@ -101,7 +101,6 @@ def test_la_sesion_en_curso_cuenta_aunque_este_vacia(cliente, ppl):
         "entrenamiento_id": empezada,
         "rutina": {"id": ppl["Pull"], "nombre": "Pull", "oculto_desde": None},
         "en_curso": True,
-        "vacia": True,
         "cubre_fecha": HOY.isoformat(),
         "cuenta": True,
     }

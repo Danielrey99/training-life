@@ -115,7 +115,6 @@ export function Sesion() {
   if (!sesion || !rutina) return <p className="aviso">Cargando…</p>
 
   const activa = sesion
-  const rutinaId = rutina.id
 
   // Un hueco oculto no se ofrece, pero si ya tiene series de esta sesión se sigue
   // enseñando: si no, desaparecerían sin explicación.
@@ -213,7 +212,6 @@ export function Sesion() {
         key={clave}
         hueco={hueco}
         titulo={titulo}
-        rutinaId={rutinaId}
         series={deHueco(hueco)}
         elegido={elegido}
         elegir={(ejercicio) => pedirElegir(hueco, ejercicio)}

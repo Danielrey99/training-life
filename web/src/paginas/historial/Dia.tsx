@@ -733,7 +733,6 @@ export function Dia() {
             bloque={bloque}
             numero={numero}
             mejora={mejoras[indice]}
-            rutinaId={rutina.id}
             sesion={dia}
             editando={editando}
             abierta={abierta}

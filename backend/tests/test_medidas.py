@@ -635,9 +635,9 @@ def test_el_peso_corporal_de_una_serie_de_un_ejercicio_oculto_se_puede_corregir(
 
 
 def test_el_historial_trae_la_duracion_y_no_el_peso_corporal(cliente, e):
-    """Las series del historial (de un ejercicio y de un hueco) traen el peso y las
-    repeticiones nulos de una serie por tiempo sin peso, y su duración. El peso
-    corporal no va: ninguna pantalla que lee el historial lo enseña.
+    """Las series del historial de un ejercicio traen el peso y las repeticiones
+    nulos de una serie por tiempo sin peso, y su duración; las de uno corporal, su
+    lastre. El peso corporal no va: ninguna pantalla que lee el historial lo enseña.
     """
     apuntada(cliente, e, "plancha", slot_id=e.a, duracion_s=45)
     otra = cliente.post("/entrenamientos", json={"rutina_id": e.rutina, "fecha": "2026-09-05"})
@@ -646,26 +646,23 @@ def test_el_historial_trae_la_duracion_y_no_el_peso_corporal(cliente, e):
         json=cuerpo(e, "dominadas", slot_id=e.a, peso=-10, repeticiones=8, peso_corporal=80),
     ).raise_for_status()
 
-    del_ejercicio = cliente.get(f"/ejercicios/{e.ids['plancha']}/historial").json()
-    del_hueco = cliente.get(f"/rutinas/{e.rutina}/slots/{e.a}/historial").json()
+    de_la_plancha = cliente.get(f"/ejercicios/{e.ids['plancha']}/historial").json()
+    de_las_dominadas = cliente.get(f"/ejercicios/{e.ids['dominadas']}/historial").json()
 
-    [[de_plancha]] = [dia["series"] for dia in del_ejercicio]
+    [[de_plancha]] = [dia["series"] for dia in de_la_plancha]
     assert (de_plancha["peso"], de_plancha["repeticiones"], de_plancha["duracion_s"]) == (
         None,
         None,
         45,
     )
-    assert [dia["fecha"] for dia in del_hueco] == ["2026-09-05", FECHA]
-    [[de_dominadas], [en_el_hueco]] = [dia["series"] for dia in del_hueco]
-    assert {**en_el_hueco, "ejercicio": None} == {**de_plancha, "ejercicio": None}
-    assert en_el_hueco["ejercicio"] == {
-        "id": e.ids["plancha"],
-        "nombre": "Plancha",
-        "tipo_registro": "tiempo",
-    }
-    assert (de_dominadas["peso"], de_dominadas["duracion_s"]) == ("-10.00", None)
-    assert de_dominadas["ejercicio"]["tipo_registro"] == "corporal"
-    for serie in (de_plancha, en_el_hueco, de_dominadas):
+    assert [dia["fecha"] for dia in de_las_dominadas] == ["2026-09-05"]
+    [[de_dominadas]] = [dia["series"] for dia in de_las_dominadas]
+    assert (de_dominadas["peso"], de_dominadas["repeticiones"], de_dominadas["duracion_s"]) == (
+        "-10.00",
+        8,
+        None,
+    )
+    for serie in (de_plancha, de_dominadas):
         assert "peso_corporal" not in serie
 
 
@@ -1025,18 +1022,15 @@ def test_el_historial_trae_la_distancia_de_una_serie_de_cardio(cliente, c):
     apuntada(cliente, c, "cinta", duracion_s=1800, distancia_m=5200)
     apuntada(cliente, c, "cinta", numero=2, duracion_s=600)
 
-    del_ejercicio = cliente.get(f"/ejercicios/{c.ids['cinta']}/historial")
-    del_hueco = cliente.get(f"/rutinas/{c.rutina}/slots/{c.hueco_de['cinta']}/historial")
+    respuesta = cliente.get(f"/ejercicios/{c.ids['cinta']}/historial")
 
-    assert del_ejercicio.status_code == 200, del_ejercicio.text
-    assert del_hueco.status_code == 200, del_hueco.text
-    for respuesta in (del_ejercicio, del_hueco):
-        [dia] = respuesta.json()
-        assert [(s["duracion_s"], s["distancia_m"]) for s in dia["series"]] == [
-            (1800, 5200),
-            (600, None),
-        ]
-        assert all(s["peso"] is None and s["repeticiones"] is None for s in dia["series"])
+    assert respuesta.status_code == 200, respuesta.text
+    [dia] = respuesta.json()
+    assert [(s["duracion_s"], s["distancia_m"]) for s in dia["series"]] == [
+        (1800, 5200),
+        (600, None),
+    ]
+    assert all(s["peso"] is None and s["repeticiones"] is None for s in dia["series"])
 
 
 # --- Cardio: las restricciones de la base -------------------------------------------

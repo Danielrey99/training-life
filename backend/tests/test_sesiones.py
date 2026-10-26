@@ -248,22 +248,6 @@ def test_la_base_admite_varias_sesiones_que_no_cuentan_ningun_dia(sesion_bd):
 # --- Filtros del listado -------------------------------------------------
 
 
-def test_el_listado_con_en_curso_devuelve_solo_la_sesion_abierta_de_hoy(cliente):
-    terminar(cliente, empezar(cliente, AYER)["id"])
-    empezar(cliente, HOY - timedelta(days=2))
-    abierta = empezar(cliente)
-
-    respuesta = cliente.get("/entrenamientos", params={"en_curso": True})
-
-    assert [sesion["id"] for sesion in respuesta.json()] == [abierta["id"]]
-
-
-def test_el_listado_con_en_curso_sin_ninguna_abierta_esta_vacio(cliente):
-    terminar(cliente, empezar(cliente)["id"])
-
-    assert cliente.get("/entrenamientos", params={"en_curso": True}).json() == []
-
-
 def test_el_listado_sin_terminar_da_las_de_dias_pasados_abiertas_con_series_o_vacias(
     cliente, ejercicio_predefinido_id
 ):

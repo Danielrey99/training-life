@@ -43,7 +43,14 @@ from app.schemas import (
     SerieDeArchivo,
     SlotDeArchivo,
 )
-from tests.ayudas import consultas_de, crear_ejercicio, entrenar, objetivo, serie_en
+from tests.ayudas import (
+    consultas_de,
+    crear_ejercicio,
+    entrenar,
+    objetivo,
+    serie_en,
+    sesiones_en_curso,
+)
 
 HOY = date(2026, 9, 16)
 
@@ -922,8 +929,7 @@ def test_la_ida_y_vuelta_conserva_las_marcas_de_tiempo_en_la_base(cliente, sesio
 def test_la_sesion_en_curso_sigue_en_curso_tras_la_ida_y_vuelta(cliente, datos):
     assert importar(cliente, exportado(cliente)).status_code == 200
 
-    en_curso = cliente.get("/entrenamientos", params={"en_curso": True}).json()
-    assert [s["fecha"] for s in en_curso] == [HOY.isoformat()]
+    assert [s["fecha"] for s in sesiones_en_curso(cliente)] == [HOY.isoformat()]
 
 
 def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente, sesion_bd, hoy_es):

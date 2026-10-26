@@ -193,7 +193,6 @@ def _dejar_sitio_en(db: Session, dia: DiaPlan) -> None:
 def listar_entrenamientos(
     desde: date | None = None,
     hasta: date | None = None,
-    en_curso: bool = False,
     sin_terminar: bool = False,
     rutina_id: int | None = None,
     limite: int | None = Query(default=None, gt=0, le=500),
@@ -203,10 +202,7 @@ def listar_entrenamientos(
 
     `desde` y `hasta` (incluidos) sirven para pedir una semana o un mes, y
     `rutina_id` con `limite`, las últimas sesiones de una rutina (el día del
-    historial compara su volumen con el de la anterior). Con
-    `en_curso=true` devuelve solo la sesión en curso, si la hay: una lista con uno
-    o ningún elemento, que es lo que necesita la pantalla de hoy para ofrecer
-    *Continuar* en vez de *Empezar*.
+    historial compara su volumen con el de la anterior).
 
     Con `sin_terminar=true`, las de días pasados que se quedaron sin terminar, con
     series o sin ellas: las que tienen series cuentan como hechas, pero quizá se
@@ -224,8 +220,6 @@ def listar_entrenamientos(
         stmt = stmt.where(Entrenamiento.fecha >= desde)
     if hasta is not None:
         stmt = stmt.where(Entrenamiento.fecha <= hasta)
-    if en_curso:
-        stmt = stmt.where(Entrenamiento.fecha == hoy(), Entrenamiento.terminada_en.is_(None))
     if sin_terminar:
         stmt = stmt.where(Entrenamiento.fecha < hoy(), Entrenamiento.terminada_en.is_(None))
     if rutina_id is not None:

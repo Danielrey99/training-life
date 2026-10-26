@@ -34,7 +34,6 @@ type Props = {
   // La posición entre los huecos visibles; 0 si no lleva número.
   numero: number
   mejora: Mejora | null
-  rutinaId: number
   sesion: { id: number; fecha: string }
   editando: boolean
   // Lo que hay abierto en el día: una sola cosa a la vez, y con otra abierta todo lo de
@@ -66,7 +65,6 @@ export function BloqueDelDia({
   bloque,
   numero,
   mejora,
-  rutinaId,
   sesion,
   editando,
   abierta,
@@ -108,8 +106,6 @@ export function BloqueDelDia({
             el hueco al que se añade, y solo desaparece si lo abierto es otra cosa. */}
         {admiteNuevas && (vacio ? !bloqueado || anadiendo : !bloqueado) && comodines.length > 0 && (
           <SelectorDeEjercicio
-            rutinaId={rutinaId}
-            huecoId={hueco.id}
             principal={principal}
             comodines={comodines}
             elegido={ejercicio}

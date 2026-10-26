@@ -29,6 +29,7 @@ from tests.ayudas import (
     ejercicio_de_prueba,
     poner_alternativas,
     serie_en,
+    sesiones_en_curso,
 )
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18
 
@@ -792,7 +793,7 @@ def test_la_sesion_abierta_de_hoy_cuenta_en_la_barra_en_curso(cliente, hoy_es, e
     hoy_es(MARTES_6_OCT)
     push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, MARTES_6_OCT, push, ejercicio_id, (80, 5), (80, 5))
-    assert cliente.get("/entrenamientos", params={"en_curso": True}).json()
+    assert [s["fecha"] for s in sesiones_en_curso(cliente)] == [MARTES_6_OCT.isoformat()]
 
     datos = pedir(cliente, OCTUBRE)
 

@@ -283,6 +283,18 @@ def serie_en(cliente, entrenamiento_id, ejercicio_id, **campos):
     return cliente.post(f"/entrenamientos/{entrenamiento_id}/series", json=cuerpo)
 
 
+def sesiones_en_curso(cliente) -> list[dict]:
+    """Las sesiones del listado que dicen estar en curso (de hoy y sin terminar).
+
+    El listado tuvo un filtro `?en_curso=true` que se quitó: FastAPI ignora un
+    parámetro desconocido, así que pedirlo devolvería todas sin dar error. Por
+    eso se filtra aquí, por el campo `en_curso` de cada una.
+    """
+    respuesta = cliente.get("/entrenamientos")
+    assert respuesta.status_code == 200, respuesta.text
+    return [sesion for sesion in respuesta.json() if sesion["en_curso"]]
+
+
 # --- Lo mismo, directamente en la base ------------------------------------
 # Para montar lo que la API no deja crear (por ejemplo, dos sesiones el mismo día).
 

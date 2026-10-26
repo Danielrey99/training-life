@@ -94,7 +94,7 @@ def test_una_serie_con_rpe_se_acepta_y_el_rpe_no_vuelve_en_ninguna_respuesta(
 ):
     """El RPE se quitó: si un cliente viejo lo sigue mandando (la web enviaba
     `rpe: null` en cada serie), se ignora en vez de dar 422, y no sale ni en la
-    serie, ni en la sesión, ni en los dos historiales.
+    serie, ni en la sesión, ni en el historial del ejercicio.
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Press militar")
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
@@ -116,13 +116,10 @@ def test_una_serie_con_rpe_se_acepta_y_el_rpe_no_vuelve_en_ninguna_respuesta(
     assert [s["id"] for s in sesion["series"]] == [serie["id"]]
     assert "rpe" not in sesion["series"][0]
 
-    del_ejercicio = cliente.get(f"/ejercicios/{ejercicio_id}/historial").json()
-    rutina_id = sesion["rutina_id"]
-    del_hueco = cliente.get(f"/rutinas/{rutina_id}/slots/{serie['slot_id']}/historial").json()
-    for historial in (del_ejercicio, del_hueco):
-        series = [s for dia in historial for s in dia["series"]]
-        assert [s["id"] for s in series] == [serie["id"]]
-        assert "rpe" not in series[0]
+    historial = cliente.get(f"/ejercicios/{ejercicio_id}/historial").json()
+    series = [s for dia in historial for s in dia["series"]]
+    assert [s["id"] for s in series] == [serie["id"]]
+    assert "rpe" not in series[0]
 
 
 def _falta_o_es_nulo(respuesta, campo) -> bool:
@@ -159,19 +156,16 @@ def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(
 
     - Nula no la deja sin rutina (hace tiempo la convertía en un entrenamiento libre).
     - Otra no la cambia ni en una sesión vacía: antes, sin series ni `cubre_fecha`,
-      el PUT sí la cambiaba. Con series, el historial de su hueco sigue igual (si
-      cambiara, enseñaría la sesión con el nombre de otra rutina).
+      el PUT sí la cambiaba. Con series, el historial de su ejercicio sigue igual
+      (si cambiara, enseñaría la sesión con el nombre de otra rutina).
     - Una oculta tampoco da 404: no es "elegir algo oculto", porque no se elige.
     """
     entrenamiento = entrenar(cliente, FECHA).json()
     if con_series:
-        serie = serie_en(
-            cliente, entrenamiento["id"], crear_ejercicio(cliente, grupo_muscular_id, "Remo")
-        )
+        remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+        serie = serie_en(cliente, entrenamiento["id"], remo)
         assert serie.status_code == 201, serie.text
-        historial = (
-            f"/rutinas/{entrenamiento['rutina_id']}/slots/{serie.json()['slot_id']}/historial"
-        )
+        historial = f"/ejercicios/{remo}/historial"
         historial_antes = cliente.get(historial).json()
     otra = crear_rutina(cliente, "Pull")
     if rutina_del_put == "oculta":
@@ -493,8 +487,8 @@ def test_cancelar_una_sesion_la_borra_con_sus_series(cliente, grupo_muscular_id)
 
 
 def test_corregir_una_serie_no_la_pasa_a_un_hueco_de_otra_rutina(cliente, grupo_muscular_id):
-    """El hueco de una serie tiene que ser de la rutina de su sesión (si no, el
-    historial de ese hueco mostraría una sesión de otra rutina), también al
+    """El hueco de una serie tiene que ser de la rutina de su sesión (si no, la
+    sesión tendría series de un hueco que su rutina no tiene), también al
     corregirla y aunque el ejercicio sea el principal de los dos huecos. 404 y la
     serie se queda donde estaba. Al apuntarla, en
     `test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409`.
@@ -817,8 +811,8 @@ def test_un_ejercicio_que_no_es_del_hueco_da_422_y_no_409(cliente, grupo_muscula
 def test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409(
     cliente, grupo_muscular_id, abdominales
 ):
-    """Una serie nueva no puede ir en un hueco de otra rutina (el historial de ese
-    hueco enseñaría una sesión que no es suya) ni ser de un ejercicio oculto (lo
+    """Una serie nueva no puede ir en un hueco de otra rutina (la sesión tendría
+    series de un hueco que su rutina no tiene) ni ser de un ejercicio oculto (lo
     oculto deja de ofrecerse): 404, también cuando además mezclaría ejercicios en
     un hueco, porque lo que no se puede elegir se dice antes que la mezcla.
     """
@@ -1204,12 +1198,10 @@ NO_HAY_SESION = "Entrenamiento no encontrado"
         ("put", "/rutinas/{X}/slots/{hueco}", "hueco", NO_HAY_RUTINA),
         ("delete", "/rutinas/{X}/slots/{hueco}", None, NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/slots/{hueco}/mostrar", None, NO_HAY_RUTINA),
-        ("get", "/rutinas/{X}/slots/{hueco}/historial", None, NO_HAY_RUTINA),
         ("get", "/rutinas/{X}/slots/{hueco}/aviso-de-borrado", None, NO_HAY_RUTINA),
         ("put", "/rutinas/{rutina}/slots/{X}", "hueco", NO_HAY_HUECO),
         ("delete", "/rutinas/{rutina}/slots/{X}", None, NO_HAY_HUECO),
         ("post", "/rutinas/{rutina}/slots/{X}/mostrar", None, NO_HAY_HUECO),
-        ("get", "/rutinas/{rutina}/slots/{X}/historial", None, NO_HAY_HUECO),
         ("get", "/rutinas/{rutina}/slots/{X}/aviso-de-borrado", None, NO_HAY_HUECO),
         ("get", "/programas/{X}", None, "Programa no encontrado"),
         ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),

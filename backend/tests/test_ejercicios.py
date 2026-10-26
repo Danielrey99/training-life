@@ -314,13 +314,10 @@ def test_un_predefinido_sigue_sin_poder_editarse_tambien_con_tipo(
     assert antes["tipo_registro"] == "peso_reps"
 
 
-def test_el_tipo_sale_con_el_ejercicio_en_rutinas_series_e_historial_del_hueco(
-    cliente, grupo_muscular_id
-):
+def test_el_tipo_sale_con_el_ejercicio_en_rutinas_y_series(cliente, grupo_muscular_id):
     """Donde se devuelve un ejercicio, va su tipo: en el principal y los comodines
-    de un hueco, en el ejercicio de cada serie y en el ejercicio mínimo del historial
-    de un hueco (que mezcla ejercicios: el cliente tiene que saber cómo pintar cada
-    serie sin cruzar datos).
+    de un hueco y en el ejercicio de cada serie (una sesión puede mezclar tipos: el
+    cliente tiene que saber cómo pintar cada serie sin cruzar datos).
     """
     press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo")
@@ -343,14 +340,9 @@ def test_el_tipo_sale_con_el_ejercicio_en_rutinas_series_e_historial_del_hueco(
     assert con_press.status_code == con_plancha.status_code == 201, con_plancha.text
 
     [en_la_rutina] = cliente.get(f"/rutinas/{rutina}").json()["slots"]
-    historial = cliente.get(f"/rutinas/{rutina}/slots/{slot}/historial").json()
     sesion = cliente.get(f"/entrenamientos/{sesiones[1]}").json()
 
     assert en_la_rutina["ejercicio_principal"]["tipo_registro"] == "peso_reps"
     assert [a["ejercicio"]["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
     assert con_press.json()["ejercicio"]["tipo_registro"] == "peso_reps"
     assert sesion["series"][0]["ejercicio"]["tipo_registro"] == "tiempo"
-    assert [s["ejercicio"] for dia in historial for s in dia["series"]] == [
-        {"id": plancha, "nombre": "Plancha", "tipo_registro": "tiempo"},
-        {"id": press, "nombre": "Press banca", "tipo_registro": "peso_reps"},
-    ]

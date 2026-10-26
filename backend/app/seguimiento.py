@@ -140,7 +140,6 @@ class SesionDelDia:
     entrenamiento_id: int
     rutina: Rutina
     en_curso: bool
-    vacia: bool
     cubre_fecha: date | None
     # Si cuenta de verdad para `cubre_fecha` (ver `cuenta`).
     cuenta: bool
@@ -212,7 +211,7 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
         dia_que_cubre = plan.get(sesion.cubre_fecha) if sesion.cubre_fecha else None
         cuenta_de_verdad = dia_que_cubre is not None and cuenta(sesion, dia_que_cubre, vacia)
         del_dia[sesion.fecha] = SesionDelDia(
-            sesion.id, sesion.rutina, sesion.en_curso, vacia, sesion.cubre_fecha, cuenta_de_verdad
+            sesion.id, sesion.rutina, sesion.en_curso, sesion.cubre_fecha, cuenta_de_verdad
         )
         if cuenta_de_verdad:
             cuentan[sesion.cubre_fecha] = Cobertura(sesion.id, sesion.fecha)

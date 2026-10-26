@@ -498,9 +498,8 @@ def historial_de_ejercicio(
     """Los días en que se hizo este ejercicio, del más reciente al más antiguo,
     con las series de cada día — la progresión de un ejercicio concreto.
 
-    Cuenta las veces que se hizo, siga o no una rutina. Para ver en cambio cómo
-    evoluciona un hueco entero (unos días con el ejercicio principal y otros con
-    un comodín), el endpoint es `/rutinas/{id}/slots/{slot_id}/historial`.
+    Cuenta las veces que se hizo, en la rutina que fuera y como principal o como
+    comodín: es también la "última vez" con la que se compara al entrenar.
     """
     obtener_ejercicio_legible(db, ejercicio_id)
     return sesiones_con_series(db, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite)

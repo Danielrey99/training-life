@@ -7,8 +7,6 @@ import { serieCorta } from '../../utiles/medidas'
 import { useUltimaVez } from './ultimaVez'
 
 type Props = {
-  rutinaId: number
-  huecoId: number
   principal: Ejercicio
   comodines: Ejercicio[]
   elegido: Ejercicio
@@ -24,15 +22,7 @@ type Props = {
  * El desplegable cuelga de la cabecera del hueco (la fila que contiene este
  * componente tiene que ser `position: relative`).
  */
-export function SelectorDeEjercicio({
-  rutinaId,
-  huecoId,
-  principal,
-  comodines,
-  elegido,
-  sesion,
-  elegir,
-}: Props) {
+export function SelectorDeEjercicio({ principal, comodines, elegido, sesion, elegir }: Props) {
   const [abierto, setAbierto] = useState(false)
   const zona = useRef<HTMLDivElement>(null)
 
@@ -80,7 +70,7 @@ export function SelectorDeEjercicio({
               ejercicio={ejercicio}
               rol={rol}
               marcado={ejercicio.id === elegido.id}
-              ultima={{ rutinaId, huecoId, sesion }}
+              sesion={sesion}
               elegir={() => {
                 elegir(ejercicio)
                 setAbierto(false)
@@ -98,20 +88,16 @@ function Opcion({
   ejercicio,
   rol,
   marcado,
-  ultima,
+  sesion,
   elegir,
 }: {
   ejercicio: Ejercicio
   rol: string
   marcado: boolean
-  ultima: {
-    rutinaId: number
-    huecoId: number
-    sesion: { id: number; fecha: string }
-  }
+  sesion: { id: number; fecha: string }
   elegir: () => void
 }) {
-  const vez = useUltimaVez(ejercicio.id, ultima.sesion)
+  const vez = useUltimaVez(ejercicio.id, sesion)
   // Un ejercicio oculto se enseña, para que se entienda qué pasó con él, pero ya
   // no se ofrece: para volver a usarlo hay que mostrarlo antes.
   const oculto = ejercicio.oculto_desde !== null

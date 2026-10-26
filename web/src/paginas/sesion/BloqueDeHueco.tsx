@@ -16,7 +16,6 @@ export type SerieAGuardar = DatosDeSerie & {
 type Props = {
   hueco: HuecoDeRutina
   titulo: string
-  rutinaId: number
   // Las series de hoy en este bloque.
   series: Serie[]
   // El ejercicio de hoy; nulo si no queda ninguno que se pueda usar.
@@ -69,7 +68,6 @@ export function BloqueDeHueco(props: Props) {
 function HuecoAbierto({
   hueco,
   titulo,
-  rutinaId,
   series,
   elegido,
   elegir,
@@ -127,8 +125,6 @@ function HuecoAbierto({
         <span className="hueco-nombre">{titulo}</span>
         {elegido && comodines.length > 0 && !bloqueado && (
           <SelectorDeEjercicio
-            rutinaId={rutinaId}
-            huecoId={hueco.id}
             principal={hueco.ejercicio_principal}
             comodines={comodines}
             elegido={elegido}

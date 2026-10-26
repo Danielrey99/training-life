@@ -35,7 +35,6 @@ import type {
   ResumenDeDatos,
   Rutina,
   Serie,
-  SerieHistorialHueco,
   SesionHistorial,
   UsoEnRutina,
 } from './tipos'
@@ -212,25 +211,14 @@ export const api = {
     peticion<AvisoDeBorrarHueco>(`/rutinas/${rutinaId}/slots/${huecoId}/aviso-de-borrado`),
   mostrarHueco: (rutinaId: number, huecoId: number) =>
     peticion<HuecoDeRutina>(`/rutinas/${rutinaId}/slots/${huecoId}/mostrar`, conCuerpo('POST')),
-  /** Con `ejercicio_id`, solo los días en que el hueco se hizo con ese ejercicio. */
-  historialDeHueco: (
-    rutinaId: number,
-    huecoId: number,
-    filtro: RangoConLimite & { ejercicio_id?: number } = {},
-  ) =>
-    peticion<SesionHistorial<SerieHistorialHueco>[]>(
-      `/rutinas/${rutinaId}/slots/${huecoId}/historial${consulta(filtro)}`,
-    ),
 
   // --- Entrenamientos y series ---
   /**
-   * Con `en_curso`, una lista con la sesión abierta de hoy o vacía. Con `sin_terminar`,
-   * las de días pasados que se dejaron sin terminar, con series o vacías. Con
-   * `rutina_id` y `limite`, las últimas sesiones de una rutina.
+   * Con `sin_terminar`, las de días pasados que se dejaron sin terminar, con series o
+   * vacías. Con `rutina_id` y `limite`, las últimas sesiones de una rutina.
    */
   entrenamientos: (
     filtro: RangoConLimite & {
-      en_curso?: boolean
       sin_terminar?: boolean
       rutina_id?: number
     } = {},

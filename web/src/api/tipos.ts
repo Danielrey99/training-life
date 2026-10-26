@@ -34,13 +34,6 @@ export type Ejercicio = {
   updated_at: string
 }
 
-/** Lo justo para saber qué ejercicio fue, en el historial de un hueco. */
-export type EjercicioMinimo = {
-  id: number
-  nombre: string
-  tipo_registro: TipoRegistro
-}
-
 export type Nota = {
   id: number
   ejercicio_id: number
@@ -217,18 +210,13 @@ export type SerieHistorial = {
   variante: string | null
 }
 
-/** En el historial de un hueco, cada serie dice con qué ejercicio se hizo. */
-export type SerieHistorialHueco = SerieHistorial & {
-  ejercicio: EjercicioMinimo
-}
-
-/** Un día con las series que tocaron ese ejercicio o ese hueco. */
-export type SesionHistorial<S extends SerieHistorial = SerieHistorial> = {
+/** Un día con las series que tocaron ese ejercicio. */
+export type SesionHistorial = {
   entrenamiento_id: number
   fecha: string
   // Nombre de la rutina que se siguió.
   rutina: string
-  series: S[]
+  series: SerieHistorial[]
 }
 
 // --- Programas y plan ----------------------------------------------------
@@ -277,7 +265,6 @@ export type SesionDelDia = {
   entrenamiento_id: number
   rutina: RutinaMinima
   en_curso: boolean
-  vacia: boolean
   cubre_fecha: string | null
   // Si cuenta de verdad para `cubre_fecha`.
   cuenta: boolean

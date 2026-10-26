@@ -28,6 +28,7 @@ from tests.ayudas import (
     crear_rutina,
     objetivo,
     poner_alternativas,
+    sesiones_en_curso,
 )
 from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
 
@@ -1155,7 +1156,7 @@ def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_
 
 
 def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente, grupo_muscular_id):
-    """Si no, el historial del hueco mezclaría ejercicios que no son suyos. El
+    """Si no, la sesión pintaría bajo el hueco un ejercicio que no es suyo. El
     principal y el comodín, en sesiones distintas: en una misma, cada hueco se hace
     con un solo ejercicio.
     """
@@ -1515,8 +1516,7 @@ def test_la_sesion_abierta_hoy_no_se_borra_con_el_hueco_aunque_se_quede_vacia(
     assert "se borrarán 2 sesiones" in conflicto.json()["detail"]
     assert borrado.status_code == 204
     assert series_de(cliente, abierta) == []
-    en_curso = cliente.get("/entrenamientos", params={"en_curso": True}).json()
-    assert [s["id"] for s in en_curso] == [abierta]
+    assert [s["id"] for s in sesiones_en_curso(cliente)] == [abierta]
 
 
 def test_la_sesion_de_hoy_ya_terminada_si_se_borra_con_el_hueco(cliente, push_con_dos_huecos):
@@ -1959,8 +1959,7 @@ def test_el_aviso_de_un_ejercicio_no_cuenta_la_sesion_abierta_hoy(cliente, press
     assert conflicto.json()["detail"]["sesiones_que_se_borrarian"] == 3
     assert borrado.status_code == 204, borrado.text
     assert series_de(cliente, abierta) == []
-    en_curso = cliente.get("/entrenamientos", params={"en_curso": True}).json()
-    assert [s["id"] for s in en_curso] == [abierta]
+    assert [s["id"] for s in sesiones_en_curso(cliente)] == [abierta]
 
 
 def test_la_sesion_de_hoy_ya_terminada_si_se_va_con_el_ejercicio(cliente, press_en_dos_rutinas):

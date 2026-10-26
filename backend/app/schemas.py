@@ -367,20 +367,6 @@ class SerieOut(SerieBase):
     ejercicio: EjercicioOut
 
 
-class EjercicioMinimo(BaseModel):
-    """Lo justo para saber qué ejercicio fue, sin arrastrar EjercicioOut entero.
-
-    En el historial de un hueco esto se repite en cada serie de cada día, así que
-    devolver el ejercicio completo multiplicaría el tamaño de la respuesta.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    nombre: str
-    tipo_registro: TipoRegistro
-
-
 class SerieHistorial(BaseModel):
     """Una serie dentro del historial.
 
@@ -402,16 +388,8 @@ class SerieHistorial(BaseModel):
     variante: str | None
 
 
-class SerieHistorialHueco(SerieHistorial):
-    """En el historial de un hueco sí importa con qué ejercicio se hizo cada serie:
-    puede ser el principal un día y un comodín otro.
-    """
-
-    ejercicio: EjercicioMinimo
-
-
 class SesionHistorial(BaseModel):
-    """Un día de entrenamiento con las series que tocaron ese ejercicio o ese hueco.
+    """Un día de entrenamiento con las series que tocaron ese ejercicio.
 
     `rutina` es el nombre de la rutina que se siguió.
     """
@@ -420,10 +398,6 @@ class SesionHistorial(BaseModel):
     fecha: date
     rutina: str
     series: list[SerieHistorial]
-
-
-class SesionHistorialHueco(SesionHistorial):
-    series: list[SerieHistorialHueco]
 
 
 class EntrenamientoBase(BaseModel):
@@ -654,7 +628,6 @@ class SesionDelDiaOut(BaseModel):
     entrenamiento_id: int
     rutina: RutinaMinima
     en_curso: bool
-    vacia: bool
     cubre_fecha: date | None
     cuenta: bool
 
