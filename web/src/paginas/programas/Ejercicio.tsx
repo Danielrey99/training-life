@@ -23,10 +23,10 @@ import {
   type EjercicioDelBorrador,
 } from './borradores'
 import './ejercicio.css'
+import { CamposDelObjetivo } from './CamposDelObjetivo'
 import { HojaDeEjercicios } from './HojaDeEjercicios'
 import {
   aObjetivo,
-  CamposDelObjetivo,
   deAjustes,
   enTexto,
   familiaDe,

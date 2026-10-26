@@ -102,7 +102,9 @@ web/
         │   ├── ProgramaNuevo.tsx        # crear un programa
         │   ├── Rutina.tsx               # una rutina: sus ejercicios, su orden, ocultarla y borrarla
         │   ├── RutinaNueva.tsx          # crear una rutina con sus ejercicios, sobre un borrador
-        │   ├── Ejercicio.tsx            # un ejercicio de una rutina: principal, alternativas, series y reps
+        │   ├── Ejercicio.tsx            # un ejercicio de una rutina: principal, alternativas y sus objetivos
+        │   ├── CamposDelObjetivo.tsx    # los campos del objetivo: series y reps, o series y duración
+        │   ├── objetivos.ts             # el objetivo tecleado: validarlo, resumirlo y pasarlo a la API
         │   ├── DiasEditables.tsx        # los siete días de un programa que se está escribiendo
         │   ├── HojaDeRutinas.tsx        # la hoja de elegir la rutina de un día
         │   ├── HojaDeEjercicios.tsx     # la hoja de elegir un ejercicio, con buscador y filtro por grupo
