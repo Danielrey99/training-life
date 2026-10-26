@@ -10,6 +10,7 @@ import {
   finDeMes,
   hoy as hoyLocal,
   inicioDeMes,
+  mesDeLaUrl,
   sumarMeses,
   tituloDeMes,
 } from '../../utiles/fechas'
@@ -49,7 +50,7 @@ export function Calendario() {
   const navegar = useNavigate()
   const [parametros, setParametros] = useSearchParams()
   const hoy = hoyLocal()
-  const mes = parametros.get('mes') ? `${parametros.get('mes')}-01` : inicioDeMes(hoy)
+  const mes = mesDeLaUrl(parametros.get('mes'), hoy)
 
   // Cada carga recuerda de qué mes es: al cambiar de mes, los datos del anterior no
   // se pintan mientras llegan los nuevos.

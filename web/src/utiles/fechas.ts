@@ -171,6 +171,14 @@ export function inicioDeMes(iso: string): string {
   return `${iso.slice(0, 7)}-01`
 }
 
+/**
+ * El mes de `?mes=2026-09`, como su primer día; si falta o no es un mes, el de `hoy`.
+ * Un enlace mal copiado abre el mes actual en vez de un error de la API.
+ */
+export function mesDeLaUrl(valor: string | null, hoy: string): string {
+  return valor && /^\d{4}-(0[1-9]|1[0-2])$/.test(valor) ? `${valor}-01` : inicioDeMes(hoy)
+}
+
 /** El último día del mes de esa fecha. */
 export function finDeMes(iso: string): string {
   const fecha = aFecha(inicioDeMes(iso))

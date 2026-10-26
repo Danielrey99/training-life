@@ -13,8 +13,8 @@ import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
   diaYMes,
   hoy as hoyLocal,
-  inicioDeMes,
   mesCorto,
+  mesDeLaUrl,
   sumarDias,
   sumarMeses,
   tituloDeMes,
@@ -129,7 +129,7 @@ export function Resumen() {
   const volver = useVolver()
   const [parametros, setParametros] = useSearchParams()
   const hoy = hoyLocal()
-  const mes = parametros.get('mes') ? `${parametros.get('mes')}-01` : inicioDeMes(hoy)
+  const mes = mesDeLaUrl(parametros.get('mes'), hoy)
   const porMes = parametros.get('vista') === 'mes'
 
   const [datos, setDatos] = useState<DatosResumen | null>(null)
