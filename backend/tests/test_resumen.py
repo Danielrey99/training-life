@@ -137,6 +137,7 @@ def test_un_mes_mal_escrito_da_422(cliente, hoy_es, mes):
     respuesta = cliente.get(f"/resumen?mes={mes}")
 
     assert respuesta.status_code == 422
+    assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "mes"]]
 
 
 @pytest.mark.parametrize(

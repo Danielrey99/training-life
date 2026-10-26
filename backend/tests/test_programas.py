@@ -91,6 +91,8 @@ def test_el_dia_de_la_semana_va_de_1_a_7(cliente, dia):
     )
 
     assert respuesta.status_code == 422
+    assert [e["loc"] for e in respuesta.json()["detail"]] == [["body", "dias", 0, "dia_semana"]]
+    assert cliente.get("/programas").json() == []
 
 
 def test_crear_con_una_rutina_oculta_falla_y_no_guarda_nada(cliente):
@@ -109,6 +111,7 @@ def test_crear_con_una_rutina_oculta_falla_y_no_guarda_nada(cliente):
     )
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {pull}"
     assert cliente.get("/programas").json() == []
 
 
@@ -118,6 +121,7 @@ def test_crear_con_una_rutina_inexistente_da_404_y_no_guarda_nada(cliente):
     )
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "No existe ninguna rutina con id 999999"
     assert cliente.get("/programas", params={"ocultos": True}).json() == []
     assert cliente.get("/programas").json() == []
 
@@ -190,7 +194,8 @@ def test_quitar_la_rutina_de_un_dia_lo_deja_en_descanso(cliente):
     assert cliente.delete(ruta).status_code == 204
     assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == []
     # Ya era descanso: no hay nada que quitar.
-    assert cliente.delete(ruta).status_code == 404
+    otra_vez = cliente.delete(ruta)
+    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Ese día ya es de descanso")
 
 
 def test_un_dia_fuera_de_rango_en_la_ruta_da_422(cliente):
@@ -200,6 +205,8 @@ def test_un_dia_fuera_de_rango_en_la_ruta_da_422(cliente):
     respuesta = cliente.put(f"/programas/{programa['id']}/dias/8", json={"rutina_id": push})
 
     assert respuesta.status_code == 422
+    assert [e["loc"] for e in respuesta.json()["detail"]] == [["path", "dia_semana"]]
+    assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == programa["dias"]
 
 
 def test_un_programa_oculto_no_se_puede_editar(cliente):
@@ -230,6 +237,7 @@ def test_no_se_puede_poner_una_rutina_oculta_en_un_dia(cliente):
     respuesta = cliente.put(f"/programas/{programa['id']}/dias/3", json={"rutina_id": pull})
 
     assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {pull}"
     assert rutinas_por_dia(cliente.get(f"/programas/{programa['id']}").json()) == {1: "Push"}
 
 
@@ -565,7 +573,8 @@ def test_dejar_en_descanso_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd)
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
     assert rutina_del_dia(cliente, hoy()) is None
     # Ya es descanso: quitarlo otra vez da 404, aunque quede su fila cerrada.
-    assert cliente.delete(f"/programas/{programa['id']}/dias/{dia}").status_code == 404
+    otra_vez = cliente.delete(f"/programas/{programa['id']}/dias/{dia}")
+    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Ese día ya es de descanso")
 
 
 def test_anadir_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd):

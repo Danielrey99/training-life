@@ -43,7 +43,7 @@ from app.schemas import (
     SerieDeArchivo,
     SlotDeArchivo,
 )
-from tests.ayudas import consultas_de, crear_ejercicio, entrenar, serie_en
+from tests.ayudas import consultas_de, crear_ejercicio, entrenar, objetivo, serie_en
 
 HOY = date(2026, 9, 16)
 
@@ -331,10 +331,11 @@ def montar_datos_por_tipo(sesion_bd, sentadilla_id) -> dict:
     un hueco de cada uno, más uno de la sentadilla (predefinido, de peso y
     repeticiones). El de la plancha, con su objetivo en segundos y las dominadas de
     alternativa (otra familia, con objetivo de repeticiones); el del remo, con la
-    plancha de alternativa y un objetivo en segundos distinto del de su hueco. Dos sesiones (el 2 y el 3 de septiembre, días que `montar_datos`
-    no usa) con dominadas con ayuda y con peso corporal, con lastre y sin carga, una
-    plancha sin peso y otra con peso, y la sentadilla. Y un ejercicio de cardio con su
-    hueco (objetivo en segundos), con dos series el día 3: una con distancia y otra sin ella.
+    plancha de alternativa y un objetivo en segundos distinto del de su hueco. Dos
+    sesiones (el 2 y el 3 de septiembre, días que `montar_datos` no usa) con dominadas
+    con ayuda y con peso corporal, con lastre y sin carga, una plancha sin peso y otra
+    con peso, y la sentadilla. Y un ejercicio de cardio con su hueco (objetivo en
+    segundos), con dos series el día 3: una con distancia y otra sin ella.
     """
     grupo_id = sesion_bd.scalar(select(GrupoMuscular.id).order_by(GrupoMuscular.id))
     marca = {
@@ -639,7 +640,9 @@ def test_se_exporta_lo_oculto_lo_cancelado_y_lo_cerrado(cliente, datos):
 
     sesiones = {s["fecha"]: s for s in archivo["entrenamientos"]}
     assert sesiones["2026-09-10"]["series"] == []
-    assert sesiones["2026-09-10"]["terminada_en"] is not None
+    assert instante(sesiones["2026-09-10"]["terminada_en"]) == instante(
+        "2026-09-07T18:30:12.345678+00:00"
+    )
     assert sesiones[HOY.isoformat()]["terminada_en"] is None
     assert len(archivo["entrenamientos"]) == 5
 
@@ -1805,6 +1808,10 @@ def _cinta_sin_duracion(a):
     _sesion(a, "2026-09-03")["series"][3]["duracion_s"] = None
 
 
+def _cinta_con_peso_corporal(a):
+    _sesion(a, "2026-09-03")["series"][4]["peso_corporal"] = "80.00"
+
+
 def _distancia_en_una_serie_de_tiempo(a):
     _sesion(a, "2026-09-03")["series"][1]["distancia_m"] = 100
 
@@ -1835,6 +1842,12 @@ MAL_POR_TIPO = [
         MAL_APUNTADA.format("2026-09-03")
         + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: falta la"
         " duración.",
+    ),
+    (
+        _cinta_con_peso_corporal,
+        MAL_APUNTADA.format("2026-09-03")
+        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
+        " Cinta con inclinación no lo es.",
     ),
     (
         _distancia_en_una_serie_de_tiempo,
@@ -1937,6 +1950,30 @@ def _plancha_de_alternativa_en_reps(a):
     _en_reps(plancha)
 
 
+def _cinta_de_principal_en_reps(a):
+    _en_reps(_hueco_de(a, "Core", "Cinta con inclinación"))
+
+
+def _remo_de_principal_en_segundos(a):
+    # Peso y repeticiones, con el objetivo de la familia de la duración.
+    _en_segundos(_hueco_de(a, "Core", "Remo con barra"))
+
+
+def _sentadilla_de_principal_en_segundos(a):
+    # Un predefinido va por nombre y su tipo es el de esta instalación (peso y
+    # repeticiones), no uno que diga el archivo.
+    _en_segundos(_hueco_de_predefinido(a, "Core", "Sentadilla con barra"))
+
+
+def _hueco_de_predefinido(archivo, rutina, nombre):
+    [predefinido] = [p for p in archivo["predefinidos"] if p["nombre"] == nombre]
+    return next(
+        h
+        for h in _rutina(archivo, rutina)["slots"]
+        if h["ejercicio_principal_id"] == predefinido["id"]
+    )
+
+
 def _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo(a):
     # El tipo del archivo manda también para el objetivo. Sus series se quedan sin
     # repeticiones, que es otro error: se mira solo el del objetivo.
@@ -1956,6 +1993,22 @@ OBJETIVOS_QUE_NO_CUADRAN = [
         " reps_max), no en duración: Dominadas lastradas se apunta con repeticiones y carga.",
     ),
     (_plancha_de_alternativa_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
+    (
+        _cinta_de_principal_en_reps,
+        MAL_OBJETIVO + "El objetivo de Cinta con inclinación va en segundos (duracion_min_s y"
+        " duracion_max_s), no en repeticiones: Cinta con inclinación se apunta por tiempo y,"
+        " si se quiere, distancia.",
+    ),
+    (
+        _sentadilla_de_principal_en_segundos,
+        MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones (reps_min y"
+        " reps_max), no en duración: Sentadilla con barra se apunta con peso y repeticiones.",
+    ),
+    (
+        _remo_de_principal_en_segundos,
+        MAL_OBJETIVO + "El objetivo de Remo con barra va en repeticiones (reps_min y reps_max),"
+        " no en duración: Remo con barra se apunta con peso y repeticiones.",
+    ),
     (
         _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
         MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones (reps_min y"
@@ -2429,7 +2482,7 @@ def test_sin_ejercicios_propios_el_archivo_no_trae_ninguno(
     cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
 ):
     """El caso en que un filtro perdido más se notaría: solo hay una nota en un
-    predefinido, y la lista de propios tiene que salir vacía, no con los 62.
+    predefinido, y la lista de propios tiene que salir vacía, no con los 66.
     """
     hoy_es(HOY)
     cliente.post(f"/ejercicios/{ejercicio_predefinido_id}/notas", json={"nota": "Barra baja"})
@@ -2465,6 +2518,60 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     assert '"Press del autor" no existe' in str(respuesta.json()["detail"])
     assert cliente.get(f"/ejercicios/{propio}").status_code == 200
     assert cliente.get(f"/ejercicios/{propio}/notas").json() == []
+
+
+def test_con_dos_predefinidos_del_mismo_nombre_el_archivo_va_al_mas_antiguo(
+    cliente, hoy_es, ejercicio_predefinido_id
+):
+    """Ninguna siembra repite un nombre, pero importar no se fía: si hubiera dos
+    predefinidos con el nombre del archivo, usa el de id más bajo, con su tipo (aquí
+    el repetido es de tiempo: si contara él, el objetivo en repeticiones daría 422).
+
+    Los tests no crean predefinidos (la limpieza no los borra), así que el repetido
+    vive en una transacción que se deshace siempre al acabar, pase lo que pase: la API
+    usa durante el test una sesión dentro de ella (sus `commit()` son puntos de
+    guardado).
+    """
+    from sqlalchemy.orm import Session
+
+    from app.database import engine, get_db
+    from app.main import app
+
+    hoy_es(HOY)
+    conexion = engine.connect()
+    transaccion = conexion.begin()
+    db = Session(bind=conexion, join_transaction_mode="create_savepoint")
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        original = db.get(Ejercicio, ejercicio_predefinido_id)
+        repetido = Ejercicio(
+            nombre=original.nombre,
+            grupo_muscular_id=original.grupo_muscular_id,
+            es_predefinido=True,
+            tipo_registro="tiempo",
+        )
+        db.add(repetido)
+        db.flush()
+        assert repetido.id > ejercicio_predefinido_id
+        respuesta = cliente.post(
+            "/rutinas",
+            json={
+                "nombre": "Leg",
+                "slots": [{"ejercicio_principal_id": ejercicio_predefinido_id, **objetivo()}],
+            },
+        )
+        assert respuesta.status_code == 201, respuesta.text
+
+        importada = importar(cliente, exportado(cliente))
+
+        assert importada.status_code == 200, importada.text
+        [rutina] = cliente.get("/rutinas").json()
+        assert rutina["slots"][0]["ejercicio_principal"]["id"] == ejercicio_predefinido_id
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        db.close()
+        transaccion.rollback()
+        conexion.close()
 
 
 # --- 9. Guarda de columnas ---------------------------------------------------

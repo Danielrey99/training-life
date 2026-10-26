@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import Entrenamiento, ExcepcionDelPlan
+from tests.ayudas import dejar_planificado
 from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
 
 SABADO_19 = date(2026, 9, 19)
@@ -56,11 +57,6 @@ def lo_que_toca(cliente, fecha) -> tuple:
     """`(origen, rutina o None, descanso)` de ese día."""
     d = dia(cliente, fecha)
     return d["origen"], d["rutina"]["nombre"] if d["rutina"] else None, d["descanso"]
-
-
-def planificar(cliente, fecha, rutina_id) -> None:
-    respuesta = cliente.put(f"/plan/excepciones/{fecha.isoformat()}", json={"rutina_id": rutina_id})
-    assert respuesta.status_code == 200, respuesta.text
 
 
 def cuantas(sesion_bd, modelo) -> int:
@@ -99,7 +95,7 @@ def test_intercambiar_con_un_dia_ya_cambiado_a_mano(cliente, ppl):
     """El sábado (descanso en el programa) se planificó Push: al intercambiarlo, hoy
     pasa a Push y el sábado a Pull, lo de hoy salga del programa o de una excepción.
     """
-    planificar(cliente, SABADO_19, ppl["Push"])
+    dejar_planificado(cliente, SABADO_19, ppl["Push"])
 
     respuesta = empezar_intercambiando(cliente, ppl["Push"], SABADO_19)
 
@@ -112,7 +108,7 @@ def test_un_descanso_de_hoy_se_lleva_al_otro_dia(cliente, ppl):
     """Hoy se cambió a descanso: al traer el Leg del viernes, el viernes se queda en
     descanso.
     """
-    planificar(cliente, HOY, None)
+    dejar_planificado(cliente, HOY, None)
 
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], VIERNES_18)
 
@@ -287,7 +283,10 @@ def test_un_422_del_intercambio_no_borra_la_cancelada_de_hoy(cliente, sesion_bd,
 
     respuesta = empezar_intercambiando(cliente, ppl["Push"], VIERNES_18)
 
-    assert respuesta.status_code == 422
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        "El 2026-09-18 no toca esa rutina: intercambiar trae a hoy lo que toca ese día.",
+    )
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 
 

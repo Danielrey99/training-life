@@ -476,4 +476,6 @@ def test_a_las_00_30_en_espana_se_empieza_la_sesion_del_dia_nuevo(cliente, madru
 
     assert respuesta.status_code == 201
     assert respuesta.json()["en_curso"] is True
-    assert entrenar(cliente, "2025-07-02").status_code == 422
+    manana = entrenar(cliente, "2025-07-02")
+    assert manana.status_code == 422
+    assert "todavía no ha llegado" in manana.json()["detail"]

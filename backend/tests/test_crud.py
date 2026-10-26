@@ -16,14 +16,8 @@ FECHA = "2026-09-04"
 
 
 def _hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
-    """El cuerpo de un hueco sin comodines, con `orden` (el PUT lo exige)."""
-    return {
-        "ejercicio_principal_id": ejercicio_id,
-        "orden": orden,
-        "series_objetivo": series,
-        "reps_min": reps[0],
-        "reps_max": reps[1],
-    }
+    """El cuerpo de un hueco de repeticiones sin comodines, con `orden` (el PUT lo exige)."""
+    return {"ejercicio_principal_id": ejercicio_id, "orden": orden, **objetivo(series, reps)}
 
 
 def test_crear_y_editar_un_ejercicio(cliente, grupo_muscular_id):
@@ -344,7 +338,9 @@ def test_una_nota_en_blanco_no_se_acepta(cliente, grupo_muscular_id):
         cliente.put(f"{ruta}/{nota_id}", json={"nota": " \n "}),
     ]
 
-    assert [r.status_code for r in respuestas] == [422, 422, 422]
+    for respuesta in respuestas:
+        assert respuesta.status_code == 422, respuesta.text
+        assert [e["loc"] for e in respuesta.json()["detail"]] == [["body", "nota"]]
     assert [n["nota"] for n in cliente.get(ruta).json()] == ["Buena"]
 
 
@@ -473,11 +469,11 @@ def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grup
     serie = cliente.post(f"/entrenamientos/{uno}/series", json=_serie(cliente, uno, banca)).json()
     cambiada = _serie(cliente, otro, banca, peso=90, slot_id=serie["slot_id"])
 
-    assert (
-        cliente.put(f"/entrenamientos/{otro}/series/{serie['id']}", json=cambiada).status_code
-        == 404
-    )
-    assert cliente.delete(f"/entrenamientos/{otro}/series/{serie['id']}").status_code == 404
+    editada = cliente.put(f"/entrenamientos/{otro}/series/{serie['id']}", json=cambiada)
+    borrada = cliente.delete(f"/entrenamientos/{otro}/series/{serie['id']}")
+
+    for respuesta in (editada, borrada):
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Serie no encontrada")
     assert cliente.get(f"/entrenamientos/{uno}").json()["series"] == [serie]
     assert cliente.get(f"/entrenamientos/{otro}").json()["series"] == []
 
@@ -810,8 +806,11 @@ def test_un_ejercicio_que_no_es_del_hueco_da_422_y_no_409(cliente, grupo_muscula
         json=_serie(cliente, sesion, e.rueda, slot_id=e.a),
     )
 
-    assert al_apuntar.status_code == 422, al_apuntar.text
-    assert al_corregir.status_code == 422, al_corregir.text
+    for respuesta in (al_apuntar, al_corregir):
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (
+            422,
+            "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+        ), respuesta.text
     assert _series_de(cliente, sesion)[0] == crunch
 
 
@@ -892,6 +891,8 @@ def test_un_hueco_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, c
     )
 
     assert respuesta.status_code == 422
+    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
+    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
 
 
 @pytest.mark.parametrize(
@@ -925,6 +926,8 @@ def test_un_hueco_admite_su_tope_justo_y_no_uno_mas(cliente, grupo_muscular_id, 
     justo = cliente.post(ruta, json={**_hueco(banca), campo: tope})
 
     assert (justo.status_code, pasado.status_code) == (201, 422)
+    assert [error["loc"] for error in pasado.json()["detail"]] == [["body", campo]]
+    assert justo.json()[campo] == tope
 
 
 def test_reps_min_tambien_tiene_tope(cliente, grupo_muscular_id):
@@ -956,25 +959,6 @@ def test_una_serie_con_un_numero_sin_sentido_da_422(cliente, grupo_muscular_id, 
     assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
 
 
-def test_un_peso_negativo_en_peso_y_repeticiones_da_422_con_su_mensaje(cliente, grupo_muscular_id):
-    """Antes lo rechazaba el esquema (`ge=0`); ahora el esquema admite negativos (la
-    ayuda de los ejercicios de peso corporal) y el 422 es el de las medidas del tipo.
-    """
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json=_serie(cliente, entrenamiento_id, banca, peso=-1),
-    )
-
-    assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == (
-        "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
-    )
-    assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
-
-
 @pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_min"])
 def test_un_hueco_con_un_cero_da_422(cliente, grupo_muscular_id, campo):
     banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
@@ -983,6 +967,8 @@ def test_un_hueco_con_un_cero_da_422(cliente, grupo_muscular_id, campo):
     respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json={**_hueco(banca), campo: 0})
 
     assert respuesta.status_code == 422
+    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
+    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
 
 
 # --- Textos que no caben en su columna -----------------------------------
@@ -1268,7 +1254,9 @@ def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
     assert respuesta.json()["detail"] == detalle
 
 
-@pytest.mark.parametrize("donde", ["sesion", "dia de programa", "dia planificado", "serie"])
+@pytest.mark.parametrize(
+    "donde", ["sesion", "dia de programa", "dia planificado", "serie", "hueco de la serie"]
+)
 def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
     cliente, sesion_bd, lo_que_existe, donde
 ):
@@ -1299,8 +1287,8 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
         respuesta = cliente.post(
             f"/entrenamientos/{hay['sesion']}/series",
             json={
-                "ejercicio_id": INEXISTENTE,
-                "slot_id": hay["hueco"],
+                "ejercicio_id": INEXISTENTE if donde == "serie" else hay["ejercicio"],
+                "slot_id": INEXISTENTE if donde == "hueco de la serie" else hay["hueco"],
                 "numero_serie": 1,
                 "peso": 60,
                 "repeticiones": 8,
@@ -1309,8 +1297,11 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
         tabla, cuantas = Serie, 0
 
     assert respuesta.status_code == 404, respuesta.text
-    esperado = (
-        NO_HAY_EJERCICIO if donde == "serie" else f"No existe ninguna rutina con id {INEXISTENTE}"
-    )
+    esperado = {
+        "serie": NO_HAY_EJERCICIO,
+        "hueco de la serie": (
+            f"No existe ningún hueco con id {INEXISTENTE} en la rutina de este entrenamiento"
+        ),
+    }.get(donde, f"No existe ninguna rutina con id {INEXISTENTE}")
     assert respuesta.json()["detail"] == esperado
     assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == cuantas

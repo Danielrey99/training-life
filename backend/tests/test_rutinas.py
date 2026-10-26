@@ -22,15 +22,11 @@ from tests.ayudas import (
     entrenar,
     ids_de_alternativas,
     objetivo,
+    ocultar_hueco,
     poner_alternativas,
 )
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
-    respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=ocultar")
-    assert respuesta.status_code == 204
 
 
 def duplicar(cliente, rutina_id):
@@ -227,7 +223,7 @@ def test_una_rutina_nueva_con_un_ejercicio_que_no_vale_da_404_y_no_crea_nada(
 
     respuesta = cliente.post("/rutinas", json={"nombre": "Leg", "slots": huecos})
 
-    assert respuesta.status_code == 404
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
     assert filas_guardadas(sesion_bd) == (0, 0, 0)
     assert cliente.get("/rutinas").json() == []
 

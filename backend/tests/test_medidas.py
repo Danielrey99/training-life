@@ -14,7 +14,7 @@ Lo que falta o sobra da 422 con el nombre del ejercicio, al apuntar y al corregi
 La base de datos solo comprueba la forma de la serie, con sus CHECK.
 
 El escenario: la rutina tiene un hueco A de Press banca con Dominadas y Plancha de
-alternativas (los tres tipos en un hueco), un hueco B de Dominadas y un C de Plancha.
+alternativas (tres de los cuatro tipos en un hueco), un hueco B de Dominadas y un C de Plancha.
 """
 
 from types import SimpleNamespace
@@ -26,7 +26,9 @@ from tests.ayudas import crear_ejercicio, crear_rutina, objetivo
 
 FECHA = "2026-09-04"
 NEGATIVO = "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
-MEDIDAS = ("peso", "repeticiones", "duracion_s", "peso_corporal")
+MEDIDAS = ("peso", "repeticiones", "duracion_s", "distancia_m", "peso_corporal")
+# Todas nulas: lo que se espera de una serie se escribe encima, solo con lo que lleva.
+SIN_MEDIDAS = dict.fromkeys(MEDIDAS)
 
 
 def peso_corporal_de_otro_tipo(nombre: str) -> str:
@@ -187,9 +189,9 @@ def test_una_serie_con_las_medidas_de_su_tipo_se_guarda_tal_cual(
     respuesta = apuntar(cliente, e, ejercicio, **medidas)
 
     assert respuesta.status_code == 201, respuesta.text
-    assert medidas_de(respuesta.json()) == guardado
+    assert medidas_de(respuesta.json()) == {**SIN_MEDIDAS, **guardado}
     [leida] = series_de(cliente, e)
-    assert medidas_de(leida) == guardado
+    assert medidas_de(leida) == {**SIN_MEDIDAS, **guardado}
 
 
 def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e):
@@ -205,7 +207,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         "slot_id",
         "numero_serie",
         *MEDIDAS,
-        "distancia_m",
         "variante",
         "created_at",
         "updated_at",
@@ -250,6 +251,12 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
             {"repeticiones": 8},
             "Dominadas se apunta con repeticiones y carga: falta el peso.",
             id="corporal-sin-carga-nula",
+        ),
+        pytest.param(
+            "dominadas",
+            {},
+            "Dominadas se apunta con repeticiones y carga: faltan el peso y las repeticiones.",
+            id="corporal-sin-nada",
         ),
         pytest.param(
             "dominadas",
@@ -334,7 +341,9 @@ def test_las_repeticiones_que_faltan_o_sobran_se_dicen_en_plural(
 )
 def test_un_peso_negativo_solo_vale_en_peso_corporal(cliente, e, ejercicio, medidas):
     """La ayuda (carga negativa) solo existe en los ejercicios de peso corporal; en
-    ellos se apunta bien (en el test de las series válidas).
+    ellos se apunta bien (en el test de las series válidas). Antes del peso corporal
+    lo rechazaba el esquema (`ge=0`); ahora el esquema admite negativos y el 422 es el
+    de las medidas del tipo.
     """
     respuesta = apuntar(cliente, e, ejercicio, **medidas)
 
@@ -430,12 +439,7 @@ def test_cambiar_a_una_alternativa_de_otro_tipo_exige_sus_medidas(cliente, e):
     bien = corregir(cliente, e, serie, "plancha", duracion_s=40)
     assert bien.status_code == 200, bien.text
     assert bien.json()["ejercicio_id"] == e.ids["plancha"]
-    assert medidas_de(bien.json()) == {
-        "peso": None,
-        "repeticiones": None,
-        "duracion_s": 40,
-        "peso_corporal": None,
-    }
+    assert medidas_de(bien.json()) == {**SIN_MEDIDAS, "duracion_s": 40}
 
 
 def test_la_ayuda_se_valida_con_el_ejercicio_final_y_no_con_el_de_antes(cliente, e):
@@ -492,16 +496,9 @@ def test_corregir_una_serie_sin_sus_medidas_da_422_y_no_la_toca(cliente, e):
 # la variante: opcional, y el PUT copia el cuerpo entero (si no llega, queda nulo).
 
 
-def test_el_peso_corporal_se_guarda_y_se_devuelve_en_la_sesion(cliente, e):
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal="78.5")
-
-    assert serie["peso_corporal"] == "78.50"
-    assert series_de(cliente, e)[0]["peso_corporal"] == "78.50"
-
-
-@pytest.mark.parametrize("sin", [{}, {"peso_corporal": None}], ids=["ausente", "nulo"])
-def test_sin_peso_corporal_queda_nulo(cliente, e, sin):
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, **sin)
+def test_un_peso_corporal_nulo_se_acepta_y_queda_nulo(cliente, e):
+    """Sin el campo, en las series válidas de arriba; aquí, mandado nulo a propósito."""
+    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=None)
 
     assert serie["peso_corporal"] is None
 
@@ -825,10 +822,9 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
     respuesta = apuntar(cliente, c, "cinta", **medidas)
 
     assert respuesta.status_code == 201, respuesta.text
-    esperado = {"peso": None, "repeticiones": None, "peso_corporal": None, **guardado}
-    assert {k: respuesta.json()[k] for k in esperado} == esperado
+    assert medidas_de(respuesta.json()) == {**SIN_MEDIDAS, **guardado}
     [leida] = series_de(cliente, c)
-    assert {k: leida[k] for k in esperado} == esperado
+    assert medidas_de(leida) == {**SIN_MEDIDAS, **guardado}
     assert leida["ejercicio"]["tipo_registro"] == "cardio"
 
 
@@ -841,6 +837,10 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
         ),
         pytest.param(
             {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}: sobra el peso.", id="con-peso"
+        ),
+        # No es el 422 de la ayuda: en cardio sobra cualquier peso, también uno negativo.
+        pytest.param(
+            {"duracion_s": 600, "peso": -10}, f"{COMO_CARDIO}: sobra el peso.", id="con-ayuda"
         ),
         pytest.param(
             {"duracion_s": 600, "repeticiones": 8},
@@ -964,6 +964,52 @@ def test_corregir_una_serie_de_cardio_con_medidas_que_no_son_suyas_da_422_y_no_l
     assert respuesta.json()["detail"] == mensaje
     [leida] = series_de(cliente, c)
     assert (leida["duracion_s"], leida["distancia_m"]) == (1200, 3000)
+
+
+def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_de_cada_uno(
+    cliente, c
+):
+    """Un hueco E de Press banca con Cinta de alternativa (cada uno con su objetivo). La
+    serie de press pasa a cinta: con peso y repeticiones, 422 de la cinta; con duración
+    y distancia, vale y el peso y las repeticiones quedan nulos. De vuelta a press con
+    las medidas de la cinta, 422 que dice todo lo que falta y todo lo que sobra.
+    """
+    respuesta = cliente.post(
+        f"/rutinas/{c.rutina}/slots",
+        json={
+            "ejercicio_principal_id": c.ids["press"],
+            "orden": 5,
+            **objetivo(3, (6, 10)),
+            "alternativas": [{"ejercicio_id": c.ids["cinta"], **objetivo(1, duracion=(600, 900))}],
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    hueco_e = respuesta.json()["id"]
+    serie = apuntada(cliente, c, "press", slot_id=hueco_e, peso=60, repeticiones=8)
+
+    con_reps = corregir(cliente, c, serie, "cinta", peso=60, repeticiones=8)
+    assert (con_reps.status_code, con_reps.json()["detail"]) == (
+        422,
+        f"{COMO_CARDIO}: falta la duración y sobran el peso y las repeticiones.",
+    )
+    assert series_de(cliente, c) == [serie]
+
+    a_cinta = corregir(cliente, c, serie, "cinta", duracion_s=720, distancia_m=2000)
+    assert a_cinta.status_code == 200, a_cinta.text
+    assert a_cinta.json()["ejercicio_id"] == c.ids["cinta"]
+    assert medidas_de(a_cinta.json()) == {**SIN_MEDIDAS, "duracion_s": 720, "distancia_m": 2000}
+
+    a_press = corregir(cliente, c, a_cinta.json(), "press", duracion_s=720, distancia_m=2000)
+    assert (a_press.status_code, a_press.json()["detail"]) == (
+        422,
+        "Press banca se apunta con peso y repeticiones: faltan el peso y las repeticiones"
+        " y sobran la duración y la distancia.",
+    )
+    [leida] = series_de(cliente, c)
+    assert (leida["ejercicio_id"], medidas_de(leida)) == (
+        c.ids["cinta"],
+        medidas_de(a_cinta.json()),
+    )
 
 
 def test_corregir_una_serie_de_plancha_con_distancia_da_422(cliente, c):

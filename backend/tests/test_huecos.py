@@ -297,19 +297,9 @@ def test_un_hueco_nuevo_con_comodines_incoherentes_da_422(
 # --- PUT: sin lista de comodines, como antes -------------------------------
 
 
-@pytest.mark.parametrize("campos", [{}, {"alternativas": None}], ids=["sin lista", "nula"])
-def test_editar_un_hueco_sin_lista_de_comodines_no_los_toca(cliente, sesion_bd, ejercicios, campos):
-    rutina = crear_rutina(cliente)
-    lista = [ejercicios["Fondos"], ejercicios["Cruces"]]
-    slot = hueco_creado(cliente, rutina, ejercicios["Press"], alternativas=lista)["id"]
-    filas = filas_de_comodines(sesion_bd, slot)
-
-    respuesta = editar_hueco(cliente, rutina, slot, ejercicios["Aperturas"], series=2, **campos)
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["series_objetivo"] == 2
-    assert ids_de_alternativas(respuesta.json()) == lista
-    assert filas_de_comodines(sesion_bd, slot) == filas
+# Que sin lista (o con ella nula) no se toquen los comodines ni sus objetivos, en
+# `test_editar_un_hueco_sin_lista_no_toca_las_alternativas_ni_sus_objetivos`
+# (`test_objetivos.py`).
 
 
 def test_con_la_lista_nula_sigue_sin_poder_pasar_un_comodin_a_principal(cliente, ejercicios):

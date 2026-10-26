@@ -85,7 +85,13 @@ def test_se_adelanta_desde_el_lunes_de_la_misma_semana(cliente, ppl):
 
 
 def test_no_se_adelanta_lo_de_la_semana_siguiente(cliente, ppl):
-    assert sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_21).status_code == 422
+    respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_21)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"].startswith(
+        "Lo del 2026-09-21 solo se puede entrenar del 2026-09-21 al 2026-09-27:"
+    )
+    assert cliente.get("/entrenamientos").json() == []
 
 
 def test_un_dia_cambiado_a_mano_se_adelanta_con_su_rutina_nueva(cliente, ppl):
@@ -150,7 +156,13 @@ def test_un_dia_que_no_se_puede_contar_da_422_aunque_la_fecha_este_ocupada(
     ocupada = sesion(cliente, MARTES_15, ppl["Push"]).json()["id"]
     con_una_serie(cliente, grupo_muscular_id, ocupada)
 
-    assert sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=MARTES_15).status_code == 422
+    respuesta = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=MARTES_15)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        "El 2026-09-15 no toca esa rutina.",
+    )
+    assert cliente.get(f"/entrenamientos/{ocupada}").json()["series"] != []
 
 
 def test_una_peticion_mal_hecha_no_borra_la_cancelada_que_ocupaba_la_fecha(cliente, ppl):
@@ -163,7 +175,10 @@ def test_una_peticion_mal_hecha_no_borra_la_cancelada_que_ocupaba_la_fecha(clien
 
     respuesta = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=MARTES_15)
 
-    assert respuesta.status_code == 422
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        "El 2026-09-15 no toca esa rutina.",
+    )
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 
 
@@ -300,7 +315,13 @@ def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl
     hoy_es(MIERCOLES_23)
 
     assert corregir(cliente, adelantada, LUNES_14).status_code == 200
-    assert corregir(cliente, adelantada, DOMINGO_13).status_code == 422
+    al_domingo = corregir(cliente, adelantada, DOMINGO_13)
+    assert al_domingo.status_code == 422
+    assert (
+        "Lo del 2026-09-18 solo se puede entrenar del 2026-09-14 al 2026-09-24"
+        in (al_domingo.json()["detail"])
+    )
+    assert cliente.get(f"/entrenamientos/{adelantada}").json()["fecha"] == "2026-09-14"
 
 
 def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):

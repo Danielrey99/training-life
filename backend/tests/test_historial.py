@@ -227,6 +227,39 @@ def test_la_ultima_vez_de_un_ejercicio_salta_los_dias_en_que_toco_el_comodin(
     assert [sesion["fecha"] for sesion in ultima_vez] == ["2026-09-01"]
 
 
+def test_la_ultima_vez_de_un_ejercicio_cruza_rutinas_y_papeles(
+    cliente, grupo_muscular_id, hueco_con_comodin
+):
+    """La consulta con la que la sesión compara cada ejercicio: su historial hasta el
+    día de la sesión, dos días (uno puede ser la propia sesión), en la rutina que fuera
+    y fuera principal o alternativa.
+
+    El press del escenario es principal en Push y alternativa en Pull; se hizo en Pull
+    el 10 y hoy, el 15, otra vez en Push. La última vez antes de hoy es la de Pull,
+    aunque en Push la última fuera el 1 (el 8 tocó el comodín).
+    """
+    press = hueco_con_comodin["ejercicio_id"]
+    pull = crear_rutina(cliente, "Pull")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+    hueco_de_pull = crear_hueco(cliente, pull, remo)
+    poner_alternativas(cliente, pull, hueco_de_pull, [press])
+    en_pull = entrenar(cliente, "2026-09-10", press, pull, hueco_de_pull)
+    hoy_en_push = historial_de_ejercicio(cliente, press, hasta="2026-09-15", limite=1)[0]
+
+    ultima_vez = historial_de_ejercicio(cliente, press, hasta="2026-09-15", limite=2)
+
+    assert [(s["entrenamiento_id"], s["fecha"], s["rutina"]) for s in ultima_vez] == [
+        (hoy_en_push["entrenamiento_id"], "2026-09-15", "Push"),
+        (en_pull, "2026-09-10", "Pull"),
+    ]
+    assert [serie["slot_id"] for serie in ultima_vez[1]["series"]] == [hueco_de_pull]
+    # Con `hasta` en el día de Pull, ese día sale: `hasta` incluye su día.
+    assert [s["fecha"] for s in historial_de_ejercicio(cliente, press, hasta="2026-09-10")] == [
+        "2026-09-10",
+        "2026-09-01",
+    ]
+
+
 def test_el_filtro_acepta_un_ejercicio_ocultado(cliente, hueco_con_comodin):
     """Ocultar un ejercicio no esconde lo que se hizo con él."""
     assert (

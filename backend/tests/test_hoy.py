@@ -536,4 +536,9 @@ def test_un_dia_pasado_con_sesion(cliente, ppl, grupo_muscular_id):
 
 
 def test_una_fecha_futura_da_422(cliente, ppl):
-    assert cliente.get("/plan/hoy", params={"fecha": "2026-09-17"}).status_code == 422
+    respuesta = cliente.get("/plan/hoy", params={"fecha": "2026-09-17"})
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        "El 2026-09-17 todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+    )

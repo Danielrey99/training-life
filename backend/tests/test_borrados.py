@@ -783,6 +783,7 @@ def test_un_hueco_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_musc
     # 404 y no 409: lo oculto deja de ofrecerse, así que para elegirlo es como si no
     # existiera, igual que un ejercicio oculto en una serie nueva.
     assert respuesta.status_code == 404
+    assert "en la rutina de este entrenamiento" in respuesta.json()["detail"]
     assert len(cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]) == 1
 
 
@@ -1197,6 +1198,9 @@ def test_una_serie_se_puede_corregir_aunque_su_ejercicio_ya_no_sea_comodin(
     assert corregida.status_code == 200
     assert corregida.json()["peso"] == "65.00"
     assert cambiada.status_code == 422
+    assert cambiada.json()["detail"] == (
+        "Ese ejercicio no es ni el principal ni un comodín de este hueco"
+    )
 
 
 def test_en_una_sesion_de_una_rutina_ya_oculta_se_pueden_seguir_apuntando_series(
@@ -1258,7 +1262,9 @@ def test_una_rutina_quitada_del_programa_tambien_cuenta(cliente, ppl):
     programa = cliente.get("/programas").json()[0]["id"]
     assert cliente.delete(f"/programas/{programa}/dias/5").status_code == 204
 
-    assert cliente.delete(f"/rutinas/{ppl['Leg']}").status_code == 409
+    respuesta = cliente.delete(f"/rutinas/{ppl['Leg']}")
+    assert respuesta.status_code == 409
+    assert "días que han pasado" in respuesta.json()["detail"]
 
 
 def test_una_rutina_planificada_a_mano_para_un_dia_pasado_tambien_cuenta(cliente, ppl, hoy_es):
@@ -1269,7 +1275,9 @@ def test_una_rutina_planificada_a_mano_para_un_dia_pasado_tambien_cuenta(cliente
     ).status_code == 200
     hoy_es(HOY)
 
-    assert cliente.delete(f"/rutinas/{brazos}").status_code == 409
+    respuesta = cliente.delete(f"/rutinas/{brazos}")
+    assert respuesta.status_code == 409
+    assert "días que han pasado" in respuesta.json()["detail"]
 
 
 def test_si_su_dia_aun_no_ha_llegado_con_el_programa_activo_se_borra_directa(cliente, hoy_es):
@@ -1291,7 +1299,9 @@ def test_si_su_dia_aun_no_ha_llegado_con_el_programa_activo_se_borra_directa(cli
     hoy_es(HOY)
 
     assert cliente.delete(f"/rutinas/{push}").status_code == 204
-    assert cliente.delete(f"/rutinas/{pull}").status_code == 409
+    respuesta = cliente.delete(f"/rutinas/{pull}")
+    assert respuesta.status_code == 409
+    assert "días que han pasado" in respuesta.json()["detail"]
 
 
 # --- El aviso de borrar un hueco ---------------------------------------------

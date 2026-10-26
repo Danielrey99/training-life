@@ -166,6 +166,28 @@ def ids_de_alternativas(hueco: dict) -> list[int]:
     return [a["ejercicio"]["id"] for a in hueco["alternativas"]]
 
 
+def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
+    """Oculta el hueco (`?modo=ocultar`); falla si la API no da 204."""
+    respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=ocultar")
+    assert respuesta.status_code == 204, respuesta.text
+
+
+# --- El plan: días cambiados a mano ---------------------------------------
+
+
+def planificar(cliente, fecha, rutina_id):
+    """PUT de la excepción de ese día (`rutina_id` nulo: descanso); devuelve la
+    respuesta entera, para mirar el código. Para montar datos, `dejar_planificado`.
+    """
+    return cliente.put(f"/plan/excepciones/{fecha.isoformat()}", json={"rutina_id": rutina_id})
+
+
+def dejar_planificado(cliente, fecha, rutina_id) -> None:
+    """Como `planificar`, pero falla si la API no da 200."""
+    respuesta = planificar(cliente, fecha, rutina_id)
+    assert respuesta.status_code == 200, respuesta.text
+
+
 # --- Lo que se busca o se crea a demanda ------------------------------------
 
 

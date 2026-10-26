@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from app.models import ProgramaDia
-from tests.ayudas import alternativa, consultas_de, crear_ejercicio, objetivo
+from tests.ayudas import alternativa, consultas_de, crear_ejercicio, objetivo, ocultar_hueco
 from tests.semana import HOY
 
 # --- Ayudantes ---------------------------------------------------------------
@@ -34,11 +34,6 @@ def rutina_con_huecos(cliente, nombre, *huecos) -> tuple[int, list[int]]:
     assert respuesta.status_code == 201, respuesta.text
     rutina = respuesta.json()
     return rutina["id"], [slot["id"] for slot in sorted(rutina["slots"], key=lambda s: s["orden"])]
-
-
-def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
-    ruta = f"/rutinas/{rutina_id}/slots/{slot_id}?modo=ocultar"
-    assert cliente.delete(ruta).status_code == 204
 
 
 def crear_programa(cliente, nombre, dias: dict[int, int], activar=False) -> int:
@@ -226,15 +221,16 @@ def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, e
     editada = cliente.put(f"/ejercicios/{remo}/notas/{nota['id']}", json={"nota": "Cambiada"})
     borrada = cliente.delete(f"/ejercicios/{remo}/notas/{nota['id']}")
 
-    assert (editada.status_code, borrada.status_code) == (404, 404)
+    for respuesta in (editada, borrada):
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Nota no encontrada")
     assert cliente.get(f"/ejercicios/{press}/notas").json() == [nota]
     assert cliente.get(f"/ejercicios/{remo}/notas").json() == []
 
 
 # --- El tipo de registro ---------------------------------------------------------
 #
-# Cada ejercicio dice cómo se apuntan sus series: peso y repeticiones, peso corporal
-# o tiempo. Se elige al crearlo y no cambia (una serie ya apuntada no se puede
+# Cada ejercicio dice cómo se apuntan sus series: peso y repeticiones, peso corporal,
+# tiempo o cardio. Se elige al crearlo y no cambia (una serie ya apuntada no se puede
 # reinterpretar): el PUT no lo toca aunque llegue en el cuerpo.
 
 TIPOS = ["peso_reps", "corporal", "tiempo", "cardio"]
@@ -278,7 +274,7 @@ def test_un_tipo_que_no_existe_da_422_y_no_crea_nada(cliente, grupo_muscular_id,
     assert [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]] == []
 
 
-@pytest.mark.parametrize("otro", ["peso_reps", "tiempo", "cardio"])
+@pytest.mark.parametrize("otro", ["peso_reps", "tiempo", "cardio", "natación"])
 def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
     cliente, grupo_muscular_id, otro
 ):
@@ -313,6 +309,7 @@ def test_un_predefinido_sigue_sin_poder_editarse_tambien_con_tipo(
     )
 
     assert respuesta.status_code == 403, respuesta.text
+    assert respuesta.json()["detail"] == "Los ejercicios predefinidos no se pueden editar."
     assert cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json() == antes
     assert antes["tipo_registro"] == "peso_reps"
 

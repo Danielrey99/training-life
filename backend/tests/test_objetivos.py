@@ -3,7 +3,8 @@ llevan el suyo, en la unidad de su tipo.
 
 El objetivo son unas series y un par mínimo-máximo: de repeticiones (`reps_min` y
 `reps_max`) para los ejercicios de peso y repeticiones o de peso corporal, o de
-duración en segundos (`duracion_min_s` y `duracion_max_s`) para los de tiempo.
+duración en segundos (`duracion_min_s` y `duracion_max_s`) para los de tiempo y los
+de cardio.
 Exactamente un par, y completo (el esquema da 422, y la base tiene un CHECK por si
 acaso). Qué par toca lo decide el tipo del ejercicio: lo comprueba el endpoint, con
 un 422 que nombra el ejercicio, después de los 404 y antes de los 409.
@@ -48,6 +49,10 @@ EN_REPETICIONES = (
 EN_SEGUNDOS_CARDIO = (
     "El objetivo de Cinta va en segundos (duracion_min_s y duracion_max_s), no en "
     "repeticiones: Cinta se apunta por tiempo y, si se quiere, distancia."
+)
+EN_REPETICIONES_PRESS = (
+    "El objetivo de Press banca va en repeticiones (reps_min y reps_max), no en duración: "
+    "Press banca se apunta con peso y repeticiones."
 )
 EN_SEGUNDOS_OBJ = objetivo(3, duracion=(30, 60))
 EN_REPS_OBJ = objetivo(3, (6, 10))
@@ -256,6 +261,20 @@ def _equivocados(e) -> dict:
             [alternativa(e.cinta)],
             EN_SEGUNDOS_CARDIO,
         ),
+        # Peso y repeticiones tiene su propia entrada en `FAMILIA`: no basta con que
+        # el corporal esté bien.
+        "principal-de-peso-y-reps-en-segundos": (
+            e.press,
+            EN_SEGUNDOS_OBJ,
+            [],
+            EN_REPETICIONES_PRESS,
+        ),
+        "alternativa-de-peso-y-reps-en-segundos": (
+            e.cinta,
+            objetivo(1, duracion=(600, 900)),
+            [alternativa(e.press, duracion=(30, 60))],
+            EN_REPETICIONES_PRESS,
+        ),
     }
 
 
@@ -268,6 +287,8 @@ def _equivocados(e) -> dict:
         "alternativa-corporal-en-segundos",
         "principal-de-cardio-en-reps",
         "alternativa-de-cardio-en-reps",
+        "principal-de-peso-y-reps-en-segundos",
+        "alternativa-de-peso-y-reps-en-segundos",
     ],
 )
 @pytest.mark.parametrize("via", VIAS)
@@ -305,7 +326,7 @@ def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(
         [alternativa(e.press)],
     )
 
-    assert respuesta.status_code in (200, 201), respuesta.text
+    assert respuesta.status_code == (200 if via is _por_put_de_hueco else 201), respuesta.text
     # POST /rutinas crea otra rutina: se busca el hueco de la cinta en todas.
     [hueco] = [
         h
@@ -584,8 +605,8 @@ def test_editar_un_hueco_sin_lista_no_toca_las_alternativas_ni_sus_objetivos(
     también `alternativas` encima de la propiedad de solo lectura del modelo: un
     `AttributeError`, un 500, en todos los PUT de un hueco, con lista o sin ella.
 
-    Aquí cambia el objetivo del principal y el de las alternativas sigue igual (no se
-    le copia el del principal), en las mismas filas.
+    Aquí cambian el principal y su objetivo, y las alternativas siguen igual, en su
+    orden (no se les copia el objetivo del principal), en las mismas filas.
     """
     slot = anadido(
         cliente,
@@ -596,14 +617,32 @@ def test_editar_un_hueco_sin_lista_no_toca_las_alternativas_ni_sus_objetivos(
     antes = filas(sesion_bd, slot)
     extra = {"alternativas": None} if lista == "nula" else {}
 
-    respuesta = editar(cliente, e.rutina, slot, principal=e.press, obj=objetivo(5, (3, 5)), **extra)
+    respuesta = editar(
+        cliente, e.rutina, slot, principal=e.dominadas, obj=objetivo(5, (3, 5)), **extra
+    )
 
     assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["ejercicio_principal"]["id"] == e.dominadas
     assert objetivo_de(respuesta.json()) == objetivo(5, (3, 5))
     assert alternativas_de(respuesta.json()) == [
         (e.remo, objetivo(2, (12, 15))),
         (e.plancha, objetivo(3, duracion=(30, 45))),
     ]
+    assert filas(sesion_bd, slot) == antes
+
+
+def test_el_nombre_viejo_de_la_lista_se_ignora_y_no_vacia_las_alternativas(cliente, sesion_bd, e):
+    """`alternativa_ids` (la lista de ids de antes del objetivo por ejercicio) ya no es
+    un campo del cuerpo: un cliente viejo que lo mande vacío no le quita nada al
+    hueco, como un campo cualquiera que el esquema no conoce.
+    """
+    slot = anadido(cliente, e.rutina, principal=e.press, alternativas=[alternativa(e.remo)])["id"]
+    antes = filas(sesion_bd, slot)
+
+    respuesta = editar(cliente, e.rutina, slot, principal=e.press, alternativa_ids=[])
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert alternativas_de(respuesta.json()) == [(e.remo, objetivo(3, (6, 10)))]
     assert filas(sesion_bd, slot) == antes
 
 
@@ -760,7 +799,9 @@ def test_la_base_acepta_un_par_completo_de_cada_clase(cliente, sesion_bd, e, tab
     sesion_bd.add(fila)
     sesion_bd.commit()
 
-    assert fila.id is not None
+    sesion_bd.expire_all()
+    guardada = sesion_bd.get(type(fila), fila.id)
+    assert tuple(getattr(guardada, c) for c in CAMPOS_DEL_OBJETIVO) == tuple(obj.values())
 
 
 def test_una_alternativa_sin_series_objetivo_no_entra_en_la_base(cliente, sesion_bd, e):
