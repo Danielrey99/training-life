@@ -332,7 +332,7 @@ export function Dia() {
   const [sesion, setSesion] = useState<Entrenamiento | null | undefined>(undefined)
   const [rutina, setRutina] = useState<Rutina | null>(null)
   const [bloques, setBloques] = useState<Bloque[]>([])
-  // La sesión anterior de la misma rutina, para el cambio de volumen; nula si no hay.
+  // La sesión anterior de la misma rutina con volumen, para su cambio; nula si no hay.
   const [anterior, setAnterior] = useState<Entrenamiento | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editando, setEditando] = useState(false)
@@ -374,13 +374,14 @@ export function Dia() {
         const suRutina = leida ? await api.rutina(leida.rutina_id) : null
         const [suyos, previas] = await Promise.all([
           leida && suRutina ? bloquesDelDia(leida, suRutina) : [],
-          // Para comparar el volumen: la sesión anterior de la misma rutina con algo
-          // apuntado. Unas pocas de margen por si alguna se quedó vacía.
+          // Para comparar el volumen: la sesión anterior de la misma rutina que lo tuvo.
+          // Con margen por si alguna se quedó vacía o solo fue de cardio, tiempo o peso
+          // corporal: comparar con 0 kg daría una subida que no es tal.
           leida
             ? api.entrenamientos({
                 rutina_id: leida.rutina_id,
                 hasta: sumarDias(fecha, -1),
-                limite: 5,
+                limite: 20,
               })
             : [],
         ])
@@ -388,7 +389,7 @@ export function Dia() {
         setSesion(leida ?? null)
         setRutina(suRutina)
         setBloques(suyos)
-        setAnterior(previas.find((otra) => otra.series.length > 0) ?? null)
+        setAnterior(previas.find((otra) => volumenDe(otra.series) > 0) ?? null)
       } catch (fallo) {
         if (vigente) setError((fallo as Error).message)
       }
