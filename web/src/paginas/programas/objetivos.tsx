@@ -7,7 +7,7 @@ import { objetivo as objetivoEnTexto } from './textos'
 
 /**
  * En qué unidad va el objetivo de un ejercicio: repeticiones (peso y repeticiones, peso
- * corporal) o duración (tiempo). Lo decide cómo se apunta el ejercicio.
+ * corporal) o duración (tiempo, cardio). Lo decide cómo se apunta el ejercicio.
  */
 export type Familia = 'repeticiones' | 'duracion'
 

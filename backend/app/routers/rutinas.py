@@ -787,9 +787,8 @@ def historial_de_hueco(
     `ejercicio_id`: aquí cuentan por igual los días con el ejercicio principal y
     los días en que tocó un comodín.
 
-    Con `ejercicio_id`, solo las series de ese ejercicio en este hueco: es la
-    "última vez" con la que se compara al entrenar, que tiene que ser con el mismo
-    ejercicio y no con el comodín que tocó la semana pasada.
+    Con `ejercicio_id`, solo las series de ese ejercicio en este hueco, sin las del
+    comodín que tocó otra semana.
     """
     _obtener_slot_legible(db, rutina_id, slot_id)
     filtro = Serie.slot_id == slot_id

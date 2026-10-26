@@ -164,7 +164,7 @@ button.ejercicio-caja .icono {
 
 /* El filtro por grupo muscular, igual en la hoja (con su lista debajo) y en la biblioteca
    (un botón que abre su propia hoja): el valor a la izquierda y ▾ a la derecha.
-   Son 17 grupos: en una fila de píldoras no se veían, y envueltas ocupaban media hoja. */
+   Son 18 grupos: en una fila de píldoras no se veían, y envueltas ocupaban media hoja. */
 .ejercicio-filtro {
   position: relative;
   display: flex;

@@ -11,7 +11,7 @@ App de entrenamiento de gimnasio para uso personal — pensada para sustituir el
 | Móvil | React Native + Expo |
 | Infraestructura | Docker Compose |
 
-La web habla con el backend a través de su API REST: nunca accede directamente a la base de datos. La app móvil funcionará por su cuenta, sin conectarse al PC; cómo se organiza por dentro se decidirá al empezarla.
+La web habla con el backend a través de su API REST: nunca accede directamente a la base de datos. La app móvil funcionará por su cuenta, sin conectarse al PC: guardará los datos en el propio teléfono, con la misma lógica que el backend escrita en TypeScript.
 
 ## Estructura del repositorio
 
@@ -55,7 +55,7 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 66 predefinidos en 18 grupos musculares, de peso y repeticiones, de peso corporal, de tiempo o de cardio), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) exportar, importar y borrar todos los datos. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
+🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 66 predefinidos en 18 grupos musculares, de peso y repeticiones, de peso corporal, de tiempo o de cardio), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) y exportar, importar y borrar todos los datos. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
@@ -83,7 +83,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
 - [x] Exportar e importar los datos en un archivo, para pasarlos de un dispositivo a otro
 - [x] Ajustes: kilos o libras, kilómetros o millas, el paso de los botones del peso y del tiempo, el peso corporal, el objetivo con el que empieza un ejercicio nuevo de cada tipo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
-- [ ] Repaso final del diseño, pantalla a pantalla
+- [x] Repaso final del diseño, pantalla a pantalla
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla

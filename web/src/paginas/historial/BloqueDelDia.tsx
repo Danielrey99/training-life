@@ -19,7 +19,7 @@ export type Bloque = {
   // se puede elegir (el principal, o el primer comodín si está oculto).
   ejercicio: Ejercicio
   series: Serie[]
-  // La última vez con ese ejercicio en ese hueco, antes de este día; nula si no hay.
+  // La última vez con ese ejercicio, en la rutina que fuera, antes de este día; nula si no hay.
   ultima: SesionHistorial | null
 }
 

@@ -66,7 +66,8 @@ type Props = {
  *
  * - peso y repeticiones: Peso y Reps;
  * - peso corporal: Carga (con *Lastre* o *Ayuda*; 0 es sin carga), Reps y Peso corporal;
- * - tiempo: Tiempo (minutos y segundos) y Peso, que es opcional.
+ * - tiempo: Tiempo (minutos y segundos) y Peso, que es opcional;
+ * - cardio: Tiempo y Distancia, que es opcional.
  *
  * Arranca con los datos de la serie anterior porque en el gimnasio las series
  * de un hueco repiten ejercicio y peso: lo normal es cambiar solo las

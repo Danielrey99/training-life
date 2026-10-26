@@ -102,7 +102,7 @@
 
 <rect x="910" y="418" width="220" height="55" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
 <text x="1020" y="440" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Base de datos local</text>
-<text x="1020" y="457" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">funciona sin el PC (a decidir)</text>
+<text x="1020" y="457" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">SQLite, funciona sin el PC</text>
 
 <rect x="910" y="488" width="220" height="50" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
 <text x="1020" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">EAS build</text>

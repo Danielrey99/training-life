@@ -27,7 +27,7 @@ Ordenado por frecuencia. No se diseña igual lo que se hace cada día que lo que
 | Cada cuánto | Qué | Contexto para el que se diseña |
 |---|---|---|
 | Cada día de gimnasio | Registrar la sesión, serie a serie | De pie, entre series, con una mano, sudado |
-| Cada día de gimnasio | Ver qué hizo la última vez en este ejercicio de la rutina, para decidir el peso | El mismo momento: tiene que estar a la vista, sin buscarlo |
+| Cada día de gimnasio | Ver qué hizo la última vez en este ejercicio, para decidir el peso | El mismo momento: tiene que estar a la vista, sin buscarlo |
 | Cada semana | Mirar el calendario: qué días fue, cuáles faltó, qué toca después | Sentado, de un vistazo |
 | Cada semana | Ver cómo va un ejercicio ("¿subo peso?") | Sentado, con calma |
 | De vez en cuando | Mover un día concreto del plan, o apuntar una sesión que olvidó | Sentado |
@@ -169,7 +169,7 @@ Qué enseña la tarjeta según el día:
 La pantalla importante. Un bloque por ejercicio de la rutina, en orden; el que se está haciendo va desplegado y los demás plegados a una línea (nombre y series hechas / objetivo), para no hacer scroll entre series. El bloque desplegado enseña:
 
 - **El objetivo** del ejercicio (4 × 6-10).
-- **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio en esa rutina**, no la última sesión sin más.
+- **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio**, en la rutina que fuera, no la última sesión sin más.
 - **Las series de hoy**, con un lápiz y una ✕ cada una.
 - **El formulario**: peso y reps con − / +, y variante opcional. El peso va en la unidad elegida (kg o lb), y − / + lo mueven lo que diga Ajustes (por defecto, 1).
 
@@ -220,7 +220,7 @@ Cada mes se compara con **el programa que estaba activo entonces**, no con el de
 
 ### H2 · Un día
 
-La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por ejercicio de la rutina: cuál se hizo (y si fue una alternativa) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en esa rutina, y por eso lleva su fecha, entera (*Última vez · martes 8 de septiembre*). La flecha de cada ejercicio lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14 de septiembre*, o *Adelantado del miércoles 16 de septiembre*.
+La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por ejercicio de la rutina: cuál se hizo (y si fue una alternativa) con su objetivo debajo del nombre (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio, en la rutina que fuera, y por eso lleva su fecha, entera (*Última vez · martes 8 de septiembre*). La flecha de cada ejercicio lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14 de septiembre*, o *Adelantado del miércoles 16 de septiembre*.
 
 **Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa, y **van en verde siempre que algo sube**, sea cual sea el tipo de ejercicio (en gris si se queda igual o baja). Cada tipo se mide con lo suyo, frente a la última vez que se hizo ese ejercicio, en la rutina que fuera:
 
@@ -231,7 +231,7 @@ La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercic
 
 Las insignias del 1RM y del ritmo llevan flecha (`↑` verde mejora, `↓` gris empeora). **Si un ejercicio no se había hecho nunca, solo lleva `nuevo`**: sin una vez anterior no hay con qué comparar, así que no salen insignias de cambio ni de mejora.
 
-El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó una alternativa más ligera. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
+El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó una alternativa más ligera. Solo suma los ejercicios de peso y repeticiones. Al pie, una leyenda lo recuerda: *La mejora, frente a la última vez con ese ejercicio: en peso y repeticiones, el 1RM; en peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración; en cardio, la distancia y luego el ritmo. El volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta rutina.*
 
 Si la sesión es de un día pasado y no está terminada, el día ofrece **Seguir apuntando**, que vuelve a la sesión.
 
@@ -314,7 +314,7 @@ Los ejercicios de la rutina en orden, cada uno con su objetivo y cuántas altern
 
 ### P4 · Ejercicio de la rutina
 
-Formulario: ejercicio principal (con su grupo muscular a la derecha de la etiqueta, *Pecho*: las etiquetas van a la izquierda, y así no se confunde con el nombre de un campo), alternativas (varias; las que se pueden hacer en su lugar, por ejemplo si la máquina está ocupada), series objetivo y reps mínimas y máximas, con − / +. Un ejercicio nuevo parte de 3 × 8-12 como referencia, que se cambia antes de guardar. El principal y cada alternativa se eligen en una hoja con buscador y filtro por grupo muscular, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. El filtro es el mismo campo que en la biblioteca, pero como ya está dentro de una hoja, su lista se despliega justo debajo en vez de abrir otra hoja. Estados de la misma pantalla:
+Formulario: ejercicio principal (con su grupo muscular a la derecha de la etiqueta, *Pecho*: las etiquetas van a la izquierda, y así no se confunde con el nombre de un campo), alternativas (varias; las que se pueden hacer en su lugar, por ejemplo si la máquina está ocupada), y el objetivo con − / + (series y reps mínimas y máximas, o series y duración mínima y máxima en los de tiempo y cardio), uno para el principal y otro para cada alternativa. Un ejercicio nuevo parte del objetivo de su tipo en Ajustes (3 × 8-12 en peso y repeticiones), que se cambia antes de guardar. El principal y cada alternativa se eligen en una hoja con buscador y filtro por grupo muscular, porque entre los predefinidos y los propios hay muchos; los ocultos no salen. El filtro es el mismo campo que en la biblioteca, pero como ya está dentro de una hoja, su lista se despliega justo debajo en vez de abrir otra hoja. Estados de la misma pantalla:
 
 - **Nuevo en una rutina que ya existe**: se titula *Añadir ejercicio*, como el botón que lleva a él (crear un ejercicio para la biblioteca es otra cosa, en la pestaña Ejercicios). *Guardar* guarda al momento. Debajo del título, el nombre de la rutina y *será el ejercicio 5*.
 - **Nuevo o existente en una rutina nueva**: *Guardar* solo cambia el borrador de la rutina; un ejercicio ya añadido ofrece *Quitar de la rutina* en lugar de Ocultar y Borrar.
@@ -353,7 +353,7 @@ Se llega con el engranaje de arriba a la derecha de *Hoy*. Tiene tres apartados.
 
 - **Unidad de peso**: kilos o libras. Lo apuntado se guarda igual; solo cambia cómo se ve y en qué unidad se escribe.
 - **Botones − y + del peso**: cuánto suben o bajan cada vez. El número lo escribe el usuario (por defecto, 1).
-- **Ejercicio nuevo en una rutina**: las series objetivo y las reps mínimas y máximas con las que empieza cada ejercicio que se añade a una rutina (por defecto, 3 × 8-12). Luego se cambian en cada uno.
+- **Ejercicio nuevo en una rutina**: el objetivo con el que empieza cada ejercicio que se añade a una rutina, uno por tipo (por defecto, 3 × 8-12 en peso y repeticiones, 3 × 6-10 en peso corporal, 3 × 30 s-1 min en tiempo y 1 × 20-30 min en cardio). Luego se cambia en cada uno.
 - **1RM estimado**: la **media de las series** (por defecto) o la **mejor serie** del día. Es lo que dice si un ejercicio ha mejorado, en el día del historial y en la gráfica de progresión, que cambian a la vez. La media cuenta el progreso de las series de después, que es donde está en las rutinas de doble progresión; la mejor serie es lo habitual en el entrenamiento de fuerza máxima.
 
 **Apariencia**
@@ -415,9 +415,9 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 ## Lo que necesita del backend
 
-Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado): cómo hará esos cálculos se decidirá al empezarla.
+Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de un hueco filtrado por ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado), así que hará esos cálculos ella misma.
 
-Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios. Lo siguiente son los ejercicios que no se apuntan con peso y repeticiones (ver más abajo), un repaso completo y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
+Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios, y apunta los cuatro tipos de ejercicio (ver más abajo). Lo siguiente es un repaso completo y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
 
 ## Por decidir
 

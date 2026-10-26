@@ -55,7 +55,7 @@ function cambioDe(diferencia: number, texto: string): Insignia {
 }
 
 /**
- * Cómo le fue al ejercicio comparado con la última vez que se hizo en ese hueco.
+ * Cómo le fue al ejercicio comparado con la última vez que se hizo, en la rutina que fuera.
  *
  * Una insignia por cosa que cambió: el peso más alto y el total de repeticiones (que ya
  * refleja si se hicieron más o menos series). Si
