@@ -33,6 +33,33 @@ export type DatosDeSerie = {
 const MINIMO_PESO_CORPORAL = 20
 const MAXIMO_PESO_CORPORAL = 400
 
+// Los topes de la API: pasarlos daría un 422 en inglés, así que se dicen antes.
+const MAXIMO_PESO = 9999.99
+const MAXIMO_REPS = 1000
+const MAXIMO_SEGUNDOS = 86400
+const MAXIMO_METROS = 1_000_000
+const MAXIMO_NUMERO_DE_SERIE = 100
+
+/** Qué tope de la API pasa la serie, dicho en la unidad elegida; nulo si ninguno. */
+function topePasado(numero: number, medidas: Omit<DatosDeSerie, 'variante'>): string | null {
+  if (numero > MAXIMO_NUMERO_DE_SERIE) {
+    return `Un ejercicio no admite más de ${MAXIMO_NUMERO_DE_SERIE} series.`
+  }
+  if (medidas.peso !== null && Math.abs(medidas.peso) > MAXIMO_PESO) {
+    return `El peso no puede pasar de ${numeroLegible(Math.floor(enUnidad(MAXIMO_PESO)))} ${unidad()}.`
+  }
+  if (medidas.repeticiones !== null && medidas.repeticiones > MAXIMO_REPS) {
+    return `Las repeticiones no pueden pasar de ${MAXIMO_REPS}.`
+  }
+  if (medidas.duracion_s !== null && medidas.duracion_s > MAXIMO_SEGUNDOS) {
+    return 'La duración no puede pasar de 24 horas.'
+  }
+  if (medidas.distancia_m !== null && medidas.distancia_m > MAXIMO_METROS) {
+    return `La distancia no puede pasar de ${numeroLegible(Math.floor(enUnidadDeDistancia(MAXIMO_METROS)))} ${unidadDeDistancia()}.`
+  }
+  return null
+}
+
 type Props = {
   numero: number
   // Cómo se apunta el ejercicio: decide qué campos lleva el formulario.
@@ -196,6 +223,11 @@ export function FormularioDeSerie({
     const medidas = leerMedidas()
     if (typeof medidas === 'string') {
       setFallo(medidas)
+      return
+    }
+    const tope = topePasado(numero, medidas)
+    if (tope) {
+      setFallo(tope)
       return
     }
     setGuardando(true)
