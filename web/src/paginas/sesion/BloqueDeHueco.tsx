@@ -84,7 +84,7 @@ function HuecoAbierto({
   const editando = series.find((serie) => serie.id === editandoId) ?? null
 
   const idElegido = elegido?.id ?? null
-  const ultima = useUltimaVez(rutinaId, hueco.id, idElegido, sesion)
+  const ultima = useUltimaVez(idElegido, sesion)
 
   // La serie anterior de hoy con este ejercicio, si la hay: de ella arranca el formulario.
   const anteriorDeHoy = [...series].reverse().find((serie) => serie.ejercicio_id === idElegido)

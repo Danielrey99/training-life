@@ -234,9 +234,7 @@ export function BloqueDelDia({
               <FichasUltimaVez tipo={ejercicio.tipo_registro} series={bloque.ultima.series} />
             </>
           ) : (
-            <span className="rotulo dia-primera">
-              Primera vez con este ejercicio en esta rutina
-            </span>
+            <span className="rotulo dia-primera">Primera vez con este ejercicio</span>
           )}
         </div>
       )}

@@ -64,18 +64,8 @@ function cambioDe(diferencia: number, texto: string): Insignia {
  * con una sola medida. Con la media cuenta cualquier serie que mejore, no solo la mejor;
  * en Ajustes se puede elegir la mejor serie (`unoRM`).
  */
-function mejoraDePesoYReps(series: Serie[], ultima: SesionHistorial | null): Mejora | null {
-  if (series.length === 0) return null
+function mejoraDePesoYReps(series: Serie[], ultima: SesionHistorial): Mejora {
   const rmHoy = unoRM(series)
-  if (!ultima || ultima.series.length === 0) {
-    return {
-      clase: 'igual',
-      insignias: [
-        { texto: 'nuevo', clase: 'igual' },
-        { texto: `1RM ${conDecimal(rmHoy)} ${unidad()}`, clase: 'igual' },
-      ],
-    }
-  }
 
   const insignias: Insignia[] = []
   const pesoHoy = Math.max(...conPesoYReps(series).map((serie) => Number(serie.peso)))
@@ -122,28 +112,12 @@ const mediaDeReps = (lista: { repeticiones: number | null }[]) =>
     (lista.reduce((total, serie) => total + (serie.repeticiones ?? 0), 0) / lista.length) * 100,
   )
 
-/** «+10 kg de lastre», «20 kg de ayuda» o «sin carga»: la carga de una serie nueva. */
-function cargaEnTexto(carga: number) {
-  if (carga === 0) return 'sin carga'
-  const peso = `${pesoLegible(Math.abs(carga))} ${unidad()}`
-  return carga > 0 ? `+${peso} de lastre` : `${peso} de ayuda`
-}
-
 /**
  * La mejora de un ejercicio de peso corporal: primero la carga (la más alta del día)
  * y, con la misma, la media de repeticiones por serie. El peso corporal no cuenta.
  */
-function mejoraCorporal(series: Serie[], ultima: SesionHistorial | null): Mejora {
+function mejoraCorporal(series: Serie[], ultima: SesionHistorial): Mejora {
   const cargaHoy = cargaMasAlta(series)
-  if (!ultima || ultima.series.length === 0) {
-    return {
-      clase: 'igual',
-      insignias: [
-        { texto: 'nuevo', clase: 'igual' },
-        { texto: cargaEnTexto(cargaHoy), clase: 'igual' },
-      ],
-    }
-  }
   const insignias: Insignia[] = []
   const cargaAntes = cargaMasAlta(ultima.series)
   if (cargaHoy !== cargaAntes) {
@@ -174,14 +148,8 @@ const duracionMedia = (lista: { duracion_s: number | null }[]) =>
  * La mejora de un ejercicio de tiempo: si lleva peso, primero el más alto (nulo = 0)
  * y, con el mismo, la duración media por serie.
  */
-function mejoraDeTiempo(series: Serie[], ultima: SesionHistorial | null): Mejora {
+function mejoraDeTiempo(series: Serie[], ultima: SesionHistorial): Mejora {
   const pesoHoy = cargaMasAlta(series)
-  if (!ultima || ultima.series.length === 0) {
-    const insignias: Insignia[] = [{ texto: 'nuevo', clase: 'igual' }]
-    if (pesoHoy > 0)
-      insignias.push({ texto: `${pesoLegible(pesoHoy)} ${unidad()}`, clase: 'igual' })
-    return { clase: 'igual', insignias }
-  }
   const insignias: Insignia[] = []
   const pesoAntes = cargaMasAlta(ultima.series)
   if (pesoHoy !== pesoAntes) {
@@ -220,18 +188,10 @@ function minutosYSegundos(segundos: number) {
  * mejor). El ritmo lleva su propia insignia con la flecha, como el 1RM.
  * «5,2 km (+0,4)», «28 min 15 s (+1 min 35 s)», «↑ Ritmo 5:26 min/km (−0:07)».
  */
-function mejoraDeCardio(series: Serie[], ultima: SesionHistorial | null): Mejora {
+function mejoraDeCardio(series: Serie[], ultima: SesionHistorial): Mejora {
   const distanciaHoy = suma(series, 'distancia_m')
   const tiempoHoy = suma(series, 'duracion_s')
   const ritmoHoy = ritmoDelDia(series)
-  const neutra = (texto: string): Insignia => ({ texto, clase: 'igual' })
-  if (!ultima || ultima.series.length === 0) {
-    const insignias = [neutra('nuevo')]
-    if (distanciaHoy > 0) insignias.push(neutra(distanciaLegible(distanciaHoy)))
-    insignias.push(neutra(duracionLegible(tiempoHoy)))
-    if (ritmoHoy !== null) insignias.push(neutra(`Ritmo ${ritmoEnTexto(ritmoHoy)}`))
-    return { clase: 'igual', insignias }
-  }
   const diferencia = (valor: number, texto: (positivo: number) => string) =>
     valor === 0 ? 'igual' : `${valor > 0 ? '+' : '−'}${texto(Math.abs(valor))}`
   // Verde si subió, gris si no (igual o menos): como el resto de insignias de cambio.
@@ -285,6 +245,11 @@ function mejora(
   ultima: SesionHistorial | null,
 ): Mejora | null {
   if (series.length === 0) return null
+  // Sin una vez anterior no hay con qué comparar: solo «nuevo», sin insignias de cambio ni
+  // de mejora. Lo apuntado ya se ve en sus series.
+  if (!ultima || ultima.series.length === 0) {
+    return { clase: 'igual', insignias: [{ texto: 'nuevo', clase: 'igual' }] }
+  }
   if (tipo === 'corporal') return mejoraCorporal(series, ultima)
   if (tipo === 'tiempo') return mejoraDeTiempo(series, ultima)
   if (tipo === 'cardio') return mejoraDeCardio(series, ultima)
@@ -333,10 +298,7 @@ async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina): Promise<Blo
   const ultimas = await Promise.all(
     bloques.map((bloque) =>
       api
-        .historialDeHueco(rutina.id, bloque.hueco.id, {
-          ...filtro,
-          ejercicio_id: bloque.ejercicio.id,
-        })
+        .historialDeEjercicio(bloque.ejercicio.id, filtro)
         .then((lista) => lista.find((otra) => otra.entrenamiento_id !== sesion.id) ?? null)
         // Sin última vez el día se puede ver igual: no merece un error en pantalla.
         .catch(() => null),

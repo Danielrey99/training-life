@@ -93,7 +93,7 @@ export function SelectorDeEjercicio({
   )
 }
 
-/** Una opción del desplegable, con su propia última vez en este hueco. */
+/** Una opción del desplegable, con su propia última vez. */
 function Opcion({
   ejercicio,
   rol,
@@ -111,7 +111,7 @@ function Opcion({
   }
   elegir: () => void
 }) {
-  const vez = useUltimaVez(ultima.rutinaId, ultima.huecoId, ejercicio.id, ultima.sesion)
+  const vez = useUltimaVez(ejercicio.id, ultima.sesion)
   // Un ejercicio oculto se enseña, para que se entienda qué pasó con él, pero ya
   // no se ofrece: para volver a usarlo hay que mostrarlo antes.
   const oculto = ejercicio.oculto_desde !== null
@@ -119,7 +119,7 @@ function Opcion({
 
   let detalle = ' '
   if (oculto) detalle = 'Oculto'
-  else if (vez === null) detalle = 'Todavía no lo has hecho en esta rutina'
+  else if (vez === null) detalle = 'Todavía no lo has hecho'
   else if (vez && primera) {
     detalle = `Última vez · ${serieCorta(ejercicio.tipo_registro, primera)} · ${fechaCorta(vez.fecha)}`
   }

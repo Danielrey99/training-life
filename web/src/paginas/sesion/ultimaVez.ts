@@ -6,8 +6,7 @@ import type { SesionHistorial } from '../../api/tipos'
 type Sesion = { id: number; fecha: string }
 
 /**
- * La última vez que se hizo un ejercicio en un hueco concreto de la rutina, para
- * compararse con ella.
+ * La última vez que se hizo un ejercicio, en la rutina que fuera, para compararse con ella.
  *
  * - `undefined` mientras se pide, `null` si no hay ninguna (o si la petición
  *   falla: sin última vez la sesión se puede registrar igual, así que no merece
@@ -18,13 +17,11 @@ type Sesion = { id: number; fecha: string }
  *   una serie. Por eso se piden dos días y no uno.
  */
 export function useUltimaVez(
-  rutinaId: number,
-  huecoId: number,
   ejercicioId: number | null,
   sesion: Sesion,
 ): SesionHistorial | null | undefined {
   const { id: sesionId, fecha } = sesion
-  const clave = `${rutinaId}-${huecoId}-${ejercicioId}-${fecha}-${sesionId}`
+  const clave = `${ejercicioId}-${fecha}-${sesionId}`
   const [resultado, setResultado] = useState<{
     clave: string
     sesion: SesionHistorial | null
@@ -33,10 +30,7 @@ export function useUltimaVez(
   useEffect(() => {
     if (ejercicioId === null) return
     const filtro = { hasta: fecha, limite: 2 }
-    const peticion = api.historialDeHueco(rutinaId, huecoId, {
-      ...filtro,
-      ejercicio_id: ejercicioId,
-    })
+    const peticion = api.historialDeEjercicio(ejercicioId, filtro)
     // Si se elige otro ejercicio antes de que llegue la respuesta, la vieja no
     // debe pisar a la nueva.
     let vigente = true
@@ -49,7 +43,7 @@ export function useUltimaVez(
     return () => {
       vigente = false
     }
-  }, [clave, rutinaId, huecoId, ejercicioId, fecha, sesionId])
+  }, [clave, ejercicioId, fecha, sesionId])
 
   if (ejercicioId === null) return null
   return resultado?.clave === clave ? resultado.sesion : undefined
