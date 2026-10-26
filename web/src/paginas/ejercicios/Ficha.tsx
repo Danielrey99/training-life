@@ -38,10 +38,14 @@ type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | null
 // La nota que se está escribiendo: una nueva, la de ese id o ninguna.
 type Escribiendo = 'nueva' | number | null
 
-/** La cifra de la tarjeta de progresión: la primera medida de su gráfica en la última sesión. */
-function cifraDeProgresion(tipo: Ejercicio['tipo_registro'], ultima: SesionHistorial) {
+/**
+ * La tarjeta de progresión: la primera medida de su gráfica en la última sesión, y la gráfica
+ * abierta en esa misma medida (un cardio de solo tiempo, en Tiempo aunque otras veces tuviera
+ * distancia).
+ */
+function progresionDe(tipo: Ejercicio['tipo_registro'], ultima: SesionHistorial) {
   const medida = medidasDe(tipo, [ultima])[0]
-  return medida.escribir(valorEnPantalla(medida, ultima))
+  return { clave: medida.clave, cifra: medida.escribir(valorEnPantalla(medida, ultima)) }
 }
 
 /** "Push · ejercicio 1"; uno oculto en su rutina no tiene número. */
@@ -182,6 +186,7 @@ export function Ficha() {
   const grupo =
     datos.grupos.find((uno) => uno.id === ejercicio.grupo_muscular_id)?.nombre ?? 'Sin grupo'
   const ultima = datos.sesiones[0]
+  const progresion = ultima ? progresionDe(ejercicio.tipo_registro, ultima) : null
   const usosVisibles = usos.filter((uso) => !uso.oculto)
   const usosOcultos = usos.filter((uso) => uso.oculto)
   const ocupado = escribiendo !== null
@@ -249,14 +254,15 @@ export function Ficha() {
         </section>
       )}
 
-      {ultima && (
+      {progresion && ultima && (
         <section className="detalle-bloque">
           <h2 className="rotulo">Progresión</h2>
-          <Link to={`/progresion/${id}`} className="detalle-tarjeta detalle-progresion">
+          <Link
+            to={`/progresion/${id}?medida=${progresion.clave}`}
+            className="detalle-tarjeta detalle-progresion"
+          >
             <span className="detalle-progresion-texto">
-              <span className="detalle-peso num">
-                {cifraDeProgresion(ejercicio.tipo_registro, ultima)}
-              </span>
+              <span className="detalle-peso num">{progresion.cifra}</span>
               <span>Última vez {conArticulo(ultima.fecha)}</span>
             </span>
             <Icono nombre="abrir" pequeno />

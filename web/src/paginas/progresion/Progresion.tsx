@@ -86,13 +86,14 @@ export function Progresion() {
   if (error) return <p className="aviso error">{error}</p>
   if (!ejercicio || !sesiones) return <p className="aviso">Cargando…</p>
 
-  // Las medidas que tiene un ejercicio dependen de cómo se apunta; la de la URL, si no es
-  // una de ellas, es la primera.
-  const medidas = medidasDe(ejercicio.tipo_registro, sesiones)
-  const medida = medidas.find((m) => m.clave === parametros.get('medida')) ?? medidas[0]
   const rango = rangoElegido ?? rangoPorDefecto(sesiones)
   const desde = rango.dias === null ? null : sumarDias(hoy(), -rango.dias)
   const enRango = sesiones.filter((sesion) => desde === null || sesion.fecha >= desde)
+  // Las medidas que tiene un ejercicio dependen de cómo se apunta y de lo apuntado en el
+  // rango: un cardio sin distancia en este mes abre en Tiempo, no en una gráfica vacía. La
+  // de la URL, si no es una de ellas, es la primera.
+  const medidas = medidasDe(ejercicio.tipo_registro, enRango)
+  const medida = medidas.find((m) => m.clave === parametros.get('medida')) ?? medidas[0]
   // Las sesiones que cuentan en esta medida: la distancia y el ritmo, solo las que la apuntaron.
   const paraLaMedida = enRango.filter((sesion) => medida.aplica?.(sesion) ?? true)
   const puntos: Punto[] = [...paraLaMedida].reverse().map((sesion) => {
