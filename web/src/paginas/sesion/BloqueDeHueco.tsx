@@ -201,7 +201,9 @@ function HuecoAbierto({
         <FormularioDeSerie
           key={`${idElegido}-${editando?.id ?? 'nueva'}`}
           numero={editando?.numero_serie ?? siguiente}
-          tipo={(elegido ?? hueco.ejercicio_principal).tipo_registro}
+          // Al editar, el tipo de la serie: el elegido puede ser otro si la rutina cambió
+          // a mitad de la sesión.
+          tipo={(editando?.ejercicio ?? elegido ?? hueco.ejercicio_principal).tipo_registro}
           semilla={semilla}
           editando={editando !== null}
           alGuardar={guardarDesdeFormulario}

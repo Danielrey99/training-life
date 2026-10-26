@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { objetivoDelEjercicio } from '../programas/textos'
 import { Link } from 'react-router-dom'
 
@@ -15,8 +14,9 @@ import type { Abierta } from './Dia'
 export type Bloque = {
   clave: string
   hueco: HuecoDeRutina
-  // El de sus series; en un hueco que ese día se quedó sin series, el primero que
-  // se puede elegir (el principal, o el primer comodín si está oculto).
+  // El de sus series; en un hueco que ese día se quedó sin series, el elegido en el
+  // borrador o, si no, el primero que se puede elegir (el principal, o el primer comodín
+  // si está oculto).
   ejercicio: Ejercicio
   series: Serie[]
   // La última vez con ese ejercicio, en la rutina que fuera, antes de este día; nula si no hay.
@@ -43,6 +43,8 @@ type Props = {
   alAbrir: (abierta: Abierta) => void
   alCerrar: () => void
   alBorrarSerie: (serie: Serie) => void
+  // Elegir otro ejercicio en un hueco sin series: no hay nada que confirmar.
+  alElegir: (ejercicio: Ejercicio) => void
   // Elegir otro ejercicio en un hueco que ya tiene series: lo confirma el día, que borra esas series.
   alPedirCambiar: (ejercicio: Ejercicio) => void
   // Cambiar o añadir una serie solo toca el borrador del día: se guarda con Guardar arriba.
@@ -71,21 +73,19 @@ export function BloqueDelDia({
   alAbrir,
   alCerrar,
   alBorrarSerie,
+  alElegir,
   alPedirCambiar,
   alCambiarSerie,
   alAnadirSerie,
 }: Props) {
-  const [elegido, setElegido] = useState<Ejercicio>(bloque.ejercicio)
-
   const editandoSerie = abierta?.tipo === 'serie' ? abierta.id : null
   const anadiendo = abierta?.tipo === 'anadir' && abierta.clave === bloque.clave
   // Hay algo abierto (aquí o en otra parte): no se puede abrir nada más.
   const bloqueado = abierta !== null
 
-  const { hueco, series } = bloque
+  const { hueco, series, ejercicio } = bloque
   const vacio = series.length === 0
   const principal = hueco.ejercicio_principal
-  const ejercicio = vacio ? elegido : bloque.ejercicio
   const esComodin = principal.id !== ejercicio.id
   // Las series nuevas, solo en un hueco visible: el backend no las admite en uno oculto.
   const admiteNuevas = editando && !hueco.oculto_desde
@@ -93,12 +93,9 @@ export function BloqueDelDia({
     .map((alternativa) => alternativa.ejercicio)
     .filter((otro) => !otro.oculto_desde)
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
-  // Arranca con la última serie del bloque o, si no tiene, con la última vez (si es
-  // del ejercicio que se va a apuntar).
-  const ultimaDelBloque = series.at(-1)
-  const semilla =
-    ultimaDelBloque ??
-    (bloque.ultima && ejercicio.id === bloque.ejercicio.id ? bloque.ultima.series[0] : null)
+  // Arranca con la última serie del bloque o, si no tiene, con la última vez, que el día
+  // ya da del ejercicio que se va a apuntar.
+  const semilla = series.at(-1) ?? bloque.ultima?.series[0] ?? null
 
   return (
     <section className={vacio ? 'dia-hueco vacio' : 'dia-hueco'}>
@@ -117,7 +114,7 @@ export function BloqueDelDia({
             comodines={comodines}
             elegido={ejercicio}
             sesion={sesion}
-            elegir={(otro) => (vacio ? setElegido(otro) : alPedirCambiar(otro))}
+            elegir={(otro) => (vacio ? alElegir(otro) : alPedirCambiar(otro))}
           />
         )}
         {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}

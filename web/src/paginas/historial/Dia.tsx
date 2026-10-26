@@ -294,17 +294,19 @@ async function bloquesDelDia(sesion: Entrenamiento, rutina: Rutina): Promise<Blo
       if (elegible) bloques.push({ clave: `hueco-${hueco.id}`, hueco, ejercicio: elegible, series })
     }
   }
-  const filtro = { hasta: sesion.fecha, limite: 2 }
-  const ultimas = await Promise.all(
-    bloques.map((bloque) =>
-      api
-        .historialDeEjercicio(bloque.ejercicio.id, filtro)
-        .then((lista) => lista.find((otra) => otra.entrenamiento_id !== sesion.id) ?? null)
-        // Sin última vez el día se puede ver igual: no merece un error en pantalla.
-        .catch(() => null),
-    ),
-  )
+  const ultimas = await Promise.all(bloques.map((bloque) => ultimaVezDe(bloque.ejercicio, sesion)))
   return bloques.map((bloque, indice) => ({ ...bloque, ultima: ultimas[indice] }))
+}
+
+/** La última vez que se hizo un ejercicio antes de este día, sin contar la propia sesión. */
+function ultimaVezDe(ejercicio: Ejercicio, sesion: Entrenamiento) {
+  return (
+    api
+      .historialDeEjercicio(ejercicio.id, { hasta: sesion.fecha, limite: 2 })
+      .then((lista) => lista.find((otra) => otra.entrenamiento_id !== sesion.id) ?? null)
+      // Sin última vez el día se puede ver igual: no merece un error en pantalla.
+      .catch(() => null)
+  )
 }
 
 /** Lo que hay abierto en el modo editar: una sola cosa a la vez. */
@@ -346,8 +348,11 @@ export function Dia() {
   // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
   // se hace un solo ejercicio por día y cambiar quita las series que había (al guardar).
   const [aCambiar, setACambiar] = useState<{ bloque: Bloque; ejercicio: Ejercicio } | null>(null)
-  // Los ejercicios elegidos en el borrador para huecos que se quedaron sin series al cambiar.
+  // Los ejercicios elegidos en el borrador para huecos sin series (o que se quedaron sin
+  // ellas al cambiar), y la última vez de cada uno, por id de ejercicio, para compararlo con
+  // la suya y no con la del ejercicio que tenía el hueco.
   const [ejerciciosNuevos, setEjerciciosNuevos] = useState<Record<number, Ejercicio>>({})
+  const [ultimasElegidas, setUltimasElegidas] = useState<Record<number, SesionHistorial | null>>({})
   const [borrandoDia, setBorrandoDia] = useState(false)
   const [falloFecha, setFalloFecha] = useState<string | null>(null)
   const [falloGuardar, setFalloGuardar] = useState<string | null>(null)
@@ -419,11 +424,11 @@ export function Dia() {
   const cambioVolumen = anterior ? Math.round(volumen - enUnidad(volumenDe(anterior.series))) : null
   const actuales = bloques.map((bloque) => {
     const suyas = series.filter((serie) => serie.slot_id === bloque.hueco.id)
-    return {
-      ...bloque,
-      series: suyas,
-      ejercicio: suyas[0]?.ejercicio ?? ejerciciosNuevos[bloque.hueco.id] ?? bloque.ejercicio,
-    }
+    const ejercicio = suyas[0]?.ejercicio ?? ejerciciosNuevos[bloque.hueco.id] ?? bloque.ejercicio
+    // Mientras llega la del elegido, ninguna: mejor sin comparar que con la de otro.
+    const ultima =
+      ejercicio.id === bloque.ejercicio.id ? bloque.ultima : (ultimasElegidas[ejercicio.id] ?? null)
+    return { ...bloque, series: suyas, ejercicio, ultima }
   })
   // Lo que pide la rutina ese día: las series del ejercicio que se hizo en cada hueco
   // visible (o del que se ofrece, si no tiene series).
@@ -562,10 +567,20 @@ export function Dia() {
     setAbierta(null)
   }
 
+  /** Elige el ejercicio de un hueco en el borrador y pide su última vez si no la tiene. */
+  function elegirEjercicio(bloque: Bloque, ejercicio: Ejercicio) {
+    setEjerciciosNuevos((previos) => ({ ...previos, [bloque.hueco.id]: ejercicio }))
+    const original = bloques.find((otro) => otro.clave === bloque.clave)
+    if (ejercicio.id === original?.ejercicio.id || ejercicio.id in ultimasElegidas) return
+    void ultimaVezDe(ejercicio, dia).then((ultima) =>
+      setUltimasElegidas((previas) => ({ ...previas, [ejercicio.id]: ultima })),
+    )
+  }
+
   /** Confirmado el cambio: se quitan del borrador las series del hueco y se elige el nuevo. */
   function cambiarDeEjercicio(bloque: Bloque, ejercicio: Ejercicio) {
     setSeriesNuevas((previas) => previas.filter((serie) => serie.slot_id !== bloque.hueco.id))
-    setEjerciciosNuevos((previos) => ({ ...previos, [bloque.hueco.id]: ejercicio }))
+    elegirEjercicio(bloque, ejercicio)
     setACambiar(null)
   }
 
@@ -719,6 +734,7 @@ export function Dia() {
             alAbrir={setAbierta}
             alCerrar={() => setAbierta(null)}
             alBorrarSerie={setABorrar}
+            alElegir={(ejercicio) => elegirEjercicio(bloque, ejercicio)}
             alPedirCambiar={(ejercicio) => setACambiar({ bloque, ejercicio })}
             alCambiarSerie={cambiarSerie}
             alAnadirSerie={(ejercicio, numeroSerie, datos) =>
