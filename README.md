@@ -59,13 +59,14 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
-**Lo siguiente**, en este orden: los ejercicios que no se apuntan con peso y repeticiones (peso corporal, tiempo y cardio, ya diseñados en los bocetos), un repaso completo del proyecto y la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
+**Lo siguiente**, en este orden: un repaso completo del proyecto y la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, creables de una vez con la rutina; mismo patrón de borrado)
-- [x] Backend: `Entrenamiento` y `Serie` (registro real, con peso, repeticiones y variante, base del historial de progresión)
+- [x] Backend: `Entrenamiento` y `Serie` (registro real, con las medidas de su tipo de ejercicio y la variante, base del historial de progresión)
+- [x] Ejercicios de cuatro tipos: peso y repeticiones, peso corporal (con lastre o con ayuda), tiempo y cardio (tiempo y distancia), cada uno con su formulario, su objetivo, sus insignias de mejora y su gráfica. Cada alternativa de un ejercicio de una rutina lleva su propio objetivo
 - [x] Backend: notas personales por ejercicio (también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión, por ejercicio y por hueco de rutina (con filtros de fecha)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, restricciones de la base, CRUD)
@@ -81,7 +82,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Web: programas y rutinas — la semana de un programa, crear un programa, y una rutina con sus ejercicios y alternativas (también para crear una rutina nueva)
 - [x] Web: la biblioteca de ejercicios (buscador, ficha, notas y formulario)
 - [x] Exportar e importar los datos en un archivo, para pasarlos de un dispositivo a otro
-- [x] Ajustes: kilos o libras, el paso de los botones del peso, las series y reps por defecto de un ejercicio nuevo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
+- [x] Ajustes: kilos o libras, kilómetros o millas, el paso de los botones del peso y del tiempo, el peso corporal, el objetivo con el que empieza un ejercicio nuevo de cada tipo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
 - [ ] Repaso final del diseño, pantalla a pantalla
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
@@ -111,13 +112,13 @@ Para detener todo: `docker compose down` (los datos de la base de datos persiste
 ## Roadmap de funcionalidades
 
 **MVP**
-- Registro de entrenamientos por día (ejercicio, series, repeticiones, peso y variante)
+- Registro de entrenamientos por día (ejercicio, series, y por tipo: peso y repeticiones, repeticiones con lastre o ayuda, tiempo o distancia, y variante)
 - Biblioteca de ejercicios, con ejercicios predefinidos y propios
 - Historial de progresión por ejercicio
 - Rutinas reutilizables y programas semanales que las reparten en la semana
 
 **Nivel medio**
-- Gráficas de progresión (peso, volumen y 1RM estimado) y resumen de volumen y constancia
+- Gráficas de progresión según el tipo (peso, volumen y 1RM estimado; repeticiones y carga; tiempo y peso; distancia, tiempo y ritmo) y resumen de volumen y constancia
 - Calendario de lo entrenado y planificación de los próximos días
 - Exportar e importar los datos, para pasarlos de la web al móvil, cambiar de teléfono o guardar una copia
 - Ajustes de cada dispositivo: kilos o libras, tema claro u oscuro, el color de cada día y cómo se calcula el 1RM

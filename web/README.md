@@ -21,14 +21,16 @@ La primera versión se escribió para validar que el circuito funciona —React 
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
 - [x] El calendario del historial, y apuntar desde él un día pasado
 - [x] Ver un día y corregirlo: sus series, la fecha, las notas o borrarlo entero
-- [x] La progresión de un ejercicio: una gráfica de peso, volumen o 1RM estimado por sesión
+- [x] La progresión de un ejercicio: una gráfica por sesión con las medidas de su tipo (peso, volumen o 1RM; repeticiones o carga; tiempo o peso; distancia, tiempo o ritmo)
+- [x] Ejercicios de cuatro tipos (peso y repeticiones, peso corporal, tiempo y cardio): el tipo se elige al crear el ejercicio y decide el formulario de cada serie, su objetivo y cómo se mide si mejoró
+- [x] Un objetivo propio para cada alternativa de un ejercicio de una rutina, en repeticiones o en duración
 - [x] Planificar los próximos días: qué toca cada día de hoy en adelante, sustituyéndolo al tocar
 - [x] El resumen: el volumen por semana o por mes con el desglose de la barra elegida, y la constancia del año
 - [x] La lista de programas y rutinas, con sus ocultos plegados
 - [x] La semana de un programa y crear un programa nuevo
 - [x] Una rutina y cada uno de sus ejercicios, también para crear una rutina nueva
 - [x] La biblioteca de ejercicios: buscador y filtros, la ficha de cada uno (progresión, notas y dónde se usa) y el formulario para crear o editar uno
-- [x] Ajustes: kilos o libras, el paso de los botones del peso, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día, y exportar, importar o borrar todos los datos
+- [x] Ajustes: kilos o libras, kilómetros o millas, el paso de los botones del peso y del tiempo, el peso corporal, el objetivo de un ejercicio nuevo de cada tipo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día, y exportar, importar o borrar todos los datos
 
 ## Aspecto
 
@@ -118,7 +120,7 @@ web/
             ├── BloqueDeHueco.tsx        # un hueco, plegado o desplegado
             ├── SelectorDeEjercicio.tsx  # la flecha del comodín y su desplegable
             ├── FichasUltimaVez.tsx      # la última vez, con el globo de la variante
-            ├── FormularioDeSerie.tsx    # peso y reps con − / +
+            ├── FormularioDeSerie.tsx    # los campos de una serie según el tipo del ejercicio, con − / +
             └── ultimaVez.ts             # cómo se pide la última vez
 ```
 
@@ -162,9 +164,9 @@ Lo que se hizo sin contar para ningún día lleva el color del día de su rutina
 
 ### Un día
 
-La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por ejercicio de la rutina con el que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio en esa rutina**, en fichas, mirando siempre hacia atrás desde ese día.
+La única pantalla de ver un día (`/historial/2026-09-29`), a la que se llega desde el calendario, desde la última sesión de *Hoy* y al terminar una sesión. Arriba, tres cifras: las series frente a las que pedía la rutina, el volumen (peso por repeticiones, solo de los ejercicios de peso y repeticiones), con cuánto cambió frente a la sesión anterior de la misma rutina, y cuántos ejercicios mejoraron. Debajo, un bloque por ejercicio de la rutina con el que se hizo, su objetivo (*3 × 8-12*, a la derecha del nombre), sus series y **la última vez que se hizo ese ejercicio**, en la rutina que fuera, en fichas, mirando siempre hacia atrás desde ese día.
 
-- **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Por defecto es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar; en Ajustes se puede elegir la mejor serie. Si es la primera vez, *nuevo*.
+- **Las insignias de cada ejercicio comparan con esa última vez**, una por cosa que cambió, y **en verde siempre que algo sube**, sea cual sea el tipo (en gris si se queda igual o baja). En peso y repeticiones: el peso más alto (*+2,5 kg*), el total de repeticiones (*−7 reps*) y el **1RM estimado** (*↑ 1RM 36,1 kg (+1,3)*), que es el que decide si mejoró. Por defecto es la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), así que subir peso y bajar repeticiones se compensa en una sola medida, y hacer una serie menos no cuenta como empeorar; en Ajustes se puede elegir la mejor serie. En peso corporal manda la carga (con lastre o con ayuda) y luego las repeticiones; en tiempo, el peso y luego la duración; en cardio, la distancia, luego el ritmo (*↑ Ritmo 5:26 min/km (−0:07)*) y, sin distancia, el tiempo. Si un ejercicio no se había hecho nunca, solo lleva *nuevo*: sin comparación no hay insignias.
 - **El volumen es un dato de cuánto trabajo se hizo, no de fuerza**: puede bajar aunque todo mejore, por ejemplo si se usó una alternativa más ligera. La leyenda del final dice con qué se compara cada cosa.
 - **Mientras una sesión de un día pasado no está terminada**, el día ofrece *Seguir apuntando*, que vuelve a la sesión.
 - **Si se hizo con una alternativa, lo dice**: *En lugar de Fondos en paralelas*. Y si la sesión recuperaba o adelantaba otro día, la cabecera lo recuerda (*Recuperado del lunes 28 de septiembre*).
@@ -194,9 +196,9 @@ La progresión general, no por ejercicio (`/historial/resumen?mes=2026-09`), a l
 
 ## Progresión
 
-La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con tres medidas sobre los mismos puntos y cuatro rangos (1 mes, 3, 6 y todo). Abre en el rango más corto que cubre todo el historial del ejercicio (`rangoPorDefecto`). *Todo* va a la escala de 6 meses y, si hay más, la gráfica se desliza de lado con los valores fijos a la izquierda, abriendo en lo más reciente. El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
+La gráfica de un ejercicio (`/progresion/86`), a la que se llega con la flecha de cada ejercicio en un día del historial. Un punto por sesión, repartidos según la fecha (dos sesiones muy separadas se ven separadas), con las medidas de su tipo sobre los mismos puntos (tres en cada uno) y cuatro rangos (1 mes, 3, 6 y todo). Abre en el rango más corto que cubre todo el historial del ejercicio (`rangoPorDefecto`). *Todo* va a la escala de 6 meses y, si hay más, la gráfica se desliza de lado con los valores fijos a la izquierda, abriendo en lo más reciente. El rango y la medida van en la URL, así que recargar no los pierde. Arriba, el último valor y cuánto ha cambiado desde la primera sesión del rango; debajo, las sesiones con sus series, cada una enlazada a su día.
 
-- **Peso**: el más alto de cada sesión. **Volumen**: peso por repeticiones, sumado. **1RM estimado**: la media de lo que cada serie permitiría levantar una sola vez (fórmula de Epley, `peso × (1 + reps / 30)`), o la mejor serie si se elige en Ajustes.
+- **Medidas de cada tipo**, con un rótulo sobre la cifra que dice qué mide y un globo que solo lleva la fecha y el valor. Peso y repeticiones: **Peso** (el más alto de cada sesión), **Volumen** (peso por repeticiones, sumado) y **1RM estimado** (la media de lo que cada serie permitiría levantar una sola vez, fórmula de Epley, o la mejor serie si se elige en Ajustes). Peso corporal: **Reps** (media por serie), **Reps totales** y **Carga**. Tiempo: **Tiempo** (media por serie), **Tiempo total** y **Peso**. Cardio: **Distancia**, **Tiempo** y **Ritmo**. La carga, el peso, la distancia y el ritmo solo salen si alguna vez se apuntaron.
 - **El 1RM es el mismo que decide si un ejercicio mejoró en el día del historial**, y sale de una única función (`unoRM`), así que un mismo día da el mismo número en las dos pantallas. Por defecto se hace la media de las series y no se toma la mejor porque las rutinas son de doble progresión (*3 × 8-12*): se sube repeticiones hasta llegar a 12 en todas las series y entonces se sube peso, y en esas semanas el progreso está en las series de después, que la mejor serie no ve. Para quien entrena fuerza máxima, Ajustes deja elegir la mejor serie, y las dos pantallas cambian a la vez.
 - **La gráfica es SVG hecho a mano**, sin librería: la cuadrícula busca valores redondos (pasos de 1, 2, 2,5 o 5), y se dibuja al ancho real de la tarjeta, medido con `ResizeObserver`, para que las letras no cambien de tamaño entre el móvil y el escritorio. Cada punto lleva una zona táctil mayor que él y se maneja también con el teclado; tocar uno cambia el globo con su día, su rutina y su valor.
 - Si el ejercicio no se ha hecho nunca, o no en el rango elegido, la pantalla lo dice en vez de enseñar una gráfica vacía.

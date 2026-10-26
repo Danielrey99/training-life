@@ -48,9 +48,9 @@ Un nombre para cada cosa, el mismo en la interfaz, en el código y en esta guía
 | **Rutina** | Los ejercicios de un día; un "tipo de día" | "Push" |
 | **Ejercicio de una rutina** | Un puesto dentro de la rutina: qué ejercicio, cuántas series y qué rango de reps. En el código y la API se llama *hueco*; la app nunca dice «hueco» | "1 · Press banca, 4 × 6-10" |
 | **Alternativa** | Ejercicio que se puede hacer en lugar del principal, por si ese día no se puede. En el código y la API se llama *comodín* | "Press banca en máquina" |
-| **Ejercicio** | Un movimiento de la biblioteca: predefinido (viene con la app) o propio | "Press banca con barra" |
+| **Ejercicio** | Un movimiento de la biblioteca: predefinido (viene con la app) o propio. Se apunta de una de cuatro formas (peso y repeticiones, peso corporal, tiempo o cardio), que se elige al crearlo | "Press banca con barra" |
 | **Sesión** | Un día real de entrenamiento, con fecha | "El Push del lunes 14" |
-| **Serie** | Lo que se hizo: peso × repeticiones, y su variante si la tiene | "60 kg × 10" |
+| **Serie** | Lo que se hizo, con las medidas del tipo de su ejercicio (peso y repeticiones, repeticiones con lastre o ayuda, tiempo, o tiempo y distancia), y su variante si la tiene | "60 kg × 10", "28 min 15 s · 5,2 km" |
 | **Variante** | Matiz de ejecución que no merece un ejercicio aparte | "agarre cerrado" |
 | **Planificar** | Cambiar qué toca un día concreto sin tocar el programa | "El miércoles 23, Push en vez de Pull" |
 | **Recuperar** | Hacer más tarde un entrenamiento que se quedó sin hacer. Cuenta como el de aquel día | "El Push del lunes, el martes" |
@@ -222,7 +222,14 @@ Cada mes se compara con **el programa que estaba activo entonces**, no con el de
 
 La única pantalla de ver un día. Arriba, las cifras (series, volumen y ejercicios mejorados). Por ejercicio de la rutina: cuál se hizo (y si fue una alternativa) con su objetivo a la derecha (`3 × 8-12`), las insignias de mejora, sus series y la última vez en fichas. La comparación **mira siempre hacia atrás desde ese día**, con la última vez que se hizo ese ejercicio en esa rutina, y por eso lleva su fecha, entera (*Última vez · martes 8 de septiembre*). La flecha de cada ejercicio lleva a su progresión (H3). Si la sesión cuenta para otro día, la cabecera lo dice bajo la fecha: *Recuperado del lunes 14 de septiembre*, o *Adelantado del miércoles 16 de septiembre*.
 
-**Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: por defecto, la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. En Ajustes se puede elegir la mejor serie del día. Mejora con `↑` en verde y empeora con `↓` en gris; en la primera vez sale `nuevo`.
+**Cómo se decide si un ejercicio mejoró.** Las insignias dicen qué cambió, una por cosa, y **van en verde siempre que algo sube**, sea cual sea el tipo de ejercicio (en gris si se queda igual o baja). Cada tipo se mide con lo suyo, frente a la última vez que se hizo ese ejercicio, en la rutina que fuera:
+
+- **Peso y repeticiones**: el peso más alto (`+2,5 kg`), el total de repeticiones (`−7 reps`, que ya recoge si se hicieron más o menos series) y el **1RM estimado** (`↑ 1RM 36,1 kg (+1,3)`). Lo que decide si mejoró es solo el 1RM: por defecto, la media de lo que cada serie permitiría levantar una sola vez (`peso × (1 + reps / 30)`). Así subir peso y bajar repeticiones se compensa en una medida, cualquier serie que mejore cuenta (no solo la mejor), y hacer una serie menos no se toma por empeorar. En Ajustes se puede elegir la mejor serie del día.
+- **Peso corporal**: manda la carga más alta (`+2 kg`, con lastre o con ayuda) y, con la misma, la media de repeticiones por serie. El peso corporal del día no cuenta.
+- **Tiempo**: manda el peso más alto (sin peso cuenta como 0) y, con el mismo, la duración media por serie (`+10 s`).
+- **Cardio**: manda la distancia (`5,2 km (+0,4)`), con la misma, el ritmo (`↑ Ritmo 5:26 min/km (−0:07)`: más rápido es mejor) y, sin distancia, el tiempo (`28 min 15 s (+1 min 35 s)`).
+
+Las insignias del 1RM y del ritmo llevan flecha (`↑` verde mejora, `↓` gris empeora). **Si un ejercicio no se había hecho nunca, solo lleva `nuevo`**: sin una vez anterior no hay con qué comparar, así que no salen insignias de cambio ni de mejora.
 
 El **volumen** lleva debajo su cambio frente a **la sesión anterior de la misma rutina** (`↓ −558 kg`). Es un dato de cuánto trabajo se hizo, no de fuerza: puede bajar aunque todo mejore, si se saltó un ejercicio o se usó una alternativa más ligera. Al pie, una leyenda lo recuerda: *La mejora se mide con el 1RM, frente a la última vez con ese ejercicio. El volumen, frente a la sesión anterior de esta rutina.*
 
@@ -242,6 +249,8 @@ La gráfica de un ejercicio, con un punto por sesión. Arriba, el rango (1 mes, 
 **Al abrir, el rango es el más corto en el que cabe todo tu historial del ejercicio**: si empezaste hace menos de un mes, 1 mes; hasta tres, 3 meses; hasta seis, 6 meses; y si no, todo. Así nunca abre con la gráfica casi vacía. El que elijas se respeta.
 
 **Todo** se dibuja a la escala de 6 meses para que los puntos y los meses no se apilen: si hay más, la gráfica se desliza de lado, abre en lo más reciente y los valores de la izquierda se quedan fijos. No hay rango de un año: ahí ya no cabían.
+
+Cada ejercicio tiene tres medidas, según su tipo, y **un rótulo sobre la cifra grande dice qué mide** («El más alto de la sesión», «Suma de las series», «Media de las series»…). En peso y repeticiones:
 
 - **Peso**: el mejor peso de cada sesión.
 - **Volumen**: peso × reps sumado. Enseña las semanas en que el peso no sube pero se hacen más reps.
@@ -418,13 +427,15 @@ Hablado, sin prisa: se decidirá cuando la app esté en uso.
 - **Temporizador de descanso** entre series, en E2, con el tiempo por defecto en Ajustes.
 - **Contar el peso corporal en los cálculos** (volumen y 1RM) de los ejercicios de peso corporal, con una casilla por ejercicio. De momento solo se guarda con cada serie.
 
-## En desarrollo: ejercicios que no son de peso y repeticiones
+## Ejercicios que no son de peso y repeticiones
 
-Decidido con el autor y diseñado en los bocetos (cada pantalla que cambia tiene una vista por tipo). Cada ejercicio se apunta de una de cuatro formas, que se elige al crearlo y no se puede cambiar:
+Cada ejercicio se apunta de una de cuatro formas, que se elige al crearlo y no se puede cambiar (cada pantalla que cambia tiene una vista por tipo en los bocetos):
 
 - **Peso y repeticiones**, como hasta ahora.
 - **Peso corporal** (dominadas, fondos, flexiones): repeticiones y una carga opcional, de lastre o de ayuda, más el peso corporal de ese día, que no entra en ningún cálculo.
 - **Tiempo** (plancha, paseo del granjero): la duración, en minutos y segundos, y un peso opcional.
-- **Cardio** (cinta, bici, elíptica, remo): la duración, la distancia si se quiere y el ritmo que sale de las dos.
+- **Cardio** (cinta, bici, elíptica, remo): la duración, la distancia si se quiere y el ritmo que sale de las dos (`5:26 min/km`).
 
-Cada ejercicio de una rutina, y cada una de sus alternativas, lleva su propio objetivo en la unidad de su tipo (repeticiones o duración); las alternativas pueden ser de otro tipo (un crunch en polea o una plancha). En una sesión, cada ejercicio de la rutina se hace con uno solo: cambiar a otro con series ya apuntadas pide confirmar y las borra. Solo el volumen de peso y repeticiones suma kilos; las series de todos los tipos cuentan en las de cada grupo muscular. Ajustes lleva el peso corporal, el paso de los botones del tiempo, la unidad de distancia y el objetivo con el que empieza cada tipo.
+En la gráfica de un ejercicio (H3), las medidas son: **peso corporal**, repeticiones (media por serie), repeticiones totales y carga; **tiempo**, la duración (media por serie), la total y el peso; **cardio**, la distancia, el tiempo y el ritmo. La carga, el peso, la distancia y el ritmo solo salen si alguna vez se apuntaron. El globo de un punto solo dice la fecha y el valor.
+
+La biblioteca viene con 66 ejercicios predefinidos en 18 grupos, cada uno con su tipo (las dominadas y los fondos son de peso corporal, la plancha, de tiempo, y la cinta, de cardio); al crear uno propio, el grupo Cardio marca solo el tipo Cardio. Cada ejercicio de una rutina, y cada una de sus alternativas, lleva su propio objetivo en la unidad de su tipo (repeticiones o duración); las alternativas pueden ser de otro tipo (un crunch en polea o una plancha). En una sesión, cada ejercicio de la rutina se hace con uno solo: cambiar a otro con series ya apuntadas pide confirmar y las borra. Solo el volumen de peso y repeticiones suma kilos; las series de todos los tipos cuentan en las de cada grupo muscular. Ajustes lleva el peso corporal, el paso de los botones del tiempo, la unidad de distancia y el objetivo con el que empieza cada tipo.

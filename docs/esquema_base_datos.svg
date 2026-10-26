@@ -70,7 +70,7 @@
 <text x="715" y="274" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="715" y="291" font-family="Arial, sans-serif" font-size="11" fill="#085041">rutina_id → rutinas</text>
 <text x="715" y="308" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_principal_id → ejercicios</text>
-<text x="715" y="325" font-family="Arial, sans-serif" font-size="11" fill="#085041">orden, series y reps objetivo</text>
+<text x="715" y="325" font-family="Arial, sans-serif" font-size="11" fill="#085041">orden, objetivo (reps o duración)</text>
 <text x="715" y="347" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- series -->
@@ -80,7 +80,7 @@
 <text x="1035" y="291" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">entrenamiento_id → entrenamientos</text>
 <text x="1035" y="308" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">slot_id → rutina_slots</text>
 <text x="1035" y="325" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">ejercicio_id → ejercicios</text>
-<text x="1035" y="342" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">peso, repeticiones, variante</text>
+<text x="1035" y="342" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">medidas del tipo, variante</text>
 
 <!-- grupos_musculares -->
 <rect x="40" y="440" width="240" height="80" rx="10" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1"/>
@@ -93,15 +93,16 @@
 <text x="355" y="463" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">ejercicios</text>
 <text x="355" y="484" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="355" y="501" font-family="Arial, sans-serif" font-size="11" fill="#085041">grupo_muscular_id → grupos_musculares</text>
-<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion, es_predefinido</text>
+<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion, tipo, es_predefinido</text>
 <text x="355" y="540" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- slot_alternativas -->
-<rect x="700" y="450" width="240" height="100" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
+<rect x="700" y="450" width="240" height="120" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
 <text x="715" y="473" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">slot_alternativas (comodines)</text>
 <text x="715" y="494" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="715" y="511" font-family="Arial, sans-serif" font-size="11" fill="#085041">slot_id → rutina_slots</text>
 <text x="715" y="528" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_id → ejercicios</text>
+<text x="715" y="545" font-family="Arial, sans-serif" font-size="11" fill="#085041">objetivo propio (reps o duración)</text>
 
 <!-- notas_ejercicio -->
 <rect x="40" y="560" width="240" height="100" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>
@@ -172,7 +173,7 @@
 
 <text x="60" y="1018" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#2C2C2A">Color de cada tabla:</text>
 <rect x="60" y="1030" width="16" height="16" rx="3" fill="#F1EFE8" stroke="#5F5E5A"/>
-<text x="84" y="1042" font-family="Arial, sans-serif" font-size="11" fill="#444441">Beige = catálogo que no depende de nada: grupos_musculares (los 17 grupos los siembra una migración).</text>
+<text x="84" y="1042" font-family="Arial, sans-serif" font-size="11" fill="#444441">Beige = catálogo que no depende de nada: grupos_musculares (los 18 grupos los siembra una migración).</text>
 
 <rect x="60" y="1052" width="16" height="16" rx="3" fill="#9FE1CB" stroke="#0F6E56"/>
 <text x="84" y="1064" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde = se puede ocultar (columna oculto_desde, la fecha desde la que está oculto): ejercicios, rutinas, rutina_slots y programas.</text>
