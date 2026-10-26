@@ -74,6 +74,9 @@ def importar_datos(
     if not isinstance(archivo, dict) or archivo.get("formato") != "training-life":
         raise _no_se_puede(NO_ES_UNA_COPIA)
     version = archivo.get("version")
+    # En Python `True == 1`: sin esto, `"version": true` diría que es de una versión anterior.
+    if isinstance(version, bool):
+        version = None
     if isinstance(version, int) and version > 2:
         raise _no_se_puede(
             "Este archivo es de una versión más nueva de la app. Actualízala para cargarlo."

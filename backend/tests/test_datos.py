@@ -1248,6 +1248,15 @@ def _version_x(a):
     a["version"] = "x"
 
 
+def _version_verdadero(a):
+    """Antes, `True == 1` hacía que dijera «versión anterior» en vez de «no es una copia»."""
+    a["version"] = True
+
+
+def _version_falso(a):
+    a["version"] = False
+
+
 def _version_nula(a):
     a["version"] = None
 
@@ -1532,6 +1541,8 @@ MALOS = [
     (_version_0, NO_ES_UNA_COPIA, None),
     (_version_texto, NO_ES_UNA_COPIA, None),
     (_version_x, NO_ES_UNA_COPIA, None),
+    (_version_verdadero, NO_ES_UNA_COPIA, None),
+    (_version_falso, NO_ES_UNA_COPIA, None),
     (_version_nula, NO_ES_UNA_COPIA, None),
     (_sin_version, NO_ES_UNA_COPIA, None),
     (_peso_roto, DANADO, "entrenamientos.0.series.0.peso"),
