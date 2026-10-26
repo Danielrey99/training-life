@@ -2,7 +2,7 @@
 
 App móvil del proyecto, construida con **React Native** usando **Expo**.
 
-> 🚧 Sin empezar. El [backend](../backend) y la [web](../web) ya están hechos para una sola persona por instalación, con los cuatro tipos de ejercicio (peso y repeticiones, peso corporal, tiempo y cardio), y el diseño está repasado. Antes del móvil va un repaso completo de lo que hay.
+> 🚧 Sin empezar. El [backend](../backend) y la [web](../web) ya están hechos para una sola persona por instalación, con los cuatro tipos de ejercicio (peso y repeticiones, peso corporal, tiempo y cardio), y el diseño y el código están repasados. Es lo siguiente.
 
 Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repartida como APK, sin pasar por la tienda.
 

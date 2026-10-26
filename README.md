@@ -59,7 +59,7 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
-**Lo siguiente**, en este orden: un repaso completo del proyecto y la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
+Con el proyecto ya repasado, **lo siguiente** es la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -85,6 +85,7 @@ Antes de construir las pantallas se definió la app entera —qué pantallas hay
 - [x] Ajustes: kilos o libras, kilómetros o millas, el paso de los botones del peso y del tiempo, el peso corporal, el objetivo con el que empieza un ejercicio nuevo de cada tipo, cómo se calcula el 1RM, tema claro u oscuro, el color de cada día y borrar todos los datos
 - [x] Repaso final del diseño, pantalla a pantalla
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
+- [x] Repaso completo: código, tests, documentación y diseño
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 

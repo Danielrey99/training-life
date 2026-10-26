@@ -417,7 +417,7 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de cada ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado), así que hará esos cálculos ella misma.
 
-Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios, y apunta los cuatro tipos de ejercicio (ver más abajo). Lo siguiente es un repaso completo y la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
+Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios, y apunta los cuatro tipos de ejercicio (ver más abajo). Con todo repasado, lo siguiente es la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
 
 ## Por decidir
 
