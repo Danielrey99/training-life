@@ -5,7 +5,6 @@ sesiones en que se hizo y agrupar sus series por día.
 from collections import defaultdict
 from datetime import date
 
-from fastapi import HTTPException, status
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session
 
@@ -17,7 +16,6 @@ SESIONES_POR_DEFECTO = 50
 def sesiones_con_series(
     db: Session,
     filtro: ColumnElement[bool],
-    desde: date | None = None,
     hasta: date | None = None,
     limite: int = SESIONES_POR_DEFECTO,
 ) -> list[dict]:
@@ -27,22 +25,12 @@ def sesiones_con_series(
     El límite cuenta sesiones, no series: cortar por series partiría un día por la
     mitad y la progresión de ese día se leería mal.
     """
-    # Un rango invertido siempre devolvería una lista vacía, y eso disimularía el
-    # error del cliente. Mismo criterio que reps_max/reps_min en un hueco.
-    if desde is not None and hasta is not None and desde > hasta:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango de fechas está invertido: 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
-        )
-
     sesiones = (
         select(Entrenamiento.id, Entrenamiento.fecha, Rutina.nombre)
         .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
         .join(Rutina, Rutina.id == Entrenamiento.rutina_id)
         .where(filtro)
     )
-    if desde is not None:
-        sesiones = sesiones.where(Entrenamiento.fecha >= desde)
     if hasta is not None:
         sesiones = sesiones.where(Entrenamiento.fecha <= hasta)
 

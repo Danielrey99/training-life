@@ -413,7 +413,6 @@ def mostrar_ejercicio(
 @router.get("/{ejercicio_id}/historial", response_model=list[SesionHistorial])
 def historial_de_ejercicio(
     ejercicio_id: int,
-    desde: date | None = None,
     hasta: date | None = None,
     limite: int = Query(default=SESIONES_POR_DEFECTO, gt=0, le=500),
     db: Session = Depends(get_db),
@@ -422,10 +421,11 @@ def historial_de_ejercicio(
     con las series de cada día — la progresión de un ejercicio concreto.
 
     Cuenta las veces que se hizo, en la rutina que fuera y como principal o como
-    comodín: es también la "última vez" con la que se compara al entrenar.
+    comodín: es también la "última vez" con la que se compara al entrenar. Se
+    filtra con `hasta` (incluido) y `limite`, que es lo que piden las pantallas.
     """
     obtener_ejercicio_legible(db, ejercicio_id)
-    return sesiones_con_series(db, Serie.ejercicio_id == ejercicio_id, desde, hasta, limite)
+    return sesiones_con_series(db, Serie.ejercicio_id == ejercicio_id, hasta=hasta, limite=limite)
 
 
 # --- Notas sobre un ejercicio --------------------------------

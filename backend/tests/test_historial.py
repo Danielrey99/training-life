@@ -2,7 +2,7 @@
 
 Lo que se prueba es la consulta de `app/historial.py`: que la agrupación por sesión
 no mezcla días ni entrenamientos, que `?limite=` recorta sesiones enteras (nunca
-series sueltas), que el rango de fechas incluye sus dos extremos, que cruza rutinas
+series sueltas), que `?hasta=` incluye ese día, que cruza rutinas
 y papeles (principal o comodín) y que ocultar algo no esconde lo que se hizo.
 """
 
@@ -232,10 +232,10 @@ def test_el_limite_recorta_despues_de_filtrar_por_fecha_no_antes(cliente, escena
     assert [sesion["fecha"] for sesion in historial] == ["2026-09-03"]
 
 
-# --- Rango de fechas -----------------------------------------------------
+# --- Tope de fecha (`hasta`) --------------------------------------------
 
 
-def test_el_rango_de_fechas_incluye_sus_dos_extremos(cliente, escenario):
+def test_hasta_incluye_ese_dia(cliente, escenario):
     for fecha in ("2026-09-01", "2026-09-02", "2026-09-04", "2026-09-05"):
         entrenar(
             cliente,
@@ -246,61 +246,32 @@ def test_el_rango_de_fechas_incluye_sus_dos_extremos(cliente, escenario):
             series=1,
         )
 
-    historial = historial_de_ejercicio(
-        cliente, escenario["ejercicio_id"], desde="2026-09-02", hasta="2026-09-04"
-    )
+    historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"], hasta="2026-09-04")
 
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-04", "2026-09-02"]
+    assert [sesion["fecha"] for sesion in historial] == ["2026-09-04", "2026-09-02", "2026-09-01"]
 
 
-def test_un_rango_de_un_solo_dia_devuelve_ese_dia(cliente, escenario):
-    entrenar(
-        cliente,
-        "2026-09-04",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=1,
-    )
-    entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=1,
-    )
+def test_desde_ya_no_filtra(cliente, escenario):
+    """El historial ya no tiene `desde`: un `?desde=` que llegue se ignora sin error.
 
-    historial = historial_de_ejercicio(
-        cliente, escenario["ejercicio_id"], desde="2026-09-04", hasta="2026-09-04"
-    )
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-04"]
-
-
-def test_un_rango_invertido_se_rechaza(cliente, escenario):
-    """`desde` posterior a `hasta` solo puede ser un error de quien llama: no
-    existe ninguna sesión que cumpla ese rango.
-
-    Devolver una lista vacía disimularía el fallo, así que se rechaza con 422,
-    igual que un hueco con `reps_max` menor que `reps_min`.
+    Con el filtro antiguo, `desde=2026-09-03&hasta=2026-09-04` no tenía ninguna
+    sesión (el 1 quedaba fuera por `desde`); ahora solo manda `hasta` y sale la del 1.
     """
-    entrenar(
-        cliente,
-        "2026-09-03",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=1,
+    for fecha in ("2026-09-01", "2026-09-05"):
+        entrenar(
+            cliente,
+            fecha,
+            escenario["ejercicio_id"],
+            escenario["rutina_id"],
+            escenario["slot_id"],
+            series=1,
+        )
+
+    historial = historial_de_ejercicio(
+        cliente, escenario["ejercicio_id"], desde="2026-09-03", hasta="2026-09-04"
     )
 
-    respuesta = cliente.get(
-        f"/ejercicios/{escenario['ejercicio_id']}/historial",
-        params={"desde": "2026-09-05", "hasta": "2026-09-01"},
-    )
-
-    assert respuesta.status_code == 422
-    assert "invertido" in respuesta.json()["detail"]
+    assert [sesion["fecha"] for sesion in historial] == ["2026-09-01"]
 
 
 # --- Historial de lo que se ha ocultado ----------------------------------

@@ -169,7 +169,7 @@ export const api = {
     peticion<void>(`/ejercicios/${id}${consulta({ modo })}`, BORRAR),
   mostrarEjercicio: (id: number) =>
     peticion<Ejercicio>(`/ejercicios/${id}/mostrar`, conCuerpo('POST')),
-  historialDeEjercicio: (id: number, filtro: RangoConLimite = {}) =>
+  historialDeEjercicio: (id: number, filtro: { hasta?: string; limite?: number } = {}) =>
     peticion<SesionHistorial[]>(`/ejercicios/${id}/historial${consulta(filtro)}`),
 
   notas: (ejercicioId: number) => peticion<Nota[]>(`/ejercicios/${ejercicioId}/notas`),
