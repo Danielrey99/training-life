@@ -15,6 +15,20 @@ rutina tiene. Un test que cuente huecos o ejercicios de una rutina debe pasar el
 
 NOMBRE_DE_PRUEBA = "Rutina de prueba"
 
+# El 409 del DELETE sin `modo` de lo que tiene historial: una frase fija que solo
+# pide elegir `modo`. Lo que se perdería lo cuenta su aviso de borrado.
+PIDE_MODO = {
+    "ejercicio": "Este ejercicio está en uso. Repite la petición con ?modo=ocultar (conserva "
+    "todo) o ?modo=definitivo (lo borra con todo lo que lo usa, sin poder deshacerlo).",
+    "rutina": "Esta rutina tiene historial. Repite la petición con ?modo=ocultar (conserva "
+    "todo) o ?modo=definitivo (la borra con todo lo que la usa, sin poder deshacerlo).",
+    "hueco": "Este hueco tiene series registradas. Repite la petición con ?modo=ocultar "
+    "(conserva todo) o ?modo=definitivo (lo borra con sus series, sin poder deshacerlo).",
+    "programa": "Este programa ha estado activo. Repite la petición con ?modo=ocultar "
+    "(conserva todo) o ?modo=definitivo (lo borra con sus días y periodos, sin poder "
+    "deshacerlo).",
+}
+
 
 # --- Crear lo básico por la API -------------------------------------------
 # Siempre crean uno nuevo (aunque ya exista otro con ese nombre) y fallan si la API

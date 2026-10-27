@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import consultas_de, crear_rutina
+from tests.ayudas import PIDE_MODO, consultas_de, crear_rutina
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -451,17 +451,20 @@ def test_un_programa_que_nunca_estuvo_activo_se_borra_directo(cliente):
     assert cliente.get(f"/programas/{programa['id']}").status_code == 404
 
 
-def test_borrar_un_programa_que_estuvo_activo_pide_elegir_y_dice_cuando(cliente, sesion_bd):
+def test_borrar_un_programa_que_estuvo_activo_pide_elegir(cliente, sesion_bd):
     """Sus periodos son el historial: sin ellos el calendario no sabe qué tocaba."""
     programa = crear_programa(cliente)
     activo_desde_hace(sesion_bd, programa["id"], 20)
 
     respuesta = cliente.delete(f"/programas/{programa['id']}")
 
-    assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["periodos"] == [
-        {"desde": (hoy() - timedelta(days=20)).isoformat(), "hasta": None}
-    ]
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PIDE_MODO["programa"])
+    sigue = cliente.get(f"/programas/{programa['id']}").json()
+    assert sigue["oculto_desde"] is None
+    assert sigue["ultimo_periodo"] == {
+        "desde": (hoy() - timedelta(days=20)).isoformat(),
+        "hasta": None,
+    }
 
 
 def test_borrar_en_definitivo_un_programa_se_lleva_sus_dias_y_periodos(cliente, sesion_bd):

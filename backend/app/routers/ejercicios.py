@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -36,7 +36,7 @@ from app.schemas import (
     SesionQueSeVaciaOut,
     UsoEnRutinaOut,
 )
-from app.seguimiento import aviso_de_sesiones_que_se_borran, sesiones_que_se_vacian
+from app.seguimiento import sesiones_que_se_vacian
 
 router = APIRouter(prefix="/ejercicios", tags=["ejercicios"])
 
@@ -85,7 +85,7 @@ def _huecos_donde_es_principal(ejercicio_id: int):
 def _series_que_se_borran(ejercicio_id: int):
     """Las series que se van con el ejercicio, como condición: las suyas y todas las
     de los huecos donde es el principal (también las hechas con un comodín, que
-    apuntan al hueco). Una sola expresión para el aviso, el 409 y el borrado, para
+    apuntan al hueco). Una sola expresión para el aviso y el borrado, para
     que lo que se anuncia sea lo que se borra.
     """
     return or_(
@@ -94,59 +94,20 @@ def _series_que_se_borran(ejercicio_id: int):
     )
 
 
-def _usos_de_ejercicio(db: Session, ejercicio_id: int) -> list[dict]:
-    """¿Dónde se usa este ejercicio? Una entrada por cada hueco donde
-    aparece (como principal o como comodín) y una por cada entrenamiento con
-    series registradas de este ejercicio — con nombre/fecha, para que el
-    aviso de borrado sea concreto y no un genérico "está en uso".
-    rutina_slots, slot_alternativas y series hacia ejercicios son RESTRICT,
-    así que un borrado directo fallaría con un error de la base de datos si
-    no se detectan aquí antes.
+def _tiene_historial_ejercicio(db: Session, ejercicio_id: int) -> bool:
+    """¿Se usa este ejercicio? Como principal o comodín de un hueco, o con series
+    registradas. rutina_slots, slot_alternativas y series hacia ejercicios son
+    RESTRICT, así que un borrado directo fallaría con un error de la base de datos
+    si no se detecta aquí antes. Las notas no cuentan: se van con él (CASCADE).
     """
-    principales = db.execute(
-        select(RutinaSlot.id, Rutina.id, Rutina.nombre)
-        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .where(RutinaSlot.ejercicio_principal_id == ejercicio_id)
-    ).all()
-    comodines = db.execute(
-        select(RutinaSlot.id, Rutina.id, Rutina.nombre)
-        .join(Rutina, Rutina.id == RutinaSlot.rutina_id)
-        .join(SlotAlternativa, SlotAlternativa.slot_id == RutinaSlot.id)
-        .where(SlotAlternativa.ejercicio_id == ejercicio_id)
-    ).all()
-    entrenamientos_con_series = db.execute(
-        select(Entrenamiento.id, Entrenamiento.fecha)
-        .join(Serie, Serie.entrenamiento_id == Entrenamiento.id)
-        .where(Serie.ejercicio_id == ejercicio_id)
-        .distinct()
-    ).all()
-    return (
-        [
-            {
-                "rol": "principal",
-                "slot_id": slot_id,
-                "rutina_id": rutina_id,
-                "rutina_nombre": nombre,
-            }
-            for slot_id, rutina_id, nombre in principales
-        ]
-        + [
-            {
-                "rol": "comodín",
-                "slot_id": slot_id,
-                "rutina_id": rutina_id,
-                "rutina_nombre": nombre,
-            }
-            for slot_id, rutina_id, nombre in comodines
-        ]
-        + [
-            {
-                "rol": "serie registrada",
-                "entrenamiento_id": entrenamiento_id,
-                "fecha": str(fecha),
-            }
-            for entrenamiento_id, fecha in entrenamientos_con_series
-        ]
+    return db.scalar(
+        select(
+            or_(
+                exists().where(RutinaSlot.ejercicio_principal_id == ejercicio_id),
+                exists().where(SlotAlternativa.ejercicio_id == ejercicio_id),
+                exists().where(Serie.ejercicio_id == ejercicio_id),
+            )
+        )
     )
 
 
@@ -260,8 +221,8 @@ def donde_se_usa(
     ejercicio_id: int,
     db: Session = Depends(get_db),
 ):
-    """Las rutinas donde aparece, para la ficha del ejercicio. Aparte
-    del 409 del DELETE porque la ficha lo enseña siempre, no solo al borrar.
+    """Las rutinas donde aparece, para la ficha del ejercicio. Aparte del aviso
+    de borrado porque la ficha lo enseña siempre, no solo al borrar.
     Admite ocultos y predefinidos.
     """
     obtener_ejercicio_legible(db, ejercicio_id)
@@ -302,7 +263,7 @@ def aviso_de_borrar_ejercicio(
     ).one()
     return AvisoDeBorrarEjercicioOut(
         # Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
-        con_historial=bool(_usos_de_ejercicio(db, ejercicio_id)),
+        con_historial=_tiene_historial_ejercicio(db, ejercicio_id),
         series=series,
         sesiones=sesiones,
         desde=desde,
@@ -365,12 +326,12 @@ def borrar_ejercicio(
 ):
     """Borra un ejercicio propio.
 
-    - Sin usos (ver `_usos_de_ejercicio`): se borra de verdad, sin preguntar nada.
+    - Sin usos (ver `_tiene_historial_ejercicio`): se borra de verdad, sin preguntar nada.
     - En uso: hace falta indicar `modo` explícitamente — `modo=ocultar`
       (borrado lógico: `oculto_desde=hoy`, conserva todo) o `modo=definitivo`
       (borra también las filas dependientes y las sesiones que se quedan sin
-      ninguna serie, sin vuelta atrás). Sin `modo`,
-      el 409 explica dónde se usa.
+      ninguna serie, sin vuelta atrás). Sin `modo`, 409: lo que se perdería
+      lo cuenta el aviso de borrado.
     """
     # Admite lo oculto: la ficha de un ejercicio oculto ofrece borrarlo.
     ejercicio = db.get(Ejercicio, ejercicio_id)
@@ -389,53 +350,15 @@ def borrar_ejercicio(
         db.commit()
         return
 
-    usos = _usos_de_ejercicio(db, ejercicio_id)
-    if usos and modo != "definitivo":
-        # Las notas nunca bloquean el borrado (su FK es CASCADE: se van solas
-        # con el ejercicio). Pero si algo más ya lo está bloqueando, el aviso
-        # tiene que enumerar todo lo que se perdería con modo=definitivo, no
-        # solo lo que lo impide — si no, las notas desaparecen en silencio
-        # justo cuando la API está detallando el resto.
-        notas = _cuantas_notas(db, ejercicio_id)
-        sesiones_que_se_borrarian = len(
-            sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
-        )
-        # Los huecos donde es principal se borran enteros, así que se llevan
-        # también las series que se hicieron en ellos con un comodín.
-        series_de_comodines = db.scalar(
-            select(func.count())
-            .select_from(Serie)
-            .where(
-                Serie.slot_id.in_(_huecos_donde_es_principal(ejercicio_id)),
-                Serie.ejercicio_id != ejercicio_id,
-            )
-        )
-        mensaje = (
-            "Este ejercicio está en uso. Repite la petición con "
-            "?modo=ocultar (deja de aparecer para entrenamientos nuevos, "
-            "conserva todo) o ?modo=definitivo (borra también los huecos, "
-            "comodines y series registradas que lo usan, sin poder "
-            "deshacerlo)."
-        )
-        if series_de_comodines:
-            mensaje += (
-                " Con ?modo=definitivo se borrarán también las series hechas con un comodín"
-                f" en los huecos donde es el principal ({series_de_comodines})."
-            )
-        mensaje += aviso_de_sesiones_que_se_borran(sesiones_que_se_borrarian, "este ejercicio")
-        if notas:
-            mensaje += (
-                f" Con ?modo=definitivo perderás también tus notas sobre este ejercicio ({notas})."
-            )
+    if modo != "definitivo" and _tiene_historial_ejercicio(db, ejercicio_id):
+        # Lo que se perdería no se cuenta aquí: lo cuenta el aviso de borrado.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "mensaje": mensaje,
-                "usos": usos,
-                "series_de_comodines_que_se_perderian": series_de_comodines,
-                "notas_que_se_perderian": notas,
-                "sesiones_que_se_borrarian": sesiones_que_se_borrarian,
-            },
+            detail=(
+                "Este ejercicio está en uso. Repite la petición con ?modo=ocultar (conserva"
+                " todo) o ?modo=definitivo (lo borra con todo lo que lo usa, sin poder"
+                " deshacerlo)."
+            ),
         )
 
     # Sin usos, o modo=definitivo: borra de verdad. rutina_slots,

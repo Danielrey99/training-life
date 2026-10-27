@@ -12,7 +12,6 @@ from app.ocultos import exigir_visible
 from app.routers.rutinas import obtener_rutina_visible
 from app.schemas import (
     ActivarPrograma,
-    PeriodoOut,
     ProgramaCreate,
     ProgramaDiaUpdate,
     ProgramaOut,
@@ -250,17 +249,11 @@ def borrar_programa(
     if programa.periodos and modo != "definitivo":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "mensaje": (
-                    "Este programa ha estado activo. Si lo borras, el calendario dejará de "
-                    "saber qué tocaba esos días (tus sesiones no se tocan). Repite la "
-                    "petición con ?modo=ocultar (conserva todo) o ?modo=definitivo."
-                ),
-                "periodos": [
-                    PeriodoOut.model_validate(periodo).model_dump(mode="json")
-                    for periodo in programa.periodos
-                ],
-            },
+            detail=(
+                "Este programa ha estado activo. Repite la petición con ?modo=ocultar (conserva"
+                " todo) o ?modo=definitivo (lo borra con sus días y periodos, sin poder"
+                " deshacerlo)."
+            ),
         )
 
     # Días y periodos se van con el programa. Los periodos ya están cargados

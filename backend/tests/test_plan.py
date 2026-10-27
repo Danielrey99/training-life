@@ -17,6 +17,7 @@ from sqlalchemy import update
 
 from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
 from tests.ayudas import (
+    PIDE_MODO,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
@@ -427,13 +428,15 @@ def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias_planificados(
     crear_hueco(cliente, semana_push["pull"], dominadas)
     assert planificar(cliente, HOY, semana_push["pull"]).status_code == 200
 
+    aviso = cliente.get(f"/rutinas/{semana_push['pull']}/aviso-de-borrado").json()
     respuesta = cliente.delete(f"/rutinas/{semana_push['pull']}")
 
-    assert respuesta.status_code == 409
-    assert (
-        "está en 1 día planificado a mano, que volvería a lo que diga el programa"
-        in (respuesta.json()["detail"])
-    )
+    assert aviso["dias_planificados"] == 1
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PIDE_MODO["rutina"])
+    excepciones = cliente.get("/plan/excepciones").json()
+    assert [(e["fecha"], e["rutina"]["id"]) for e in excepciones] == [
+        (HOY.isoformat(), semana_push["pull"])
+    ]
 
 
 def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push):

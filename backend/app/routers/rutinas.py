@@ -21,7 +21,6 @@ from app.models import (
 from app.medidas import validar_objetivo
 from app.ocultos import exigir_visible
 from app.seguimiento import (
-    aviso_de_sesiones_que_se_borran,
     cancelada_sql,
     en_curso_sql,
     sesiones_que_se_vacian,
@@ -68,18 +67,6 @@ def obtener_rutina_visible(db: Session, rutina_id: int) -> Rutina:
             detail=f"No existe ninguna rutina con id {rutina_id}",
         )
     return rutina
-
-
-def _aviso_de_dias(cuantos: int, que_les_pasa: str) -> str:
-    """Una frase del aviso de borrado: " Además, está en 3 días …", en singular o
-    plural según haga falta. `que_les_pasa` lleva {s} y {n} donde van las
-    terminaciones del plural.
-    """
-    if not cuantos:
-        return ""
-    plural = cuantos != 1
-    texto = que_les_pasa.format(s="s" if plural else "", n="n" if plural else "")
-    return f" Además, está en {cuantos} día{'s' if plural else ''} {texto}."
 
 
 def _obtener_rutina_modificable(
@@ -350,9 +337,9 @@ def aviso_de_borrar_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
 ):
-    """Lo que se perdería al borrarla, para el diálogo de confirmar. La web no
-    puede saberlo con el 409 del DELETE: sin historial, el DELETE borraría sin
-    preguntar.
+    """Lo que se perdería al borrarla, para el diálogo de confirmar. Es lo único que
+    cuenta lo que se perdería: el 409 del DELETE solo pide elegir `modo`, y sin
+    historial el DELETE borraría sin preguntar.
     """
     _obtener_rutina_legible(db, rutina_id)
     toco_dias_pasados = _estuvo_en_el_plan(db, rutina_id)
@@ -415,28 +402,16 @@ def borrar_rutina(
         db.commit()
         return
 
-    razones = []
-    if _tiene_dependientes(db, rutina_id):
-        razones.append("tiene huecos o sesiones registradas")
-    if _estuvo_en_el_plan(db, rutina_id):
-        razones.append("ya tocó días que han pasado, que en el calendario pasarían a descanso")
-    if razones and modo != "definitivo":
-        # Los días de programa y los días planificados con ella no bloquean el
-        # borrado (se van solos, en cascada), pero si otra cosa ya lo bloquea, el
-        # aviso cuenta también lo que se pierde ahí.
-        en_programas = _aviso_de_dias(
-            _dias_de_programa(db, rutina_id), "de programa, que pasaría{n} a descanso"
-        ) + _aviso_de_dias(
-            _dias_planificados(db, rutina_id),
-            "planificado{s} a mano, que volvería{n} a lo que diga el programa",
-        )
+    if modo != "definitivo" and (
+        _tiene_dependientes(db, rutina_id) or _estuvo_en_el_plan(db, rutina_id)
+    ):
+        # Lo que se perdería no se cuenta aquí: lo cuenta el aviso de borrado.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Esta rutina {' y '.join(razones)}. "
-                "Repite la petición con ?modo=ocultar (conserva todo, deja de estar "
-                "disponible para entrenamientos nuevos) o ?modo=definitivo (lo borra "
-                "todo, sin poder deshacerlo)." + en_programas
+                "Esta rutina tiene historial. Repite la petición con ?modo=ocultar (conserva"
+                " todo) o ?modo=definitivo (la borra con todo lo que la usa, sin poder"
+                " deshacerlo)."
             ),
         )
 
@@ -725,17 +700,13 @@ def borrar_slot(
         db.commit()
         return
 
-    if _tiene_historial_slot(db, slot_id) and modo != "definitivo":
+    if modo != "definitivo" and _tiene_historial_slot(db, slot_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Este hueco tiene series registradas. Repite la petición con "
-                "?modo=ocultar (conserva todo) o ?modo=definitivo (borra "
-                "también esas series, sin poder deshacerlo)."
-                + aviso_de_sesiones_que_se_borran(
-                    len(sesiones_que_se_vacian(db, Serie.slot_id == slot_id)),
-                    "este hueco",
-                )
+                "Este hueco tiene series registradas. Repite la petición con ?modo=ocultar"
+                " (conserva todo) o ?modo=definitivo (lo borra con sus series, sin poder"
+                " deshacerlo)."
             ),
         )
 

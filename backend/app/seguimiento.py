@@ -100,17 +100,6 @@ def sesiones_que_se_vacian(db: Session, se_borran) -> list[Entrenamiento]:
     ).all()
 
 
-def aviso_de_sesiones_que_se_borran(cuantas: int, de_que: str) -> str:
-    """La frase del 409 de un borrado sobre las sesiones que se irían con él;
-    `de_que` es lo que se borra («este hueco», «este ejercicio»).
-    """
-    if not cuantas:
-        return ""
-    if cuantas == 1:
-        return f" Además, se borrará 1 sesión que solo tenía series de {de_que}."
-    return f" Además, se borrarán {cuantas} sesiones que solo tenían series de {de_que}."
-
-
 def cuenta(sesion: Entrenamiento, dia: DiaPlan, vacia: bool | None = None) -> bool:
     """Si la sesión cuenta de verdad para `dia`.
 

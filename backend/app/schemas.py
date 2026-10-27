@@ -283,8 +283,8 @@ class OrdenDeHuecos(BaseModel):
 class AvisoDeBorrarRutinaOut(BaseModel):
     """Lo que se perdería al borrar una rutina, para el diálogo de confirmar.
 
-    Existe porque la web no puede pedir el 409 del DELETE para saberlo: si la
-    rutina no tiene historial, el DELETE la borraría sin preguntar.
+    Es lo único que cuenta lo que se perdería: el 409 del DELETE solo pide elegir
+    `modo`, y sin historial el DELETE la borraría sin preguntar.
     """
 
     # Si el DELETE sin `modo` daría 409.
@@ -492,8 +492,8 @@ class UsoEnRutinaOut(BaseModel):
 class AvisoDeBorrarEjercicioOut(BaseModel):
     """Lo que se perdería al borrar un ejercicio, para el diálogo de confirmar.
 
-    Existe porque la web no puede pedir el 409 del DELETE para saberlo: sin
-    historial, el DELETE lo borraría sin preguntar.
+    Es lo único que cuenta lo que se perdería: el 409 del DELETE solo pide elegir
+    `modo`, y sin historial el DELETE lo borraría sin preguntar.
     """
 
     # Si el DELETE sin `modo` daría 409. Las notas no cuentan: no lo bloquean.
