@@ -288,7 +288,7 @@ No hay usuarios, login ni JWT, y no se prevén: la app es de una sola persona y 
 | `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es predefinido, 409 si está oculto: hay que mostrarlo antes). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, 409 con una frase que pide elegir; lo que se perdería lo cuenta `GET /ejercicios/{id}/aviso-de-borrado`. Con `?modo=definitivo` se van los huecos donde es el principal enteros, también con las series que se hicieron en ellos con un comodín, y las sesiones que se quedan sin ninguna serie (menos la abierta hoy). Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/mostrar` | Deshace un `?modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo. |
-| `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?desde=`, `?hasta=` (fechas inclusivas) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
+| `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?hasta=` (fecha incluida) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
 
 ### Notas de un ejercicio
 
