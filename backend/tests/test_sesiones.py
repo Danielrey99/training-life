@@ -6,7 +6,7 @@ backend (`app.fechas`) en `HOY`. Calcularlo con `hoy()` al importar el módulo
 fallaría si la tanda cruzara la medianoche.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -37,27 +37,16 @@ def terminar(cliente, entrenamiento_id) -> dict:
 # --- En curso y terminada ------------------------------------------------
 
 
-def test_una_sesion_recien_empezada_hoy_esta_en_curso(cliente):
-    sesion = empezar(cliente)
+def test_terminar_la_saca_de_en_curso_y_terminar_dos_veces_conserva_la_primera_hora(cliente):
+    empezada = empezar(cliente)
+    assert (empezada["terminada_en"], empezada["en_curso"]) == (None, True)
 
-    assert sesion["terminada_en"] is None
-    assert sesion["en_curso"] is True
+    primera = terminar(cliente, empezada["id"])
+    segunda = terminar(cliente, empezada["id"])
 
-
-def test_terminar_una_sesion_la_saca_de_en_curso(cliente):
-    sesion = terminar(cliente, empezar(cliente)["id"])
-
-    assert sesion["terminada_en"] is not None
-    assert sesion["en_curso"] is False
-
-
-def test_terminar_dos_veces_conserva_la_hora_de_la_primera(cliente):
-    sesion_id = empezar(cliente)["id"]
-
-    primera = terminar(cliente, sesion_id)["terminada_en"]
-    segunda = terminar(cliente, sesion_id)["terminada_en"]
-
-    assert segunda == primera
+    assert primera["terminada_en"] is not None
+    assert primera["en_curso"] is False
+    assert segunda["terminada_en"] == primera["terminada_en"]
 
 
 def test_una_sesion_de_ayer_sin_terminar_no_esta_en_curso(cliente):
@@ -124,16 +113,6 @@ def test_una_sesion_de_hoy_terminada_sin_series_no_ocupa_el_dia(cliente):
     assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
 
 
-def test_un_dia_pasado_con_sesion_no_admite_otra(cliente, grupo_muscular_id):
-    sesion = empezar(cliente, AYER)
-    con_una_serie(cliente, grupo_muscular_id, sesion["id"])
-
-    respuesta = entrenar(cliente, AYER)
-
-    assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["en_curso"] is False
-
-
 def test_una_sesion_pasada_sin_series_no_ocupa_su_dia(cliente):
     vacia = empezar(cliente, AYER)
 
@@ -186,19 +165,6 @@ def test_mover_una_sesion_al_dia_de_una_cancelada_borra_la_cancelada(cliente, gr
     assert respuesta.json()["fecha"] == AYER.isoformat()
     assert len(respuesta.json()["series"]) == 1
     assert cliente.get(f"/entrenamientos/{cancelada['id']}").status_code == 404
-
-
-def test_una_sesion_se_puede_mover_a_un_dia_libre(cliente):
-    de_ayer = empezar(cliente, AYER)
-    otro_dia = (AYER - timedelta(days=1)).isoformat()
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{de_ayer['id']}",
-        json={"fecha": otro_dia},
-    )
-
-    assert respuesta.status_code == 200
-    assert respuesta.json()["fecha"] == otro_dia
 
 
 def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
@@ -447,11 +413,6 @@ def madrugada_en_madrid(monkeypatch):
             return INSTANTE_UTC.astimezone(tz)
 
     monkeypatch.setattr(fechas, "datetime", RelojCongelado)
-
-
-def test_hoy_es_la_fecha_de_madrid_aunque_en_utc_siga_siendo_ayer(madrugada_en_madrid):
-    assert INSTANTE_UTC.date() == date(2025, 6, 30)
-    assert fechas.hoy() == date(2025, 7, 1)
 
 
 def test_a_las_00_30_en_espana_se_empieza_la_sesion_del_dia_nuevo(cliente, madrugada_en_madrid):

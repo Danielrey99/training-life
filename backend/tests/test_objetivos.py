@@ -13,7 +13,7 @@ El objetivo de una alternativa vive en su fila de `slot_alternativas`: el PUT de
 hueco la actualiza en su sitio (si la borrara y la volviera a crear, el
 `UNIQUE(slot_id, ejercicio_id)` daría un 500) y sin lista no la toca.
 
-Importar y exportar, en `test_datos.py`; la migración, en `test_infraestructura.py`.
+Importar y exportar, en `test_datos.py`.
 """
 
 from types import SimpleNamespace
@@ -139,9 +139,6 @@ MAL_FORMADOS = [
     pytest.param({**SIN_PAR, "reps_min": 6}, UNO_DE_LOS_DOS, id="reps-sin-maximo"),
     pytest.param({**SIN_PAR, "duracion_max_s": 60}, UNO_DE_LOS_DOS, id="duracion-sin-minimo"),
     pytest.param(
-        {**SIN_PAR, "reps_min": 6, "duracion_max_s": 60}, UNO_DE_LOS_DOS, id="medio-par-de-cada"
-    ),
-    pytest.param(
         {**SIN_PAR, "reps_min": 10, "reps_max": 6},
         "reps_max no puede ser menor que reps_min",
         id="reps-al-reves",
@@ -161,16 +158,21 @@ MAL_FORMADOS = [
         "less than or equal to 86400",
         id="duracion-de-mas-de-un-dia",
     ),
-    pytest.param(
-        {"series_objetivo": 0, "duracion_min_s": 30, "duracion_max_s": 60},
-        "greater than 0",
-        id="series-0",
-    ),
 ]
+# Las series objetivo a 0, en `test_crud.py` (`test_un_hueco_con_un_cero_da_422`).
 
 
-@pytest.mark.parametrize("donde", ["principal", "alternativa"])
-@pytest.mark.parametrize("obj, lo_que_dice", MAL_FORMADOS)
+@pytest.mark.parametrize(
+    "obj, lo_que_dice, donde",
+    [
+        *(
+            pytest.param(*caso.values, "principal", id=f"{caso.id}-principal")
+            for caso in MAL_FORMADOS
+        ),
+        # La alternativa usa el mismo esquema del objetivo: con un caso se ve que lo usa.
+        pytest.param(SIN_PAR, UNO_DE_LOS_DOS, "alternativa", id="sin-par-alternativa"),
+    ],
+)
 def test_un_objetivo_mal_formado_da_422_del_esquema_y_no_crea_nada(
     cliente, sesion_bd, e, obj, lo_que_dice, donde
 ):
@@ -278,20 +280,32 @@ def _equivocados(e) -> dict:
     }
 
 
-@pytest.mark.parametrize(
-    "caso",
-    [
-        "principal-de-tiempo-en-reps",
-        "principal-corporal-en-segundos",
-        "alternativa-de-tiempo-en-reps",
-        "alternativa-corporal-en-segundos",
-        "principal-de-cardio-en-reps",
-        "alternativa-de-cardio-en-reps",
-        "principal-de-peso-y-reps-en-segundos",
-        "alternativa-de-peso-y-reps-en-segundos",
-    ],
-)
-@pytest.mark.parametrize("via", VIAS)
+TODOS_LOS_CASOS = [
+    "principal-de-tiempo-en-reps",
+    "principal-corporal-en-segundos",
+    "alternativa-de-tiempo-en-reps",
+    "alternativa-corporal-en-segundos",
+    "principal-de-cardio-en-reps",
+    "alternativa-de-cardio-en-reps",
+    "principal-de-peso-y-reps-en-segundos",
+    "alternativa-de-peso-y-reps-en-segundos",
+]
+# Las tres vías llaman a la misma comprobación: cada familia, por una; en las otras
+# dos, un principal y una alternativa, para ver que la usan y no dejan nada a medias.
+CASOS_POR_VIA = [
+    *(pytest.param(_por_post_de_hueco, caso, id=f"POST-slots-{caso}") for caso in TODOS_LOS_CASOS),
+    pytest.param(
+        _por_post_de_rutina, "principal-corporal-en-segundos", id="POST-rutinas-principal"
+    ),
+    pytest.param(
+        _por_post_de_rutina, "alternativa-de-cardio-en-reps", id="POST-rutinas-alternativa"
+    ),
+    pytest.param(_por_put_de_hueco, "principal-de-cardio-en-reps", id="PUT-slots-principal"),
+    pytest.param(_por_put_de_hueco, "alternativa-corporal-en-segundos", id="PUT-slots-alternativa"),
+]
+
+
+@pytest.mark.parametrize("via, caso", CASOS_POR_VIA)
 def test_un_objetivo_de_otra_familia_da_422_que_nombra_el_ejercicio_y_no_cambia_nada(
     cliente, sesion_bd, e, via, caso
 ):
@@ -309,46 +323,46 @@ def test_un_objetivo_de_otra_familia_da_422_que_nombra_el_ejercicio_y_no_cambia_
     assert cliente.get("/rutinas", params={"ocultas": True}).json() == antes
 
 
-@pytest.mark.parametrize("via", VIAS)
+@pytest.mark.parametrize(
+    "via, rol",
+    [
+        *(pytest.param(via.values[0], "principal", id=f"{via.id}-principal") for via in VIAS),
+        # La alternativa pasa por la misma comprobación en las tres vías: con una basta.
+        pytest.param(_por_post_de_hueco, "alternativa", id="POST-slots-alternativa"),
+    ],
+)
 def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(
-    cliente, sesion_bd, e, via
+    cliente, sesion_bd, e, via, rol
 ):
     """Cardio es de la familia de la duración, como tiempo: su objetivo va en segundos,
-    de principal y de alternativa (de un hueco de peso y repeticiones).
+    de principal (con una alternativa de peso y repeticiones) y de alternativa (de un
+    hueco de peso y repeticiones).
     """
     e.existente = anadido(cliente, e.rutina, principal=e.remo, orden=1)["id"]
+    if rol == "principal":
+        principal, obj = e.cinta, objetivo(1, duracion=(900, 1800))
+        alternativas = [alternativa(e.press)]
+        esperadas = [(e.press, objetivo(3, (6, 10)))]
+    else:
+        principal, obj = e.press, objetivo(3, (6, 10))
+        alternativas = [alternativa(e.cinta, 1, duracion=(600, 1200))]
+        esperadas = [(e.cinta, objetivo(1, duracion=(600, 1200)))]
 
-    respuesta = via(
-        cliente,
-        e,
-        e.cinta,
-        objetivo(1, duracion=(900, 1800)),
-        [alternativa(e.press)],
-    )
+    respuesta = via(cliente, e, principal, obj, alternativas)
 
     assert respuesta.status_code == (200 if via is _por_put_de_hueco else 201), respuesta.text
-    # POST /rutinas crea otra rutina: se busca el hueco de la cinta en todas.
+    # POST /rutinas crea otra rutina: se busca el hueco nuevo en todas.
     [hueco] = [
         h
         for r in cliente.get("/rutinas").json()
         for h in r["slots"]
-        if h["ejercicio_principal"]["id"] == e.cinta
+        if h["ejercicio_principal"]["id"] == principal
     ]
-    assert objetivo_de(hueco) == objetivo(1, duracion=(900, 1800))
-    assert hueco["ejercicio_principal"]["tipo_registro"] == "cardio"
-    assert alternativas_de(hueco) == [(e.press, objetivo(3, (6, 10)))]
-
-
-def test_un_ejercicio_de_cardio_de_alternativa_lleva_su_objetivo_en_segundos(cliente, e):
-    hueco = anadido(
-        cliente,
-        e.rutina,
-        principal=e.press,
-        alternativas=[alternativa(e.cinta, 1, duracion=(600, 1200))],
-    )
-
-    assert alternativas_de(hueco) == [(e.cinta, objetivo(1, duracion=(600, 1200)))]
-    assert hueco_guardado(cliente, e.rutina, hueco["id"]) == hueco
+    assert objetivo_de(hueco) == obj
+    assert alternativas_de(hueco) == esperadas
+    tipos = [hueco["ejercicio_principal"]["tipo_registro"]]
+    tipos += [a["ejercicio"]["tipo_registro"] for a in hueco["alternativas"]]
+    assert "cardio" in tipos
 
 
 def test_una_alternativa_de_otra_familia_con_su_propio_objetivo_se_crea(cliente, e):
@@ -631,21 +645,6 @@ def test_editar_un_hueco_sin_lista_no_toca_las_alternativas_ni_sus_objetivos(
     assert filas(sesion_bd, slot) == antes
 
 
-def test_el_nombre_viejo_de_la_lista_se_ignora_y_no_vacia_las_alternativas(cliente, sesion_bd, e):
-    """`alternativa_ids` (la lista de ids de antes del objetivo por ejercicio) ya no es
-    un campo del cuerpo: un cliente viejo que lo mande vacío no le quita nada al
-    hueco, como un campo cualquiera que el esquema no conoce.
-    """
-    slot = anadido(cliente, e.rutina, principal=e.press, alternativas=[alternativa(e.remo)])["id"]
-    antes = filas(sesion_bd, slot)
-
-    respuesta = editar(cliente, e.rutina, slot, principal=e.press, alternativa_ids=[])
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert alternativas_de(respuesta.json()) == [(e.remo, objetivo(3, (6, 10)))]
-    assert filas(sesion_bd, slot) == antes
-
-
 def test_cambiar_el_principal_por_uno_de_otra_familia_pide_su_par_y_borra_el_otro(
     cliente, sesion_bd, e
 ):
@@ -763,7 +762,6 @@ MAL_EN_LA_BASE = [
     ),
     pytest.param({"series_objetivo": 3, "reps_min": 6}, id="reps-sin-maximo"),
     pytest.param({"series_objetivo": 3, "duracion_min_s": 30}, id="duracion-sin-maximo"),
-    pytest.param({"series_objetivo": 3, "reps_min": 6, "duracion_max_s": 60}, id="medio-de-cada"),
 ]
 
 

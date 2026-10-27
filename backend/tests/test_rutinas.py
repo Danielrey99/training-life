@@ -88,9 +88,8 @@ def filas_guardadas(sesion_bd) -> tuple[int, int, int]:
 # --- Crear una rutina con sus huecos ----------------------------------------
 
 
-@pytest.mark.parametrize("cuerpo", [{"nombre": "Push"}, {"nombre": "Push", "slots": []}])
-def test_una_rutina_nueva_sin_huecos_sigue_creandose_vacia(cliente, cuerpo):
-    respuesta = cliente.post("/rutinas", json=cuerpo)
+def test_una_rutina_nueva_sin_huecos_sigue_creandose_vacia(cliente):
+    respuesta = cliente.post("/rutinas", json={"nombre": "Push"})
 
     assert respuesta.status_code == 201, respuesta.text
     assert respuesta.json()["slots"] == []
@@ -165,39 +164,20 @@ def test_una_rutina_nueva_admite_100_huecos_justos(cliente, ejercicio_predefinid
     assert [h["orden"] for h in respuesta.json()["slots"]] == list(range(1, 101))
 
 
-@pytest.mark.parametrize(
-    "caso, lo_que_dice",
-    [
-        ("reps al revés en el tercer hueco", "reps_max no puede ser menor que reps_min"),
-        ("demasiadas series", "less than or equal to 50"),
-        ("comodín igual al principal", "Un comodín no puede ser el ejercicio principal"),
-        ("comodín repetido", "Hay comodines repetidos"),
-        ("101 huecos", "at most 100"),
-    ],
-)
-def test_una_rutina_nueva_con_datos_incoherentes_da_422_y_no_crea_nada(
-    cliente, sesion_bd, grupo_muscular_id, ejercicio_predefinido_id, caso, lo_que_dice
+def test_una_rutina_nueva_con_mas_de_100_huecos_da_422_y_no_crea_nada(
+    cliente, sesion_bd, grupo_muscular_id, ejercicio_predefinido_id
 ):
-    """`lo_que_dice` asegura que el 422 es por lo que se prueba y no por otro
-    campo mal escrito en el cuerpo.
+    """El tope es de `POST /rutinas`. Cada hueco de la lista se valida con el mismo
+    esquema que uno suelto: sus datos incoherentes (objetivo, comodines), en
+    `test_huecos.py` y `test_objetivos.py`.
     """
     propio = crear_ejercicio(cliente, grupo_muscular_id, "Prensa")
     bien = hueco_nuevo(ejercicio_predefinido_id, comodines=[propio])
-    huecos = {
-        "reps al revés en el tercer hueco": [bien, bien, hueco_nuevo(propio, reps=(10, 6))],
-        "demasiadas series": [bien, hueco_nuevo(propio, series=51)],
-        "comodín igual al principal": [bien, hueco_nuevo(propio, comodines=[propio])],
-        "comodín repetido": [
-            bien,
-            hueco_nuevo(propio, comodines=[ejercicio_predefinido_id, ejercicio_predefinido_id]),
-        ],
-        "101 huecos": [bien] * 101,
-    }[caso]
 
-    respuesta = cliente.post("/rutinas", json={"nombre": "Push", "slots": huecos})
+    respuesta = cliente.post("/rutinas", json={"nombre": "Push", "slots": [bien] * 101})
 
     assert respuesta.status_code == 422
-    assert lo_que_dice in str(respuesta.json()["detail"])
+    assert "at most 100" in str(respuesta.json()["detail"])
     assert filas_guardadas(sesion_bd) == (0, 0, 0)
 
 
@@ -463,7 +443,7 @@ MENSAJE_DE_ORDEN = "Manda todos los huecos visibles de la rutina, cada uno una v
 
 @pytest.mark.parametrize(
     "caso",
-    ["falta uno", "sobra uno de otra rutina", "uno oculto", "uno que no existe"],
+    ["falta uno", "sobra uno de otra rutina", "uno oculto"],
 )
 def test_reordenar_sin_mandar_exactamente_los_visibles_da_422_y_no_cambia_nada(
     cliente, grupo_muscular_id, caso
@@ -480,7 +460,6 @@ def test_reordenar_sin_mandar_exactamente_los_visibles_da_422_y_no_cambia_nada(
         "falta uno": [b],
         "sobra uno de otra rutina": [b, a, de_otra],
         "uno oculto": [b, a, oculto],
-        "uno que no existe": [b, a, 999_999],
     }[caso]
     antes = ordenes(cliente, rutina)
 

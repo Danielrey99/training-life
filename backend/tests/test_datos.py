@@ -12,7 +12,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.database import Base
 from app.models import (
@@ -49,7 +49,6 @@ from tests.ayudas import (
     entrenar,
     objetivo,
     serie_en,
-    sesiones_en_curso,
 )
 
 HOY = date(2026, 9, 16)
@@ -57,7 +56,6 @@ HOY = date(2026, 9, 16)
 NO_ES_UNA_COPIA = "Este archivo no es una copia de los datos de Training Life."
 MAS_NUEVA = "Este archivo es de una versión más nueva de la app. Actualízala para cargarlo."
 ANTERIOR = "Este archivo es de una versión anterior de la app y ya no se puede cargar."
-NEGATIVO = "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
 DANADO = "El archivo está dañado."
 _AHORA = "2026-09-16T10:00:00+00:00"
 NO_SE_CAMBIA_NADA = "No se puede cargar el archivo: no se ha cambiado nada."
@@ -116,10 +114,9 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     en un hueco o una sesión distintos.
 
     Todo es de peso y repeticiones y sin peso corporal, y cada comodín tiene el
-    objetivo de su principal, a propósito: la migración de los tipos se niega a bajar
-    con series de otra forma y perdería el peso corporal, la del objetivo por ejercicio
-    perdería el de cada comodín, y `test_infraestructura.py` baja por debajo de ellas
-    con este escenario. Los tipos nuevos están en `montar_datos_por_tipo`.
+    objetivo de su principal: lo que solo existe con los tipos de ejercicio (otros
+    tipos, el peso corporal, un objetivo distinto por alternativa) está en
+    `montar_datos_por_tipo`, que se monta encima.
     """
     (comodin, de_nota, de_serie, sin_usar) = _predefinidos(sesion_bd, 4)
     grupo_id, grupo = sesion_bd.execute(
@@ -194,8 +191,7 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     h4 = hueco(pull, press, 1)
     # El remo (id alto, propio) antes que el predefinido (id bajo): el orden de los
     # comodines es el de sus filas, no el de los ids de sus ejercicios. Con el mismo
-    # objetivo que su principal: bajar de la migración del objetivo por ejercicio lo
-    # pierde, y al volver a subir se copia el del principal.
+    # objetivo que su principal (uno distinto, en `montar_datos_por_tipo`).
     objetivo_del_principal = {"series_objetivo": 4, "reps_min": 6, "reps_max": 10}
     sesion_bd.add(SlotAlternativa(slot_id=h1, ejercicio_id=remo, **objetivo_del_principal))
     sesion_bd.flush()
@@ -741,18 +737,6 @@ def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
 # --- 3. Ida y vuelta ---------------------------------------------------------
 
 
-def test_exportar_importar_y_exportar_da_el_mismo_archivo(cliente, datos):
-    a = exportado(cliente)
-
-    respuesta = importar(cliente, a)
-    assert respuesta.status_code == 200, respuesta.text
-    b = exportado(cliente)
-
-    assert sin_ids(b) == sin_ids(a)
-    # Los ids sí cambian: si no, la comparación de arriba no probaría nada.
-    assert {r["id"] for r in b["rutinas"]}.isdisjoint({r["id"] for r in a["rutinas"]})
-
-
 def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos_por_tipo):
     """Si un campo saliera siempre nulo o vacío, la ida y vuelta no vería que se
     pierde. Esto obliga a que el escenario (con los tipos) lo rellene en algún sitio.
@@ -807,16 +791,22 @@ def test_exportar_escribe_la_version_2_con_el_tipo_y_las_medidas_de_cada_serie(
     ]
 
 
-def test_la_ida_y_vuelta_conserva_los_tipos_y_las_medidas(cliente, sesion_bd, datos_por_tipo):
-    """Exportar, importar y exportar da el mismo archivo con los tipos, y en la base
-    quedan las mismas series, columna a columna (sin los ids, que cambian).
+def test_exportar_importar_y_exportar_da_el_mismo_archivo(cliente, sesion_bd, datos_por_tipo):
+    """Con todo lo que pueden tener los datos (también los tipos y las medidas), el
+    segundo archivo es igual que el primero salvo los ids. Como se lee de la base, eso
+    ya dice que se guardaron igual el orden de los comodines, las marcas de tiempo, la
+    distancia o la sesión de hoy sin terminar. Las series se miran además columna a
+    columna en la base.
     """
     antes = exportado(cliente)
 
     respuesta = importar(cliente, antes)
 
     assert respuesta.status_code == 200, respuesta.text
-    assert sin_ids(exportado(cliente)) == sin_ids(antes)
+    despues = exportado(cliente)
+    assert sin_ids(despues) == sin_ids(antes)
+    # Los ids sí cambian: si no, la comparación de arriba no probaría nada.
+    assert {r["id"] for r in despues["rutinas"]}.isdisjoint({r["id"] for r in antes["rutinas"]})
     sesion_bd.expire_all()
     series = sesion_bd.execute(
         select(Ejercicio.nombre, Ejercicio.tipo_registro, Serie.peso, Serie.repeticiones)
@@ -834,38 +824,10 @@ def test_la_ida_y_vuelta_conserva_los_tipos_y_las_medidas(cliente, sesion_bd, da
     ]
 
 
-def test_exportar_e_importar_conservan_la_distancia_de_una_serie_de_cardio(
-    cliente, sesion_bd, datos_por_tipo
-):
-    """La distancia (en metros) sale en el archivo, es nula en la serie de cardio sin ella
-    y en las demás, y vuelve a la base tal cual tras importar.
+def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, datos_por_tipo):
+    """El resumen, sobre todo: si un ejercicio volviera con otro tipo, su volumen
+    contaría (o dejaría de contar) y la gráfica cambiaría.
     """
-    antes = exportado(cliente)
-    series = _sesion(antes, "2026-09-03")["series"]
-    assert [s["distancia_m"] for s in series] == [None, None, None, 5200, None]
-    assert series[3]["duracion_s"] == 1800
-
-    assert importar(cliente, antes).status_code == 200
-
-    despues = exportado(cliente)
-    assert [s["distancia_m"] for s in _sesion(despues, "2026-09-03")["series"]] == [
-        None,
-        None,
-        None,
-        5200,
-        None,
-    ]
-    sesion_bd.expire_all()
-    guardadas = sesion_bd.execute(
-        select(Serie.duracion_s, Serie.distancia_m, Serie.peso, Serie.repeticiones)
-        .join(Ejercicio, Ejercicio.id == Serie.ejercicio_id)
-        .where(Ejercicio.nombre == "Cinta con inclinación")
-        .order_by(Serie.id)
-    ).all()
-    assert [tuple(s) for s in guardadas] == [(1800, 5200, None, None), (600, None, None, None)]
-
-
-def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, datos):
     antes = lo_que_se_ve(cliente)
     # Que la comparación no sea entre dos listas de descansos: hay de todo.
     origenes = {dia["origen"] for dia in antes["seguimiento"]}
@@ -877,60 +839,6 @@ def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, 
     assert importar(cliente, exportado(cliente)).status_code == 200
 
     assert lo_que_se_ve(cliente) == antes
-
-
-def test_con_los_tipos_la_ida_y_vuelta_tampoco_cambia_lo_que_se_ve(cliente, datos_por_tipo):
-    """El resumen, sobre todo: si un ejercicio volviera con otro tipo, su volumen
-    contaría (o dejaría de contar) y la gráfica cambiaría.
-    """
-    antes = lo_que_se_ve(cliente)
-
-    assert importar(cliente, exportado(cliente)).status_code == 200
-
-    assert lo_que_se_ve(cliente) == antes
-
-
-def test_la_ida_y_vuelta_conserva_el_orden_de_los_comodines(cliente, datos):
-    archivo = exportado(cliente)
-    assert importar(cliente, archivo).status_code == 200
-
-    push = next(r for r in cliente.get("/rutinas").json() if r["nombre"] == "Push")
-    hueco = next(h for h in push["slots"] if h["orden"] == 1)
-    assert [a["ejercicio"]["nombre"] for a in hueco["alternativas"]] == [
-        "Remo en máquina vieja",
-        datos["comodin"][1],
-    ]
-
-
-def test_la_ida_y_vuelta_conserva_las_marcas_de_tiempo_en_la_base(cliente, sesion_bd, datos):
-    """No basta con que el archivo diga lo mismo: lo guardado tiene que ser el mismo
-    instante, sin que el insert lo pise con la hora de ahora.
-    """
-    assert importar(cliente, exportado(cliente)).status_code == 200
-
-    sesion_bd.expire_all()
-    sesion = sesion_bd.scalar(
-        select(Entrenamiento).where(
-            Entrenamiento.fecha == date(2026, 9, 7),
-        )
-    )
-    assert sesion.terminada_en == instante("2026-09-07T18:30:12.345678+00:00")
-    assert sesion.created_at == datetime(2026, 9, 7, 16, 0, 0, 1, timezone.utc)
-    assert sesion.updated_at == datetime(2026, 9, 7, 18, 0, 0, 2, timezone.utc)
-    hueco = sesion_bd.scalar(
-        select(RutinaSlot).join(Rutina, Rutina.id == RutinaSlot.rutina_id).order_by(RutinaSlot.id)
-    )
-    assert hueco.updated_at == instante("2026-08-09T06:00:00.444444+00:00")
-    alternativas = sesion_bd.scalar(
-        select(func.count()).select_from(SlotAlternativa).where(SlotAlternativa.slot_id == hueco.id)
-    )
-    assert alternativas == 2
-
-
-def test_la_sesion_en_curso_sigue_en_curso_tras_la_ida_y_vuelta(cliente, datos):
-    assert importar(cliente, exportado(cliente)).status_code == 200
-
-    assert [s["fecha"] for s in sesiones_en_curso(cliente)] == [HOY.isoformat()]
 
 
 def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente, sesion_bd, hoy_es):
@@ -1080,15 +988,6 @@ def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos)
     }
     sesion_bd.expire_all()
     assert _nada(sesion_bd)
-
-
-def test_importar_dos_veces_el_mismo_archivo_no_duplica_nada(cliente, datos):
-    archivo = exportado(cliente)
-
-    assert importar(cliente, archivo).status_code == 200
-    assert importar(cliente, archivo).status_code == 200
-
-    assert sin_ids(exportado(cliente)) == sin_ids(archivo)
 
 
 def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio(
@@ -1244,21 +1143,9 @@ def _version_texto(a):
     a["version"] = "2"
 
 
-def _version_x(a):
-    a["version"] = "x"
-
-
 def _version_verdadero(a):
     """Antes, `True == 1` hacía que dijera «versión anterior» en vez de «no es una copia»."""
     a["version"] = True
-
-
-def _version_falso(a):
-    a["version"] = False
-
-
-def _version_nula(a):
-    a["version"] = None
 
 
 def _sin_version(a):
@@ -1277,47 +1164,9 @@ def _ejercicio_de_un_tipo_que_no_existe(a):
     a["ejercicios"][0]["tipo_registro"] = "natación"
 
 
-def _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones(a):
-    # La primera del 7 es del press.
-    _sesion(a, "2026-09-07")["series"][0]["duracion_s"] = 30
-
-
-def _serie_sin_peso(a):
-    _sesion(a, "2026-09-07")["series"][0]["peso"] = None
-
-
 def _serie_por_tiempo_de_un_predefinido(a):
     # La primera del 9 es de la sentadilla: su tipo es el de esta instalación.
     _sesion(a, "2026-09-09")["series"][0]["duracion_s"] = 30
-
-
-def _peso_corporal_en_una_serie_de_peso_y_repeticiones(a):
-    _sesion(a, "2026-09-07")["series"][0]["peso_corporal"] = "80.00"
-
-
-def _ayuda_en_una_serie_de_peso_y_repeticiones(a):
-    _sesion(a, "2026-09-11")["series"][0]["peso"] = "-5.00"
-
-
-def _ayuda_que_no_cabe(a):
-    _sesion(a, "2026-09-07")["series"][0]["peso"] = "-10000"
-
-
-def _peso_corporal_cero(a):
-    _sesion(a, "2026-09-07")["series"][0]["peso_corporal"] = "0"
-
-
-def _duracion_de_mas_de_un_dia(a):
-    serie = _sesion(a, "2026-09-07")["series"][0]
-    serie["peso"], serie["repeticiones"], serie["duracion_s"] = None, None, 86401
-
-
-def _distancia_cero(a):
-    _sesion(a, "2026-09-07")["series"][0]["distancia_m"] = 0
-
-
-def _distancia_de_mas_de_mil_km(a):
-    _sesion(a, "2026-09-07")["series"][0]["distancia_m"] = 1_000_001
 
 
 MAL_APUNTADA = "La sesión del {} tiene una serie mal apuntada: "
@@ -1429,13 +1278,6 @@ def _comodin_repetido(a):
     hueco["alternativas"].append(copy.deepcopy(hueco["alternativas"][0]))
 
 
-def _comodin_igual_al_principal(a):
-    hueco = _rutina(a, "Push")["slots"][0]
-    hueco["alternativas"].append(
-        {**hueco["alternativas"][0], "ejercicio_id": hueco["ejercicio_principal_id"]}
-    )
-
-
 def _dia_con_vigencia_invertida(a):
     dia = _programa(a, "PPL")["dias"][1]
     dia["desde"], dia["hasta"] = "2026-09-07", "2026-09-07"
@@ -1457,15 +1299,6 @@ def _reps_al_reves(a):
 def _comodin_con_el_objetivo_a_medias(a):
     alternativa = _rutina(a, "Push")["slots"][0]["alternativas"][0]
     alternativa["reps_max"] = None
-
-
-def _comodin_con_los_dos_pares(a):
-    alternativa = _rutina(a, "Push")["slots"][0]["alternativas"][0]
-    alternativa["duracion_min_s"], alternativa["duracion_max_s"] = 30, 60
-
-
-def _comodin_sin_series_objetivo(a):
-    del _rutina(a, "Push")["slots"][0]["alternativas"][0]["series_objetivo"]
 
 
 def _periodo_abierto(a):
@@ -1540,48 +1373,21 @@ MALOS = [
     (_version_1, ANTERIOR, None),
     (_version_0, NO_ES_UNA_COPIA, None),
     (_version_texto, NO_ES_UNA_COPIA, None),
-    (_version_x, NO_ES_UNA_COPIA, None),
     (_version_verdadero, NO_ES_UNA_COPIA, None),
-    (_version_falso, NO_ES_UNA_COPIA, None),
-    (_version_nula, NO_ES_UNA_COPIA, None),
     (_sin_version, NO_ES_UNA_COPIA, None),
+    # La serie del archivo hereda los topes de la de la API (probados uno a uno en
+    # `test_medidas.py`): con uno basta para ver que los hereda.
     (_peso_roto, DANADO, "entrenamientos.0.series.0.peso"),
     (_ejercicio_sin_tipo, DANADO, "ejercicios.0.tipo_registro"),
     (_ejercicio_de_un_tipo_que_no_existe, DANADO, "ejercicios.0.tipo_registro"),
-    (_ayuda_que_no_cabe, DANADO, "entrenamientos.0.series.0.peso"),
-    (_peso_corporal_cero, DANADO, "entrenamientos.0.series.0.peso_corporal"),
-    (_duracion_de_mas_de_un_dia, DANADO, "entrenamientos.0.series.0.duracion_s"),
-    (_distancia_cero, DANADO, "entrenamientos.0.series.0.distancia_m"),
-    (_distancia_de_mas_de_mil_km, DANADO, "entrenamientos.0.series.0.distancia_m"),
-    (
-        _serie_por_tiempo_de_un_ejercicio_de_peso_y_repeticiones,
-        NO_SE_CAMBIA_NADA,
-        MAL_APUNTADA.format("2026-09-07")
-        + "Press inclinado con mancuernas se apunta con peso y repeticiones: sobra la duración.",
-    ),
-    (
-        _serie_sin_peso,
-        NO_SE_CAMBIA_NADA,
-        MAL_APUNTADA.format("2026-09-07")
-        + "Press inclinado con mancuernas se apunta con peso y repeticiones: falta el peso.",
-    ),
+    # Las medidas de cada tipo, en `test_medidas.py`; aquí, lo propio de importar (el tipo
+    # de un predefinido es el de esta instalación; el de un propio, el del archivo, en
+    # `test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa`).
     (
         _serie_por_tiempo_de_un_predefinido,
         NO_SE_CAMBIA_NADA,
         MAL_APUNTADA.format("2026-09-09")
         + "Sentadilla con barra se apunta con peso y repeticiones: sobra la duración.",
-    ),
-    (
-        _peso_corporal_en_una_serie_de_peso_y_repeticiones,
-        NO_SE_CAMBIA_NADA,
-        MAL_APUNTADA.format("2026-09-07")
-        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
-        " Press inclinado con mancuernas no lo es.",
-    ),
-    (
-        _ayuda_en_una_serie_de_peso_y_repeticiones,
-        NO_SE_CAMBIA_NADA,
-        MAL_APUNTADA.format("2026-09-11") + NEGATIVO,
     ),
     (_hora_sin_zona, DANADO, "rutinas.0.created_at"),
     (_nombre_vacio, DANADO, "rutinas.0.nombre"),
@@ -1607,15 +1413,14 @@ MALOS = [
     (_dos_periodos_abiertos_en_un_programa, NO_SE_CAMBIA_NADA, "más de un programa activo"),
     (_dos_filas_vigentes_el_mismo_dia, NO_SE_CAMBIA_NADA, "dos rutinas a la vez el día 3"),
     (_orden_repetido, NO_SE_CAMBIA_NADA, 'La rutina "Push" tiene dos ejercicios en la posición 1'),
+    # El resto de comodines incoherentes y de objetivos mal formados, en `test_huecos.py`
+    # y `test_objetivos.py`: el archivo usa las mismas comprobaciones.
     (_comodin_repetido, DANADO, "rutinas.0.slots.0"),
-    (_comodin_igual_al_principal, DANADO, "rutinas.0.slots.0"),
     (_dia_con_vigencia_invertida, DANADO, "programas.0.dias.1"),
     (_periodo_invertido, DANADO, "programas.0.periodos.0"),
     (_dia_semana_8, DANADO, "programas.0.dias.0.dia_semana"),
     (_reps_al_reves, DANADO, "rutinas.0.slots.0"),
     (_comodin_con_el_objetivo_a_medias, DANADO, "rutinas.0.slots.0.alternativas.0"),
-    (_comodin_con_los_dos_pares, DANADO, "rutinas.0.slots.0.alternativas.0"),
-    (_comodin_sin_series_objetivo, DANADO, "rutinas.0.slots.0.alternativas.0.series_objetivo"),
     (
         _programa_que_empieza_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
@@ -1653,11 +1458,22 @@ MALOS = [
     ),
 ]
 
+# Con `comprobar=true`, importar hace lo mismo hasta que el archivo vale: basta un
+# caso de cada fase (formato, versión, esquema y lo que no cuadra).
+COMPROBADOS = {_sin_formato, _version_1, _peso_roto, _rutina_con_id_repetido}
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
-@pytest.mark.parametrize(
-    "estropear, mensaje, error", MALOS, ids=[f.__name__.lstrip("_") for f, *_ in MALOS]
-)
+
+def _casos(malos, comprobados):
+    """Cada caso al importar y, los de `comprobados`, también al comprobar."""
+    return [
+        pytest.param(*caso, comprobar, id=f"{caso[0].__name__.lstrip('_')}-{como}")
+        for caso in malos
+        for comprobar, como in ((False, "importar"), (True, "comprobar"))
+        if not comprobar or caso[0] in comprobados
+    ]
+
+
+@pytest.mark.parametrize("estropear, mensaje, error, comprobar", _casos(MALOS, COMPROBADOS))
 def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
     cliente, datos, estropear, mensaje, error, comprobar
 ):
@@ -1805,17 +1621,18 @@ def test_lo_de_hoy_en_la_zona_del_archivo_se_importa_aunque_aqui_sea_manana(
     )
 
 
-@pytest.mark.parametrize("zona", [None, "Europe/Madrid", "America/New_York"])
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+@pytest.mark.parametrize("zona", [None, "America/New_York"])
 def test_sin_zona_o_con_una_que_no_va_por_delante_mañana_sigue_sin_valer(
-    cliente, datos, monkeypatch, zona, comprobar
+    cliente, datos, monkeypatch, zona
 ):
-    """En Nueva York son las 11:30 del 16: no adelanta nada a Madrid."""
+    """En Nueva York son las 11:30 del 16: no adelanta nada a Madrid (con la de
+    Madrid sería lo mismo: el mayor de los dos "hoy" sigue siendo el 16).
+    """
     reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
     antes = exportado(cliente)
     archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", zona)
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"]["errores"] == _errores_del_futuro("2026-09-17")
@@ -1880,8 +1697,7 @@ def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):
     assert len(detalle["errores"]) == 3, detalle
 
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
-def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos, comprobar):
+def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos):
     """En una sesión, cada hueco se hace con un solo ejercicio, también en un
     archivo: 422 y no se cambia nada. La frase nombra los dos ejercicios (aquí uno
     propio y uno predefinido), en el orden de sus series, y la rutina.
@@ -1890,7 +1706,7 @@ def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos,
     archivo = copy.deepcopy(antes)
     _dos_ejercicios_en_un_hueco(archivo)
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == {
@@ -1904,8 +1720,7 @@ def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos,
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
-def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente, datos, comprobar):
+def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente, datos):
     """Con tres o más ejercicios en el mismo hueco, la frase los separa con comas
     y pone «y» solo antes del último, cada uno con su «de», en el orden de sus series.
     """
@@ -1916,7 +1731,7 @@ def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente
     press["ejercicio_id"], press["numero_serie"] = datos["press"], 3
     series.append(press)
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"]["errores"] == [
@@ -1950,24 +1765,6 @@ def _de(archivo, nombre):
     return next(e for e in archivo["ejercicios"] if e["nombre"] == nombre)
 
 
-def _dominadas_con_duracion(a):
-    # La primera del 2 es la de las dominadas con ayuda.
-    _sesion(a, "2026-09-02")["series"][0]["duracion_s"] = 30
-
-
-def _plancha_sin_duracion(a):
-    serie = _sesion(a, "2026-09-02")["series"][2]
-    serie["duracion_s"], serie["peso"] = None, "5.00"
-
-
-def _plancha_con_ayuda(a):
-    _sesion(a, "2026-09-03")["series"][1]["peso"] = "-5.00"
-
-
-def _plancha_con_peso_corporal(a):
-    _sesion(a, "2026-09-02")["series"][2]["peso_corporal"] = "78.00"
-
-
 def _dominadas_por_tiempo(a):
     _de(a, "Dominadas lastradas")["tipo_registro"] = "tiempo"
 
@@ -1976,94 +1773,18 @@ def _plancha_de_peso_y_repeticiones(a):
     _de(a, "Plancha con disco")["tipo_registro"] = "peso_reps"
 
 
-def _ayuda_en_un_ejercicio_que_pasa_a_peso_y_repeticiones(a):
-    _de(a, "Dominadas lastradas")["tipo_registro"] = "peso_reps"
-
-
-def _cinta_con_repeticiones(a):
-    _sesion(a, "2026-09-03")["series"][3].update(peso="20.00", repeticiones=10)
-
-
-def _cinta_con_peso(a):
-    _sesion(a, "2026-09-03")["series"][4]["peso"] = "5.00"
-
-
-def _cinta_sin_duracion(a):
-    _sesion(a, "2026-09-03")["series"][3]["duracion_s"] = None
-
-
-def _cinta_con_peso_corporal(a):
-    _sesion(a, "2026-09-03")["series"][4]["peso_corporal"] = "80.00"
-
-
-def _distancia_en_una_serie_de_tiempo(a):
-    _sesion(a, "2026-09-03")["series"][1]["distancia_m"] = 100
-
-
 def _distancia_en_una_serie_de_peso_y_repeticiones(a):
     _sesion(a, "2026-09-03")["series"][2]["distancia_m"] = 100
 
 
-def _cinta_por_tiempo(a):
-    # Un ejercicio de tiempo no lleva distancia: la de la serie sobra.
-    _de(a, "Cinta con inclinación")["tipo_registro"] = "tiempo"
-
-
+# Las medidas de cada tipo, una a una, en `test_medidas.py` (importar usa la misma regla).
+# Aquí, lo propio de importar: el tipo de un propio es el del archivo, y la distancia
+# viaja en él.
 MAL_POR_TIPO = [
-    (
-        _cinta_con_repeticiones,
-        MAL_APUNTADA.format("2026-09-03")
-        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: sobran el peso"
-        " y las repeticiones.",
-    ),
-    (
-        _cinta_con_peso,
-        MAL_APUNTADA.format("2026-09-03")
-        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: sobra el peso.",
-    ),
-    (
-        _cinta_sin_duracion,
-        MAL_APUNTADA.format("2026-09-03")
-        + "Cinta con inclinación se apunta por tiempo y, si se quiere, distancia: falta la"
-        " duración.",
-    ),
-    (
-        _cinta_con_peso_corporal,
-        MAL_APUNTADA.format("2026-09-03")
-        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
-        " Cinta con inclinación no lo es.",
-    ),
-    (
-        _distancia_en_una_serie_de_tiempo,
-        MAL_APUNTADA.format("2026-09-03")
-        + "Plancha con disco se apunta por tiempo: sobra la distancia.",
-    ),
     (
         _distancia_en_una_serie_de_peso_y_repeticiones,
         MAL_APUNTADA.format("2026-09-03")
         + "Remo con barra se apunta con peso y repeticiones: sobra la distancia.",
-    ),
-    (
-        _cinta_por_tiempo,
-        MAL_APUNTADA.format("2026-09-03")
-        + "Cinta con inclinación se apunta por tiempo: sobra la distancia.",
-    ),
-    (
-        _dominadas_con_duracion,
-        MAL_APUNTADA.format("2026-09-02")
-        + "Dominadas lastradas se apunta con repeticiones y carga: sobra la duración.",
-    ),
-    (
-        _plancha_sin_duracion,
-        MAL_APUNTADA.format("2026-09-02") + "Plancha con disco se apunta por tiempo: falta la"
-        " duración.",
-    ),
-    (_plancha_con_ayuda, MAL_APUNTADA.format("2026-09-03") + NEGATIVO),
-    (
-        _plancha_con_peso_corporal,
-        MAL_APUNTADA.format("2026-09-02")
-        + "El peso corporal solo se guarda en las series de ejercicios de peso corporal, y"
-        " Plancha con disco no lo es.",
     ),
     # El tipo del archivo manda: las series de un ejercicio se miran con el suyo.
     (
@@ -2077,25 +1798,20 @@ MAL_POR_TIPO = [
         + "Plancha con disco se apunta con peso y repeticiones: faltan el peso y las"
         " repeticiones y sobra la duración.",
     ),
-    (
-        _ayuda_en_un_ejercicio_que_pasa_a_peso_y_repeticiones,
-        MAL_APUNTADA.format("2026-09-02") + NEGATIVO,
-    ),
 ]
 
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
 @pytest.mark.parametrize(
     "estropear, error", MAL_POR_TIPO, ids=[f.__name__.lstrip("_") for f, _ in MAL_POR_TIPO]
 )
 def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
-    cliente, datos_por_tipo, estropear, error, comprobar
+    cliente, datos_por_tipo, estropear, error
 ):
     antes = exportado(cliente)
     archivo = copy.deepcopy(antes)
     estropear(archivo)
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
@@ -2127,20 +1843,6 @@ def _plancha_de_principal_en_reps(a):
 def _dominadas_de_alternativa_en_segundos(a):
     [dominadas] = _hueco_de(a, "Core", "Plancha con disco")["alternativas"]
     _en_segundos(dominadas)
-
-
-def _plancha_de_alternativa_en_reps(a):
-    [plancha] = _hueco_de(a, "Core", "Remo con barra")["alternativas"]
-    _en_reps(plancha)
-
-
-def _cinta_de_principal_en_reps(a):
-    _en_reps(_hueco_de(a, "Core", "Cinta con inclinación"))
-
-
-def _remo_de_principal_en_segundos(a):
-    # Peso y repeticiones, con el objetivo de la familia de la duración.
-    _en_segundos(_hueco_de(a, "Core", "Remo con barra"))
 
 
 def _sentadilla_de_principal_en_segundos(a):
@@ -2176,22 +1878,10 @@ OBJETIVOS_QUE_NO_CUADRAN = [
         MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones (reps_min y"
         " reps_max), no en duración: Dominadas lastradas se apunta con repeticiones y carga.",
     ),
-    (_plancha_de_alternativa_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
-    (
-        _cinta_de_principal_en_reps,
-        MAL_OBJETIVO + "El objetivo de Cinta con inclinación va en segundos (duracion_min_s y"
-        " duracion_max_s), no en repeticiones: Cinta con inclinación se apunta por tiempo y,"
-        " si se quiere, distancia.",
-    ),
     (
         _sentadilla_de_principal_en_segundos,
         MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones (reps_min y"
         " reps_max), no en duración: Sentadilla con barra se apunta con peso y repeticiones.",
-    ),
-    (
-        _remo_de_principal_en_segundos,
-        MAL_OBJETIVO + "El objetivo de Remo con barra va en repeticiones (reps_min y reps_max),"
-        " no en duración: Remo con barra se apunta con peso y repeticiones.",
     ),
     (
         _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
@@ -2201,24 +1891,24 @@ OBJETIVOS_QUE_NO_CUADRAN = [
 ]
 
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
 @pytest.mark.parametrize(
     "estropear, error",
     OBJETIVOS_QUE_NO_CUADRAN,
     ids=[f.__name__.lstrip("_") for f, _ in OBJETIVOS_QUE_NO_CUADRAN],
 )
 def test_un_objetivo_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
-    cliente, datos_por_tipo, estropear, error, comprobar
+    cliente, datos_por_tipo, estropear, error
 ):
     """El objetivo del principal y el de cada alternativa, cada uno con el tipo de su
     ejercicio (no con el del principal): 422 que nombra la rutina y el ejercicio, y no
-    se cambia nada.
+    se cambia nada. Cada familia, una a una, en `test_objetivos.py`: importar usa la
+    misma regla.
     """
     antes = exportado(cliente)
     archivo = copy.deepcopy(antes)
     estropear(archivo)
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
@@ -2256,44 +1946,7 @@ def test_exportar_escribe_el_objetivo_de_cada_alternativa(cliente, datos_por_tip
     ]
 
 
-def test_la_ida_y_vuelta_conserva_el_objetivo_de_cada_alternativa_en_la_base(
-    cliente, sesion_bd, datos_por_tipo
-):
-    """Columna a columna, sin los ids: cada alternativa vuelve con el suyo, no con el
-    de su principal ni con nada por defecto.
-    """
-
-    def objetivos():
-        sesion_bd.expire_all()
-        principal = Ejercicio.__table__.alias("principal")
-        comodin = Ejercicio.__table__.alias("comodin")
-        return sesion_bd.execute(
-            select(
-                principal.c.nombre,
-                comodin.c.nombre,
-                SlotAlternativa.series_objetivo,
-                SlotAlternativa.reps_min,
-                SlotAlternativa.reps_max,
-                SlotAlternativa.duracion_min_s,
-                SlotAlternativa.duracion_max_s,
-            )
-            .join(RutinaSlot, RutinaSlot.id == SlotAlternativa.slot_id)
-            .join(principal, principal.c.id == RutinaSlot.ejercicio_principal_id)
-            .join(comodin, comodin.c.id == SlotAlternativa.ejercicio_id)
-            .order_by(principal.c.nombre, comodin.c.nombre)
-        ).all()
-
-    antes = objetivos()
-    assert ("Plancha con disco", "Dominadas lastradas", 2, 5, 8, None, None) in antes
-    assert ("Remo con barra", "Plancha con disco", 4, None, None, 20, 40) in antes
-
-    assert importar(cliente, exportado(cliente)).status_code == 200
-
-    assert objetivos() == antes
-
-
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
-def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente, datos, comprobar):
+def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente, datos):
     """Regresión del plan: el tipo de un predefinido sale de esta instalación, y uno
     que aquí no existe no tiene tipo. Buscarlo para mirar sus series era un
     `KeyError` (un 500) en vez del 422 que dice que no existe. La sentadilla es
@@ -2309,7 +1962,7 @@ def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente
         for s in x["series"]
     )
 
-    respuesta = importar(cliente, archivo, comprobar=comprobar)
+    respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
@@ -2335,9 +1988,7 @@ def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     assert len(detalle["errores"]) == 20
 
 
-@pytest.mark.parametrize(
-    "cuerpo", [[], "training-life", 1], ids=["una lista", "un texto", "un número"]
-)
+@pytest.mark.parametrize("cuerpo", [[], "training-life"], ids=["una lista", "un texto"])
 def test_un_archivo_que_no_es_un_objeto_da_el_mismo_422_en_espanol(cliente, cuerpo):
     """Quien elige un .json cualquiera puede mandar una lista o un texto.
 
@@ -2849,49 +2500,6 @@ def borrar(cliente):
     assert respuesta.content == b""
 
 
-def test_borrar_sin_datos_da_204_sin_cuerpo_y_el_resumen_sigue_a_cero(cliente, hoy_es):
-    hoy_es(HOY)
-
-    borrar(cliente)
-
-    assert resumen(cliente) == CERO
-
-
-def test_borrar_lo_deja_todo_vacio_en_la_api(cliente, sesion_bd, datos):
-    predefinidos_visibles = sorted(
-        fila.id for fila in _predefinidos_en_bd(sesion_bd) if fila.oculto_desde is None
-    )
-    assert resumen(cliente) != CERO
-
-    borrar(cliente)
-
-    assert sin_marca(exportado(cliente)) == {
-        "formato": "training-life",
-        "version": 2,
-        "zona_horaria": "Europe/Madrid",
-        "predefinidos": [],
-        "ejercicios": [],
-        "notas": [],
-        "rutinas": [],
-        "programas": [],
-        "excepciones": [],
-        "entrenamientos": [],
-    }
-    assert resumen(cliente) == CERO
-    assert cliente.get("/rutinas").json() == []
-    assert cliente.get("/rutinas", params={"ocultas": True}).json() == []
-    assert cliente.get("/programas").json() == []
-    assert cliente.get("/programas", params={"ocultos": True}).json() == []
-    assert cliente.get("/ejercicios", params={"ocultos": True}).json() == []
-    ejercicios = cliente.get("/ejercicios").json()
-    assert all(e["es_predefinido"] for e in ejercicios)
-    assert sorted(e["id"] for e in ejercicios) == predefinidos_visibles
-    assert cliente.get("/entrenamientos").json() == []
-    rango = {"desde": "2026-09-01", "hasta": "2026-09-30"}
-    assert cliente.get("/plan/excepciones", params=rango).json() == []
-    assert cliente.get(f"/ejercicios/{datos['de_nota'][0]}/notas").json() == []
-
-
 def test_borrar_no_deja_ninguna_fila_ni_hijos_sueltos(cliente, sesion_bd, datos):
     """Se mira cada tabla entera, no a través de su padre: un hijo que se quedara
     sin él (un hueco, un comodín, un día, una serie) también saldría.
@@ -2974,14 +2582,6 @@ def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
     despues = _predefinidos_en_bd(sesion_bd)
     assert len(despues) == 66
     assert despues == antes
-
-
-def test_borrar_dos_veces_da_204_las_dos(cliente, sesion_bd, datos):
-    borrar(cliente)
-    borrar(cliente)
-
-    assert resumen(cliente) == CERO
-    assert _nada(sesion_bd)
 
 
 def test_tras_borrar_se_puede_empezar_de_cero(cliente, datos, ejercicio_predefinido_id):

@@ -65,8 +65,8 @@ def test_sin_programa_activo_no_toca_nada(cliente):
     dias = plan(cliente, HOY, HOY + timedelta(days=6))
 
     assert len(dias) == 7
-    assert {(d["origen"], d["rutina"], d["descanso"]) for d in dias.values()} == {
-        ("sin_programa", None, True)
+    assert {(d["origen"], d["rutina"], d["descanso"], d["estado"]) for d in dias.values()} == {
+        ("sin_programa", None, True, "descanso")
     }
 
 
@@ -347,16 +347,15 @@ def test_crear_un_programa_activado_quitando_lo_planificado_solo_borra_desde_hoy
     assert [(d["origen"], rutina_de(d)) for d in dia.values()] == [("programa", "Pull")]
 
 
-@pytest.mark.parametrize("extra", [{}, {"quitar_excepciones": False}])
 def test_crear_un_programa_activado_sin_pedirlo_conserva_lo_planificado(
-    cliente, sesion_bd, semana_push, extra
+    cliente, sesion_bd, semana_push
 ):
     ayer = HOY - timedelta(days=1)
     excepcion_a_mano(sesion_bd, ayer, semana_push["pull"])
     dejar_planificado(cliente, HOY, None)
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
 
-    respuesta = crear_activado(cliente, semana_push["pull"], **extra)
+    respuesta = crear_activado(cliente, semana_push["pull"], quitar_excepciones=False)
 
     assert respuesta.status_code == 201, respuesta.text
     assert respuesta.json()["activo"] is True
@@ -367,18 +366,13 @@ def test_crear_un_programa_activado_sin_pedirlo_conserva_lo_planificado(
     ]
 
 
-@pytest.mark.parametrize("activar", [None, False])
-def test_quitar_lo_planificado_sin_activar_da_422_y_no_crea_ni_borra_nada(
-    cliente, semana_push, activar
-):
+def test_quitar_lo_planificado_sin_activar_da_422_y_no_crea_ni_borra_nada(cliente, semana_push):
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
     cuerpo = {
         "nombre": "Nuevo",
         "dias": [{"dia_semana": 1, "rutina_id": semana_push["pull"]}],
         "quitar_excepciones": True,
     }
-    if activar is not None:
-        cuerpo["activar"] = activar
 
     respuesta = cliente.post("/programas", json=cuerpo)
 

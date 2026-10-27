@@ -159,15 +159,13 @@ def test_una_sesion_cancelada_de_hoy_se_borra_y_se_crea_la_nueva(cliente, ppl):
     assert lo_que_toca(cliente, HOY) == ("excepcion", "Leg", False)
 
 
-@pytest.mark.parametrize("campos", [{}, {"intercambiar_con": None}], ids=["sin campo", "nulo"])
-def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl, campos):
+def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
     respuesta = cliente.post(
         "/entrenamientos",
         json={
             "rutina_id": ppl["Pull"],
             "fecha": HOY.isoformat(),
             "cubre_fecha": HOY.isoformat(),
-            **campos,
         },
     )
 
@@ -262,12 +260,13 @@ def test_una_fecha_futura_da_su_422_antes_que_el_del_intercambio(cliente, sesion
     assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
 
 
-@pytest.mark.parametrize("otro", [VIERNES_18, HOY], ids=["intercambio-valido", "mismo-dia"])
-def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, sesion_bd, ppl, otro):
-    """El 404 de la rutina va antes que los 422 del intercambio."""
+def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, sesion_bd, ppl):
+    """El 404 de la rutina va antes que los 422 del intercambio: el mismo día dos
+    veces sería un 422, y sale el 404.
+    """
     assert cliente.delete(f"/rutinas/{ppl['Leg']}?modo=ocultar").status_code == 204
 
-    respuesta = empezar_intercambiando(cliente, ppl["Leg"], otro)
+    respuesta = empezar_intercambiando(cliente, ppl["Leg"], HOY)
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {ppl['Leg']}"

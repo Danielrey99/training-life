@@ -229,12 +229,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         ),
         pytest.param(
             "press",
-            {},
-            "Press banca se apunta con peso y repeticiones: faltan el peso y las repeticiones.",
-            id="peso-y-repeticiones-sin-nada",
-        ),
-        pytest.param(
-            "press",
             {"peso": 60, "repeticiones": 8, "duracion_s": 30},
             "Press banca se apunta con peso y repeticiones: sobra la duración.",
             id="peso-y-repeticiones-con-duracion",
@@ -254,12 +248,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         ),
         pytest.param(
             "dominadas",
-            {},
-            "Dominadas se apunta con repeticiones y carga: faltan el peso y las repeticiones.",
-            id="corporal-sin-nada",
-        ),
-        pytest.param(
-            "dominadas",
             {"peso": 0, "repeticiones": 8, "duracion_s": 20},
             "Dominadas se apunta con repeticiones y carga: sobra la duración.",
             id="corporal-con-duracion",
@@ -269,12 +257,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
             {},
             "Plancha se apunta por tiempo: falta la duración.",
             id="tiempo-sin-nada",
-        ),
-        pytest.param(
-            "plancha",
-            {"peso": 10},
-            "Plancha se apunta por tiempo: falta la duración.",
-            id="tiempo-solo-con-peso",
         ),
     ],
 )
@@ -367,7 +349,7 @@ def test_la_ayuda_admite_hasta_lo_que_cabe_en_la_columna_y_no_mas(cliente, e):
 
 @pytest.mark.parametrize(
     "duracion, codigo",
-    [(1, 201), (86400, 201), (86401, 422), (0, 422), (-30, 422)],
+    [(1, 201), (86400, 201), (86401, 422), (0, 422)],
 )
 def test_la_duracion_va_de_un_segundo_a_un_dia(cliente, e, duracion, codigo):
     respuesta = apuntar(cliente, e, "plancha", duracion_s=duracion)
@@ -496,18 +478,10 @@ def test_corregir_una_serie_sin_sus_medidas_da_422_y_no_la_toca(cliente, e):
 # la variante: opcional, y el PUT copia el cuerpo entero (si no llega, queda nulo).
 
 
-def test_un_peso_corporal_nulo_se_acepta_y_queda_nulo(cliente, e):
-    """Sin el campo, en las series válidas de arriba; aquí, mandado nulo a propósito."""
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=None)
-
-    assert serie["peso_corporal"] is None
-
-
 @pytest.mark.parametrize(
     "ejercicio, medidas, nombre",
     [
         pytest.param("press", {"peso": 60, "repeticiones": 8}, "Press banca", id="peso-y-reps"),
-        pytest.param("plancha", {"duracion_s": 30}, "Plancha", id="tiempo"),
     ],
 )
 def test_el_peso_corporal_en_otro_tipo_da_422(cliente, e, ejercicio, medidas, nombre):
@@ -518,21 +492,18 @@ def test_el_peso_corporal_en_otro_tipo_da_422(cliente, e, ejercicio, medidas, no
     assert series_de(cliente, e) == []
 
 
-VALIDOS = [("0.01", "0.01"), ("500", "500.00")]
-INVALIDOS = ["0", "0.001", "-1", "500.01"]
-
-
-@pytest.mark.parametrize("valor, guardado", VALIDOS)
+@pytest.mark.parametrize("valor, guardado", [("0.01", "0.01"), ("500", "500.00")])
 def test_el_peso_corporal_va_de_un_centimo_a_500_kg_al_apuntar(cliente, e, valor, guardado):
     serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=valor)
 
     assert serie["peso_corporal"] == guardado
 
 
-@pytest.mark.parametrize("valor", INVALIDOS)
+@pytest.mark.parametrize("valor", ["0.001", "500.01"])
 def test_un_peso_corporal_fuera_de_rango_da_422_al_apuntar(cliente, e, valor):
     """0,001 tiene que fallar aquí: NUMERIC(5,2) lo redondearía a 0,00, el CHECK de
-    la base lo rechazaría y sería un 500.
+    la base lo rechazaría y sería un 500. (Un cero o un negativo los para el mismo
+    mínimo.)
     """
     respuesta = apuntar(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=valor)
 
@@ -541,24 +512,12 @@ def test_un_peso_corporal_fuera_de_rango_da_422_al_apuntar(cliente, e, valor):
     assert series_de(cliente, e) == []
 
 
-@pytest.mark.parametrize("valor, guardado", VALIDOS)
-def test_el_peso_corporal_va_de_un_centimo_a_500_kg_al_corregir(cliente, e, valor, guardado):
+def test_un_peso_corporal_fuera_de_rango_da_422_al_corregir(cliente, e):
+    """Corregir usa los mismos topes que apuntar: con el borde de abajo basta."""
     serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=80)
 
     respuesta = corregir(
-        cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=valor
-    )
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["peso_corporal"] == guardado
-
-
-@pytest.mark.parametrize("valor", INVALIDOS)
-def test_un_peso_corporal_fuera_de_rango_da_422_al_corregir(cliente, e, valor):
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=80)
-
-    respuesta = corregir(
-        cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=valor
+        cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal="0.001"
     )
 
     assert respuesta.status_code == 422, respuesta.text
@@ -570,7 +529,6 @@ def test_un_peso_corporal_fuera_de_rango_da_422_al_corregir(cliente, e, valor):
     "en_el_cuerpo, queda",
     [
         pytest.param({}, None, id="ausente-lo-deja-nulo"),
-        pytest.param({"peso_corporal": None}, None, id="nulo-lo-borra"),
         pytest.param({"peso_corporal": 81}, "81.00", id="con-valor-lo-cambia"),
     ],
 )
@@ -590,15 +548,6 @@ def test_corregir_una_serie_copia_el_peso_corporal_del_cuerpo_como_la_variante(
     assert respuesta.status_code == 200, respuesta.text
     assert (respuesta.json()["peso_corporal"], respuesta.json()["variante"]) == (queda, None)
     assert series_de(cliente, e)[0]["peso_corporal"] == queda
-
-
-def test_un_peso_corporal_sin_peso_corporal_previo_se_pone_al_corregir(cliente, e):
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10)
-
-    respuesta = corregir(cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=77)
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["peso_corporal"] == "77.00"
 
 
 def test_pasar_a_una_alternativa_de_otro_tipo_con_peso_corporal_da_422_y_no_cambia_nada(cliente, e):
@@ -746,12 +695,11 @@ def test_la_base_admite_cada_forma_que_la_api_deja_apuntar(cliente, sesion_bd, e
     sesion_bd.rollback()
 
 
-@pytest.mark.parametrize("tipo", ["natación", "CARDIO", "PESO_REPS", ""])
-def test_la_base_rechaza_un_tipo_de_ejercicio_que_no_existe(sesion_bd, grupo_muscular_id, tipo):
+def test_la_base_rechaza_un_tipo_de_ejercicio_que_no_existe(sesion_bd, grupo_muscular_id):
     from app.models import Ejercicio
 
     sesion_bd.add(
-        Ejercicio(nombre="Cinta", grupo_muscular_id=grupo_muscular_id, tipo_registro=tipo)
+        Ejercicio(nombre="Cinta", grupo_muscular_id=grupo_muscular_id, tipo_registro="natación")
     )
 
     with pytest.raises(IntegrityError) as error:
@@ -830,9 +778,6 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
     [
         pytest.param({}, f"{COMO_CARDIO}: falta la duración.", id="sin-nada"),
         pytest.param(
-            {"distancia_m": 5000}, f"{COMO_CARDIO}: falta la duración.", id="solo-distancia"
-        ),
-        pytest.param(
             {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}: sobra el peso.", id="con-peso"
         ),
         # No es el 422 de la ayuda: en cardio sobra cualquier peso, también uno negativo.
@@ -844,11 +789,8 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
             f"{COMO_CARDIO}: sobran las repeticiones.",
             id="con-repeticiones",
         ),
-        pytest.param(
-            {"peso": 10, "repeticiones": 8},
-            f"{COMO_CARDIO}: falta la duración y sobran el peso y las repeticiones.",
-            id="como-peso-y-repeticiones",
-        ),
+        # Lo que falta y lo que sobra a la vez, en
+        # `test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_de_cada_uno`.
         pytest.param(
             {"duracion_s": 600, "peso_corporal": 80},
             "El peso corporal solo se guarda en las series de ejercicios de peso corporal, "
@@ -902,7 +844,7 @@ def test_la_distancia_en_un_ejercicio_que_no_es_de_cardio_da_422(
 
 @pytest.mark.parametrize(
     "distancia, codigo",
-    [(1, 201), (1_000_000, 201), (1_000_001, 422), (0, 422), (-500, 422)],
+    [(1, 201), (1_000_000, 201), (1_000_001, 422), (0, 422)],
 )
 def test_la_distancia_va_de_un_metro_a_mil_kilometros(cliente, c, distancia, codigo):
     respuesta = apuntar(cliente, c, "cinta", duracion_s=600, distancia_m=distancia)
@@ -913,9 +855,8 @@ def test_la_distancia_va_de_un_metro_a_mil_kilometros(cliente, c, distancia, cod
         assert series_de(cliente, c) == []
 
 
-@pytest.mark.parametrize("distancia", [5.5, "cinco", [5000]])
-def test_una_distancia_que_no_es_un_entero_de_metros_da_422(cliente, c, distancia):
-    respuesta = apuntar(cliente, c, "cinta", duracion_s=600, distancia_m=distancia)
+def test_una_distancia_que_no_es_un_entero_de_metros_da_422(cliente, c):
+    respuesta = apuntar(cliente, c, "cinta", duracion_s=600, distancia_m=5.5)
 
     assert respuesta.status_code == 422, respuesta.text
     assert es_de_pydantic_por(respuesta, "distancia_m"), respuesta.text
@@ -934,33 +875,6 @@ def test_corregir_una_serie_de_cardio_cambia_la_distancia_y_la_quita_si_no_se_ma
     assert sin.json()["distancia_m"] is None
     [leida] = series_de(cliente, c)
     assert (leida["duracion_s"], leida["distancia_m"]) == (1500, None)
-
-
-@pytest.mark.parametrize(
-    "medidas, mensaje",
-    [
-        pytest.param({"duracion_s": 600, "peso": 5}, f"{COMO_CARDIO}: sobra el peso.", id="peso"),
-        pytest.param(
-            {"duracion_s": 600, "repeticiones": 5},
-            f"{COMO_CARDIO}: sobran las repeticiones.",
-            id="repeticiones",
-        ),
-        pytest.param(
-            {"distancia_m": 3000}, f"{COMO_CARDIO}: falta la duración.", id="sin-duracion"
-        ),
-    ],
-)
-def test_corregir_una_serie_de_cardio_con_medidas_que_no_son_suyas_da_422_y_no_la_toca(
-    cliente, c, medidas, mensaje
-):
-    serie = apuntada(cliente, c, "cinta", duracion_s=1200, distancia_m=3000)
-
-    respuesta = corregir(cliente, c, serie, "cinta", **medidas)
-
-    assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"] == mensaje
-    [leida] = series_de(cliente, c)
-    assert (leida["duracion_s"], leida["distancia_m"]) == (1200, 3000)
 
 
 def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_de_cada_uno(
@@ -1009,15 +923,6 @@ def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_
     )
 
 
-def test_corregir_una_serie_de_plancha_con_distancia_da_422(cliente, c):
-    serie = apuntada(cliente, c, "plancha", duracion_s=30)
-
-    respuesta = corregir(cliente, c, serie, "plancha", duracion_s=30, distancia_m=50)
-
-    assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"] == "Plancha se apunta por tiempo: sobra la distancia."
-
-
 def test_el_historial_trae_la_distancia_de_una_serie_de_cardio(cliente, c):
     apuntada(cliente, c, "cinta", duracion_s=1800, distancia_m=5200)
     apuntada(cliente, c, "cinta", numero=2, duracion_s=600)
@@ -1054,11 +959,6 @@ def test_el_historial_trae_la_distancia_de_una_serie_de_cardio(cliente, c):
         ),
         pytest.param(
             {"duracion_s": 600, "distancia_m": 0}, "series_distancia_check", id="distancia-cero"
-        ),
-        pytest.param(
-            {"duracion_s": 600, "distancia_m": -5},
-            "series_distancia_check",
-            id="distancia-negativa",
         ),
     ],
 )

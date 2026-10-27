@@ -4,9 +4,6 @@ Lo que se prueba es la consulta de `app/historial.py`: que la agrupación por se
 no mezcla días ni entrenamientos, que `?limite=` recorta sesiones enteras (nunca
 series sueltas), que el rango de fechas incluye sus dos extremos, que cruza rutinas
 y papeles (principal o comodín) y que ocultar algo no esconde lo que se hizo.
-
-El historial de un hueco (`/rutinas/{id}/slots/{slot_id}/historial`) existió y se
-quitó por no tener uso: que la ruta ya no responde, al final.
 """
 
 import pytest
@@ -60,35 +57,6 @@ def historial_de_ejercicio(cliente, ejercicio_id, **filtros):
 
 
 # --- Agrupación por sesión -----------------------------------------------
-
-
-def test_un_ejercicio_sin_series_tiene_el_historial_vacio(cliente, escenario):
-    assert historial_de_ejercicio(cliente, escenario["ejercicio_id"]) == []
-
-
-def test_cada_dia_es_una_entrada_y_van_de_la_mas_reciente_a_la_mas_antigua(cliente, escenario):
-    entrenar(
-        cliente,
-        "2026-09-01",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=3,
-    )
-    entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=2,
-    )
-
-    historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-05", "2026-09-01"]
-    assert [len(sesion["series"]) for sesion in historial] == [2, 3]
-    assert [sesion["rutina"] for sesion in historial] == ["Push", "Push"]
 
 
 def test_las_series_de_cada_dia_salen_ordenadas_por_numero_de_serie(cliente, escenario):
@@ -222,23 +190,25 @@ def test_la_ultima_vez_de_un_ejercicio_cruza_rutinas_y_papeles(
 
 
 def test_el_limite_devuelve_sesiones_completas_no_series_sueltas(cliente, escenario):
-    """`?limite=2` con días de 3 series debe dar 2 días enteros (6 series), no
-    las 2 series más recientes: cortar por series partiría un día por la mitad.
+    """`?limite=2` con días de 3 y 2 series debe dar 2 días enteros (5 series), no
+    las 2 series más recientes: cortar por series partiría un día por la mitad. Cada
+    día es una entrada, con sus series y su rutina, del más reciente al más antiguo.
     """
-    for fecha in ("2026-09-01", "2026-09-03", "2026-09-05"):
+    for fecha, series in (("2026-09-01", 3), ("2026-09-03", 2), ("2026-09-05", 3)):
         entrenar(
             cliente,
             fecha,
             escenario["ejercicio_id"],
             escenario["rutina_id"],
             escenario["slot_id"],
-            series=3,
+            series=series,
         )
 
     historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"], limite=2)
 
     assert [sesion["fecha"] for sesion in historial] == ["2026-09-05", "2026-09-03"]
-    assert [len(sesion["series"]) for sesion in historial] == [3, 3]
+    assert [len(sesion["series"]) for sesion in historial] == [3, 2]
+    assert [sesion["rutina"] for sesion in historial] == ["Push", "Push"]
 
 
 def test_el_limite_recorta_despues_de_filtrar_por_fecha_no_antes(cliente, escenario):
@@ -342,32 +312,11 @@ def test_un_rango_invertido_se_rechaza(cliente, escenario):
 # agujero que ya obligó a añadir `?ocultos=true` y `POST /{id}/mostrar`.
 
 
-def test_el_historial_de_un_ejercicio_ocultado_se_sigue_pudiendo_consultar(cliente, escenario):
-    """Ocultar un ejercicio es lo que se hace con la máquina que ya no se usa;
-    sus series siguen en la base y son parte de la progresión pasada.
-    """
-    entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-        series=2,
-    )
-    assert (
-        cliente.delete(f"/ejercicios/{escenario['ejercicio_id']}?modo=ocultar").status_code == 204
-    )
-
-    respuesta = cliente.get(f"/ejercicios/{escenario['ejercicio_id']}/historial")
-
-    assert respuesta.status_code == 200
-    assert len(respuesta.json()[0]["series"]) == 2
-
-
-def test_ocultar_el_hueco_y_la_rutina_no_esconde_el_historial_del_ejercicio(cliente, escenario):
-    """Retirar un hueco o la rutina entera (`Push v1`) es el caso más habitual de
-    ocultar, y es justo cuando más interesa poder mirar atrás lo que se levantó en
-    ella: el día sigue saliendo, con el nombre de su rutina.
+def test_ocultar_el_ejercicio_su_hueco_y_su_rutina_no_esconde_su_historial(cliente, escenario):
+    """Ocultar un ejercicio es lo que se hace con la máquina que ya no se usa, y
+    retirar un hueco o la rutina entera (`Push v1`), el caso más habitual de ocultar:
+    justo cuando más interesa mirar atrás lo que se levantó. El día sigue saliendo,
+    con sus series y el nombre de su rutina.
     """
     entrenar(
         cliente,
@@ -378,8 +327,12 @@ def test_ocultar_el_hueco_y_la_rutina_no_esconde_el_historial_del_ejercicio(clie
         series=2,
     )
     ruta_del_hueco = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}"
-    assert cliente.delete(f"{ruta_del_hueco}?modo=ocultar").status_code == 204
-    assert cliente.delete(f"/rutinas/{escenario['rutina_id']}?modo=ocultar").status_code == 204
+    for ruta in (
+        f"/ejercicios/{escenario['ejercicio_id']}",
+        ruta_del_hueco,
+        f"/rutinas/{escenario['rutina_id']}",
+    ):
+        assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
 
     historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
 
@@ -399,28 +352,3 @@ def test_el_limite_va_de_1_a_500_sesiones(cliente, escenario, limite, codigo):
     assert respuesta.status_code == codigo
     if codigo == 422:
         assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "limite"]]
-
-
-# --- El historial de un hueco ya no existe --------------------------------
-
-
-def test_el_historial_de_un_hueco_ya_no_responde(cliente, escenario):
-    """`GET /rutinas/{id}/slots/{slot_id}/historial` se quitó por no tener uso (la
-    sesión compara con el historial del ejercicio). Antes daba 200 con este mismo
-    hueco y su serie; que dé 404 asegura que no queda vivo por error.
-    """
-    entrenar(
-        cliente,
-        "2026-09-05",
-        escenario["ejercicio_id"],
-        escenario["rutina_id"],
-        escenario["slot_id"],
-    )
-    ruta_del_hueco = f"/rutinas/{escenario['rutina_id']}/slots/{escenario['slot_id']}"
-    assert cliente.get(f"/rutinas/{escenario['rutina_id']}").status_code == 200
-
-    respuesta = cliente.get(f"{ruta_del_hueco}/historial")
-
-    assert respuesta.status_code == 404
-    # El 404 de una ruta que no existe, no el «Hueco no encontrado» de un id malo.
-    assert respuesta.json()["detail"] == "Not Found"

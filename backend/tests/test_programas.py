@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import consultas_de, crear_ejercicio, crear_hueco, crear_rutina
+from tests.ayudas import consultas_de, crear_rutina
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -60,10 +60,6 @@ def test_crear_un_programa_con_sus_dias(cliente):
     assert programa["activo"] is False
     assert programa["ultimo_periodo"] is None
     assert programa["oculto_desde"] is None
-
-
-def test_un_programa_sin_dias_es_toda_la_semana_de_descanso(cliente):
-    assert crear_programa(cliente)["dias"] == []
 
 
 def test_un_dia_no_puede_tener_dos_rutinas(cliente):
@@ -283,19 +279,6 @@ def test_borrar_una_rutina_sin_historial_la_quita_de_sus_dias(cliente):
     assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == []
 
 
-def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias(cliente, grupo_muscular_id):
-    push = crear_rutina(cliente)
-    crear_hueco(cliente, push, crear_ejercicio(cliente, grupo_muscular_id))
-    crear_programa(cliente, dias=[(1, push), (4, push)])
-
-    respuesta = cliente.delete(f"/rutinas/{push}")
-
-    assert respuesta.status_code == 409
-    assert respuesta.json()["detail"].endswith(
-        " Además, está en 2 días de programa, que pasarían a descanso."
-    )
-
-
 # --- Activar y desactivar ------------------------------------------------
 #
 # Qué programa está activo se guarda en periodos de `desde` a `hasta` (sin
@@ -355,13 +338,17 @@ def test_nunca_hay_dos_programas_activos(cliente):
 
 
 def test_volver_a_activar_el_mismo_dia_reabre_el_periodo(cliente, sesion_bd):
-    """Desactivar por error y corregirlo no parte el periodo en dos."""
+    """Desactivar por error y corregirlo no parte el periodo en dos: se reabre, en la
+    base y en lo que responde cada paso.
+    """
     programa = crear_programa(cliente)
     activo_desde_hace(sesion_bd, programa["id"], 10)
 
-    cliente.post(f"/programas/{programa['id']}/desactivar")
-    cliente.post(f"/programas/{programa['id']}/activar")
+    desactivado = cliente.post(f"/programas/{programa['id']}/desactivar").json()
+    reactivado = cliente.post(f"/programas/{programa['id']}/activar").json()
 
+    assert desactivado["ultimo_periodo"] == periodo(10, 0)
+    assert reactivado["ultimo_periodo"] == periodo(10)
     assert periodos(sesion_bd, programa["id"]) == [(hoy() - timedelta(days=10), None)]
 
 
@@ -723,16 +710,6 @@ def periodo_cerrado(sesion_bd, programa_id, desde_hace, hasta_hace) -> None:
     sesion_bd.commit()
 
 
-def test_un_programa_que_nunca_se_activo_no_tiene_ultimo_periodo(cliente):
-    assert crear_programa(cliente)["ultimo_periodo"] is None
-
-
-def test_el_ultimo_periodo_de_un_programa_activo_es_el_abierto(cliente):
-    programa = cliente.post("/programas", json={"nombre": "PPL", "activar": True}).json()
-
-    assert programa["ultimo_periodo"] == periodo(0)
-
-
 def test_con_dos_periodos_cerrados_el_ultimo_es_el_mas_reciente(cliente, sesion_bd):
     """El más reciente se inserta primero, con el id más bajo: el último es el de
     `desde` mayor, no el último que se guardó.
@@ -761,17 +738,6 @@ def test_activar_y_desactivar_el_mismo_dia_no_deja_rastro(cliente, sesion_bd):
     assert (desactivado["activo"], desactivado["ultimo_periodo"]) == (False, None)
     assert cliente.get(f"/programas/{programa['id']}").json()["ultimo_periodo"] is None
     assert periodos(sesion_bd, programa["id"]) == []
-
-
-def test_desactivar_y_reactivar_el_mismo_dia_deja_el_periodo_reabierto(cliente, sesion_bd):
-    programa = crear_programa(cliente)
-    activo_desde_hace(sesion_bd, programa["id"], 10)
-
-    desactivado = cliente.post(f"/programas/{programa['id']}/desactivar").json()
-    reactivado = cliente.post(f"/programas/{programa['id']}/activar").json()
-
-    assert desactivado["ultimo_periodo"] == periodo(10, 0)
-    assert reactivado["ultimo_periodo"] == periodo(10)
 
 
 def test_ocultar_el_activo_cierra_su_ultimo_periodo_el_dia_en_que_se_oculta(cliente, sesion_bd):

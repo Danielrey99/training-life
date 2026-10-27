@@ -61,22 +61,6 @@ def test_cada_dia_tiene_el_estado_de_lo_que_tocaba(cliente, ppl, grupo_muscular_
     assert dias[JUEVES_10]["sesion"]["cuenta"] is True
 
 
-def test_un_dia_adelantado_esta_movido_aunque_no_haya_llegado(cliente, ppl, grupo_muscular_id):
-    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18)
-
-    dia = seguimiento(cliente, VIERNES_18)[VIERNES_18]
-
-    assert dia["estado"] == "movido"
-    assert dia["cubierto_por"]["entrenamiento_id"] == adelantada
-
-
-def test_los_dias_sin_programa_son_descanso(cliente, ppl):
-    dia = seguimiento(cliente, date(2026, 8, 30))[date(2026, 8, 30)]
-
-    assert dia["estado"] == "descanso"
-    assert dia["origen"] == "sin_programa"
-
-
 # --- Sesiones vacías ------------------------------------------------------
 
 

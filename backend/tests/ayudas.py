@@ -309,30 +309,6 @@ def rutina_en_bd(sesion_bd, nombre=NOMBRE_DE_PRUEBA) -> int:
     return rutina.id
 
 
-def hueco_en_bd(sesion_bd, rutina_id, ejercicio_id) -> int:
-    """Un hueco de esa rutina con ese ejercicio de principal, creado en la base,
-    detrás de los que ya tenga (el orden es único dentro de la rutina).
-    """
-    from sqlalchemy import func, select
-
-    from app.models import RutinaSlot
-
-    ultimo = sesion_bd.scalar(
-        select(func.max(RutinaSlot.orden)).where(RutinaSlot.rutina_id == rutina_id)
-    )
-    hueco = RutinaSlot(
-        rutina_id=rutina_id,
-        ejercicio_principal_id=ejercicio_id,
-        orden=(ultimo or 0) + 1,
-        series_objetivo=3,
-        reps_min=5,
-        reps_max=8,
-    )
-    sesion_bd.add(hueco)
-    sesion_bd.flush()
-    return hueco.id
-
-
 # --- Contar consultas -----------------------------------------------------
 
 

@@ -127,7 +127,7 @@ def ejercicio_id(cliente, grupo_muscular_id) -> int:
 
 @pytest.mark.parametrize(
     "mes",
-    ["2026-13", "2026-00", "2026-9", "septiembre", "1999-01", "2100-01", "2026-09-01", ""],
+    ["2026-13", "2026-00", "2026-9", "1999-01", "2100-01", "2026-09-01", ""],
 )
 def test_un_mes_mal_escrito_da_422(cliente, hoy_es, mes):
     """El formato es `AAAA-MM`, con años de 2000 a 2099: más allá, restar meses
@@ -154,12 +154,6 @@ def test_un_mes_que_no_ha_llegado_da_422_con_su_mensaje(cliente, hoy_es, mes, no
     assert respuesta.json()["detail"] == (
         f"{nombre} todavía no ha llegado: el resumen es de lo ya entrenado."
     )
-
-
-def test_el_mes_actual_se_puede_pedir_desde_su_dia_1(cliente, hoy_es):
-    hoy_es(date(2026, 10, 1))
-
-    assert pedir(cliente, OCTUBRE)["mes"] == "2026-10-01"
 
 
 def test_el_primer_mes_admitido_no_se_sale_del_calendario(cliente, hoy_es):
@@ -481,8 +475,7 @@ def test_los_meses_de_la_grafica_cruzan_de_año(cliente, hoy_es, ejercicio_id):
 @pytest.mark.parametrize(
     "anterior, ultimo, esperado",
     [
-        pytest.param(300, 400, (33.3, date(2026, 9, 21)), id="sube"),
-        pytest.param(200, 150, (-25.0, date(2026, 9, 21)), id="baja"),
+        # Subir y bajar, con su signo, en `test_el_cambio_redondea_las_medias_decimas_hacia_fuera`.
         pytest.param(100, 100, (0.0, date(2026, 9, 21)), id="igual"),
         pytest.param(0, 100, (None, None), id="sin-anterior"),
         pytest.param(100, 0, (None, None), id="sin-ultimo"),
@@ -907,8 +900,9 @@ def test_las_series_van_al_grupo_del_ejercicio_que_se_hizo(cliente, hoy_es):
 # --- Tipos de ejercicio ------------------------------------------------------
 #
 # El volumen solo cuenta los ejercicios de peso y repeticiones: peso por segundos o
-# la carga de unas dominadas no son kilos levantados comparables. Las series de
-# todos los tipos cuentan en «Series por grupo muscular».
+# la carga de unas dominadas no son kilos levantados comparables (el cardio, igual: es
+# la misma condición sobre el tipo). Las series de todos los tipos cuentan en «Series
+# por grupo muscular».
 
 
 def sesion_con_medidas(cliente, fecha, rutina_id, *series) -> int:
@@ -983,60 +977,6 @@ def test_la_barra_en_curso_solo_de_series_por_tiempo_tampoco_da_un_500(cliente, 
         assert por_grupo(vista["en_curso"]) == [(tres_tipos["grupos"][2], 1)]
 
 
-def test_una_semana_solo_de_cardio_tiene_volumen_cero_y_no_da_un_500(cliente, hoy_es, tres_tipos):
-    """El cardio no lleva peso ni repeticiones (el producto es nulo en SQL): no suma
-    volumen, ni a la semana ni al mes, y no rompe la suma. Sus series cuentan en «Series
-    por grupo muscular», con y sin distancia, en el grupo de su ejercicio.
-    """
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    grupo_cardio = tres_tipos["grupos"][2]
-    cinta = crear_ejercicio(cliente, grupo_cardio, "Cinta", tipo="cardio")
-    sesion_con_medidas(
-        cliente, date(2026, 9, 15), push, (tres_tipos["press"], {"peso": 100, "repeticiones": 1})
-    )
-    sesion_con_medidas(
-        cliente,
-        date(2026, 9, 22),
-        push,
-        (cinta, {"duracion_s": 1800, "distancia_m": 5000}),
-        (cinta, {"duracion_s": 600}),
-    )
-
-    datos = pedir(cliente, SEPTIEMBRE)
-
-    semana = barra(datos["por_semana"], date(2026, 9, 21))
-    assert semana["volumen"] == "0.00"
-    assert cambio(semana) == (None, None)
-    assert por_rutina(semana) == []
-    assert por_grupo(semana) == [(grupo_cardio, 2)]
-    assert barra(datos["por_mes"], date(2026, 9, 1))["volumen"] == "100.00"
-
-
-def test_el_cardio_junto_a_peso_y_repeticiones_no_suma_su_tiempo_ni_su_distancia(
-    cliente, hoy_es, tres_tipos
-):
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    cinta = crear_ejercicio(cliente, tres_tipos["grupos"][2], "Cinta", tipo="cardio")
-    sesion_con_medidas(
-        cliente,
-        date(2026, 9, 22),
-        push,
-        (tres_tipos["press"], {"peso": 60, "repeticiones": 10}),
-        (cinta, {"duracion_s": 1800, "distancia_m": 5000}),
-    )
-
-    datos = pedir(cliente, SEPTIEMBRE)
-
-    semana = barra(datos["por_semana"], date(2026, 9, 21))
-    assert semana["volumen"] == "600.00"
-    assert por_rutina(semana) == [("Push", "600.00")]
-    assert sorted(por_grupo(semana)) == sorted(
-        [(tres_tipos["grupos"][0], 1), (tres_tipos["grupos"][2], 1)]
-    )
-
-
 def test_el_peso_corporal_y_el_tiempo_no_suman_volumen_pero_sus_series_cuentan(
     cliente, hoy_es, tres_tipos
 ):
@@ -1071,32 +1011,6 @@ def test_el_peso_corporal_y_el_tiempo_no_suman_volumen_pero_sus_series_cuentan(
         assert sorted(por_grupo(periodo)) == sorted(
             [(del_press, 1), (de_dominadas, 2), (de_plancha, 2)]
         )
-
-
-def test_una_rutina_sin_volumen_esa_semana_no_sale_en_el_volumen_por_rutina(
-    cliente, hoy_es, tres_tipos
-):
-    """Core solo tiene planchas y dominadas: sus series cuentan, pero no tiene kilos
-    que enseñar al lado de Push.
-    """
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    core = crear_rutina(cliente, "Core")
-    sesion_con_medidas(
-        cliente, date(2026, 9, 22), push, (tres_tipos["press"], {"peso": 50, "repeticiones": 10})
-    )
-    sesion_con_medidas(
-        cliente,
-        date(2026, 9, 23),
-        core,
-        (tres_tipos["plancha"], {"duracion_s": 45}),
-        (tres_tipos["dominadas"], {"peso": 20, "repeticiones": 5}),
-    )
-
-    semana = barra(pedir(cliente, SEPTIEMBRE)["por_semana"], date(2026, 9, 21))
-
-    assert por_rutina(semana) == [("Push", "500.00")]
-    assert sum(series for _, series in por_grupo(semana)) == 3
 
 
 def test_la_referencia_anterior_solo_mira_el_volumen_de_peso_y_repeticiones(

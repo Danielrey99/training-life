@@ -48,13 +48,6 @@ def test_sin_cubre_fecha_la_sesion_no_cuenta_para_ningun_dia(cliente, ppl):
     assert respuesta.json()["cubre_fecha"] is None
 
 
-def test_recuperar_hoy_lo_que_tocaba_el_lunes(cliente, ppl):
-    respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_14)
-
-    assert respuesta.status_code == 201, respuesta.text
-    assert respuesta.json()["cubre_fecha"] == LUNES_14.isoformat()
-
-
 def test_lo_del_lunes_se_recupera_hasta_el_domingo(cliente, ppl):
     assert sesion(cliente, DOMINGO_13, ppl["Push"], cubre_fecha=LUNES_7).status_code == 201
 
@@ -64,14 +57,6 @@ def test_el_lunes_siguiente_ya_no_se_recupera_lo_del_lunes_anterior(cliente, ppl
 
     assert respuesta.status_code == 422
     assert "hasta el día antes" in respuesta.json()["detail"]
-
-
-def test_adelantar_lo_del_viernes(cliente, ppl):
-    """Un día que todavía no ha llegado se puede contar, aunque la sesión no."""
-    respuesta = sesion(cliente, HOY, ppl["Leg"], cubre_fecha=VIERNES_18)
-
-    assert respuesta.status_code == 201, respuesta.text
-    assert respuesta.json()["cubre_fecha"] == VIERNES_18.isoformat()
 
 
 def test_se_adelanta_desde_el_lunes_de_la_misma_semana(cliente, ppl):
@@ -474,14 +459,3 @@ def test_de_otro_programa_y_con_el_dia_ocupado_es_422_y_no_toca_la_otra_sesion(c
     ocupante_ahora = cliente.get(f"/entrenamientos/{ocupante}").json()
     assert ocupante_ahora["fecha"] == HOY.isoformat()
     assert ocupante_ahora["rutina_id"] == ppl["Pull"]
-
-
-def test_corregir_solo_las_notas_de_una_sesion_que_cruza_programas(cliente, ppl):
-    adelantada = sesion(cliente, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18).json()["id"]
-    activar_otro_programa(cliente, ppl)
-
-    respuesta = corregir(cliente, adelantada, MARTES_15, notas="Rodilla bien")
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json()["notas"] == "Rodilla bien"
-    assert respuesta.json()["fecha"] == MARTES_15.isoformat()

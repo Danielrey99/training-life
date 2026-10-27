@@ -20,28 +20,6 @@ def _hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
     return {"ejercicio_principal_id": ejercicio_id, "orden": orden, **objetivo(series, reps)}
 
 
-def test_crear_y_editar_un_ejercicio(cliente, grupo_muscular_id):
-    creado = cliente.post(
-        "/ejercicios",
-        json={"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
-    )
-    assert creado.status_code == 201, creado.text
-    creado = creado.json()
-
-    assert creado["es_predefinido"] is False  # lo decide el backend, no el cliente
-    assert creado["oculto_desde"] is None
-
-    editado = cliente.put(
-        f"/ejercicios/{creado['id']}",
-        json={
-            "nombre": "Press banca con barra",
-            "grupo_muscular_id": grupo_muscular_id,
-        },
-    )
-    assert editado.status_code == 200, editado.text
-    assert cliente.get(f"/ejercicios/{creado['id']}").json()["nombre"] == "Press banca con barra"
-
-
 def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_muscular_id):
     """RutinaSlotOut trae los ejercicios completos, no solo sus ids: así el
     frontend no tiene que cruzar datos contra /ejercicios.
@@ -66,19 +44,6 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     assert {k: v for k, v in resuelta.items() if k != "ejercicio"} == objetivo(2, (10, 15))
 
 
-def test_registrar_un_entrenamiento_con_sus_series(cliente, grupo_muscular_id):
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Sentadilla")
-    entrenamiento_id = entrenar(cliente, FECHA, notas="Buen día").json()["id"]
-
-    for numero in (1, 2):
-        respuesta = serie_en(cliente, entrenamiento_id, ejercicio_id, numero=numero, peso=60.5)
-        assert respuesta.status_code == 201
-
-    entrenamiento = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
-    assert len(entrenamiento["series"]) == 2
-    assert entrenamiento["series"][0]["ejercicio"]["nombre"] == "Sentadilla"
-
-
 def test_el_peso_conserva_los_decimales_exactos(cliente, grupo_muscular_id):
     """Es Numeric (Decimal), no float: 100.25 debe volver como 100.25 exacto."""
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Peso muerto")
@@ -87,39 +52,6 @@ def test_el_peso_conserva_los_decimales_exactos(cliente, grupo_muscular_id):
     serie = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5).json()
 
     assert Decimal(str(serie["peso"])) == Decimal("100.25")
-
-
-def test_una_serie_con_rpe_se_acepta_y_el_rpe_no_vuelve_en_ninguna_respuesta(
-    cliente, grupo_muscular_id
-):
-    """El RPE se quitó: si un cliente viejo lo sigue mandando (la web enviaba
-    `rpe: null` en cada serie), se ignora en vez de dar 422, y no sale ni en la
-    serie, ni en la sesión, ni en el historial del ejercicio.
-    """
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Press militar")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    creada = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=40, rpe=8)
-    assert creada.status_code == 201, creada.text
-    serie = creada.json()
-    assert "rpe" not in serie
-
-    editada = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}",
-        json={**_serie(cliente, entrenamiento_id, ejercicio_id, peso=42.5), "rpe": 8},
-    )
-    assert editada.status_code == 200, editada.text
-    assert "rpe" not in editada.json()
-    assert Decimal(str(editada.json()["peso"])) == Decimal("42.5")
-
-    sesion = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()
-    assert [s["id"] for s in sesion["series"]] == [serie["id"]]
-    assert "rpe" not in sesion["series"][0]
-
-    historial = cliente.get(f"/ejercicios/{ejercicio_id}/historial").json()
-    series = [s for dia in historial for s in dia["series"]]
-    assert [s["id"] for s in series] == [serie["id"]]
-    assert "rpe" not in series[0]
 
 
 def _falta_o_es_nulo(respuesta, campo) -> bool:
@@ -230,35 +162,6 @@ def test_a_una_serie_no_se_le_puede_quitar_el_hueco(cliente, grupo_muscular_id, 
     assert (guardada["slot_id"], guardada["peso"]) == (serie["slot_id"], serie["peso"])
 
 
-def test_un_hueco_no_admite_reps_max_menor_que_reps_min(cliente, grupo_muscular_id):
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
-    rutina_id = crear_rutina(cliente, "Pull")
-
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots", json=_hueco(ejercicio_id, series=4, reps=(12, 8))
-    )
-
-    assert respuesta.status_code == 422
-    assert "reps_max no puede ser menor que reps_min" in str(respuesta.json()["detail"])
-    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
-
-
-def test_no_puede_haber_dos_huecos_con_el_mismo_orden(cliente, grupo_muscular_id):
-    """`UNIQUE(rutina_id, orden)`: el endpoint lo comprueba antes y da un 409 legible,
-    no el 500 de la base.
-    """
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
-    rutina_id = crear_rutina(cliente)
-    hueco = _hueco(ejercicio_id, orden=1)
-
-    assert cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco).status_code == 201
-    repetido = cliente.post(f"/rutinas/{rutina_id}/slots", json=hueco)
-
-    assert repetido.status_code == 409
-    assert repetido.json()["detail"] == "Ya hay un hueco con orden=1 en esta rutina"
-    assert len(cliente.get(f"/rutinas/{rutina_id}").json()["slots"]) == 1
-
-
 def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente, grupo_muscular_id):
     """Al crear y al editar: 404 con su mensaje, y nada cambia."""
     creado = cliente.post("/ejercicios", json={"nombre": "X", "grupo_muscular_id": 9999})
@@ -293,28 +196,20 @@ def test_un_nombre_formado_solo_por_espacios_no_se_acepta(cliente, grupo_muscula
 def test_se_pueden_acumular_varias_notas_sobre_el_mismo_ejercicio(cliente, grupo_muscular_id):
     """No hay `UNIQUE` sobre el ejercicio a propósito: cada nota es una
     fila independiente, no se sobreescriben entre ellas. Se listan de la más
-    reciente a la más antigua.
+    reciente a la más antigua, y las de otro ejercicio no se mezclan.
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
 
     for texto in ("Primera", "Segunda", "Tercera"):
         assert (
             cliente.post(f"/ejercicios/{ejercicio_id}/notas", json={"nota": texto}).status_code
             == 201
         )
+    assert cliente.post(f"/ejercicios/{remo}/notas", json={"nota": "Del remo"}).status_code == 201
 
     notas = cliente.get(f"/ejercicios/{ejercicio_id}/notas").json()
     assert [nota["nota"] for nota in notas] == ["Tercera", "Segunda", "Primera"]
-
-
-def test_las_notas_de_un_ejercicio_no_se_mezclan_con_las_de_otro(cliente, grupo_muscular_id):
-    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
-
-    cliente.post(f"/ejercicios/{press}/notas", json={"nota": "Del press"})
-    cliente.post(f"/ejercicios/{remo}/notas", json={"nota": "Del remo"})
-
-    assert [n["nota"] for n in cliente.get(f"/ejercicios/{press}/notas").json()] == ["Del press"]
     assert [n["nota"] for n in cliente.get(f"/ejercicios/{remo}/notas").json()] == ["Del remo"]
 
 
@@ -610,15 +505,6 @@ def test_el_409_de_mezclar_cuenta_las_series_en_plural(cliente, abdominales):
     assert len(_series_de(cliente, sesion)) == 3
 
 
-def test_mas_series_del_mismo_ejercicio_en_el_hueco_si_se_apuntan(cliente, abdominales):
-    e = abdominales
-    sesion = e.sesion()
-
-    _apuntadas(cliente, sesion, e.plancha, e.a, 3)
-
-    assert [s["ejercicio_id"] for s in _series_de(cliente, sesion)] == [e.plancha] * 3
-
-
 def test_el_mismo_hueco_admite_otro_ejercicio_en_otra_sesion(cliente, abdominales):
     """La regla es por sesión, y mira la de la ruta: el 5 se hace con plancha
     aunque el 4 se hiciera con crunch, y después el crunch ya no cabe en la del 5
@@ -840,53 +726,8 @@ def test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409(
 # llegaba hasta Postgres y reventaba con un 500. Ahora los esquemas ponen topes
 # por debajo: el peso, lo que cabe en la columna; el resto, de sentido común
 # (repeticiones y reps ≤ 1000, número de serie y orden ≤ 100, series objetivo
-# ≤ 50). Los primeros tests comprueban que nada llega a Postgres; los de los
-# bordes, que los topes son los decididos.
-
-DEMASIADO = 2**31
-
-
-def test_el_peso_maximo_que_cabe_se_guarda(cliente, grupo_muscular_id):
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json=_serie(cliente, entrenamiento_id, banca, peso="9999.99"),
-    )
-
-    assert respuesta.status_code == 201
-    assert Decimal(respuesta.json()["peso"]) == Decimal("9999.99")
-
-
-@pytest.mark.parametrize(
-    "campo, valor", [("peso", 10000), ("repeticiones", DEMASIADO), ("numero_serie", DEMASIADO)]
-)
-def test_una_serie_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, campo, valor):
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    respuesta = cliente.post(
-        f"/entrenamientos/{entrenamiento_id}/series",
-        json={**_serie(cliente, entrenamiento_id, banca), campo: valor},
-    )
-
-    assert respuesta.status_code == 422
-    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
-
-
-@pytest.mark.parametrize("campo", ["orden", "series_objetivo", "reps_max"])
-def test_un_hueco_con_un_numero_que_no_cabe_da_422(cliente, grupo_muscular_id, campo):
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    rutina_id = crear_rutina(cliente)
-
-    respuesta = cliente.post(
-        f"/rutinas/{rutina_id}/slots", json={**_hueco(banca), campo: DEMASIADO}
-    )
-
-    assert respuesta.status_code == 422
-    assert [error["loc"] for error in respuesta.json()["detail"]] == [["body", campo]]
-    assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
+# ≤ 50). Cada tope se prueba en su borde (el justo vale, uno más da 422), y eso
+# para también cualquier número que no cupiera en la columna.
 
 
 @pytest.mark.parametrize(

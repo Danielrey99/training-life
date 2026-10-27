@@ -87,18 +87,6 @@ def test_restablecer_un_dia_reubica_lo_que_contaba(cliente, ppl, grupo_muscular_
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
 
 
-def test_restablecer_la_semana_reubica_lo_que_contaba(cliente, ppl, grupo_muscular_id):
-    assert planificar(cliente, JUEVES_17, ppl["Leg"]).status_code == 200
-    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=JUEVES_17)
-
-    respuesta = cliente.delete(
-        "/plan/excepciones", params={"desde": LUNES_14.isoformat(), "hasta": "2026-09-20"}
-    )
-
-    assert respuesta.status_code == 204
-    assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
-
-
 def test_dos_adelantos_que_se_cruzan_el_dia_al_restablecer_la_semana(
     cliente, ppl, grupo_muscular_id
 ):

@@ -105,11 +105,10 @@ def ejercicios(cliente, grupo_muscular_id) -> dict[str, int]:
 # --- POST: el orden automático ----------------------------------------------
 
 
-@pytest.mark.parametrize("campos", [{}, {"orden": None}], ids=["sin orden", "orden nulo"])
-def test_sin_orden_el_primer_hueco_de_una_rutina_va_el_1(cliente, ejercicios, campos):
+def test_sin_orden_el_primer_hueco_de_una_rutina_va_el_1(cliente, ejercicios):
     rutina = crear_rutina(cliente)
 
-    hueco = hueco_creado(cliente, rutina, ejercicios["Press"], **campos)
+    hueco = hueco_creado(cliente, rutina, ejercicios["Press"])
 
     assert hueco["orden"] == 1
 
@@ -138,15 +137,24 @@ def test_sin_orden_el_hueco_va_detras_del_mayor_aunque_haya_hueco_libre_antes(cl
     assert hueco_creado(cliente, rutina, ejercicios["Aperturas"])["orden"] == 6
 
 
-def test_con_orden_explicito_se_respeta_y_choca_tambien_con_un_oculto(cliente, ejercicios):
+def test_con_orden_explicito_se_respeta_y_choca_tambien_con_un_oculto(
+    cliente, sesion_bd, ejercicios
+):
+    """`UNIQUE(rutina_id, orden)`: el endpoint lo comprueba antes y da un 409 legible,
+    no el 500 de la base, con un hueco visible o con uno oculto, y no crea nada.
+    """
     rutina = crear_rutina(cliente)
     oculto = hueco_creado(cliente, rutina, ejercicios["Press"], orden=7)["id"]
     assert cliente.delete(f"/rutinas/{rutina}/slots/{oculto}?modo=ocultar").status_code == 204
 
     assert hueco_creado(cliente, rutina, ejercicios["Aperturas"], orden=3)["orden"] == 3
-    respuesta = anadir_hueco(cliente, rutina, ejercicios["Fondos"], orden=7)
-    assert respuesta.status_code == 409
-    assert "orden=7" in respuesta.json()["detail"]
+    con_el_visible = anadir_hueco(cliente, rutina, ejercicios["Fondos"], orden=3)
+    con_el_oculto = anadir_hueco(cliente, rutina, ejercicios["Fondos"], orden=7)
+
+    for respuesta, orden in ((con_el_visible, 3), (con_el_oculto, 7)):
+        assert respuesta.status_code == 409, respuesta.text
+        assert respuesta.json()["detail"] == f"Ya hay un hueco con orden={orden} en esta rutina"
+    assert huecos_guardados(sesion_bd) == (2, 0)
 
 
 @pytest.mark.parametrize("oculto", [False, True], ids=["visible", "oculto"])
