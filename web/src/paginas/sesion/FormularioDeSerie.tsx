@@ -360,7 +360,7 @@ export function FormularioDeSerie({
           type="text"
           maxLength={100}
           value={variante}
-          placeholder="agarre cerrado, sentado…"
+          placeholder="con pausa, sentado…"
           onChange={(evento) => setVariante(evento.target.value)}
         />
       </label>
