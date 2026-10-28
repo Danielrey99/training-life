@@ -15,7 +15,7 @@ type Props = {
 
 /**
  * La hoja del filtro por grupo muscular de la biblioteca: *Todos los grupos musculares* y debajo
- * los grupos en dos columnas. Son 17: en una fila de píldoras no se veían, y envueltas
+ * los grupos en dos columnas. Son muchos: en una fila de píldoras no se veían, y envueltas
  * ocupaban media pantalla encima de la lista. Elegir uno filtra y cierra la hoja.
  */
 export function HojaDeGrupos({ grupos, elegido, alElegir, alCerrar }: Props) {
