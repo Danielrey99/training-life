@@ -347,3 +347,17 @@ def consultas_de(peticion) -> int:
         event.remove(engine, "before_cursor_execute", contar)
     assert respuesta.status_code == 200, respuesta.text
     return len(contador)
+
+
+# --- Lo que deja la siembra -----------------------------------------------
+
+
+def lista_de_predefinidos() -> dict:
+    """`shared/predefinidos.json`: los grupos y los ejercicios predefinidos que deja
+    la siembra. Para contar los predefinidos sin fijar el número en cada test.
+    """
+    import json
+    from pathlib import Path
+
+    ruta = Path(__file__).resolve().parents[2] / "shared" / "predefinidos.json"
+    return json.loads(ruta.read_text(encoding="utf-8"))

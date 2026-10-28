@@ -11,11 +11,10 @@ vacía, donde no pueden saltar. Una migración nueva que se niegue con datos lle
 su test mientras haya bases que no la hayan pasado.
 """
 
-import json
 import os
 from pathlib import Path
 
-from tests.ayudas import crear_ejercicio
+from tests.ayudas import crear_ejercicio, lista_de_predefinidos
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -39,14 +38,6 @@ def test_la_api_responde(cliente):
     assert respuesta.json() == {"status": "ok"}
 
 
-def _lista_de_predefinidos() -> dict:
-    """`shared/predefinidos.json`: los grupos y los ejercicios predefinidos que deja
-    la siembra.
-    """
-    ruta = BACKEND_DIR.parent / "shared" / "predefinidos.json"
-    return json.loads(ruta.read_text(encoding="utf-8"))
-
-
 def propios(cliente) -> list:
     """Los ejercicios propios: los predefinidos están siempre, sembrados."""
     return [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]]
@@ -63,7 +54,7 @@ def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
 
 def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert propios(cliente) == []
-    assert len(cliente.get("/ejercicios").json()) == len(_lista_de_predefinidos()["ejercicios"])
+    assert len(cliente.get("/ejercicios").json()) == len(lista_de_predefinidos()["ejercicios"])
 
 
 # --- La cadena entera de migraciones --------------------------------------
@@ -170,7 +161,7 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
         command.upgrade(configuracion, "head")
 
     # Lo sembrado vuelve, y la API funciona sobre la base recién subida.
-    lista = _lista_de_predefinidos()
+    lista = lista_de_predefinidos()
     assert len(cliente.get("/grupos-musculares").json()) == len(lista["grupos"])
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
     assert len(predefinidos) == len(lista["ejercicios"])
@@ -190,7 +181,7 @@ def test_la_siembra_coincide_con_la_lista_de_predefinidos(cliente):
     Renombrar un predefinido o un grupo rompe además los archivos de exportación,
     que los nombran por su nombre: este test lo caza en cualquiera de los dos lados.
     """
-    lista = _lista_de_predefinidos()
+    lista = lista_de_predefinidos()
     grupos = cliente.get("/grupos-musculares").json()
     # Ordenadas, para que un nombre repetido en un lado tampoco pase.
     assert sorted(g["nombre"] for g in grupos) == sorted(lista["grupos"])
@@ -212,7 +203,7 @@ def test_la_lista_de_predefinidos_es_coherente():
     no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
     grupo Cardio es justo el de los ejercicios de cardio.
     """
-    lista = _lista_de_predefinidos()
+    lista = lista_de_predefinidos()
     grupos = lista["grupos"]
     ejercicios = lista["ejercicios"]
 

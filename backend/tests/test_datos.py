@@ -47,6 +47,7 @@ from tests.ayudas import (
     consultas_de,
     crear_ejercicio,
     entrenar,
+    lista_de_predefinidos,
     objetivo,
     serie_en,
 )
@@ -2251,7 +2252,7 @@ def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos, que):
     assert importar(cliente, archivo).status_code == 200
 
     despues = _predefinidos_en_bd(sesion_bd)
-    assert len(despues) == 66
+    assert len(despues) == len(lista_de_predefinidos()["ejercicios"])
     assert despues == antes
 
 
@@ -2580,7 +2581,7 @@ def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
     borrar(cliente)
 
     despues = _predefinidos_en_bd(sesion_bd)
-    assert len(despues) == 66
+    assert len(despues) == len(lista_de_predefinidos()["ejercicios"])
     assert despues == antes
 
 
