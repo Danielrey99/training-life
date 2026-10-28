@@ -235,7 +235,7 @@ No hay ningún paso previo que recordar:
 | `test_objetivos.py` | El objetivo de cada ejercicio de un hueco: el esquema (un par completo, repeticiones o duración), la familia del ejercicio en crear y editar huecos, las alternativas con su propio objetivo, sustituirlas en su sitio, duplicar, los CHECK de las dos tablas, la migración que copia el objetivo del principal y exportar e importar |
 | `test_medidas.py` | Las medidas de una serie según el tipo de su ejercicio (peso y repeticiones, peso corporal con lastre o ayuda, tiempo, cardio con distancia opcional): qué falta o sobra con su frase, los topes, el peso corporal que ningún cálculo usa, el orden de las comprobaciones y los CHECK de la base |
 | `test_intercambiar.py` | Empezar hoy lo que toca otro día (`intercambiar_con`): que se intercambien los dos días y se cree la sesión en una sola transacción, cada error sin dejar nada cambiado, y los cruces con lo hecho por adelantado |
-| `test_infraestructura.py` | Que el propio andamiaje de los tests funciona (la limpieza entre tests), que la cadena entera de migraciones baja y sube desde cero, y lo sembrado: los 18 grupos musculares y los 66 ejercicios predefinidos con su tipo |
+| `test_infraestructura.py` | Que el propio andamiaje de los tests funciona (la limpieza entre tests), que la cadena entera de migraciones baja y sube desde cero, y que lo sembrado (los grupos musculares y los ejercicios predefinidos con su tipo) coincide exactamente con la lista compartida `shared/predefinidos.json`, que copiará el móvil |
 
 ## Convenciones de código
 

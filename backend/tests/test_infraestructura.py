@@ -11,6 +11,7 @@ vacía, donde no pueden saltar. Una migración nueva que se niegue con datos lle
 su test mientras haya bases que no la hayan pasado.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -38,34 +39,17 @@ def test_la_api_responde(cliente):
     assert respuesta.json() == {"status": "ok"}
 
 
-def test_las_migraciones_sembraron_los_grupos_musculares(cliente):
-    nombres = [grupo["nombre"] for grupo in cliente.get("/grupos-musculares").json()]
-    assert len(nombres) == 18
-    assert {"Pecho", "Trapecio", "Aductores", "Abductores"} <= set(nombres)
+def _lista_de_predefinidos() -> dict:
+    """`shared/predefinidos.json`: los grupos y los ejercicios predefinidos que deja
+    la siembra.
+    """
+    ruta = BACKEND_DIR.parent / "shared" / "predefinidos.json"
+    return json.loads(ruta.read_text(encoding="utf-8"))
 
 
 def propios(cliente) -> list:
     """Los ejercicios propios: los predefinidos están siempre, sembrados."""
     return [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]]
-
-
-# Los predefinidos que no son de peso y repeticiones, y los tres que añadió la siembra
-# por tipos (`e8c4d1b97a36`); los de cardio, de `f9a2b6c83d15`.
-CARDIO_PREDEFINIDOS = ["Cinta de correr", "Bicicleta estática", "Elíptica", "Remo ergómetro"]
-A_CORPORAL = [
-    "Dominadas",
-    "Fondos en paralelas",
-    "Elevación de piernas colgado",
-    "Hiperextensiones",
-    "Russian twist",
-    "Puente de glúteo",
-]
-A_TIEMPO = ["Plancha", "Paseo del granjero"]
-NUEVOS_POR_TIPO = [
-    ("Flexiones", "Pecho", "corporal"),
-    ("Crunch abdominal", "Abdomen", "corporal"),
-    ("Plancha lateral", "Oblicuos", "tiempo"),
-]
 
 
 def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
@@ -79,7 +63,7 @@ def test_cada_test_arranca_sin_ejercicios_propios(cliente, grupo_muscular_id):
 
 def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert propios(cliente) == []
-    assert len(cliente.get("/ejercicios").json()) == 66
+    assert len(cliente.get("/ejercicios").json()) == len(_lista_de_predefinidos()["ejercicios"])
 
 
 # --- La cadena entera de migraciones --------------------------------------
@@ -186,43 +170,61 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
         command.upgrade(configuracion, "head")
 
     # Lo sembrado vuelve, y la API funciona sobre la base recién subida.
-    assert len(cliente.get("/grupos-musculares").json()) == 18
-    assert len([e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]) == 66
+    lista = _lista_de_predefinidos()
+    assert len(cliente.get("/grupos-musculares").json()) == len(lista["grupos"])
+    predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
+    assert len(predefinidos) == len(lista["ejercicios"])
     assert cliente.post("/rutinas", json={"nombre": "Push"}).status_code == 201
 
 
 # --- Lo sembrado, tal como queda en la última migración -------------------------
 
 
-def _tipos_de_los_predefinidos(cliente) -> dict:
-    grupos = {g["id"]: g["nombre"] for g in cliente.get("/grupos-musculares").json()}
-    return {
-        e["nombre"]: (e["tipo_registro"], grupos[e["grupo_muscular_id"]])
-        for e in cliente.get("/ejercicios").json()
-        if e["es_predefinido"]
-    }
+TIPOS_DE_REGISTRO = {"peso_reps", "corporal", "tiempo", "cardio"}
 
 
-def test_la_siembra_deja_66_predefinidos_con_los_tipos_esperados(cliente):
-    tipos = _tipos_de_los_predefinidos(cliente)
-    assert len(tipos) == 66
+def test_la_siembra_coincide_con_la_lista_de_predefinidos(cliente):
+    """`shared/predefinidos.json` es la fuente que copiará la app móvil para sembrar
+    los suyos, así que tiene que decir exactamente lo que dejan las migraciones: ni
+    un grupo ni un ejercicio de más o de menos, cada uno en su grupo y con su tipo.
+    Renombrar un predefinido o un grupo rompe además los archivos de exportación,
+    que los nombran por su nombre: este test lo caza en cualquiera de los dos lados.
+    """
+    lista = _lista_de_predefinidos()
+    grupos = cliente.get("/grupos-musculares").json()
+    # Ordenadas, para que un nombre repetido en un lado tampoco pase.
+    assert sorted(g["nombre"] for g in grupos) == sorted(lista["grupos"])
 
-    for nombre, grupo, tipo in NUEVOS_POR_TIPO:
-        assert tipos[nombre] == (tipo, grupo)
-    # Exactamente los de la lista, ni uno más de cada tipo.
-    assert {n for n, (t, _) in tipos.items() if t == "corporal"} == set(A_CORPORAL) | {
-        "Flexiones",
-        "Crunch abdominal",
+    nombre_del_grupo = {g["id"]: g["nombre"] for g in grupos}
+    predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
+    assert len(predefinidos) == len(lista["ejercicios"])
+    en_la_api = {
+        e["nombre"]: (nombre_del_grupo[e["grupo_muscular_id"]], e["tipo_registro"])
+        for e in predefinidos
     }
-    assert {n for n, (t, _) in tipos.items() if t == "tiempo"} == set(A_TIEMPO) | {
-        "Plancha lateral"
-    }
-    # Los cuatro de cardio, en su grupo, y ningún otro en él.
-    assert {n for n, (t, _) in tipos.items() if t == "cardio"} == set(CARDIO_PREDEFINIDOS)
-    assert {n for n, (_, g) in tipos.items() if g == "Cardio"} == set(CARDIO_PREDEFINIDOS)
-    # Parecidos que se quedan como estaban.
-    for nombre in ["Zancadas", "Sentadilla búlgara", "Crunch en polea", "Hip thrust"]:
-        assert tipos[nombre][0] == "peso_reps", nombre
-    talones = [(n, t) for n, (t, _) in tipos.items() if n.startswith("Elevación de talones")]
-    assert len(talones) == 2
-    assert {t for _, t in talones} == {"peso_reps"}
+    en_la_lista = {e["nombre"]: (e["grupo"], e["tipo_registro"]) for e in lista["ejercicios"]}
+    assert en_la_api == en_la_lista
+
+
+def test_la_lista_de_predefinidos_es_coherente():
+    """Sin base de datos: la lista no se contradice a sí misma. Un nombre repetido
+    (también solo cambiando mayúsculas) chocaría al sembrar; un grupo o un tipo que
+    no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
+    grupo Cardio es justo el de los ejercicios de cardio.
+    """
+    lista = _lista_de_predefinidos()
+    grupos = lista["grupos"]
+    ejercicios = lista["ejercicios"]
+
+    assert len({g.casefold() for g in grupos}) == len(grupos)
+    nombres = [e["nombre"] for e in ejercicios]
+    assert len({n.casefold() for n in nombres}) == len(nombres)
+    for ejercicio in ejercicios:
+        assert set(ejercicio) == {"nombre", "grupo", "tipo_registro"}, ejercicio
+        assert ejercicio["nombre"].strip() == ejercicio["nombre"] != "", ejercicio
+        assert ejercicio["grupo"] in grupos, ejercicio
+        assert ejercicio["tipo_registro"] in TIPOS_DE_REGISTRO, ejercicio
+        assert (ejercicio["grupo"] == "Cardio") == (ejercicio["tipo_registro"] == "cardio"), (
+            ejercicio
+        )
+    assert {e["grupo"] for e in ejercicios} == set(grupos)

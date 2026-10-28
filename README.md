@@ -22,6 +22,7 @@ training-life/
 ├── backend/                                 # API REST (FastAPI + PostgreSQL)
 ├── web/                                     # Frontend web (React)
 ├── mobile/                                  # App móvil (React Native + Expo)
+├── shared/                                  # lo que comparten backend y móvil: la lista de ejercicios predefinidos
 ├── docker-compose.yml                       # orquesta los contenedores (backend + PostgreSQL)
 ├── .env.example                             # plantilla de variables de entorno para docker-compose.yml
 ├── .gitignore                               # qué no subir a git, por carpeta

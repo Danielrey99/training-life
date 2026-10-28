@@ -2317,7 +2317,7 @@ def test_sin_ejercicios_propios_el_archivo_no_trae_ninguno(
     cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
 ):
     """El caso en que un filtro perdido más se notaría: solo hay una nota en un
-    predefinido, y la lista de propios tiene que salir vacía, no con los 66.
+    predefinido, y la lista de propios tiene que salir vacía, no con todos los predefinidos.
     """
     hoy_es(HOY)
     cliente.post(f"/ejercicios/{ejercicio_predefinido_id}/notas", json={"nota": "Barra baja"})
