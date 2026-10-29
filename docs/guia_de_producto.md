@@ -4,7 +4,7 @@ Qué hace la app, qué pantallas tiene y cómo se comporta cada una. Es la refer
 
 Va acompañada de dos imágenes que conviene tener abiertas al leerla:
 
-- **[Bocetos](bocetos-movil-training-life.png)**: las 17 pantallas en todos sus estados, cada una con una nota. Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
+- **[Bocetos](bocetos-movil-training-life.png)**: las 16 pantallas en todos sus estados, cada una con una nota. Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
 - **[Mapa de navegación](mapa-navegacion-training-life.png)**: qué se toca para ir de una pantalla a otra.
 
 Los datos que aparecen en los bocetos son de ejemplo: enseñan cómo se ve cada función, no tienen por qué cuadrar entre una pantalla y otra.
@@ -121,8 +121,8 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **P5** | Programa nuevo | Nombre, si se activa y los siete días | P1 |
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
-| **X3** | Nuevo / editar ejercicio | Nombre, grupo y descripción | X1, X2 |
-| **A1** | Ajustes | Unidad, botones del peso, 1RM, tema, colores de los días y tus datos (exportar, importar, borrar) | E1 (engranaje) |
+| **X3** | Nuevo / editar ejercicio | Nombre, grupo, cómo se apunta y descripción | X1, X2 |
+| **A1** | Ajustes | Unidades, botones del peso y del tiempo, peso corporal, objetivo de cada tipo, 1RM, tema, colores de los días y tus datos (exportar, importar, borrar) | E1 (engranaje) |
 
 **Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un ejercicio de una rutina no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
 

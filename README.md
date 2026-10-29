@@ -48,7 +48,7 @@ Las 12 tablas de la app, con lo que más condiciona el diseño: qué relaciones 
 
 Antes de construir las pantallas de verdad, la app entera se diseñó en bocetos de móvil (390 px de ancho, pensada para usarse con una mano en el gimnasio). La web y el móvil tendrán las mismas pantallas y funciones; la versión de escritorio es la misma con más aire.
 
-- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 17 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
+- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 16 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
 - **[Mapa de navegación](docs/mapa-navegacion-training-life.png)**: cómo se pasa de una pantalla a otra, agrupado por las cuatro secciones de la barra de pestañas (Entrenar, Historial, Programas y Ejercicios).
 - **[Guía de producto](docs/guia_de_producto.md)**: el texto que acompaña a los bocetos — qué hace cada pantalla, las reglas que siguen todas (confirmaciones, ocultar frente a borrar, qué toca cada día) y lo que el diseño pide al backend.
 
