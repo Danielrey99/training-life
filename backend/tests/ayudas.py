@@ -186,6 +186,25 @@ def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
     assert respuesta.status_code == 204, respuesta.text
 
 
+# --- Programas -------------------------------------------------------------
+
+
+def crear_programa(cliente, nombre="Push Pull Leg", dias=(), activar=False) -> dict:
+    """Un programa nuevo con esos días, cada uno `(dia_semana, rutina_id)`; activo
+    desde hoy si se pide. Devuelve el programa de la API.
+    """
+    respuesta = cliente.post(
+        "/programas",
+        json={
+            "nombre": nombre,
+            "activar": activar,
+            "dias": [{"dia_semana": dia, "rutina_id": rutina} for dia, rutina in dias],
+        },
+    )
+    assert respuesta.status_code == 201, respuesta.text
+    return respuesta.json()
+
+
 # --- El plan: días cambiados a mano ---------------------------------------
 
 

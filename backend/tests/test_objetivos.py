@@ -447,7 +447,7 @@ def test_un_ejercicio_que_no_existe_da_404_antes_que_un_objetivo_equivocado(
     else:
         respuesta = editar(cliente, e.rutina, slot, principal=e.press, alternativas=malas)
 
-    assert respuesta.status_code == 404, respuesta.text
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
     assert cuantos(sesion_bd) == antes
 
 

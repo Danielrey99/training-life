@@ -57,6 +57,106 @@ def test_el_ejercicio_del_test_anterior_ya_no_esta(cliente):
     assert len(cliente.get("/ejercicios").json()) == len(lista_de_predefinidos()["ejercicios"])
 
 
+# --- El esquema que dejan las migraciones es el de los modelos ---------------
+#
+# Tablas, columnas (con su tipo y si admiten nulos), claves foráneas (con su ON
+# DELETE: CASCADE o RESTRICT es una decisión del diseño), unicidades, CHECK por su
+# nombre e índices (con su condición, si son parciales). Una columna que una
+# migración olvida quitar (como hicieron en su día los usuarios o el RPE), un
+# `String(100)` que se queda en 50 o un RESTRICT que pasa a NO ACTION salen aquí.
+
+
+def _sin_parentesis(condicion) -> str | None:
+    return None if condicion is None else str(condicion).strip("()")
+
+
+def esquema_de_la_base(conexion) -> dict[str, set]:
+    from sqlalchemy import inspect
+    from sqlalchemy.dialects import postgresql
+
+    inspector = inspect(conexion)
+    tablas = set(inspector.get_table_names()) - {"alembic_version"}
+    esquema = {clave: set() for clave in ("columnas", "fks", "unicas", "checks", "indices")}
+    esquema["tablas"] = tablas
+    for tabla in tablas:
+        for columna in inspector.get_columns(tabla):
+            tipo = columna["type"].compile(dialect=postgresql.dialect())
+            esquema["columnas"].add((tabla, columna["name"], tipo, columna["nullable"]))
+        for fk in inspector.get_foreign_keys(tabla):
+            esquema["fks"].add(
+                (
+                    tabla,
+                    tuple(fk["constrained_columns"]),
+                    fk["referred_table"],
+                    fk["options"].get("ondelete"),
+                )
+            )
+        for unica in inspector.get_unique_constraints(tabla):
+            esquema["unicas"].add((tabla, tuple(sorted(unica["column_names"]))))
+        for check in inspector.get_check_constraints(tabla):
+            esquema["checks"].add((tabla, check["name"]))
+        for indice in inspector.get_indexes(tabla):
+            if "duplicates_constraint" in indice:
+                continue  # el índice que Postgres crea por debajo de un UNIQUE
+            condicion = indice.get("dialect_options", {}).get("postgresql_where")
+            esquema["indices"].add(
+                (tabla, indice["name"], indice["unique"], _sin_parentesis(condicion))
+            )
+    return esquema
+
+
+def esquema_de_los_modelos() -> dict[str, set]:
+    from sqlalchemy import CheckConstraint, UniqueConstraint
+    from sqlalchemy.dialects import postgresql
+
+    import app.models  # noqa: F401  (registra las tablas en el metadata)
+    from app.database import Base
+
+    esquema = {clave: set() for clave in ("columnas", "fks", "unicas", "checks", "indices")}
+    esquema["tablas"] = set(Base.metadata.tables)
+    for tabla in Base.metadata.tables.values():
+        for columna in tabla.columns:
+            tipo = columna.type.compile(dialect=postgresql.dialect())
+            esquema["columnas"].add((tabla.name, columna.name, tipo, columna.nullable))
+            if columna.unique:
+                esquema["unicas"].add((tabla.name, (columna.name,)))
+        for fk in tabla.foreign_keys:
+            esquema["fks"].add((tabla.name, (fk.parent.name,), fk.column.table.name, fk.ondelete))
+        for restriccion in tabla.constraints:
+            if isinstance(restriccion, UniqueConstraint):
+                columnas = tuple(sorted(c.name for c in restriccion.columns))
+                esquema["unicas"].add((tabla.name, columnas))
+            elif isinstance(restriccion, CheckConstraint):
+                esquema["checks"].add((tabla.name, restriccion.name))
+        for indice in tabla.indexes:
+            condicion = indice.dialect_options["postgresql"]["where"]
+            esquema["indices"].add(
+                (tabla.name, indice.name, bool(indice.unique), _sin_parentesis(condicion))
+            )
+    return esquema
+
+
+def comprobar_que_la_base_es_la_de_los_modelos() -> None:
+    """Compara parte por parte, para que el fallo diga qué sobra y qué falta."""
+    from app.database import engine
+
+    with engine.connect() as conexion:
+        en_la_base = esquema_de_la_base(conexion)
+    en_los_modelos = esquema_de_los_modelos()
+    for parte, esperado in en_los_modelos.items():
+        assert {
+            "sobra en la base": en_la_base[parte] - esperado,
+            "falta en la base": esperado - en_la_base[parte],
+        } == {"sobra en la base": set(), "falta en la base": set()}, parte
+
+
+def test_la_base_de_tests_tiene_el_esquema_de_los_modelos(cliente):
+    """La base de tests se sube migración a migración: un modelo cambiado sin su
+    migración (o una migración que no hace lo que dice el modelo) sale aquí.
+    """
+    comprobar_que_la_base_es_la_de_los_modelos()
+
+
 # --- La cadena entera de migraciones --------------------------------------
 
 
@@ -64,10 +164,8 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
     """`conftest.py` solo sube lo que falte: en una base de tests que ya existe, la
     cadena desde cero no se vuelve a recorrer. Aquí se baja hasta antes de la primera
     migración (no queda ni una tabla) y se sube hasta la última, y la base queda
-    como dicen los modelos: sin usuarios, con las restricciones globales que los
-    sustituyeron, las notas con su nombre nuevo, las series sin la columna del RPE
-    (se quitó de la app: la migración la borra, no la deja huérfana) y lo sembrado
-    otra vez en su sitio.
+    exactamente como dicen los modelos (es lo que recorre una instalación nueva), con
+    lo sembrado otra vez en su sitio.
     """
     from alembic import command
     from alembic.script import ScriptDirectory
@@ -88,74 +186,9 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
         engine.dispose()
         command.upgrade(configuracion, "head")
         with engine.connect() as conexion:
-
-            def nombres(sql):
-                return set(conexion.scalars(text(sql)).all())
-
             version = conexion.scalar(text("SELECT version_num FROM alembic_version"))
-            assert version == ScriptDirectory.from_config(configuracion).get_current_head()
-            assert "usuarios" not in nombres("SELECT tablename FROM pg_tables")
-            assert "notas_ejercicio" in nombres("SELECT tablename FROM pg_tables")
-            assert "notas_usuario_ejercicio" not in nombres("SELECT tablename FROM pg_tables")
-            columnas = nombres(
-                "SELECT table_name || '.' || column_name FROM information_schema.columns "
-                "WHERE table_schema = 'public'"
-            )
-            assert not {c for c in columnas if c.endswith((".usuario_id", ".visibilidad"))}
-            assert "series.peso" in columnas and "series.rpe" not in columnas
-            assert {
-                "ejercicios.tipo_registro",
-                "series.duracion_s",
-                "series.peso_corporal",
-                "series.distancia_m",
-            } <= columnas
-            assert {
-                "ejercicios_tipo_registro_check",
-                "series_medidas_check",
-                "series_peso_check",
-                "series_duracion_check",
-                "series_peso_corporal_check",
-                "series_distancia_check",
-                "rutina_slots_objetivo_check",
-                "slot_alternativas_objetivo_check",
-            } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'c'")
-            assert {
-                "rutina_slots.duracion_min_s",
-                "rutina_slots.duracion_max_s",
-            } | {
-                f"slot_alternativas.{columna}"
-                for columna in (
-                    "series_objetivo",
-                    "reps_min",
-                    "reps_max",
-                    "duracion_min_s",
-                    "duracion_max_s",
-                )
-            } <= columnas
-            nulables = nombres(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'series' AND is_nullable = 'YES'"
-            )
-            assert {
-                "peso",
-                "repeticiones",
-                "duracion_s",
-                "peso_corporal",
-                "distancia_m",
-            } <= nulables
-            assert {
-                "entrenamientos_fecha_key",
-                "entrenamientos_cubre_fecha_key",
-                "excepciones_del_plan_fecha_key",
-            } <= nombres("SELECT conname FROM pg_constraint WHERE contype = 'u'")
-            indice = conexion.scalar(
-                text(
-                    "SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_programa_periodos_abierto'"
-                )
-            )
-            assert indice is not None and "UNIQUE" in indice and "hasta IS NULL" in indice
-            assert not nombres("SELECT conname FROM pg_constraint WHERE conname LIKE '%usuario%'")
-            assert not nombres("SELECT indexname FROM pg_indexes WHERE indexname LIKE '%usuario%'")
+        assert version == ScriptDirectory.from_config(configuracion).get_current_head()
+        comprobar_que_la_base_es_la_de_los_modelos()
     finally:
         engine.dispose()
         command.upgrade(configuracion, "head")

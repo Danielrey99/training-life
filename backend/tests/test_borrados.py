@@ -786,6 +786,35 @@ def test_una_serie_de_un_hueco_oculto_se_puede_corregir_sin_cambiarle_el_hueco(
     assert respuesta.json()["repeticiones"] == 6
 
 
+def test_en_un_hueco_oculto_una_serie_se_corrige_a_su_comodin_pero_no_a_otro_ejercicio(
+    cliente, grupo_muscular_id
+):
+    """El hueco no cambia, así que no se valida que esté oculto; el ejercicio sí
+    cambia, y tiene que seguir siendo del hueco (422 si no, sin tocar la serie).
+    Es el despiste típico de un día pasado: se apuntó el press y era la máquina.
+    """
+    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    maquina = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
+    rutina_id, slot_id = crear_rutina_con_hueco(cliente, press)
+    poner_alternativas(cliente, rutina_id, slot_id, [maquina])
+    entrenamiento_id = registrar_serie(cliente, rutina_id, slot_id, press)
+    [serie] = series_de(cliente, entrenamiento_id)
+    ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
+    ruta = f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}"
+
+    ajena = cliente.put(ruta, json=cuerpo_serie(remo, slot_id, peso=50, repeticiones=10))
+    assert (ajena.status_code, ajena.json()["detail"]) == (
+        422,
+        "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+    )
+    assert series_de(cliente, entrenamiento_id) == [serie]
+
+    corregida = cliente.put(ruta, json=cuerpo_serie(maquina, slot_id, peso=50, repeticiones=10))
+    assert corregida.status_code == 200, corregida.text
+    assert (corregida.json()["ejercicio_id"], corregida.json()["slot_id"]) == (maquina, slot_id)
+
+
 def test_se_puede_corregir_una_serie_ya_registrada_de_un_ejercicio_oculto(
     cliente, grupo_muscular_id
 ):
@@ -1122,7 +1151,11 @@ def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente,
     en_la_del_principal = ruta_de_sesion(FECHA)
     en_la_del_comodin = ruta_de_sesion("2026-09-05")
 
-    assert cliente.post(en_la_del_principal, json=cuerpo_serie(otro, slot_id)).status_code == 422
+    ajeno = cliente.post(en_la_del_principal, json=cuerpo_serie(otro, slot_id))
+    assert (ajeno.status_code, ajeno.json()["detail"]) == (
+        422,
+        "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+    )
     assert (
         cliente.post(en_la_del_principal, json=cuerpo_serie(principal, slot_id)).status_code == 201
     )

@@ -19,6 +19,7 @@ from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
 from tests.ayudas import (
     PIDE_MODO,
     crear_ejercicio,
+    crear_programa,
     crear_hueco,
     crear_rutina,
     dejar_planificado,
@@ -30,18 +31,6 @@ from tests.semana import HOY
 @pytest.fixture(autouse=True)
 def reloj_congelado(hoy_es):
     hoy_es(HOY)
-
-
-def crear_programa(cliente, nombre, dias) -> int:
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": nombre,
-            "dias": [{"dia_semana": dia, "rutina_id": rutina} for dia, rutina in dias],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def periodo(sesion_bd, programa_id, desde, hasta=None) -> None:
@@ -73,7 +62,7 @@ def test_sin_programa_activo_no_toca_nada(cliente):
 
 def test_con_un_programa_activo_cada_dia_de_la_semana_toma_su_rutina(cliente):
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, "PPL", [(1, push), (3, pull)])
+    programa = crear_programa(cliente, "PPL", [(1, push), (3, pull)])["id"]
     cliente.post(f"/programas/{programa}/activar")
 
     dias = plan(cliente, HOY, HOY + timedelta(days=13))
@@ -90,8 +79,8 @@ def test_un_dia_pasado_se_compara_con_el_programa_de_entonces(cliente, sesion_bd
     nuevo (todo Pull). Antes de hace 20 días no había ninguno.
     """
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    viejo = crear_programa(cliente, "Viejo", [(d, push) for d in range(1, 8)])
-    nuevo = crear_programa(cliente, "Nuevo", [(d, pull) for d in range(1, 8)])
+    viejo = crear_programa(cliente, "Viejo", [(d, push) for d in range(1, 8)])["id"]
+    nuevo = crear_programa(cliente, "Nuevo", [(d, pull) for d in range(1, 8)])["id"]
     periodo(sesion_bd, viejo, HOY - timedelta(days=20), HOY - timedelta(days=10))
     periodo(sesion_bd, nuevo, HOY - timedelta(days=10))
 
@@ -110,7 +99,7 @@ def test_un_dia_pasado_se_compara_con_el_programa_de_entonces(cliente, sesion_bd
 
 def test_una_rutina_oculta_es_descanso_desde_que_se_oculto_pero_no_antes(cliente, sesion_bd):
     push = crear_rutina(cliente, "Push")
-    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)])
+    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)])["id"]
     periodo(sesion_bd, programa, HOY - timedelta(days=10))
     sesion_bd.execute(
         update(Rutina).where(Rutina.id == push).values(oculto_desde=HOY - timedelta(days=3))
@@ -128,7 +117,7 @@ def test_una_rutina_oculta_es_descanso_desde_que_se_oculto_pero_no_antes(cliente
 
 def test_un_programa_oculto_sigue_contando_para_los_dias_en_que_estuvo_activo(cliente, sesion_bd):
     push = crear_rutina(cliente, "Push")
-    programa = crear_programa(cliente, "Viejo", [(d, push) for d in range(1, 8)])
+    programa = crear_programa(cliente, "Viejo", [(d, push) for d in range(1, 8)])["id"]
     periodo(sesion_bd, programa, HOY - timedelta(days=10), HOY - timedelta(days=5))
     sesion_bd.execute(update(Programa).where(Programa.id == programa).values(oculto_desde=HOY))
     sesion_bd.commit()
@@ -151,7 +140,7 @@ def excepcion_a_mano(sesion_bd, fecha, rutina_id) -> None:
 def semana_push(cliente):
     """Un programa activo con Push todos los días, y una rutina Pull suelta."""
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)])
+    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)])["id"]
     cliente.post(f"/programas/{programa}/activar")
     return {"push": push, "pull": pull, "programa": programa}
 
@@ -283,7 +272,7 @@ def test_activar_otro_programa_quitando_lo_planificado_solo_borra_desde_hoy(
     ayer = HOY - timedelta(days=1)
     excepcion_a_mano(sesion_bd, ayer, semana_push["pull"])
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
-    otro = crear_programa(cliente, "Otro", [])
+    otro = crear_programa(cliente, "Otro", [])["id"]
 
     cliente.post(f"/programas/{otro}/activar", json={"quitar_excepciones": True})
 
@@ -293,7 +282,7 @@ def test_activar_otro_programa_quitando_lo_planificado_solo_borra_desde_hoy(
 
 def test_activar_otro_programa_sin_pedirlo_conserva_lo_planificado(cliente, semana_push):
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
-    otro = crear_programa(cliente, "Otro", [])
+    otro = crear_programa(cliente, "Otro", [])["id"]
 
     cliente.post(f"/programas/{otro}/activar")
 
@@ -489,8 +478,8 @@ def test_un_periodo_cubre_su_ultimo_dia_aunque_el_rango_empiece_justo_ahi(client
     también el filtro de la consulta, no solo el recorrido día a día.
     """
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    viejo = crear_programa(cliente, "Viejo", [(d, pull) for d in range(1, 8)])
-    nuevo = crear_programa(cliente, "Nuevo", [(d, push) for d in range(1, 8)])
+    viejo = crear_programa(cliente, "Viejo", [(d, pull) for d in range(1, 8)])["id"]
+    nuevo = crear_programa(cliente, "Nuevo", [(d, push) for d in range(1, 8)])["id"]
     cambio = HOY - timedelta(days=5)
     periodo(sesion_bd, viejo, HOY - timedelta(days=10), cambio)
     periodo(sesion_bd, nuevo, cambio)

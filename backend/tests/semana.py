@@ -16,6 +16,7 @@ MARTES_15 = date(2026, 9, 15)
 HOY = date(2026, 9, 16)  # miércoles
 JUEVES_17 = date(2026, 9, 17)
 VIERNES_18 = date(2026, 9, 18)
+SABADO_19 = date(2026, 9, 19)
 LUNES_21 = date(2026, 9, 21)
 
 
@@ -25,6 +26,11 @@ def sesion(cliente, fecha, rutina_id, cubre_fecha=None):
     if cubre_fecha is not None:
         cuerpo["cubre_fecha"] = cubre_fecha.isoformat()
     return cliente.post("/entrenamientos", json=cuerpo)
+
+
+def cubre(cliente, entrenamiento_id) -> str | None:
+    """El día que cuenta la sesión (`cubre_fecha`), o `None` si no cuenta ninguno."""
+    return cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["cubre_fecha"]
 
 
 def con_una_serie(cliente, grupo_muscular_id, entrenamiento_id) -> None:

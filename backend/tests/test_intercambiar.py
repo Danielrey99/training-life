@@ -15,16 +15,22 @@ Todos parten de la semana de `tests/semana.py`: hoy es el miércoles 16 de
 septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 """
 
-from datetime import date
-
 import pytest
 from sqlalchemy import func, select
 
 from app.models import Entrenamiento, ExcepcionDelPlan
 from tests.ayudas import dejar_planificado
-from tests.semana import HOY, JUEVES_17, LUNES_14, LUNES_21, MARTES_15, VIERNES_18, hecha
-
-SABADO_19 = date(2026, 9, 19)
+from tests.semana import (
+    HOY,
+    JUEVES_17,
+    LUNES_14,
+    LUNES_21,
+    MARTES_15,
+    SABADO_19,
+    VIERNES_18,
+    cubre,
+    hecha,
+)
 
 
 # --- Ayudantes -----------------------------------------------------------
@@ -62,10 +68,6 @@ def lo_que_toca(cliente, fecha) -> tuple:
 def cuantas(sesion_bd, modelo) -> int:
     sesion_bd.expire_all()
     return sesion_bd.scalar(select(func.count()).select_from(modelo))
-
-
-def cubre(cliente, entrenamiento_id) -> str | None:
-    return cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["cubre_fecha"]
 
 
 # --- Lo que hace ---------------------------------------------------------

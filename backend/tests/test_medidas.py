@@ -378,6 +378,7 @@ def test_unas_medidas_mal_puestas_dan_su_422_antes_que_el_409_de_mezclar(cliente
     assert mal.status_code == 422, mal.text
     assert mal.json()["detail"].startswith("Plancha se apunta por tiempo:")
     assert bien.status_code == 409, bien.text
+    assert bien.json()["detail"].startswith("Esta sesión ya tiene la serie de Press banca ")
     assert series_de(cliente, e) == [press]
 
 

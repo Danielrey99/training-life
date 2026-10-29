@@ -16,13 +16,17 @@ from sqlalchemy import select
 
 from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo
 from tests.ayudas import planificar
-from tests.semana import HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
-
-SABADO_19 = date(2026, 9, 19)
-
-
-def cubre(cliente, entrenamiento_id) -> str | None:
-    return cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["cubre_fecha"]
+from tests.semana import (
+    HOY,
+    JUEVES_17,
+    LUNES_14,
+    MARTES_15,
+    SABADO_19,
+    VIERNES_18,
+    cubre,
+    hecha,
+    sesion,
+)
 
 
 def leg_adelantado(cliente, ppl, grupo_muscular_id) -> int:

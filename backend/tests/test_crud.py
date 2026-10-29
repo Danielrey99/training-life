@@ -859,6 +859,76 @@ def test_ningun_texto_mas_largo_que_su_columna_llega_a_la_base(cliente, grupo_mu
         assert tipos == {"string_too_long"}, f"{metodo.upper()} {ruta}: {tipos}"
 
 
+def _tope_de_longitud(campo) -> int | None:
+    """El `max_length` de un campo de Pydantic, venga de `Field` o de `StringConstraints`;
+    para un `Literal`, el valor más largo.
+    """
+    from typing import Literal, get_args, get_origin
+
+    if get_origin(campo.annotation) is Literal:
+        return max(len(valor) for valor in get_args(campo.annotation))
+    topes = [getattr(m, "max_length", None) for m in campo.metadata]
+    return min((tope for tope in topes if tope is not None), default=None)
+
+
+def test_cada_texto_que_llega_por_la_api_o_en_un_archivo_cabe_en_su_columna():
+    """Sin base de datos: la versión de la lista de arriba que no se olvida de ninguno.
+    Cada columna de texto, en cada esquema que la recibe (crear, editar e importar),
+    tiene un tope que cabe en la columna; si no, un texto más largo sería un 500 al
+    guardar (al importar, a mitad de la carga). Una columna de texto nueva, o un
+    esquema nuevo que la reciba, entra aquí.
+    """
+    from sqlalchemy import String
+
+    from app import models, schemas
+
+    recibida_en = {
+        models.Ejercicio: (
+            schemas.EjercicioCreate,
+            schemas.EjercicioUpdate,
+            schemas.EjercicioDeArchivo,
+        ),
+        models.NotaEjercicio: (schemas.NotaCreate, schemas.NotaUpdate, schemas.NotaDeArchivo),
+        models.Rutina: (schemas.RutinaCreate, schemas.RutinaUpdate, schemas.RutinaDeArchivo),
+        models.Programa: (
+            schemas.ProgramaCreate,
+            schemas.ProgramaUpdate,
+            schemas.ProgramaDeArchivo,
+        ),
+        models.Entrenamiento: (
+            schemas.EntrenamientoCreate,
+            schemas.EntrenamientoUpdate,
+            schemas.EntrenamientoDeArchivo,
+        ),
+        models.Serie: (schemas.SerieCreate, schemas.SerieUpdate, schemas.SerieDeArchivo),
+    }
+    # El tipo se elige al crear y no cambia: el PUT no lo recibe.
+    no_se_reciben = {(schemas.EjercicioUpdate, "tipo_registro")}
+    # Los grupos son un catálogo fijo: nadie los escribe por la API ni por un archivo.
+    sin_textos_propios = {models.GrupoMuscular}
+
+    con_texto = {
+        modelo
+        for modelo in {mapper.class_ for mapper in models.Base.registry.mappers}
+        if any(isinstance(c.type, String) for c in modelo.__table__.columns)
+    }
+    assert con_texto - sin_textos_propios == set(recibida_en)
+
+    no_caben = []
+    for modelo, esquemas in recibida_en.items():
+        for columna in modelo.__table__.columns:
+            if not isinstance(columna.type, String):
+                continue
+            for esquema in esquemas:
+                if (esquema, columna.name) in no_se_reciben:
+                    continue
+                campo = esquema.model_fields[columna.name]
+                tope = _tope_de_longitud(campo)
+                if tope is None or tope > columna.type.length:
+                    no_caben.append((esquema.__name__, columna.name, tope, columna.type.length))
+    assert no_caben == []
+
+
 def test_un_nombre_se_guarda_sin_los_espacios_de_los_lados(cliente, grupo_muscular_id):
     creado = cliente.post(
         "/ejercicios", json={"nombre": "  Press banca  ", "grupo_muscular_id": grupo_muscular_id}

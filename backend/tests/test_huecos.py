@@ -181,7 +181,11 @@ def test_una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden(
     hueco = cuerpo_de_hueco(ejercicio_predefinido_id)
     rutina = cliente.post("/rutinas", json={"nombre": "Larga", "slots": [hueco] * 100}).json()
 
-    assert anadir_hueco(cliente, rutina["id"], ejercicio_predefinido_id).status_code == 409
+    respuesta = anadir_hueco(cliente, rutina["id"], ejercicio_predefinido_id)
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        "Esta rutina no admite más ejercicios",
+    )
     assert huecos_guardados(sesion_bd) == (100, 0)
 
 

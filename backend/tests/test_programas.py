@@ -14,21 +14,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import PIDE_MODO, consultas_de, crear_rutina
+from tests.ayudas import PIDE_MODO, consultas_de, crear_programa, crear_rutina
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def crear_programa(cliente, nombre="Push Pull Leg", dias=()) -> dict:
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": nombre,
-            "dias": [{"dia_semana": dia, "rutina_id": rutina} for dia, rutina in dias],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()
 
 
 def rutinas_por_dia(programa) -> dict:
@@ -499,7 +487,8 @@ def test_un_programa_oculto_que_estuvo_activo_sigue_pidiendo_modo_para_borrarlo(
     ocultar_programa(cliente, programa["id"])
     ruta = f"/programas/{programa['id']}"
 
-    assert cliente.delete(ruta).status_code == 409
+    sin_modo = cliente.delete(ruta)
+    assert (sin_modo.status_code, sin_modo.json()["detail"]) == (409, PIDE_MODO["programa"])
     assert cliente.delete(f"{ruta}?modo=definitivo").status_code == 204
     assert cliente.get(ruta).status_code == 404
 

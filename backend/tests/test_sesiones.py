@@ -38,13 +38,20 @@ def terminar(cliente, entrenamiento_id) -> dict:
 
 
 def test_terminar_la_saca_de_en_curso_y_terminar_dos_veces_conserva_la_primera_hora(cliente):
+    """`terminada_en` es el instante real en que se termina (con su zona), no la
+    fecha congelada de los tests: el reloj de `app.fechas` solo decide el día.
+    """
     empezada = empezar(cliente)
     assert (empezada["terminada_en"], empezada["en_curso"]) == (None, True)
 
+    antes = datetime.now(timezone.utc)
     primera = terminar(cliente, empezada["id"])
+    despues = datetime.now(timezone.utc)
     segunda = terminar(cliente, empezada["id"])
 
-    assert primera["terminada_en"] is not None
+    terminada_en = datetime.fromisoformat(primera["terminada_en"])
+    assert terminada_en.tzinfo is not None
+    assert antes <= terminada_en <= despues
     assert primera["en_curso"] is False
     assert segunda["terminada_en"] == primera["terminada_en"]
 

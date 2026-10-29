@@ -11,7 +11,14 @@ from datetime import date
 import pytest
 
 from app.models import ProgramaDia
-from tests.ayudas import alternativa, consultas_de, crear_ejercicio, objetivo, ocultar_hueco
+from tests.ayudas import (
+    alternativa,
+    consultas_de,
+    crear_ejercicio,
+    crear_programa,
+    objetivo,
+    ocultar_hueco,
+)
 from tests.semana import HOY
 
 # --- Ayudantes ---------------------------------------------------------------
@@ -34,19 +41,6 @@ def rutina_con_huecos(cliente, nombre, *huecos) -> tuple[int, list[int]]:
     assert respuesta.status_code == 201, respuesta.text
     rutina = respuesta.json()
     return rutina["id"], [slot["id"] for slot in sorted(rutina["slots"], key=lambda s: s["orden"])]
-
-
-def crear_programa(cliente, nombre, dias: dict[int, int], activar=False) -> int:
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": nombre,
-            "activar": activar,
-            "dias": [{"dia_semana": d, "rutina_id": r} for d, r in dias.items()],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    return respuesta.json()["id"]
 
 
 def donde_se_usa(cliente, ejercicio_id) -> list[dict]:
@@ -148,12 +142,14 @@ def test_cada_uso_dice_en_que_programas_esta_su_rutina(cliente, sesion_bd, hoy_e
     press, remo = ejercicios["Press banca"], ejercicios["Remo"]
     push, _ = rutina_con_huecos(cliente, "Push", hueco(press))
     pull, _ = rutina_con_huecos(cliente, "Pull", hueco(remo))
-    activo = crear_programa(cliente, "B activo", {5: push, 1: push, 3: pull}, activar=True)
-    sin_activar = crear_programa(cliente, "A sin activar", {2: push})
-    oculto = crear_programa(cliente, "C oculto", {4: push})
+    activo = crear_programa(cliente, "B activo", [(5, push), (1, push), (3, pull)], activar=True)[
+        "id"
+    ]
+    sin_activar = crear_programa(cliente, "A sin activar", [(2, push)])["id"]
+    oculto = crear_programa(cliente, "C oculto", [(4, push)])["id"]
     assert cliente.delete(f"/programas/{oculto}?modo=ocultar").status_code == 204
-    crear_programa(cliente, "D solo Pull", {6: pull})
-    ya_no = crear_programa(cliente, "E ya no", {6: pull})
+    crear_programa(cliente, "D solo Pull", [(6, pull)])
+    ya_no = crear_programa(cliente, "E ya no", [(6, pull)])["id"]
     sesion_bd.add(
         ProgramaDia(programa_id=ya_no, dia_semana=2, rutina_id=push, hasta=date(2026, 9, 1))
     )
@@ -193,7 +189,7 @@ def test_donde_se_usa_hace_las_mismas_consultas_con_un_uso_que_con_muchos(
     hoy_es(HOY)
     press, fondos = ejercicios["Press banca"], ejercicios["Fondos"]
     primera, _ = rutina_con_huecos(cliente, "Rutina 0", hueco(press))
-    crear_programa(cliente, "Programa 0", {1: primera}, activar=True)
+    crear_programa(cliente, "Programa 0", [(1, primera)], activar=True)
     con_uno = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/donde-se-usa"))
 
     for numero in range(1, 5):
@@ -201,7 +197,7 @@ def test_donde_se_usa_hace_las_mismas_consultas_con_un_uso_que_con_muchos(
             cliente, f"Rutina {numero}", hueco(fondos, press), hueco(press), hueco(fondos)
         )
         ocultar_hueco(cliente, rutina, huecos[2])
-        crear_programa(cliente, f"Programa {numero}", {1: rutina, 2: primera, 3: rutina})
+        crear_programa(cliente, f"Programa {numero}", [(1, rutina), (2, primera), (3, rutina)])
     assert len(donde_se_usa(cliente, press)) == 9
     con_muchos = consultas_de(lambda: cliente.get(f"/ejercicios/{press}/donde-se-usa"))
 
