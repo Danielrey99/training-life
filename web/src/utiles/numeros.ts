@@ -117,8 +117,9 @@ export function leerNumero(texto: string): number | null {
   let limpio = texto.trim()
   // «22.045» es como escribe `numeroLegible` un número de cinco cifras (en lb, un peso
   // grande), y el punto ahí separa miles. Un peso nunca lleva tres decimales, así que
-  // «22.5» o «22,5» no se confunden con él.
-  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(limpio)) limpio = limpio.replaceAll('.', '')
+  // «22.5» o «22,5» no se confunden con él. En español los miles solo se separan desde
+  // las cinco cifras, así que «2.500» o «0.800» son decimales tecleados con punto.
+  if (/^-?[1-9]\d{1,2}(\.\d{3})+(,\d+)?$/.test(limpio)) limpio = limpio.replaceAll('.', '')
   limpio = limpio.replace(',', '.')
   if (limpio === '') return null
   const numero = Number(limpio)
