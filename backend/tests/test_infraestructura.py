@@ -205,12 +205,15 @@ def test_la_cadena_de_migraciones_baja_hasta_el_principio_y_vuelve_a_subir_enter
 
 
 TIPOS_DE_REGISTRO = {"peso_reps", "corporal", "tiempo", "cardio"}
+LARGO_MINIMO_DE_DESCRIPCION = 60
+LARGO_MAXIMO_DE_DESCRIPCION = 320
 
 
 def test_la_siembra_coincide_con_la_lista_de_predefinidos(cliente):
     """`shared/predefinidos.json` es la fuente que copiará la app móvil para sembrar
     los suyos, así que tiene que decir exactamente lo que dejan las migraciones: ni
-    un grupo ni un ejercicio de más o de menos, cada uno en su grupo y con su tipo.
+    un grupo ni un ejercicio de más o de menos, cada uno en su grupo, con su tipo y
+    con su descripción.
     Renombrar un predefinido o un grupo rompe además los archivos de exportación,
     que los nombran por su nombre: este test lo caza en cualquiera de los dos lados.
     """
@@ -223,10 +226,16 @@ def test_la_siembra_coincide_con_la_lista_de_predefinidos(cliente):
     predefinidos = [e for e in cliente.get("/ejercicios").json() if e["es_predefinido"]]
     assert len(predefinidos) == len(lista["ejercicios"])
     en_la_api = {
-        e["nombre"]: (nombre_del_grupo[e["grupo_muscular_id"]], e["tipo_registro"])
+        e["nombre"]: (
+            nombre_del_grupo[e["grupo_muscular_id"]],
+            e["tipo_registro"],
+            e["descripcion"],
+        )
         for e in predefinidos
     }
-    en_la_lista = {e["nombre"]: (e["grupo"], e["tipo_registro"]) for e in lista["ejercicios"]}
+    en_la_lista = {
+        e["nombre"]: (e["grupo"], e["tipo_registro"], e["descripcion"]) for e in lista["ejercicios"]
+    }
     assert en_la_api == en_la_lista
 
 
@@ -234,7 +243,9 @@ def test_la_lista_de_predefinidos_es_coherente():
     """Sin base de datos: la lista no se contradice a sí misma. Un nombre repetido
     (también solo cambiando mayúsculas) chocaría al sembrar; un grupo o un tipo que
     no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
-    grupo Cardio es justo el de los ejercicios de cardio.
+    grupo Cardio es justo el de los ejercicios de cardio. Cada descripción es un texto
+    de una sola línea, sin espacios sobrantes, de largo razonable (cabe en la columna
+    de 500), distinto del nombre y que no repite la de otro ejercicio.
     """
     lista = lista_de_predefinidos()
     grupos = lista["grupos"]
@@ -244,11 +255,22 @@ def test_la_lista_de_predefinidos_es_coherente():
     nombres = [e["nombre"] for e in ejercicios]
     assert len({n.casefold() for n in nombres}) == len(nombres)
     for ejercicio in ejercicios:
-        assert set(ejercicio) == {"nombre", "grupo", "tipo_registro"}, ejercicio
+        assert set(ejercicio) == {"nombre", "grupo", "tipo_registro", "descripcion"}, ejercicio
         assert ejercicio["nombre"].strip() == ejercicio["nombre"] != "", ejercicio
         assert ejercicio["grupo"] in grupos, ejercicio
         assert ejercicio["tipo_registro"] in TIPOS_DE_REGISTRO, ejercicio
         assert (ejercicio["grupo"] == "Cardio") == (ejercicio["tipo_registro"] == "cardio"), (
             ejercicio
         )
+        nombre = ejercicio["nombre"]
+        texto = ejercicio["descripcion"]
+        assert isinstance(texto, str), f"{nombre}: la descripción no es un texto"
+        assert texto == texto.strip(), f"{nombre}: la descripción tiene espacios sobrantes"
+        assert LARGO_MINIMO_DE_DESCRIPCION <= len(texto) <= LARGO_MAXIMO_DE_DESCRIPCION, (
+            f"{nombre}: la descripción mide {len(texto)} caracteres"
+        )
+        assert "\n" not in texto and "\r" not in texto, f"{nombre}: la descripción tiene saltos"
+        assert texto.casefold() != nombre.casefold(), f"{nombre}: la descripción es su nombre"
+    descripciones = [e["descripcion"].casefold() for e in ejercicios]
+    assert len(set(descripciones)) == len(descripciones), "hay descripciones repetidas"
     assert {e["grupo"] for e in ejercicios} == set(grupos)
