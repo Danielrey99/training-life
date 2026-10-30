@@ -594,7 +594,9 @@ export function Dia() {
     setSeriesNuevas((previas) => [
       ...previas,
       {
-        id: -(previas.length + 1),
+        // Por debajo del más bajo y no por cuántas hay: tras borrar una, contarlas
+        // repetiría el id de otra nueva, y borrar o editar una tocaría las dos.
+        id: Math.min(0, ...previas.map((serie) => serie.id)) - 1,
         entrenamiento_id: dia.id,
         ejercicio_id: ejercicio.id,
         ejercicio,
