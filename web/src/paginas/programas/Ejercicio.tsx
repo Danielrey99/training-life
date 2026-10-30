@@ -368,7 +368,7 @@ export function Ejercicio() {
       <section className="ejercicio-tarjeta">
         <div className="campo">
           <div className="ejercicio-cabecera-campo">
-            <span className="campo-etiqueta">Ejercicio principal</span>
+            <span className="ejercicio-tarjeta-titulo">Ejercicio principal</span>
             {grupo}
           </div>
           {soloLectura ? (
@@ -401,7 +401,7 @@ export function Ejercicio() {
 
       <section className="ejercicio-tarjeta">
         <div className="campo">
-          <span className="campo-etiqueta">Alternativas</span>
+          <span className="ejercicio-tarjeta-titulo">Alternativas</span>
           {formulario.alternativas.length > 0 && (
             <p className="ejercicio-ayuda">
               Cada una tiene su propio objetivo.

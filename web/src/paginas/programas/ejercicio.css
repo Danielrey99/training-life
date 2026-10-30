@@ -256,6 +256,14 @@ button.ejercicio-caja .icono {
   border-radius: var(--radio);
 }
 
+/* «Ejercicio principal» y «Alternativas»: cada tarjeta es un apartado y lleva título, no
+   el rótulo pequeño de un campo. */
+.ejercicio-tarjeta-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
 .ejercicio-alternativas {
   display: flex;
   flex-direction: column;
