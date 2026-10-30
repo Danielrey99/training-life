@@ -38,7 +38,9 @@ def plazo(dia: date) -> tuple[date, date]:
     día antes del mismo día de la semana siguiente (recuperar): lo del lunes se
     recupera hasta el domingo.
     """
-    return dia - timedelta(days=dia.weekday()), dia + timedelta(days=6)
+    # Desde el 26-12-9999 el último día se saldría del calendario: no hay más allá de date.max.
+    ultimo = date.max if dia > date.max - MARGEN else dia + MARGEN
+    return dia - timedelta(days=dia.weekday()), ultimo
 
 
 def esta_cancelada(sesion: Entrenamiento, vacia: bool | None = None) -> bool:

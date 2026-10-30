@@ -79,6 +79,19 @@ def test_no_se_adelanta_lo_de_la_semana_siguiente(cliente, ppl):
     assert cliente.get("/entrenamientos").json() == []
 
 
+def test_lo_del_ultimo_dia_que_existe_da_422_por_el_plazo(cliente, ppl):
+    """Antes daba 500: el plazo acababa seis días después del 9999-12-31, una fecha
+    que no existe (`OverflowError` en `plazo()`). Su plazo acaba en ese mismo día.
+    """
+    respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=date(9999, 12, 31))
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"].startswith(
+        "Lo del 9999-12-31 solo se puede entrenar del 9999-12-27 al 9999-12-31:"
+    )
+    assert cliente.get("/entrenamientos").json() == []
+
+
 def test_un_dia_cambiado_a_mano_se_adelanta_con_su_rutina_nueva(cliente, ppl):
     """Las excepciones de Planificar cuentan como días planificados."""
     respuesta = cliente.put(
