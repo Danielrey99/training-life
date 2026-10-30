@@ -337,7 +337,7 @@ Buscador, filtro de origen (*Todos · Predefinidos · Míos*) y filtro por grupo
 
 Descripción; la progresión, con el peso más alto de la última sesión y cuándo fue (*Última vez el jueves 1*), que lleva a la gráfica (H3); las notas personales con su fecha, las más recientes arriba, cada una con su lápiz para cambiarla y su ✕ para borrarla (pregunta antes), y *Añadir nota*, que abre el campo ahí mismo con *Cancelar* y *Guardar* (mientras tanto, el resto en gris); y *Rutinas donde se usa*, con el lugar que ocupa en la rutina (*Push · ejercicio 1*), si es el principal o una alternativa, y en qué programas está la rutina. Lleva a la rutina (P3). Solo el programa activo lo dice (*Push Pull Leg · programa activo*); los demás salen con su nombre. Si el ejercicio está oculto dentro de una rutina, o la rutina está oculta, esa fila va plegada en *Ver N rutinas ocultas*. Si es propio, *Editar* arriba (lleva a X3) y *Ocultar* y *Borrar* al pie. Lo que no tiene contenido no sale: sin descripción, sin sesiones o sin rutinas, esos bloques no aparecen.
 
-**Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son tuyas.
+**Los predefinidos no se pueden editar, ocultar ni borrar**: vienen con la app, y todos traen su descripción, que explica cómo se hace el ejercicio. Su ficha no tiene *Editar* ni botones al pie, y lo dice en una línea. Las notas sí, porque son tuyas.
 
 ### X3 · Nuevo / editar ejercicio
 
