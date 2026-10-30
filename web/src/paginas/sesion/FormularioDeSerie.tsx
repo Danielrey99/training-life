@@ -336,6 +336,7 @@ export function FormularioDeSerie({
         <>
           <CampoDeDuracion
             etiqueta="Tiempo"
+            sinTitulo
             segundos={segundos}
             cambiar={setSegundos}
             paso={ajustes().pasoTiempo}
@@ -354,6 +355,7 @@ export function FormularioDeSerie({
         <>
           <CampoDeDuracion
             etiqueta="Tiempo"
+            sinTitulo
             segundos={segundos}
             cambiar={setSegundos}
             paso={ajustes().pasoTiempo}

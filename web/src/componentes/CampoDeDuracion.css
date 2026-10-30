@@ -4,22 +4,3 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
-
-/* El número y su unidad, juntos y centrados entre el − y el +. */
-.duracion-valor {
-  flex-grow: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  font-size: 13px;
-  color: var(--texto-tenue);
-  white-space: nowrap;
-}
-
-.pasos .duracion-valor input {
-  flex-grow: 0;
-  width: 2.2ch;
-  text-align: right;
-}
