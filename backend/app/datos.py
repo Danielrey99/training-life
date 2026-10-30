@@ -254,6 +254,10 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     ids_de_ejercicio = [e.id for e in datos.ejercicios] + [p.id for p in datos.predefinidos]
     for id_ in _repetidos(ids_de_ejercicio):
         errores.append(f"Hay dos ejercicios con el id {id_}.")
+    # Dos ids con el mismo nombre serían el mismo ejercicio de aquí: dos alternativas de un
+    # hueco chocarían en la base, o una alternativa sería su propio principal.
+    for nombre in _repetidos(p.nombre for p in datos.predefinidos):
+        errores.append(f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.')
     for id_ in _repetidos(r.id for r in datos.rutinas):
         errores.append(f"Hay dos rutinas con el id {id_}.")
     huecos = [(rutina, hueco) for rutina in datos.rutinas for hueco in rutina.slots]

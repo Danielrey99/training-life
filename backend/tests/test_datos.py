@@ -1353,6 +1353,32 @@ def _cuenta_un_dia_despues_de_su_plazo(a):
     _sesion(a, "2026-09-09")["cubre_fecha"] = "2026-09-02"
 
 
+def _cuenta_el_ultimo_dia_que_existe(a):
+    """Antes daba 500: el plazo de lo del 9999-12-31 acababa seis días después, una
+    fecha que no existe (`OverflowError` en `plazo()`).
+    """
+    _sesion(a, "2026-09-07")["cubre_fecha"] = "9999-12-31"
+
+
+def _predefinido_dos_veces_con_otro_id(a):
+    """Antes daba 500: las dos entradas son el mismo ejercicio de esta instalación,
+    y sus dos alternativas del mismo hueco chocaban con `UNIQUE(slot_id, ejercicio_id)`.
+    """
+    ids_predefinidos = {p["id"] for p in a["predefinidos"]}
+    hueco = _rutina(a, "Push")["slots"][0]
+    original = next(c for c in hueco["alternativas"] if c["ejercicio_id"] in ids_predefinidos)
+    nombre = next(p["nombre"] for p in a["predefinidos"] if p["id"] == original["ejercicio_id"])
+    a["predefinidos"].append({"id": 999_999, "nombre": nombre})
+    hueco["alternativas"].append({**original, "ejercicio_id": 999_999})
+
+
+def _zona_que_es_una_carpeta(a):
+    """Antes daba 500: `ZoneInfo("Europe")` intenta abrir una carpeta y lanza un
+    `OSError` (`PermissionError` en Windows, `IsADirectoryError` en Linux).
+    """
+    a["zona_horaria"] = "Europe"
+
+
 EN_EL_FUTURO = (
     ", un día que todavía no ha llegado: comprueba la fecha del teléfono o del"
     " ordenador que hizo la copia."
@@ -1456,11 +1482,27 @@ MALOS = [
         NO_SE_CAMBIA_NADA,
         "La sesión del 2026-09-09 cuenta como la del 2026-09-02" + FUERA_DE_PLAZO,
     ),
+    (
+        _cuenta_el_ultimo_dia_que_existe,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del 2026-09-07 cuenta como la del 9999-12-31" + FUERA_DE_PLAZO,
+    ),
+    # Un predefinido dos veces con distinto id: su nombre depende de la siembra, así que
+    # va en su propio test, con la frase entera.
+    (_zona_que_es_una_carpeta, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("Europe")),
 ]
 
 # Con `comprobar=true`, importar hace lo mismo hasta que el archivo vale: basta un
-# caso de cada fase (formato, versión, esquema y lo que no cuadra).
-COMPROBADOS = {_sin_formato, _version_1, _peso_roto, _rutina_con_id_repetido}
+# caso de cada fase (formato, versión, esquema y lo que no cuadra). Los dos últimos
+# daban 500 también al comprobar.
+COMPROBADOS = {
+    _sin_formato,
+    _version_1,
+    _peso_roto,
+    _rutina_con_id_repetido,
+    _cuenta_el_ultimo_dia_que_existe,
+    _zona_que_es_una_carpeta,
+}
 
 
 def _casos(malos, comprobados):
@@ -1490,6 +1532,29 @@ def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
         assert "errores" not in detalle
     else:
         assert any(error in e for e in detalle["errores"]), detalle["errores"]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+def test_un_predefinido_dos_veces_con_distinto_id_da_422_y_no_cambia_nada(
+    cliente, datos, comprobar
+):
+    """Antes daba 500, también al comprobar (dos alternativas del mismo hueco en el
+    mismo ejercicio).
+    """
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    _predefinido_dos_veces_con_otro_id(archivo)
+    nombre = next(p["nombre"] for p in archivo["predefinidos"] if p["id"] == 999_999)
+
+    respuesta = importar(cliente, archivo, comprobar=comprobar)
+
+    assert respuesta.status_code == 422, respuesta.text
+    detalle = respuesta.json()["detail"]
+    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
+    assert (
+        f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.' in detalle["errores"]
+    )
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 

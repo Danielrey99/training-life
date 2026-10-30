@@ -2,7 +2,8 @@
 
 import os
 from datetime import date, datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from functools import cache
+from zoneinfo import ZoneInfo, available_timezones
 
 # El contenedor corre en UTC: a las 00:30 en España, date.today() todavía diría
 # que es ayer, y una sesión empezada a esa hora quedaría en el día equivocado.
@@ -28,7 +29,12 @@ def zona_horaria(nombre: str) -> ZoneInfo | None:
     """La zona con ese nombre (`Europe/Madrid`), o `None` si esta instalación no la
     conoce o el nombre no es válido.
     """
-    try:
-        return ZoneInfo(nombre)
-    except (ZoneInfoNotFoundError, ValueError):
-        return None
+    # Solo las de la lista, y no lo que ZoneInfo acierte a abrir: "Europe" es una carpeta y
+    # daría un OSError distinto en Windows y en Linux, y Windows aceptaría "Europe\Madrid".
+    return ZoneInfo(nombre) if nombre in _zonas_conocidas() else None
+
+
+@cache
+def _zonas_conocidas() -> set[str]:
+    """Los nombres de zona que conoce esta instalación (calcularlos cuesta, se guardan)."""
+    return available_timezones()
