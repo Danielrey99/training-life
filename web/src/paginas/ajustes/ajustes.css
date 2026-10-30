@@ -225,13 +225,23 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px;
+  padding: 14px 12px 12px;
+  background: var(--fondo);
   border: 1px solid var(--borde);
-  border-radius: var(--radio-pequeno);
+  border-radius: var(--radio);
 }
 
 .ajustes-objetivo h4 {
   margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--borde);
   font-size: 14px;
   font-weight: 600;
+}
+
+/* Las casillas de este recuadro son más estrechas que las de una serie: los números,
+   algo más pequeños, como en el boceto. */
+.ajustes-objetivo .pasos input {
+  font-size: 17px;
+  font-weight: 700;
 }
