@@ -230,11 +230,11 @@ export function diaYMesCorto(iso: string): string {
 }
 
 /**
- * "lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. Con el
- * año si no es el actual ("lun 14 sep 2025"): con el rango de un año o todo, se mezclan.
+ * "Lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. Con el
+ * año si no es el actual ("Lun 14 sep 2025"): con el rango de un año o todo, se mezclan.
  */
 export function fechaAbreviada(iso: string): string {
   const fecha = aFecha(iso)
   const anio = fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` ${fecha.getFullYear()}`
-  return `${DIAS[fecha.getDay()].slice(0, 3)} ${diaYMesCorto(iso)}${anio}`
+  return `${mayuscula(DIAS[fecha.getDay()].slice(0, 3))} ${diaYMesCorto(iso)}${anio}`
 }

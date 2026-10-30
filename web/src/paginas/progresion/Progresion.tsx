@@ -22,11 +22,6 @@ const RANGOS = [
 // Las sesiones que se enseñan antes de "Ver N sesiones más".
 const VISIBLES = 4
 
-function fechaFila(iso: string): string {
-  const texto = fechaAbreviada(iso)
-  return texto.charAt(0).toUpperCase() + texto.slice(1)
-}
-
 /**
  * El rango con el que se abre, si no se ha elegido otro: el más corto en el que cabe todo
  * el historial del ejercicio, desde la primera sesión (decisión del autor, 15-10-2026,
@@ -204,7 +199,7 @@ export function Progresion() {
               {visibles.map((sesion) => (
                 <li key={sesion.entrenamiento_id} className="progresion-sesion">
                   <Link to={`/historial/${sesion.fecha}`} className="progresion-fila">
-                    <span className="progresion-fecha">{fechaFila(sesion.fecha)}</span>
+                    <span className="progresion-fecha">{fechaAbreviada(sesion.fecha)}</span>
                     {sesion.rutina && <span className="etiqueta-chica">{sesion.rutina}</span>}
                     <span className="progresion-relleno" />
                     <Icono nombre="abrir" pequeno />
