@@ -85,8 +85,9 @@ export function BloqueDelDia({
   const vacio = series.length === 0
   const principal = hueco.ejercicio_principal
   const esComodin = principal.id !== ejercicio.id
-  // Las series nuevas, solo en un hueco visible: el backend no las admite en uno oculto.
-  const admiteNuevas = editando && !hueco.oculto_desde
+  // Las series nuevas, solo en un hueco visible y con un ejercicio visible: el backend no
+  // admite ninguna de las dos cosas ocultas.
+  const admiteNuevas = editando && !hueco.oculto_desde && !ejercicio.oculto_desde
   const comodines = hueco.alternativas
     .map((alternativa) => alternativa.ejercicio)
     .filter((otro) => !otro.oculto_desde)

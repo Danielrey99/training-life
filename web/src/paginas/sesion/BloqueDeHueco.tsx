@@ -93,9 +93,11 @@ function HuecoAbierto({
   // El número más alto + 1 y no la cuenta: borrando una del medio, contarlas
   // repetiría un número.
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
-  // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas.
+  // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas; un
+  // ejercicio oculto a mitad de sesión, tampoco (la API no deja elegir algo oculto).
   // Con otra edición abierta (la nota), el formulario de una nueva no se enseña.
-  const admiteNuevas = elegido !== null && !hueco.oculto_desde && !bloqueado
+  const ejercicioOculto = elegido !== null && elegido.oculto_desde !== null
+  const admiteNuevas = elegido !== null && !ejercicioOculto && !hueco.oculto_desde && !bloqueado
   const comodines = hueco.alternativas.map((alternativa) => alternativa.ejercicio)
 
   async function guardarDesdeFormulario(datos: DatosDeSerie) {
@@ -205,6 +207,13 @@ function HuecoAbierto({
           alGuardar={guardarDesdeFormulario}
           alCancelar={() => alEditar(null)}
         />
+      )}
+
+      {ejercicioOculto && !hueco.oculto_desde && !editando && (
+        <p className="nota">
+          {elegido.nombre} está oculto: puedes corregir sus series, pero para apuntar más muéstralo
+          desde la pestaña Ejercicios.
+        </p>
       )}
 
       {!elegido && (
