@@ -64,7 +64,8 @@ button.ejercicio-caja .icono {
 }
 
 .ejercicio-ayuda {
-  font-size: 12.5px;
+  margin: 0;
+  font-size: 13px;
   color: var(--texto-tenue);
 }
 
@@ -82,17 +83,22 @@ button.ejercicio-caja .icono {
   font-size: 14px;
 }
 
+/* «+ Añadir alternativa»: un rectángulo a lo ancho, con borde de rayas, como el boceto. */
 .ejercicio-chip.nueva {
-  padding: 0 14px;
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
   border-style: dashed;
+  border-radius: var(--radio);
   background: none;
   color: var(--texto-tenue);
   cursor: pointer;
 }
 
 .ejercicio-chip-quitar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -249,11 +255,12 @@ button.ejercicio-caja .icono {
 .ejercicio-tarjeta {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px 16px;
+  gap: 16px;
+  padding: 14px;
   background: var(--superficie);
   border: 1px solid var(--borde);
-  border-radius: var(--radio);
+  /* 10 px, como las tarjetas de este boceto. */
+  border-radius: 10px;
 }
 
 /* «Ejercicio principal» y «Alternativas»: cada tarjeta es un apartado y lleva título, no
@@ -270,29 +277,36 @@ button.ejercicio-caja .icono {
   gap: 8px;
 }
 
+/* Abierta, son dos piezas, como en el boceto: la fila, con el borde verde, y debajo un
+   recuadro aparte con su objetivo. */
 .ejercicio-alternativa {
-  background: var(--fondo);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio-pequeno);
-}
-
-.ejercicio-alternativa.abierta {
-  border-color: var(--acento);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ejercicio-alternativa-fila {
   display: flex;
   align-items: center;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding-right: 4px;
+}
+
+.ejercicio-alternativa.abierta .ejercicio-alternativa-fila {
+  border-color: var(--acento);
 }
 
 .ejercicio-alternativa-cuerpo {
   flex-grow: 1;
   min-width: 0;
-  min-height: 48px;
+  /* 46 + el borde de la fila = 48, como el boceto. */
+  min-height: 46px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 4px 8px 12px;
+  gap: 10px;
+  padding: 8px 4px 8px 14px;
   background: none;
   border: none;
   color: var(--texto);
@@ -313,11 +327,15 @@ button.ejercicio-caja .icono {
 
 .ejercicio-alternativa-cuerpo .rutina-objetivo {
   flex-shrink: 0;
+  font-size: 12.5px;
 }
 
 .ejercicio-alternativa-campos {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 0 12px 14px;
+  gap: 10px;
+  padding: 12px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
 }
