@@ -78,6 +78,19 @@
   border-radius: var(--radio);
 }
 
+/* Cómo se apunta: el tipo y, debajo, qué se pone en cada serie (lo mismo que en X3). */
+.detalle-tipo {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detalle-tipo span {
+  font-size: 13px;
+  color: var(--texto-tenue);
+}
+
 .detalle-descripcion {
   padding: 14px 16px;
   font-size: 15px;

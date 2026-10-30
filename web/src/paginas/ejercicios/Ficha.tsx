@@ -18,6 +18,7 @@ import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { enumerar } from '../programas/textos'
+import { TIPOS } from './tiposDeRegistro'
 import '../historial/historial.css'
 import '../programas/programas.css'
 import '../programas/semana.css'
@@ -187,6 +188,7 @@ export function Ficha() {
     datos.grupos.find((uno) => uno.id === ejercicio.grupo_muscular_id)?.nombre ?? 'Sin grupo'
   const ultima = datos.sesiones[0]
   const progresion = ultima ? progresionDe(ejercicio.tipo_registro, ultima) : null
+  const tipo = TIPOS.find((opcion) => opcion.clave === ejercicio.tipo_registro)
   const usosVisibles = usos.filter((uso) => !uso.oculto)
   const usosOcultos = usos.filter((uso) => uso.oculto)
   const ocupado = escribiendo !== null
@@ -251,6 +253,16 @@ export function Ficha() {
         <section className="detalle-bloque">
           <h2 className="rotulo">Descripción</h2>
           <p className="detalle-tarjeta detalle-descripcion">{ejercicio.descripcion}</p>
+        </section>
+      )}
+
+      {tipo && (
+        <section className="detalle-bloque">
+          <h2 className="rotulo">Cómo se apunta</h2>
+          <p className="detalle-tarjeta detalle-tipo">
+            <strong>{tipo.nombre}</strong>
+            <span>{tipo.ayuda}</span>
+          </p>
         </section>
       )}
 

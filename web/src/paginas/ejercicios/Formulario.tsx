@@ -6,35 +6,12 @@ import { api } from '../../api/cliente'
 import type { GrupoMuscular, TipoRegistro } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
+import { TIPOS } from './tiposDeRegistro'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
 import './ejercicios.css'
 
 type Falta = { nombre?: string; grupo?: string }
-
-/** Cómo se puede apuntar un ejercicio, con una línea que dice qué se pone en cada serie. */
-const TIPOS: { clave: TipoRegistro; nombre: string; ayuda: string }[] = [
-  {
-    clave: 'peso_reps',
-    nombre: 'Peso y repeticiones',
-    ayuda: 'Cuánto peso y cuántas repeticiones (press banca, sentadilla…)',
-  },
-  {
-    clave: 'corporal',
-    nombre: 'Peso corporal',
-    ayuda: 'Repeticiones con tu cuerpo, con lastre o con ayuda si la usas (dominadas, fondos…)',
-  },
-  {
-    clave: 'tiempo',
-    nombre: 'Tiempo',
-    ayuda: 'Cuánto aguantas, con peso si lo llevas (plancha, paseo del granjero…)',
-  },
-  {
-    clave: 'cardio',
-    nombre: 'Cardio',
-    ayuda: 'Cuánto tiempo y, si quieres, qué distancia (cinta, bici…)',
-  },
-]
 
 /**
  * X3 · Ejercicio nuevo o editar uno tuyo: nombre, grupo muscular, cómo se apunta y una
