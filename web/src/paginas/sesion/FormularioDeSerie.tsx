@@ -60,6 +60,14 @@ function topePasado(numero: number, medidas: Omit<DatosDeSerie, 'variante'>): st
   return null
 }
 
+// El ejemplo de variante de cada tipo: «con pausa» no le dice nada a quien corre en la cinta.
+const EJEMPLO_DE_VARIANTE: Record<TipoRegistro, string> = {
+  peso_reps: 'Ej. con pausa, sentado',
+  corporal: 'Ej. con pausa',
+  tiempo: 'Ej. con las rodillas apoyadas',
+  cardio: 'Ej. con inclinación del 2 %',
+}
+
 type Props = {
   numero: number
   // Cómo se apunta el ejercicio: decide qué campos lleva el formulario.
@@ -360,7 +368,7 @@ export function FormularioDeSerie({
           type="text"
           maxLength={100}
           value={variante}
-          placeholder="con pausa, sentado…"
+          placeholder={EJEMPLO_DE_VARIANTE[tipo]}
           onChange={(evento) => setVariante(evento.target.value)}
         />
       </label>
