@@ -106,9 +106,15 @@
   font-size: 13px;
 }
 
+/* En una caja flexible, como «0/3»: suelto, el icono se apoyaba en la línea del texto y
+   quedaba más alto que la cuenta. */
+.hueco-plegado-icono {
+  flex-shrink: 0;
+  display: flex;
+}
+
 .hueco-plegado .completo {
   color: var(--acento);
-  display: flex;
 }
 
 /* Hecho, el nombre pasa a segundo plano: lo que queda por hacer es lo que manda. */

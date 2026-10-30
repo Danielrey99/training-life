@@ -55,7 +55,7 @@ export function BloqueDeHueco(props: Props) {
         <span className={completo ? 'hueco-cuenta num completo' : 'hueco-cuenta num'}>
           {hechas}/{objetivo}
         </span>
-        <span className={completo ? 'completo' : ''}>
+        <span className={completo ? 'hueco-plegado-icono completo' : 'hueco-plegado-icono'}>
           <Icono nombre={completo ? 'hecho' : 'abrir'} pequeno />
         </span>
       </button>
