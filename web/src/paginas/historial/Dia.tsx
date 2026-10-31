@@ -523,7 +523,7 @@ export function Dia() {
       }
     } catch (fallo) {
       // Lo que ya se envió queda guardado: se vuelve a leer el día para enseñar cómo quedó.
-      setFalloGuardar(`No se pudo guardar todo: ${(fallo as Error).message}`)
+      setFalloGuardar(`No se pudo guardar todo. ${(fallo as Error).message}`)
     }
     setGuardando(false)
     setEditando(false)
@@ -545,7 +545,7 @@ export function Dia() {
       const ultimo = sumarDias(contado, 6)
       // Dentro del plazo, el 422 solo puede ser el del programa.
       if (nueva >= lunes && nueva <= ultimo) {
-        return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, y el ${fechaEnFrase(nueva, false)} no seguías el mismo programa que ese día: solo se puede mover a un día en que lo siguieras.`
+        return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, y el ${fechaEnFrase(nueva, false)} no seguías el mismo programa que ese día. Solo se puede mover a un día en que lo siguieras.`
       }
       const limite = nueva > contado ? ultimo : lunes
       const hacia = nueva > contado ? 'hasta' : 'desde'

@@ -172,7 +172,7 @@ export function Rutina() {
       const nuevo = orden.map((hueco) => hueco.id)
       if (nuevo.some((huecoId, i) => huecoId !== visibles[i].id)) await api.ordenarHuecos(id, nuevo)
     } catch (fallo) {
-      setFallo(`No se pudo guardar el orden: ${(fallo as Error).message}`)
+      setFallo(`No se pudo guardar el orden. ${(fallo as Error).message}`)
     }
     await cargar().catch((fallo: Error) => setFallo(fallo.message))
     setEditando(false)

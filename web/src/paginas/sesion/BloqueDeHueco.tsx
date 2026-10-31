@@ -228,14 +228,14 @@ function HuecoAbierto({
 
       {ejercicioOculto && !hueco.oculto_desde && !editando && (
         <p className="nota">
-          {elegido.nombre} está oculto: puedes corregir sus series, pero para apuntar más muéstralo
+          {elegido.nombre} está oculto. Puedes corregir sus series, pero para apuntar más muéstralo
           desde la pestaña Ejercicios.
         </p>
       )}
 
       {!elegido && (
         <p className="nota">
-          Este ejercicio y sus alternativas están ocultos: muestra alguno desde la pestaña
+          Este ejercicio y sus alternativas están ocultos. Muestra alguno desde la pestaña
           Ejercicios para usarlo.
         </p>
       )}

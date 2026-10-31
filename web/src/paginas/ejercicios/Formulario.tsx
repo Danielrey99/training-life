@@ -197,7 +197,7 @@ export function Formulario() {
               </span>
             </div>
             <p className="tipo-aviso">
-              No se puede cambiar: si no es el que querías, crea otro ejercicio y borra este.
+              No se puede cambiar. Si no es el que querías, crea otro ejercicio y borra este.
             </p>
           </>
         )}

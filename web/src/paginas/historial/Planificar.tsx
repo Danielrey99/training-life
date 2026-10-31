@@ -475,7 +475,7 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
         <h2 id="hoja-titulo">{fechaLarga(dia.fecha)}</h2>
         <p className="hoja-subtitulo">
           {oculta
-            ? `${oculta.nombre} está oculta: este día cuenta como descanso`
+            ? `${oculta.nombre} está oculta, así que este día cuenta como descanso`
             : !cambiado
               ? 'Elige qué toca este día'
               : !programa

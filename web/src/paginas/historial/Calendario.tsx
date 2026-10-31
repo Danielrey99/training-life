@@ -246,7 +246,7 @@ function Leyenda({ programa }: { programa: Programa | null }) {
           <Flecha color={otro} />
         </>
       ),
-      texto: 'Ese día se hizo otra rutina; la suya, otro día',
+      texto: 'Ese día se hizo otra rutina y la suya, otro día',
     },
     {
       marca: (
@@ -255,7 +255,7 @@ function Leyenda({ programa }: { programa: Programa | null }) {
           <Punto color={otro} />
         </>
       ),
-      texto: 'Ese día se hizo otra rutina; la suya, sin hacer',
+      texto: 'Ese día se hizo otra rutina y la suya se quedó sin hacer',
     },
     { marca: <Punto lleno apagado color={uno} />, texto: 'Próximo' },
   ]

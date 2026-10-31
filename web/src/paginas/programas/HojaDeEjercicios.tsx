@@ -114,7 +114,7 @@ export function HojaDeEjercicios({
         ))}
 
         <p className="ejercicio-hoja-pie">
-          Los ejercicios ocultos no salen: puedes volver a mostrarlos en la pestaña Ejercicios.
+          Los ejercicios ocultos no salen. Puedes volver a mostrarlos en la pestaña Ejercicios.
         </p>
       </div>
     </div>

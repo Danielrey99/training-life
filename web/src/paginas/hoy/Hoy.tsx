@@ -136,7 +136,7 @@ export function Hoy() {
     // Por si la pantalla se quedó abierta pasada la medianoche: si ya es otro día, no se
     // crea nada con la fecha vieja; se lee de nuevo y se avisa.
     if ((await api.hoy()).fecha !== hoy) {
-      setAviso('Ha empezado otro día: esto es lo que toca ahora.')
+      setAviso('Ha empezado otro día. Esto es lo que toca ahora.')
       setLectura((n) => n + 1)
       return
     }
@@ -393,8 +393,8 @@ function Tarjeta({
               vez no conoce ninguna de las dos palabras. */}
           <div className="tarjeta-pasos">
             <p>Para que la app te diga qué entrenar cada día:</p>
-            <p>1 · Crea tus rutinas: los ejercicios de cada día de entreno</p>
-            <p>2 · Crea un programa: tus rutinas repartidas en la semana</p>
+            <p>1 · Crea tus rutinas, con los ejercicios de cada día de entreno</p>
+            <p>2 · Crea un programa para repartir tus rutinas en la semana</p>
           </div>
           <Link to="/programas" className="boton boton-principal tarjeta-boton">
             Ir a Programas
@@ -589,7 +589,7 @@ function Pie({ resumen }: { resumen: ResumenDeHoy }) {
   if (resumen.situacion === 'primera_vez') {
     return (
       <p className="entrada-pie parrafo">
-        También puedes entrenar sin programa: en cuanto tengas una rutina, podrás empezarla desde
+        También puedes entrenar sin programa. En cuanto tengas una rutina, podrás empezarla desde
         aquí, las veces que quieras.
       </p>
     )

@@ -61,8 +61,8 @@ function avisoDeOcultas(dias: DiaSemana[]) {
   return (
     <>
       {una
-        ? `${frase} tiene una rutina oculta: sigue asignada, pero cuenta como descanso. `
-        : `${frase} tienen una rutina oculta: siguen asignadas, pero cuentan como descanso. `}
+        ? `${frase} tiene una rutina oculta. Sigue asignada, pero cuenta como descanso. `
+        : `${frase} tienen una rutina oculta. Siguen asignadas, pero cuentan como descanso. `}
       Pulsa <Icono nombre="abrir" pequeno /> para entrar en {una ? 'ella' : 'ellas'} y volver a
       {una ? ' mostrarla' : ' mostrarlas'}, o <em>Editar</em> para poner {una ? 'otra' : 'otras'} en
       su lugar.
@@ -212,7 +212,7 @@ export function Semana() {
         else await api.quitarRutinaDeDia(id, dia)
       }
     } catch (fallo) {
-      setFallo(`No se pudo guardar todo: ${(fallo as Error).message}`)
+      setFallo(`No se pudo guardar todo. ${(fallo as Error).message}`)
     }
     await cargar().catch((fallo: Error) => setFallo(fallo.message))
     setEditando(false)
