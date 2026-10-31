@@ -273,7 +273,7 @@ def hueco_para(cliente, rutina_id, ejercicio_id) -> int:
         if hueco["oculto_desde"] is None:
             return hueco["id"]
     assert not del_ejercicio, (
-        f"El hueco del ejercicio {ejercicio_id} en la rutina {rutina_id} está oculto: "
+        f"El hueco del ejercicio {ejercicio_id} en la rutina {rutina_id} está oculto, así que "
         "pasa el slot_id explícito."
     )
     duracion = DURACION_POR_DEFECTO if es_de_tiempo(cliente, ejercicio_id) else None

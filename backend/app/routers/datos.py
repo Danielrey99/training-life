@@ -99,7 +99,9 @@ def importar_datos(
 
     errores, mapas = validar(db, datos)
     if errores:
-        raise _no_se_puede("No se puede cargar el archivo: no se ha cambiado nada.", errores)
+        raise _no_se_puede(
+            "No se puede cargar el archivo, así que no se ha cambiado nada.", errores
+        )
 
     if comprobar:
         return ComprobacionDeImportar(

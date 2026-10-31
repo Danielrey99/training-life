@@ -48,7 +48,7 @@ def validar_rango(desde: date, hasta: date) -> None:
     if desde > hasta:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango de fechas está invertido: 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
+            detail=f"El rango de fechas está invertido. La fecha 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
         )
 
 

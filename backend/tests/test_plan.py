@@ -227,7 +227,7 @@ def test_restablecer_un_dia_lo_devuelve_al_programa(cliente, semana_push):
     otra_vez = cliente.delete(ruta)
     assert (otra_vez.status_code, otra_vez.json()["detail"]) == (
         404,
-        "Ese día no estaba cambiado: ya es lo que dice el programa",
+        "Ese día no estaba cambiado. Ya es lo que dice el programa",
     )
 
 

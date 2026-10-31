@@ -152,7 +152,7 @@ def test_un_mes_que_no_ha_llegado_da_422_con_su_mensaje(cliente, hoy_es, mes, no
 
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == (
-        f"{nombre} todavía no ha llegado: el resumen es de lo ya entrenado."
+        f"{nombre} todavía no ha llegado. El resumen es de lo ya entrenado."
     )
 
 

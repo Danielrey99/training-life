@@ -79,7 +79,7 @@ def _obtener_rutina_modificable(
     if rutina is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
     if not admitir_oculta:
-        exigir_visible(rutina, "Esta rutina está oculta: muéstrala antes de cambiarla.")
+        exigir_visible(rutina, "Esta rutina está oculta. Muéstrala antes de cambiarla.")
     return rutina
 
 
@@ -449,9 +449,9 @@ def _obtener_slot_modificable(
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
-    exigir_visible(rutina, "Esta rutina está oculta: muéstrala antes de cambiarla.")
+    exigir_visible(rutina, "Esta rutina está oculta. Muéstrala antes de cambiarla.")
     if not admitir_oculto:
-        exigir_visible(slot, "Este hueco está oculto: muéstralo antes de cambiarlo.")
+        exigir_visible(slot, "Este hueco está oculto. Muéstralo antes de cambiarlo.")
     return slot
 
 
@@ -617,7 +617,7 @@ def actualizar_slot(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ese ejercicio ya es comodín de este hueco: quítalo antes de hacerlo principal",
+            detail="Ese ejercicio ya es comodín de este hueco. Quítalo antes de hacerlo principal",
         )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump(exclude={"alternativas"}).items():

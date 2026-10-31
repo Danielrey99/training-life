@@ -36,22 +36,22 @@ from tests.ayudas import (
 
 UNO_DE_LOS_DOS = (
     "El objetivo lleva repeticiones (reps_min y reps_max) o duración "
-    "(duracion_min_s y duracion_max_s): uno de los dos, completo"
+    "(duracion_min_s y duracion_max_s), uno de los dos y completo"
 )
 EN_SEGUNDOS = (
     "El objetivo de Plancha va en segundos (duracion_min_s y duracion_max_s), no en "
-    "repeticiones: Plancha se apunta por tiempo."
+    "repeticiones, porque Plancha se apunta por tiempo."
 )
 EN_REPETICIONES = (
-    "El objetivo de Dominadas va en repeticiones (reps_min y reps_max), no en duración: "
+    "El objetivo de Dominadas va en repeticiones (reps_min y reps_max), no en duración, porque "
     "Dominadas se apunta con repeticiones y carga."
 )
 EN_SEGUNDOS_CARDIO = (
     "El objetivo de Cinta va en segundos (duracion_min_s y duracion_max_s), no en "
-    "repeticiones: Cinta se apunta por tiempo y, si se quiere, distancia."
+    "repeticiones, porque Cinta se apunta por tiempo y, si se quiere, distancia."
 )
 EN_REPETICIONES_PRESS = (
-    "El objetivo de Press banca va en repeticiones (reps_min y reps_max), no en duración: "
+    "El objetivo de Press banca va en repeticiones (reps_min y reps_max), no en duración, porque "
     "Press banca se apunta con peso y repeticiones."
 )
 EN_SEGUNDOS_OBJ = objetivo(3, duracion=(30, 60))

@@ -540,5 +540,5 @@ def test_una_fecha_futura_da_422(cliente, ppl):
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-17 todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+        "El 2026-09-17 todavía no ha llegado. Solo se registran días de hoy hacia atrás.",
     )

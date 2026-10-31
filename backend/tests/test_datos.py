@@ -59,7 +59,7 @@ MAS_NUEVA = "Este archivo es de una versión más nueva de la app. Actualízala 
 ANTERIOR = "Este archivo es de una versión anterior de la app y ya no se puede cargar."
 DANADO = "El archivo está dañado."
 _AHORA = "2026-09-16T10:00:00+00:00"
-NO_SE_CAMBIA_NADA = "No se puede cargar el archivo: no se ha cambiado nada."
+NO_SE_CAMBIA_NADA = "No se puede cargar el archivo, así que no se ha cambiado nada."
 # Lo que dicen `GET /datos/resumen` y la comprobación de importar sin datos.
 CERO = {
     "ejercicios": 0,
@@ -1169,7 +1169,7 @@ def _serie_por_tiempo_de_un_predefinido(a):
     _sesion(a, "2026-09-09")["series"][0]["duracion_s"] = 30
 
 
-MAL_APUNTADA = "La sesión del {} tiene una serie mal apuntada: "
+MAL_APUNTADA = "La sesión del {} tiene una serie mal apuntada. "
 
 
 def _hora_sin_zona(a):
@@ -1411,16 +1411,16 @@ def _zona_que_es_una_carpeta(a):
 
 
 EN_EL_FUTURO = (
-    ", un día que todavía no ha llegado: comprueba la fecha del teléfono o del"
+    ", un día que todavía no ha llegado. Comprueba la fecha del teléfono o del"
     " ordenador que hizo la copia."
 )
 SESION_EN_EL_FUTURO = (
-    " es de un día que todavía no ha llegado: comprueba la fecha del teléfono o del"
+    " es de un día que todavía no ha llegado. Comprueba la fecha del teléfono o del"
     " ordenador que hizo la copia."
 )
 ZONA_DESCONOCIDA = 'La zona horaria del archivo ("{}") no la conoce esta versión de la app.'
 FUERA_DE_PLAZO = (
-    ", fuera de su plazo: lo de un día se entrena entre el lunes de su semana y seis días después."
+    ", fuera de su plazo. Lo de un día se entrena entre el lunes de su semana y seis días después."
 )
 
 MALOS = [
@@ -1444,7 +1444,7 @@ MALOS = [
         _serie_por_tiempo_de_un_predefinido,
         NO_SE_CAMBIA_NADA,
         MAL_APUNTADA.format("2026-09-09")
-        + "Sentadilla con barra se apunta con peso y repeticiones: sobra la duración.",
+        + "Sentadilla con barra se apunta con peso y repeticiones. Sobra la duración.",
     ),
     (_hora_sin_zona, DANADO, "rutinas.0.created_at"),
     (_nombre_vacio, DANADO, "rutinas.0.nombre"),
@@ -1682,7 +1682,7 @@ def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos)
         "mensaje": NO_SE_CAMBIA_NADA,
         "errores": [
             'La sesión del 2026-09-09 tiene series de "Sentadilla con barra" y de "Remo en'
-            ' máquina vieja" en el mismo ejercicio de "Push": en una sesión, cada uno se hace'
+            ' máquina vieja" en el mismo ejercicio de "Push". En una sesión, cada uno se hace'
             " con un solo ejercicio."
         ],
     }
@@ -1705,7 +1705,7 @@ def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"]["errores"] == [
         'La sesión del 2026-09-09 tiene series de "Sentadilla con barra", de "Remo en máquina'
-        ' vieja" y de "Press inclinado con mancuernas" en el mismo ejercicio de "Push": en una'
+        ' vieja" y de "Press inclinado con mancuernas" en el mismo ejercicio de "Push". En una'
         " sesión, cada uno se hace con un solo ejercicio."
     ]
 
@@ -1753,18 +1753,18 @@ MAL_POR_TIPO = [
     (
         _distancia_en_una_serie_de_peso_y_repeticiones,
         MAL_APUNTADA.format("2026-09-03")
-        + "Remo con barra se apunta con peso y repeticiones: sobra la distancia.",
+        + "Remo con barra se apunta con peso y repeticiones. Sobra la distancia.",
     ),
     # El tipo del archivo manda: las series de un ejercicio se miran con el suyo.
     (
         _dominadas_por_tiempo,
         MAL_APUNTADA.format("2026-09-02")
-        + "Dominadas lastradas se apunta por tiempo: falta la duración",
+        + "Dominadas lastradas se apunta por tiempo. Falta la duración",
     ),
     (
         _plancha_de_peso_y_repeticiones,
         MAL_APUNTADA.format("2026-09-02")
-        + "Plancha con disco se apunta con peso y repeticiones: faltan el peso y las"
+        + "Plancha con disco se apunta con peso y repeticiones. Faltan el peso y las"
         " repeticiones y sobra la duración.",
     ),
 ]
@@ -1835,27 +1835,27 @@ def _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo(a):
     _de(a, "Plancha con disco")["tipo_registro"] = "corporal"
 
 
-MAL_OBJETIVO = 'La rutina "Core" tiene un objetivo mal puesto: '
+MAL_OBJETIVO = 'La rutina "Core" tiene un objetivo mal puesto. '
 EN_SEGUNDOS = (
     "El objetivo de Plancha con disco va en segundos (duracion_min_s y duracion_max_s), no"
-    " en repeticiones: Plancha con disco se apunta por tiempo."
+    " en repeticiones, porque Plancha con disco se apunta por tiempo."
 )
 OBJETIVOS_QUE_NO_CUADRAN = [
     (_plancha_de_principal_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
     (
         _dominadas_de_alternativa_en_segundos,
         MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones (reps_min y"
-        " reps_max), no en duración: Dominadas lastradas se apunta con repeticiones y carga.",
+        " reps_max), no en duración, porque Dominadas lastradas se apunta con repeticiones y carga.",
     ),
     (
         _sentadilla_de_principal_en_segundos,
         MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones (reps_min y"
-        " reps_max), no en duración: Sentadilla con barra se apunta con peso y repeticiones.",
+        " reps_max), no en duración, porque Sentadilla con barra se apunta con peso y repeticiones.",
     ),
     (
         _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
         MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones (reps_min y"
-        " reps_max), no en duración: Plancha con disco se apunta con repeticiones y carga.",
+        " reps_max), no en duración, porque Plancha con disco se apunta con repeticiones y carga.",
     ),
 ]
 

@@ -25,7 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.ayudas import crear_ejercicio, crear_rutina, objetivo
 
 FECHA = "2026-09-04"
-NEGATIVO = "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
+NEGATIVO = "El peso no puede ser negativo. Solo los ejercicios de peso corporal admiten ayuda."
 MEDIDAS = ("peso", "repeticiones", "duracion_s", "distancia_m", "peso_corporal")
 # Todas nulas: lo que se espera de una serie se escribe encima, solo con lo que lleva.
 SIN_MEDIDAS = dict.fromkeys(MEDIDAS)
@@ -224,38 +224,38 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         pytest.param(
             "press",
             {"repeticiones": 8},
-            "Press banca se apunta con peso y repeticiones: falta el peso.",
+            "Press banca se apunta con peso y repeticiones. Falta el peso.",
             id="peso-y-repeticiones-sin-peso",
         ),
         pytest.param(
             "press",
             {"peso": 60, "repeticiones": 8, "duracion_s": 30},
-            "Press banca se apunta con peso y repeticiones: sobra la duración.",
+            "Press banca se apunta con peso y repeticiones. Sobra la duración.",
             id="peso-y-repeticiones-con-duracion",
         ),
         pytest.param(
             "press",
             {"duracion_s": 30},
-            "Press banca se apunta con peso y repeticiones: faltan el peso y las repeticiones"
+            "Press banca se apunta con peso y repeticiones. Faltan el peso y las repeticiones"
             " y sobra la duración.",
             id="peso-y-repeticiones-por-tiempo",
         ),
         pytest.param(
             "dominadas",
             {"repeticiones": 8},
-            "Dominadas se apunta con repeticiones y carga: falta el peso.",
+            "Dominadas se apunta con repeticiones y carga. Falta el peso.",
             id="corporal-sin-carga-nula",
         ),
         pytest.param(
             "dominadas",
             {"peso": 0, "repeticiones": 8, "duracion_s": 20},
-            "Dominadas se apunta con repeticiones y carga: sobra la duración.",
+            "Dominadas se apunta con repeticiones y carga. Sobra la duración.",
             id="corporal-con-duracion",
         ),
         pytest.param(
             "plancha",
             {},
-            "Plancha se apunta por tiempo: falta la duración.",
+            "Plancha se apunta por tiempo. Falta la duración.",
             id="tiempo-sin-nada",
         ),
     ],
@@ -276,25 +276,25 @@ def test_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
         pytest.param(
             "plancha",
             {"peso": 0, "repeticiones": 8},
-            "Plancha se apunta por tiempo: falta la duración y sobran las repeticiones.",
+            "Plancha se apunta por tiempo. Falta la duración y sobran las repeticiones.",
             id="tiempo-por-repeticiones",
         ),
         pytest.param(
             "plancha",
             {"duracion_s": 30, "repeticiones": 8},
-            "Plancha se apunta por tiempo: sobran las repeticiones.",
+            "Plancha se apunta por tiempo. Sobran las repeticiones.",
             id="tiempo-con-repeticiones",
         ),
         pytest.param(
             "press",
             {"peso": 60},
-            "Press banca se apunta con peso y repeticiones: faltan las repeticiones.",
+            "Press banca se apunta con peso y repeticiones. Faltan las repeticiones.",
             id="peso-y-repeticiones-sin-repeticiones",
         ),
         pytest.param(
             "dominadas",
             {"peso": 0},
-            "Dominadas se apunta con repeticiones y carga: faltan las repeticiones.",
+            "Dominadas se apunta con repeticiones y carga. Faltan las repeticiones.",
             id="corporal-sin-repeticiones",
         ),
     ],
@@ -376,7 +376,7 @@ def test_unas_medidas_mal_puestas_dan_su_422_antes_que_el_409_de_mezclar(cliente
     bien = apuntar(cliente, e, "plancha", numero=2, slot_id=e.a, duracion_s=30)
 
     assert mal.status_code == 422, mal.text
-    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo:")
+    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo.")
     assert bien.status_code == 409, bien.text
     assert bien.json()["detail"].startswith("Esta sesión ya tiene la serie de Press banca ")
     assert series_de(cliente, e) == [press]
@@ -416,7 +416,7 @@ def test_cambiar_a_una_alternativa_de_otro_tipo_exige_sus_medidas(cliente, e):
 
     mal = corregir(cliente, e, serie, "plancha", peso=60, repeticiones=8)
     assert mal.status_code == 422, mal.text
-    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo:")
+    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo.")
     assert series_de(cliente, e) == [serie]
 
     bien = corregir(cliente, e, serie, "plancha", duracion_s=40)
@@ -448,7 +448,7 @@ def test_de_tiempo_a_peso_y_repeticiones_sin_sus_medidas_da_422(cliente, e):
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == (
-        "Press banca se apunta con peso y repeticiones: faltan el peso y las repeticiones"
+        "Press banca se apunta con peso y repeticiones. Faltan el peso y las repeticiones"
         " y sobra la duración."
     )
     assert series_de(cliente, e) == [serie]
@@ -469,7 +469,7 @@ def test_corregir_una_serie_sin_sus_medidas_da_422_y_no_la_toca(cliente, e):
     respuesta = corregir(cliente, e, serie, "press", peso=62.5)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"].startswith("Press banca se apunta con peso y repeticiones:")
+    assert respuesta.json()["detail"].startswith("Press banca se apunta con peso y repeticiones.")
     assert series_de(cliente, e) == [serie]
 
 
@@ -777,17 +777,17 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
 @pytest.mark.parametrize(
     "medidas, mensaje",
     [
-        pytest.param({}, f"{COMO_CARDIO}: falta la duración.", id="sin-nada"),
+        pytest.param({}, f"{COMO_CARDIO}. Falta la duración.", id="sin-nada"),
         pytest.param(
-            {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}: sobra el peso.", id="con-peso"
+            {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}. Sobra el peso.", id="con-peso"
         ),
         # No es el 422 de la ayuda: en cardio sobra cualquier peso, también uno negativo.
         pytest.param(
-            {"duracion_s": 600, "peso": -10}, f"{COMO_CARDIO}: sobra el peso.", id="con-ayuda"
+            {"duracion_s": 600, "peso": -10}, f"{COMO_CARDIO}. Sobra el peso.", id="con-ayuda"
         ),
         pytest.param(
             {"duracion_s": 600, "repeticiones": 8},
-            f"{COMO_CARDIO}: sobran las repeticiones.",
+            f"{COMO_CARDIO}. Sobran las repeticiones.",
             id="con-repeticiones",
         ),
         # Lo que falta y lo que sobra a la vez, en
@@ -816,19 +816,19 @@ def test_en_cardio_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercic
         pytest.param(
             "press",
             {"peso": 60, "repeticiones": 8, "distancia_m": 100},
-            "Press banca se apunta con peso y repeticiones: sobra la distancia.",
+            "Press banca se apunta con peso y repeticiones. Sobra la distancia.",
             id="peso-y-repeticiones",
         ),
         pytest.param(
             "dominadas",
             {"peso": 0, "repeticiones": 8, "distancia_m": 100},
-            "Dominadas se apunta con repeticiones y carga: sobra la distancia.",
+            "Dominadas se apunta con repeticiones y carga. Sobra la distancia.",
             id="corporal",
         ),
         pytest.param(
             "plancha",
             {"duracion_s": 60, "distancia_m": 100},
-            "Plancha se apunta por tiempo: sobra la distancia.",
+            "Plancha se apunta por tiempo. Sobra la distancia.",
             id="tiempo",
         ),
     ],
@@ -902,7 +902,7 @@ def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_
     con_reps = corregir(cliente, c, serie, "cinta", peso=60, repeticiones=8)
     assert (con_reps.status_code, con_reps.json()["detail"]) == (
         422,
-        f"{COMO_CARDIO}: falta la duración y sobran el peso y las repeticiones.",
+        f"{COMO_CARDIO}. Falta la duración y sobran el peso y las repeticiones.",
     )
     assert series_de(cliente, c) == [serie]
 
@@ -914,7 +914,7 @@ def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_
     a_press = corregir(cliente, c, a_cinta.json(), "press", duracion_s=720, distancia_m=2000)
     assert (a_press.status_code, a_press.json()["detail"]) == (
         422,
-        "Press banca se apunta con peso y repeticiones: faltan el peso y las repeticiones"
+        "Press banca se apunta con peso y repeticiones. Faltan el peso y las repeticiones"
         " y sobran la duración y la distancia.",
     )
     [leida] = series_de(cliente, c)

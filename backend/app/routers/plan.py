@@ -30,7 +30,7 @@ def _exigir_hoy_o_despues(fecha: date) -> None:
     if fecha < hoy():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El {fecha} ya ha pasado: solo se puede planificar de hoy en adelante.",
+            detail=f"El {fecha} ya ha pasado. Solo se puede planificar de hoy en adelante.",
         )
 
 
@@ -67,7 +67,7 @@ def obtener_hoy(
     if fecha > hoy():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El {fecha} todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+            detail=f"El {fecha} todavía no ha llegado. Solo se registran días de hoy hacia atrás.",
         )
     return resumen_de_hoy(db, fecha)
 
@@ -133,7 +133,7 @@ def restablecer_dia(
     if excepcion is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ese día no estaba cambiado: ya es lo que dice el programa",
+            detail="Ese día no estaba cambiado. Ya es lo que dice el programa",
         )
     contaban = coberturas_en_juego(db)
     db.delete(excepcion)

@@ -333,7 +333,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 )
                 if mal:
                     errores.append(
-                        f'La rutina "{rutina.nombre}" tiene un objetivo mal puesto: {mal}'
+                        f'La rutina "{rutina.nombre}" tiene un objetivo mal puesto. {mal}'
                     )
     # UNIQUE(rutina_id, orden).
     for rutina in datos.rutinas:
@@ -371,7 +371,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 fecha = periodo.desde if periodo.desde > hoy_ else periodo.hasta
                 errores.append(
                     f'El programa "{programa.nombre}" {cuando} el {fecha}, un día que todavía'
-                    " no ha llegado: comprueba la fecha del teléfono o del ordenador que hizo"
+                    " no ha llegado. Comprueba la fecha del teléfono o del ordenador que hizo"
                     " la copia."
                 )
     abiertos = [
@@ -397,15 +397,15 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
             )
         if sesion.fecha > hoy_:
             errores.append(
-                f"La sesión del {sesion.fecha} es de un día que todavía no ha llegado:"
-                " comprueba la fecha del teléfono o del ordenador que hizo la copia."
+                f"La sesión del {sesion.fecha} es de un día que todavía no ha llegado."
+                " Comprueba la fecha del teléfono o del ordenador que hizo la copia."
             )
         if sesion.cubre_fecha is not None:
             primero, ultimo = plazo(sesion.cubre_fecha)
             if not primero <= sesion.fecha <= ultimo:
                 errores.append(
                     f"La sesión del {sesion.fecha} cuenta como la del {sesion.cubre_fecha}, fuera"
-                    " de su plazo: lo de un día se entrena entre el lunes de su semana y seis días"
+                    " de su plazo. Lo de un día se entrena entre el lunes de su semana y seis días"
                     " después."
                 )
         for serie in sesion.series:
@@ -416,7 +416,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 )
                 if mal:
                     errores.append(
-                        f"La sesión del {sesion.fecha} tiene una serie mal apuntada: {mal}"
+                        f"La sesión del {sesion.fecha} tiene una serie mal apuntada. {mal}"
                     )
             if serie.ejercicio_id not in ejercicios:
                 errores.append(
@@ -440,7 +440,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 donde = f' de "{rutina.nombre}"' if rutina is not None else ""
                 errores.append(
                     f"La sesión del {sesion.fecha} tiene series {cuales} en el mismo ejercicio"
-                    f"{donde}: en una sesión, cada uno se hace con un solo ejercicio."
+                    f"{donde}. En una sesión, cada uno se hace con un solo ejercicio."
                 )
     for fecha in _repetidos(s.fecha for s in datos.entrenamientos):
         errores.append(f"Hay dos sesiones el {fecha}.")

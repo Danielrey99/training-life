@@ -490,7 +490,7 @@ def test_una_rutina_oculta_no_se_puede_reordenar(cliente, tres_huecos):
     respuesta = ordenar(cliente, rutina, [c, b, a])
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"] == "Esta rutina está oculta: muéstrala antes de cambiarla."
+    assert respuesta.json()["detail"] == "Esta rutina está oculta. Muéstrala antes de cambiarla."
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
 
 

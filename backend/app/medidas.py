@@ -116,10 +116,11 @@ def validar_medidas(nombre: str, tipo: str, datos: Mapping[str, Any]) -> str | N
             detalle.append(
                 f"{_verbo('sobra', sobran)} {_unir([NOMBRE_DEL_CAMPO[c] for c in sobran])}"
             )
-        return f"{nombre} se apunta {COMO_SE_APUNTA[tipo]}: {_unir(detalle)}."
+        frase = _unir(detalle)
+        return f"{nombre} se apunta {COMO_SE_APUNTA[tipo]}. {frase[0].upper()}{frase[1:]}."
     peso = datos.get("peso")
     if peso is not None and Decimal(peso) < 0 and tipo != "corporal":
-        return "El peso no puede ser negativo: solo los ejercicios de peso corporal admiten ayuda."
+        return "El peso no puede ser negativo. Solo los ejercicios de peso corporal admiten ayuda."
     if datos.get("peso_corporal") is not None and tipo != "corporal":
         return (
             "El peso corporal solo se guarda en las series de ejercicios de peso corporal, "
@@ -136,11 +137,11 @@ def validar_objetivo(nombre: str, tipo: str, objetivo: Mapping[str, Any]) -> str
     if FAMILIA[tipo] == "repeticiones" and not con_reps:
         return (
             f"El objetivo de {nombre} va en repeticiones (reps_min y reps_max), "
-            f"no en duración: {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
+            f"no en duración, porque {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
         )
     if FAMILIA[tipo] == "duracion" and con_reps:
         return (
             f"El objetivo de {nombre} va en segundos (duracion_min_s y duracion_max_s), "
-            f"no en repeticiones: {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
+            f"no en repeticiones, porque {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
         )
     return None

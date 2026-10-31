@@ -74,7 +74,7 @@ def test_no_se_adelanta_lo_de_la_semana_siguiente(cliente, ppl):
 
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"].startswith(
-        "Lo del 2026-09-21 solo se puede entrenar del 2026-09-21 al 2026-09-27:"
+        "Lo del 2026-09-21 solo se puede entrenar del 2026-09-21 al 2026-09-27."
     )
     assert cliente.get("/entrenamientos").json() == []
 
@@ -87,7 +87,7 @@ def test_lo_del_ultimo_dia_que_existe_da_422_por_el_plazo(cliente, ppl):
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"].startswith(
-        "Lo del 9999-12-31 solo se puede entrenar del 9999-12-27 al 9999-12-31:"
+        "Lo del 9999-12-31 solo se puede entrenar del 9999-12-27 al 9999-12-31."
     )
     assert cliente.get("/entrenamientos").json() == []
 
@@ -359,7 +359,7 @@ def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
 # desde hoy, miércoles 16, manda otro.
 
 AVISO_OTRO_PROGRAMA = (
-    "El 2026-09-14 lo planificaba otro programa: lo que tocaba con un programa que ya"
+    "El 2026-09-14 lo planificaba otro programa, y lo que tocaba con un programa que ya"
     " no está activo no se recupera."
 )
 

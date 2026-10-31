@@ -309,7 +309,7 @@ def actualizar_ejercicio(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Los ejercicios predefinidos no se pueden editar.",
         )
-    exigir_visible(ejercicio, "Este ejercicio está oculto: muéstralo antes de editarlo.")
+    exigir_visible(ejercicio, "Este ejercicio está oculto. Muéstralo antes de editarlo.")
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
     for campo, valor in datos.model_dump().items():
         setattr(ejercicio, campo, valor)

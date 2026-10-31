@@ -134,7 +134,7 @@ class ObjetivoBase(BaseModel):
         if len(set(con_reps)) != 1 or len(set(con_duracion)) != 1 or con_reps[0] == con_duracion[0]:
             raise ValueError(
                 "El objetivo lleva repeticiones (reps_min y reps_max) o duración "
-                "(duracion_min_s y duracion_max_s): uno de los dos, completo"
+                "(duracion_min_s y duracion_max_s), uno de los dos y completo"
             )
         if con_reps[0] and self.reps_max < self.reps_min:
             raise ValueError("reps_max no puede ser menor que reps_min")
@@ -550,7 +550,7 @@ class ProgramaCreate(BaseModel):
     def _validar_dias_sin_repetir(self):
         dias = [dia.dia_semana for dia in self.dias]
         if len(dias) != len(set(dias)):
-            raise ValueError("Un día no puede tener dos rutinas: hay días repetidos")
+            raise ValueError("Hay días repetidos, y un día no puede tener dos rutinas")
         return self
 
     @model_validator(mode="after")

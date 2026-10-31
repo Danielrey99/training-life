@@ -479,8 +479,8 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
     filas = filas_de_comodines(sesion_bd, slot)
 
     mensaje = {
-        "hueco": "Este hueco está oculto: muéstralo antes de cambiarlo.",
-        "rutina": "Esta rutina está oculta: muéstrala antes de cambiarla.",
+        "hueco": "Este hueco está oculto. Muéstralo antes de cambiarlo.",
+        "rutina": "Esta rutina está oculta. Muéstrala antes de cambiarla.",
     }[que]
 
     for lista in ([], [ejercicios["Cruces"]]):

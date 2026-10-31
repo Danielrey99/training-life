@@ -45,7 +45,7 @@ def _validar_fecha_no_futura(fecha: date) -> None:
     if fecha > hoy():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El {fecha} todavía no ha llegado: solo se registran días de hoy hacia atrás.",
+            detail=f"El {fecha} todavía no ha llegado. Solo se registran días de hoy hacia atrás.",
         )
 
 
@@ -90,7 +90,7 @@ def _validar_en_plazo(fecha: date, cubre: date) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}: se adelanta"
+                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}. Se adelanta"
                 " dentro de su semana y se recupera hasta el día antes del mismo día de la"
                 " semana siguiente."
             ),
@@ -129,7 +129,7 @@ def _validar_mismo_programa(cubre: date, plan: dict[date, DiaPlan], fecha: date)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"El {cubre} lo planificaba otro programa: lo que tocaba con un programa que ya"
+                f"El {cubre} lo planificaba otro programa, y lo que tocaba con un programa que ya"
                 " no está activo no se recupera."
             ),
         )
@@ -147,18 +147,18 @@ def _validar_intercambio(db: Session, datos: EntrenamientoCreate) -> None:
         detalle = "Para intercambiar hacen falta dos días distintos."
     elif otro < hoy():
         detalle = (
-            f"El {otro} ya ha pasado: solo se puede intercambiar con un día de hoy en adelante."
+            f"El {otro} ya ha pasado. Solo se puede intercambiar con un día de hoy en adelante."
         )
     elif datos.cubre_fecha != datos.fecha:
         detalle = (
-            "Al intercambiar, la sesión cuenta como la de hoy: "
+            "Al intercambiar, la sesión cuenta como la de hoy, así que "
             f"cubre_fecha tiene que ser {datos.fecha}."
         )
     else:
         [dia] = dias_del_plan(db, otro, otro)
         if not dia.descanso and dia.rutina.id == datos.rutina_id:
             return
-        detalle = f"El {otro} no toca esa rutina: intercambiar trae a hoy lo que toca ese día."
+        detalle = f"El {otro} no toca esa rutina. Intercambiar trae a hoy lo que toca ese día."
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detalle)
 
 
@@ -177,7 +177,7 @@ def _dejar_sitio_en(db: Session, dia: DiaPlan) -> None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "mensaje": f"Lo del {cubre} ya está hecho: lo cuenta la sesión del {otra.fecha}.",
+                "mensaje": f"Lo del {cubre} ya está hecho. Lo cuenta la sesión del {otra.fecha}.",
                 "entrenamiento_id": otra.id,
             },
         )
@@ -213,7 +213,7 @@ def listar_entrenamientos(
     if desde is not None and hasta is not None and desde > hasta:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango de fechas está invertido: 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
+            detail=f"El rango de fechas está invertido. La fecha 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
         )
     stmt = select(Entrenamiento)
     if desde is not None:
@@ -434,7 +434,7 @@ def _validar_un_ejercicio_por_hueco(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
             f"Esta sesión ya tiene {cuantas} de {anterior.nombre} en ese ejercicio de la rutina, "
-            f"y en cada uno se hace un solo ejercicio por sesión: borra antes esas series "
+            f"y en cada uno se hace un solo ejercicio por sesión. Borra antes esas series "
             f"para apuntar {nuevo.nombre}."
         ),
     )

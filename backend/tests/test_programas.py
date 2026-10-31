@@ -27,7 +27,7 @@ def ocultar_programa(cliente, programa_id):
     assert cliente.delete(f"/programas/{programa_id}?modo=ocultar").status_code == 204
 
 
-PROGRAMA_OCULTO = "Este programa está oculto: muéstralo antes de cambiarlo."
+PROGRAMA_OCULTO = "Este programa está oculto. Muéstralo antes de cambiarlo."
 
 
 # --- Crear ---------------------------------------------------------------
@@ -62,7 +62,9 @@ def test_un_dia_no_puede_tener_dos_rutinas(cliente):
     )
 
     assert respuesta.status_code == 422
-    assert "hay días repetidos" in str(respuesta.json()["detail"])
+    assert respuesta.json()["detail"][0]["msg"] == (
+        "Value error, Hay días repetidos, y un día no puede tener dos rutinas"
+    )
     assert cliente.get("/programas").json() == []
 
 

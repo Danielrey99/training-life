@@ -31,7 +31,7 @@ def obtener_resumen(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"{nombre_del_mes(primero)} todavía no ha llegado: el resumen es de lo ya"
+                f"{nombre_del_mes(primero)} todavía no ha llegado. El resumen es de lo ya"
                 " entrenado."
             ),
         )

@@ -202,7 +202,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             LUNES_14,
             HOY,
             HOY,
-            "El 2026-09-14 ya ha pasado: solo se puede intercambiar con un día de hoy en adelante.",
+            "El 2026-09-14 ya ha pasado. Solo se puede intercambiar con un día de hoy en adelante.",
             id="con-un-dia-pasado",
         ),
         pytest.param(
@@ -210,7 +210,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             VIERNES_18,
-            "Al intercambiar, la sesión cuenta como la de hoy: cubre_fecha tiene que ser"
+            "Al intercambiar, la sesión cuenta como la de hoy, así que cubre_fecha tiene que ser"
             " 2026-09-16.",
             id="cuenta-otro-dia",
         ),
@@ -219,7 +219,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             None,
-            "Al intercambiar, la sesión cuenta como la de hoy: cubre_fecha tiene que ser"
+            "Al intercambiar, la sesión cuenta como la de hoy, así que cubre_fecha tiene que ser"
             " 2026-09-16.",
             id="sin-cubre-fecha",
         ),
@@ -228,7 +228,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             HOY,
-            "El 2026-09-18 no toca esa rutina: intercambiar trae a hoy lo que toca ese día.",
+            "El 2026-09-18 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
             id="otra-rutina",
         ),
         pytest.param(
@@ -236,7 +236,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             JUEVES_17,
             HOY,
             HOY,
-            "El 2026-09-17 no toca esa rutina: intercambiar trae a hoy lo que toca ese día.",
+            "El 2026-09-17 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
             id="un-descanso",
         ),
     ],
@@ -286,7 +286,7 @@ def test_un_422_del_intercambio_no_borra_la_cancelada_de_hoy(cliente, sesion_bd,
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-18 no toca esa rutina: intercambiar trae a hoy lo que toca ese día.",
+        "El 2026-09-18 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
     )
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 

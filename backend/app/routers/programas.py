@@ -40,7 +40,7 @@ def _obtener_programa_modificable(
     if programa is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
     if not admitir_oculto:
-        exigir_visible(programa, "Este programa está oculto: muéstralo antes de cambiarlo.")
+        exigir_visible(programa, "Este programa está oculto. Muéstralo antes de cambiarlo.")
     return programa
 
 

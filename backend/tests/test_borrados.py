@@ -400,9 +400,9 @@ def test_las_notas_de_un_ejercicio_oculto_se_pueden_leer_y_escribir(cliente, gru
     assert [nota["nota"] for nota in cliente.get(ruta).json()] == ["Oculto por el hombro"]
 
 
-EJERCICIO_OCULTO = "Este ejercicio está oculto: muéstralo antes de editarlo."
-HUECO_OCULTO = "Este hueco está oculto: muéstralo antes de cambiarlo."
-RUTINA_OCULTA = "Esta rutina está oculta: muéstrala antes de cambiarla."
+EJERCICIO_OCULTO = "Este ejercicio está oculto. Muéstralo antes de editarlo."
+HUECO_OCULTO = "Este hueco está oculto. Muéstralo antes de cambiarlo."
+RUTINA_OCULTA = "Esta rutina está oculta. Muéstrala antes de cambiarla."
 
 
 def test_editar_algo_oculto_da_409(cliente, grupo_muscular_id):

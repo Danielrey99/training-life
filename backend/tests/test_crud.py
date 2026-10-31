@@ -484,7 +484,7 @@ def test_no_se_apunta_una_serie_de_otro_ejercicio_en_un_hueco_que_ya_tiene_serie
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == (
         "Esta sesión ya tiene la serie de Crunch en polea en ese ejercicio de la rutina, y en "
-        "cada uno se hace un solo ejercicio por sesión: borra antes esas series para apuntar "
+        "cada uno se hace un solo ejercicio por sesión. Borra antes esas series para apuntar "
         "Plancha."
     )
     assert _series_de(cliente, sesion) == [crunch]
