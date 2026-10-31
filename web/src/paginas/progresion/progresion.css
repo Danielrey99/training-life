@@ -6,6 +6,12 @@
   gap: 12px;
 }
 
+/* Sin sesiones en el rango, el aviso va pegado a los rangos, con el hueco de la columna. */
+.progresion > .aviso {
+  margin: 0;
+  font-size: 15px;
+}
+
 /* El hueco de 44 px de la derecha: sin botón, el título no se descentra. */
 .progresion-hueco {
   width: 44px;

@@ -288,6 +288,11 @@
   flex-shrink: 0;
 }
 
+/* La marca de lo elegido, en verde: el resto de la fila es gris o blanco. */
+.hoja-fila > .icono {
+  color: var(--acento);
+}
+
 .hoja-fila-texto {
   flex-grow: 1;
   display: flex;

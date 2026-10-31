@@ -465,7 +465,7 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
   return (
     <div className="hoja-fondo" onClick={() => !guardando && !aviso && alCerrar()}>
       <div
-        className="hoja"
+        className="hoja planificar-hoja"
         role="dialog"
         aria-modal="true"
         aria-labelledby="hoja-titulo"

@@ -118,6 +118,17 @@
   color: var(--texto-tenue);
 }
 
+/* En la hoja, `.hoja-fila-texto strong` lo pondría en negrita y en blanco. */
+.hoja-fila-texto .planificar-descanso {
+  font-weight: 400;
+  color: var(--texto-tenue);
+}
+
+/* Las filas de esta hoja, algo más bajas que las de las demás, como en el boceto. */
+.planificar-hoja .hoja-fila {
+  min-height: 52px;
+}
+
 /* Lo que ocupa el punto en un día sin rutina, para que los nombres queden alineados. */
 .planificar-espacio {
   width: 8px;

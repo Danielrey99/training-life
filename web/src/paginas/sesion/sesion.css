@@ -231,6 +231,11 @@
   background: var(--superficie);
 }
 
+/* La marca del ejercicio de hoy, en verde como en las hojas. */
+.opcion > .icono {
+  color: var(--acento);
+}
+
 .opcion:disabled {
   cursor: default;
   opacity: 0.5;
@@ -390,6 +395,11 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 2px 10px;
+}
+
+/* Una serie de dos líneas (la de peso corporal, el ritmo) no va pegada a las rayas. */
+.hoy .serie-texto {
+  padding: 6px 0;
 }
 
 .serie-carga {
@@ -553,18 +563,16 @@
 
 .carga-signo {
   display: flex;
-  background: var(--fondo);
   border: 1px solid var(--borde);
-  border-radius: 999px;
-  padding: 2px;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .carga-signo button {
-  min-height: 28px;
-  padding: 0 10px;
+  padding: 3px 10px;
   background: none;
   border: none;
-  border-radius: 999px;
+  border-radius: 0;
   color: var(--texto-tenue);
   font: inherit;
   font-size: 12.5px;
