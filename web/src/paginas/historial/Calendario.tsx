@@ -96,9 +96,14 @@ export function Calendario() {
     setParametros({ mes: sumarMeses(mes, meses).slice(0, 7) })
   }
 
-  /** Tocar un día enseña lo que se hizo ESE día, nunca lo del día en que se hizo su rutina. */
+  /**
+   * Tocar un día enseña lo que se hizo ESE día, nunca lo del día en que se hizo su rutina.
+   * La sesión de hoy a medias se abre para seguir apuntando; una pasada sin terminar cuenta
+   * como hecha y va a su día, que tiene su «Seguir apuntando».
+   */
   function tocar(dia: DiaSeguimiento) {
-    if (dia.sesion) navegar(`/historial/${dia.fecha}`)
+    if (dia.sesion?.en_curso) navegar(`/sesion/${dia.sesion.entrenamiento_id}`)
+    else if (dia.sesion) navegar(`/historial/${dia.fecha}`)
     else if (dia.fecha === hoy) navegar('/')
     else if (dia.fecha < hoy) setRegistrando(dia.fecha)
   }
