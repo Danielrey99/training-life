@@ -51,7 +51,7 @@ function progresionDe(tipo: Ejercicio['tipo_registro'], ultima: SesionHistorial)
 
 /** "Push · ejercicio 1"; uno oculto en su rutina no tiene número. */
 function queEjercicio(uso: UsoEnRutina) {
-  const cual = uso.posicion === null ? 'ejercicio oculto' : `ejercicio ${uso.posicion}`
+  const cual = uso.posicion === null ? 'oculto en la rutina' : `ejercicio ${uso.posicion}`
   return `${uso.rutina.nombre} · ${cual}`
 }
 

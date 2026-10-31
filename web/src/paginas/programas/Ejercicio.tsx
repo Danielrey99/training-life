@@ -351,7 +351,9 @@ export function Ejercicio() {
 
       {huecoOculto && origen.tipo === 'existente' && (
         <div className="semana-oculto">
-          <strong>Oculto desde el {diaYMesConAnio(origen.hueco.oculto_desde!)}</strong>
+          <strong>
+            Oculto en esta rutina desde el {diaYMesConAnio(origen.hueco.oculto_desde!)}
+          </strong>
           <span>No sale en la rutina ni al entrenar.</span>
           <span>Su historial sigue intacto.</span>
         </div>
@@ -388,6 +390,11 @@ export function Ejercicio() {
             </button>
           )}
         </div>
+        {/* Para que nadie oculte o borre un ejercicio de la rutina solo para hacer otro: basta
+            con cambiarlo, y su historial no se toca. */}
+        {origen.tipo === 'existente' && !soloLectura && (
+          <p className="ejercicio-ayuda">Puedes cambiarlo por otro sin perder lo que ya hiciste.</p>
+        )}
 
         {formulario.principal && (
           <CamposDelObjetivo
@@ -508,7 +515,7 @@ export function Ejercicio() {
                 className="boton boton-principal"
                 onClick={() => setPregunta('mostrar')}
               >
-                Mostrar ejercicio
+                Mostrar en esta rutina
               </button>
             ) : (
               <button
@@ -517,7 +524,7 @@ export function Ejercicio() {
                 onClick={() => setPregunta('ocultar')}
                 disabled={guardando}
               >
-                Ocultar ejercicio
+                Ocultar en esta rutina
               </button>
             )}
             <button
@@ -567,8 +574,8 @@ export function Ejercicio() {
       )}
       {pregunta === 'ocultar' && origen.tipo === 'existente' && (
         <Dialogo
-          titulo={`¿Ocultar ${principalNombre}?`}
-          cuerpo={`Dejará de salir en la rutina ${origen.rutina.nombre} y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina.`}
+          titulo={`¿Ocultar ${principalNombre} en ${origen.rutina.nombre}?`}
+          cuerpo={`Dejará de salir en esta rutina y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina. ${CAMBIARLO}`}
           confirmar="Ocultar"
           alConfirmar={async () => {
             await api.borrarHueco(origen.rutina.id, origen.hueco.id, 'ocultar')
@@ -580,7 +587,7 @@ export function Ejercicio() {
       )}
       {pregunta === 'mostrar' && origen.tipo === 'existente' && (
         <Dialogo
-          titulo={`¿Mostrar ${principalNombre}?`}
+          titulo={`¿Mostrar ${principalNombre} en ${origen.rutina.nombre}?`}
           cuerpo={`Volverá a salir en la rutina ${origen.rutina.nombre} y en tus próximas sesiones.`}
           confirmar="Mostrar"
           alConfirmar={async () => {
@@ -609,6 +616,10 @@ export function Ejercicio() {
   )
 }
 
+/** Que no hace falta ocultar ni borrar para hacer otro ejercicio en su lugar. */
+const CAMBIARLO =
+  'Si quieres hacer otro ejercicio en su lugar, cambia el ejercicio principal o las alternativas y lo que ya hiciste se conservará.'
+
 /** "Se borrarán también sus 47 series, apuntadas desde el 6 de julio…"; sin series, nada. */
 function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
   if (aviso.series === 0) return undefined
@@ -621,7 +632,9 @@ function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
       : vacias === 1
         ? ', y 1 sesión que solo tenía series de este ejercicio'
         : `, y ${vacias} sesiones que solo tenían series de este ejercicio`
-  // Ocultarlo como salida solo tiene sentido si aún se ve.
-  const salida = oculto ? '' : ' Si solo quieres que deje de salir, ocúltalo.'
+  // Ocultarlo en la rutina como salida solo tiene sentido si aún se ve en ella.
+  const salida = oculto
+    ? ''
+    : ` Si solo quieres que deje de salir, ocúltalo en esta rutina y su historial se conservará. ${CAMBIARLO}`
   return `Se borrarán también ${series}${desde}${sesiones}.${salida}`
 }
