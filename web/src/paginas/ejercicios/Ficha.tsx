@@ -121,7 +121,7 @@ function loQueSePierde(aviso: AvisoDeBorrarEjercicio, oculto: boolean) {
  *
  * Un predefinido no se edita, oculta ni borra (es de todos), pero sus notas son tuyas.
  * Uno oculto es de solo lectura, con *Mostrar* y *Borrar*; sus notas sí se cambian,
- * cada una con su propio formulario. Un bloque vacío no se enseña.
+ * cada una con su propio formulario. Un bloque vacío no desaparece: lo dice en su recuadro.
  */
 export function Ficha() {
   const { ejercicioId } = useParams()
@@ -249,12 +249,16 @@ export function Ficha() {
         </div>
       )}
 
-      {ejercicio.descripcion && (
-        <section className="detalle-bloque">
-          <h2 className="rotulo">Descripción</h2>
+      <section className="detalle-bloque">
+        <h2 className="rotulo">Descripción</h2>
+        {ejercicio.descripcion ? (
           <p className="detalle-tarjeta detalle-descripcion">{ejercicio.descripcion}</p>
-        </section>
-      )}
+        ) : (
+          <p className="recuadro-vacio">
+            Todavía no tiene descripción.{propio && !oculto && ' Puedes añadirla con Editar.'}
+          </p>
+        )}
+      </section>
 
       {tipo && (
         <section className="detalle-bloque">
@@ -266,9 +270,9 @@ export function Ficha() {
         </section>
       )}
 
-      {progresion && ultima && (
-        <section className="detalle-bloque">
-          <h2 className="rotulo">Progresión</h2>
+      <section className="detalle-bloque">
+        <h2 className="rotulo">Progresión</h2>
+        {progresion && ultima ? (
           <Link
             to={`/progresion/${id}?medida=${progresion.clave}`}
             className="detalle-tarjeta detalle-progresion"
@@ -279,11 +283,16 @@ export function Ficha() {
             </span>
             <Icono nombre="abrir" pequeno />
           </Link>
-        </section>
-      )}
+        ) : (
+          <p className="recuadro-vacio">Aún no has hecho este ejercicio.</p>
+        )}
+      </section>
 
       <section className="detalle-bloque">
         <h2 className="rotulo">Mis notas</h2>
+        {notas.length === 0 && escribiendo !== 'nueva' && (
+          <p className="recuadro-vacio">Aún no tienes notas de este ejercicio.</p>
+        )}
         {notas.length > 0 && (
           <div className="detalle-tarjeta detalle-notas">
             {notas.map((nota) =>
@@ -345,32 +354,37 @@ export function Ficha() {
         )}
       </section>
 
-      {usos.length > 0 && (
-        <section className="detalle-bloque">
-          <h2 className="rotulo">Rutinas donde se usa</h2>
-          {usosVisibles.length > 0 && (
-            <div className="programas-rutinas">
-              {usosVisibles.map((uso) => (
-                <FilaDeUso key={`${uso.rol}-${uso.slot_id}`} uso={uso} />
-              ))}
-            </div>
-          )}
-          <Ocultos
-            cuantos={usosOcultos.length}
-            singular="rutina oculta"
-            plural="rutinas ocultas"
-            abierto={verOcultos}
-            alAlternar={alternarOcultos}
-          />
-          {verOcultos && usosOcultos.length > 0 && (
-            <div className="programas-rutinas oculta">
-              {usosOcultos.map((uso) => (
-                <FilaDeUso key={`${uso.rol}-${uso.slot_id}`} uso={uso} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      <section className="detalle-bloque">
+        <h2 className="rotulo">Rutinas donde se usa</h2>
+        {usosVisibles.length === 0 && (
+          <p className="recuadro-vacio">
+            {usosOcultos.length > 0
+              ? 'Ya no está en ninguna rutina a la vista.'
+              : 'Todavía no está en ninguna rutina.'}
+          </p>
+        )}
+        {usosVisibles.length > 0 && (
+          <div className="programas-rutinas">
+            {usosVisibles.map((uso) => (
+              <FilaDeUso key={`${uso.rol}-${uso.slot_id}`} uso={uso} />
+            ))}
+          </div>
+        )}
+        <Ocultos
+          cuantos={usosOcultos.length}
+          singular="rutina donde ya no está"
+          plural="rutinas donde ya no está"
+          abierto={verOcultos}
+          alAlternar={alternarOcultos}
+        />
+        {verOcultos && usosOcultos.length > 0 && (
+          <div className="programas-rutinas oculta">
+            {usosOcultos.map((uso) => (
+              <FilaDeUso key={`${uso.rol}-${uso.slot_id}`} uso={uso} />
+            ))}
+          </div>
+        )}
+      </section>
 
       {propio ? (
         <div className="detalle-acciones">

@@ -409,11 +409,13 @@ export function Ejercicio() {
       <section className="ejercicio-tarjeta">
         <div className="campo">
           <span className="ejercicio-tarjeta-titulo">Alternativas</span>
-          {formulario.alternativas.length > 0 && (
+          {formulario.alternativas.length > 0 ? (
             <p className="ejercicio-ayuda">
               Cada una tiene su propio objetivo.
               {!soloLectura && ' Toca una para verlo o cambiarlo.'}
             </p>
+          ) : (
+            <p className="ejercicio-ayuda">Todavía no tiene alternativas.</p>
           )}
           <div className="ejercicio-alternativas">
             {formulario.alternativas.map((alternativa, posicion) => {
@@ -484,9 +486,6 @@ export function Ejercicio() {
               >
                 + Añadir alternativa
               </button>
-            )}
-            {soloLectura && formulario.alternativas.length === 0 && (
-              <span className="ejercicio-ayuda">Ninguna</span>
             )}
           </div>
         </div>

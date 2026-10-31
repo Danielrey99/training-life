@@ -119,13 +119,6 @@
   color: var(--texto-tenue);
 }
 
-.rutina-vacio {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--texto-tenue);
-  text-align: center;
-}
-
 .rutina-separador {
   height: 1px;
   margin: 4px 0;

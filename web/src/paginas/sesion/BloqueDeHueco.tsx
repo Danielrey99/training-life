@@ -152,6 +152,13 @@ function HuecoAbierto({
         )}
       </div>
 
+      {/* Sin ninguna vez anterior, se dice, como en el día del historial: si no, el hueco de la
+          última vez desaparece sin explicación. */}
+      {ultima === null && (
+        <div className="ultima-vez">
+          <span className="rotulo">Primera vez con este ejercicio</span>
+        </div>
+      )}
       {ultima && ultima.series.length > 0 && (
         <div className="ultima-vez">
           <span className="rotulo">Última vez · {fechaCorta(ultima.fecha)}</span>

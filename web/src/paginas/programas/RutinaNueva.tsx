@@ -183,7 +183,7 @@ export function RutinaNueva() {
       </label>
 
       {ejercicios.length === 0 ? (
-        <p className="rutina-vacio">
+        <p className="recuadro-vacio">
           Todavía no tiene ejercicios.
           <br />
           Añade el primero para empezar.

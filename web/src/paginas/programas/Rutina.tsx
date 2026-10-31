@@ -279,7 +279,7 @@ export function Rutina() {
       )}
 
       {filas.length === 0 ? (
-        <p className="rutina-vacio">
+        <p className="recuadro-vacio">
           Todavía no tiene ejercicios.
           {!oculta && (
             <>

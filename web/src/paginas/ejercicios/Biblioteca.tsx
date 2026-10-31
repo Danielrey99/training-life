@@ -153,7 +153,7 @@ export function Biblioteca() {
           ))}
         </div>
       ) : (
-        <p className="programas-vacio">
+        <p className="recuadro-vacio">
           {origen === 'mios' && sinPropios
             ? 'Todavía no has creado ningún ejercicio.'
             : 'Ningún ejercicio coincide con lo que buscas.'}

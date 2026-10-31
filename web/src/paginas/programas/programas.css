@@ -29,14 +29,6 @@
   color: var(--texto-tenue);
 }
 
-.programas-vacio {
-  margin: 0;
-  padding: 10px 0;
-  font-size: 13px;
-  color: var(--texto-tenue);
-  text-align: center;
-}
-
 .programas-seccion .programas-nuevo {
   margin-top: 6px;
 }

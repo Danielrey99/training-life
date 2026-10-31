@@ -101,6 +101,19 @@ code {
   height: 18px;
 }
 
+/* Un apartado sin nada que enseñar: el mismo recuadro que tendría con datos y, dentro, por
+   qué está vacío. Así no queda un título suelto (decisión del autor, 31-10-2026). */
+.recuadro-vacio {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  font-size: 14px;
+  color: var(--texto-tenue);
+  text-align: center;
+}
+
 /* Las cifras con el mismo ancho, para que las columnas de pesos y reps no bailen. */
 .num {
   font-variant-numeric: tabular-nums;

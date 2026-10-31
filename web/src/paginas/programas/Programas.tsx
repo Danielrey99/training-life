@@ -106,7 +106,7 @@ export function Programas() {
       <section className="programas-seccion">
         <h2 className="programas-rotulo">Programas</h2>
         {programas.length === 0 && (
-          <p className="programas-vacio">Todavía no tienes ningún programa.</p>
+          <p className="recuadro-vacio">Todavía no tienes ningún programa.</p>
         )}
         {programas.map((programa) => (
           <TarjetaDePrograma key={programa.id} programa={programa} />
@@ -130,7 +130,7 @@ export function Programas() {
       <section className="programas-seccion">
         <h2 className="programas-rotulo">Rutinas</h2>
         {sinRutinas ? (
-          <p className="programas-vacio">
+          <p className="recuadro-vacio">
             Todavía no tienes rutinas.
             <br />
             Crea primero una y luego reúnelas en un programa.
