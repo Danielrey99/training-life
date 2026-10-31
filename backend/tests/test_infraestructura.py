@@ -245,7 +245,9 @@ def test_la_lista_de_predefinidos_es_coherente():
     no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
     grupo Cardio es justo el de los ejercicios de cardio. Cada descripción es un texto
     de una sola línea, sin espacios sobrantes, de largo razonable (cabe en la columna
-    de 500), distinto del nombre y que no repite la de otro ejercicio.
+    de 500), distinto del nombre y que no repite la de otro ejercicio. Ni el nombre ni
+    la descripción llevan «;», que ningún texto de la app usa («:» sí, para abrir una
+    enumeración, así que ese no se mira).
     """
     lista = lista_de_predefinidos()
     grupos = lista["grupos"]
@@ -274,3 +276,7 @@ def test_la_lista_de_predefinidos_es_coherente():
     descripciones = [e["descripcion"].casefold() for e in ejercicios]
     assert len(set(descripciones)) == len(descripciones), "hay descripciones repetidas"
     assert {e["grupo"] for e in ejercicios} == set(grupos)
+    con_punto_y_coma = [
+        e["nombre"] for e in ejercicios if ";" in e["nombre"] or ";" in e["descripcion"]
+    ]
+    assert con_punto_y_coma == [], f"llevan «;» en el nombre o la descripción: {con_punto_y_coma}"
