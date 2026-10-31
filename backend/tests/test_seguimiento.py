@@ -194,6 +194,37 @@ def test_un_rango_de_justo_400_dias_vale(cliente, ppl):
     assert len(respuesta.json()) == 400
 
 
+@pytest.mark.parametrize(
+    "ruta, params, fechas",
+    [
+        pytest.param(
+            "/plan/seguimiento",
+            {"desde": "0001-01-01", "hasta": "0001-01-02"},
+            ["0001-01-01", "0001-01-02"],
+            id="seguimiento-primeros-dias",
+        ),
+        pytest.param(
+            "/plan/seguimiento",
+            {"desde": "9999-12-30", "hasta": "9999-12-31"},
+            ["9999-12-30", "9999-12-31"],
+            id="seguimiento-ultimos-dias",
+        ),
+        pytest.param("/plan/hoy", {"fecha": "0001-01-08"}, ["0001-01-08"], id="hoja-de-un-dia"),
+    ],
+)
+def test_los_dias_del_borde_del_calendario_no_dan_500(cliente, ppl, ruta, params, fechas):
+    """El rango es válido (no invertido, de menos de 400 días, y la hoja de un día
+    pasado), así que se responde. Antes daba 500 (OverflowError): el seguimiento y
+    /plan/hoy sumaban y restaban su margen sin acotarlo al calendario.
+    """
+    respuesta = cliente.get(ruta, params=params)
+
+    assert respuesta.status_code == 200, respuesta.text
+    cuerpo = respuesta.json()
+    dias = cuerpo if ruta == "/plan/seguimiento" else [cuerpo]
+    assert [dia["fecha"] for dia in dias] == fechas
+
+
 def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
     """Una por día o por sesión haría lento el resumen del año: tienen que ser las
     mismas pida lo que pida y haya lo que haya.

@@ -100,8 +100,9 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
     }
 
     plan = []
-    fecha = desde
-    while fecha <= hasta:
+    # Contando días y no sumando hasta pasarse: después del 31-12-9999 no hay fecha.
+    for n in range((hasta - desde).days + 1):
+        fecha = desde + timedelta(days=n)
         # El periodo cubre de `desde` a `hasta` sin incluir `hasta`.
         periodo = next(
             (p for p in periodos if p.desde <= fecha and (p.hasta is None or fecha < p.hasta)),
@@ -139,7 +140,6 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
                 descanso=rutina is None or _oculta_ese_dia(rutina, fecha),
             )
         )
-        fecha += timedelta(days=1)
     return plan
 
 

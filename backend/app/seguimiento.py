@@ -31,6 +31,16 @@ from app.plan import (
 MARGEN = timedelta(days=6)
 
 
+def sumar(dia: date, dias: timedelta) -> date:
+    """`dia + dias` sin salirse del calendario: lo que caería antes del 1-1-0001 o
+    después del 31-12-9999 se queda en ese día, en vez de dar un OverflowError (un 500).
+    """
+    try:
+        return dia + dias
+    except OverflowError:
+        return date.max if dias > timedelta(0) else date.min
+
+
 def plazo(dia: date) -> tuple[date, date]:
     """Las fechas en que se puede entrenar lo que tocaba `dia`, las dos incluidas.
 
@@ -38,9 +48,7 @@ def plazo(dia: date) -> tuple[date, date]:
     día antes del mismo día de la semana siguiente (recuperar): lo del lunes se
     recupera hasta el domingo.
     """
-    # Desde el 26-12-9999 el último día se saldría del calendario: no hay más allá de date.max.
-    ultimo = date.max if dia > date.max - MARGEN else dia + MARGEN
-    return dia - timedelta(days=dia.weekday()), ultimo
+    return dia - timedelta(days=dia.weekday()), sumar(dia, MARGEN)
 
 
 def esta_cancelada(sesion: Entrenamiento, vacia: bool | None = None) -> bool:
@@ -177,7 +185,8 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
     rango: seis para el plan y dos para las sesiones.
     """
     validar_rango_del_plan(desde, hasta)
-    plan = {dia.fecha: dia for dia in resolver_dias(db, desde - MARGEN, hasta + MARGEN)}
+    antes, despues = sumar(desde, -MARGEN), sumar(hasta, MARGEN)
+    plan = {dia.fecha: dia for dia in resolver_dias(db, antes, despues)}
 
     tiene_series = select(Serie.id).where(Serie.entrenamiento_id == Entrenamiento.id).exists()
     filas = db.execute(
@@ -185,7 +194,7 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
         .where(
             or_(
                 # Las de los días pedidos y las que pueden contarlos...
-                and_(Entrenamiento.fecha >= desde - MARGEN, Entrenamiento.fecha <= hasta + MARGEN),
+                and_(Entrenamiento.fecha >= antes, Entrenamiento.fecha <= despues),
                 # ...y cualquiera que diga contarlos, aunque quede más lejos.
                 and_(Entrenamiento.cubre_fecha >= desde, Entrenamiento.cubre_fecha <= hasta),
             ),
@@ -208,8 +217,10 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
             cuentan[sesion.cubre_fecha] = Cobertura(sesion.id, sesion.fecha)
 
     resultado = []
-    fecha, hoy_ = desde, hoy()
-    while fecha <= hasta:
+    hoy_ = hoy()
+    # Contando días y no sumando hasta pasarse: después del 31-12-9999 no hay fecha.
+    for n in range((hasta - desde).days + 1):
+        fecha = desde + timedelta(days=n)
         dia = plan[fecha]
         cubierto_por = cuentan.get(fecha)
         if dia.descanso:
@@ -232,7 +243,6 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
                 sesion=del_dia.get(fecha),
             )
         )
-        fecha += timedelta(days=1)
     return resultado
 
 
@@ -357,10 +367,13 @@ def resumen_de_hoy(db: Session, fecha: date) -> ResumenDeHoy:
     - Una ofrecida o un recuperable con `se_puede_hoy` falso: nada (es un recordatorio).
     """
     lunes = fecha - timedelta(days=fecha.weekday())
-    domingo = lunes + timedelta(days=6)
+    domingo = sumar(lunes, timedelta(days=6))
     # Una sola vez, de lo más antiguo que aún se puede recuperar al próximo
     # entrenamiento más lejano que se busca.
-    dias = {dia.fecha: dia for dia in seguimiento(db, fecha - MARGEN, fecha + HORIZONTE)}
+    # Junto al principio o al final del calendario, los días que no existen no salen.
+    dias = {
+        dia.fecha: dia for dia in seguimiento(db, sumar(fecha, -MARGEN), sumar(fecha, HORIZONTE))
+    }
     dia = dias[fecha]
     rutinas = db.scalars(
         select(Rutina).where(Rutina.oculto_desde.is_(None)).order_by(Rutina.nombre, Rutina.id)
@@ -373,18 +386,18 @@ def resumen_de_hoy(db: Session, fecha: date) -> ResumenDeHoy:
         # puede elegir.
         return not dia_.descanso and dia_.cubierto_por is None and dia_.rutina.id in visibles
 
-    siguientes = [dias[fecha + timedelta(days=n)] for n in range(1, HORIZONTE.days + 1)]
+    siguientes = [d for f, d in sorted(dias.items()) if f > fecha]
     proximo = next((d for d in siguientes if sin_contar(d)), None)
 
     # Lo faltado de los seis días anteriores, con el mismo programa que este día:
     # lo que tocaba con un programa que ya no está activo no se recupera.
-    anteriores = [dias[fecha - timedelta(days=n)] for n in range(MARGEN.days, 0, -1)]
+    anteriores = [d for f, d in sorted(dias.items()) if f < fecha]
     candidatos = [d for d in anteriores if sin_contar(d) and d.programa_id == dia.programa_id]
     # Hoy mismo, si ya se entrenó otra cosa y lo suyo sigue sin hacer.
     if dia.sesion is not None and sin_contar(dia):
         candidatos.append(dia)
     por_recuperar = [
-        Recuperable(d.fecha, d.rutina, d.fecha + MARGEN, se_puede_hoy=dia.sesion is None)
+        Recuperable(d.fecha, d.rutina, plazo(d.fecha)[1], se_puede_hoy=dia.sesion is None)
         for d in candidatos
     ]
 
@@ -472,7 +485,7 @@ def resumen_de_hoy(db: Session, fecha: date) -> ResumenDeHoy:
     return ResumenDeHoy(
         fecha=fecha,
         situacion=situacion,
-        semana=[dias[lunes + timedelta(days=n)] for n in range(7)],
+        semana=[d for f, d in sorted(dias.items()) if lunes <= f <= domingo],
         sesion=dia.sesion,
         proximo=proximo,
         por_recuperar=por_recuperar,
