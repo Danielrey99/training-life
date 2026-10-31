@@ -38,6 +38,12 @@ function describir(resumen: ResumenDeDatos) {
   return partes.length === 0 ? 'nada' : enumerar(partes)
 }
 
+/** Si lo que cuenta `describir` es una sola cosa: «se borrará 1 rutina», no «se borrarán». */
+function esUnaSola(resumen: ResumenDeDatos) {
+  const { rutinas, programas, ejercicios, notas, sesiones } = resumen
+  return rutinas + programas + ejercicios + notas + sesiones === 1
+}
+
 /**
  * Ajustes: cómo se entrena y cómo se ve la app (`Preferencias`, que se guardan en el
  * dispositivo) y tus datos. *Exportar* los guarda todos en un archivo (tras confirmar,
@@ -158,7 +164,7 @@ export function Ajustes() {
         <div className="ajustes-tarjeta">
           <p>
             Carga un archivo exportado. <strong>Sustituye todo lo que tienes ahora</strong> por lo
-            del archivo; antes te dirá qué hay en cada sitio.
+            del archivo. Antes te dirá qué hay en cada sitio.
           </p>
           <button
             type="button"
@@ -213,8 +219,8 @@ export function Ajustes() {
           titulo="¿Exportar tus datos?"
           cuerpo={
             describir(porExportar) === 'nada'
-              ? 'Todavía no tienes nada apuntado: el archivo se guardará vacío.'
-              : `Se guardarán en un archivo ${describir(porExportar)}. ` +
+              ? 'Todavía no tienes nada apuntado, así que el archivo se guardará vacío.'
+              : `Se ${esUnaSola(porExportar) ? 'guardará' : 'guardarán'} en un archivo ${describir(porExportar)}. ` +
                 'Lo encontrarás en la carpeta de descargas. Los ajustes no van en el archivo.'
           }
           confirmar="Exportar"
@@ -227,10 +233,10 @@ export function Ajustes() {
           titulo="¿Borrar todos tus datos?"
           cuerpo={
             (describir(porBorrar) === 'nada'
-              ? 'No tienes nada apuntado; se borrará lo poco que quede, como los descansos planificados. '
-              : `Se borrarán ${describir(porBorrar)}. `) +
+              ? 'No tienes nada apuntado. Se borrará lo poco que quede, como los descansos planificados. '
+              : `Se ${esUnaSola(porBorrar) ? 'borrará' : 'borrarán'} ${describir(porBorrar)}. `) +
             'Los ejercicios que trae la app y los ajustes se quedan. ' +
-            'No se puede deshacer. Si quieres conservarlo, expórtalo antes.'
+            'Si quieres conservarlo, expórtalo antes.'
           }
           confirmar="Borrar todo"
           peligro
