@@ -22,6 +22,13 @@ function contarSeries(cuantas: number) {
   return cuantas === 1 ? '1 serie' : `${cuantas} series`
 }
 
+/** «has completado 1 de los 4 ejercicios»: con cualquier número, sin concordar «completo(s)». */
+function completados(hechos: number, total: number) {
+  if (total === 1)
+    return hechos === 1 ? 'has completado el ejercicio' : 'aún no has completado el ejercicio'
+  return `has completado ${hechos} de los ${total} ejercicios`
+}
+
 /**
  * El ejercicio con el que arranca un hueco: el de la última serie de hoy si ya
  * se empezó (quien cambió al comodín sigue con él); si no, el principal; y si el
@@ -375,7 +382,7 @@ export function Sesion() {
       {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
-          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completos} de ${visibles.length} ejercicios completos. Podrás revisarla y corregirla después en la pestaña Historial.`}
+          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completados(completos, visibles.length)}. Podrás revisarla y corregirla después en la pestaña Historial.`}
           confirmar="Terminar"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
