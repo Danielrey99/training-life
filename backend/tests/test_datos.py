@@ -1360,16 +1360,47 @@ def _cuenta_el_ultimo_dia_que_existe(a):
     _sesion(a, "2026-09-07")["cubre_fecha"] = "9999-12-31"
 
 
-def _predefinido_dos_veces_con_otro_id(a):
-    """Antes daba 500: las dos entradas son el mismo ejercicio de esta instalación,
-    y sus dos alternativas del mismo hueco chocaban con `UNIQUE(slot_id, ejercicio_id)`.
+def _predefinido_dos_veces(a, como) -> str:
+    """Añade al archivo otra entrada, con otro id, de un predefinido que ya está, y
+    devuelve su nombre. Las dos entradas son el mismo ejercicio de esta instalación.
+    `como` dice para qué se usa la copia:
+
+    - `dos-alternativas`: de alternativa en el hueco donde ya lo es la original. Antes
+      daba 500: chocaban con `UNIQUE(slot_id, ejercicio_id)`.
+    - `alternativa-de-si-mismo`: de alternativa en el hueco donde la original es el
+      principal, que sería su propia alternativa.
+    - `sin-usar`: para nada; el archivo sigue sin ser uno que la app pueda hacer.
     """
     ids_predefinidos = {p["id"] for p in a["predefinidos"]}
-    hueco = _rutina(a, "Push")["slots"][0]
-    original = next(c for c in hueco["alternativas"] if c["ejercicio_id"] in ids_predefinidos)
-    nombre = next(p["nombre"] for p in a["predefinidos"] if p["id"] == original["ejercicio_id"])
+    primero, segundo = _rutina(a, "Push")["slots"][:2]
+    if como == "alternativa-de-si-mismo":
+        original_id = segundo["ejercicio_principal_id"]
+    else:
+        original_id = next(
+            c["ejercicio_id"]
+            for c in primero["alternativas"]
+            if c["ejercicio_id"] in ids_predefinidos
+        )
+    assert original_id in ids_predefinidos
+    nombre = next(p["nombre"] for p in a["predefinidos"] if p["id"] == original_id)
     a["predefinidos"].append({"id": 999_999, "nombre": nombre})
-    hueco["alternativas"].append({**original, "ejercicio_id": 999_999})
+    copia = {**primero["alternativas"][0], "ejercicio_id": 999_999}
+    if como == "dos-alternativas":
+        primero["alternativas"].append(copia)
+    elif como == "alternativa-de-si-mismo":
+        segundo["alternativas"].append(copia)
+    return nombre
+
+
+ZONA_CON_BARRA_DE_WINDOWS = "Europe\\Madrid"
+
+
+def _zona_con_la_barra_de_windows(a):
+    """En Windows, `ZoneInfo` abría `Europe\\Madrid` como si fuera `Europe/Madrid`: el
+    mismo archivo valía en un ordenador y no en otro. Ahora solo valen los nombres de
+    la lista de zonas.
+    """
+    a["zona_horaria"] = ZONA_CON_BARRA_DE_WINDOWS
 
 
 def _zona_que_es_una_carpeta(a):
@@ -1490,6 +1521,11 @@ MALOS = [
     # Un predefinido dos veces con distinto id: su nombre depende de la siembra, así que
     # va en su propio test, con la frase entera.
     (_zona_que_es_una_carpeta, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("Europe")),
+    (
+        _zona_con_la_barra_de_windows,
+        NO_SE_CAMBIA_NADA,
+        ZONA_DESCONOCIDA.format(ZONA_CON_BARRA_DE_WINDOWS),
+    ),
 ]
 
 # Con `comprobar=true`, importar hace lo mismo hasta que el archivo vale: basta un
@@ -1536,25 +1572,26 @@ def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
 
 
 @pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
+@pytest.mark.parametrize("como", ["dos-alternativas", "alternativa-de-si-mismo", "sin-usar"])
 def test_un_predefinido_dos_veces_con_distinto_id_da_422_y_no_cambia_nada(
-    cliente, datos, comprobar
+    cliente, datos, como, comprobar
 ):
-    """Antes daba 500, también al comprobar (dos alternativas del mismo hueco en el
-    mismo ejercicio).
+    """Antes, comprobar lo daba por bueno en los tres casos; al importar, con las
+    dos alternativas en el mismo hueco daba 500, y los otros dos se cargaban (uno,
+    con un hueco cuyo principal era también su alternativa). Lo que se rechaza es el
+    nombre repetido, se use como se use la copia, y es el único error.
     """
     antes = exportado(cliente)
     archivo = copy.deepcopy(antes)
-    _predefinido_dos_veces_con_otro_id(archivo)
-    nombre = next(p["nombre"] for p in archivo["predefinidos"] if p["id"] == 999_999)
+    nombre = _predefinido_dos_veces(archivo, como)
 
     respuesta = importar(cliente, archivo, comprobar=comprobar)
 
     assert respuesta.status_code == 422, respuesta.text
-    detalle = respuesta.json()["detail"]
-    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    assert (
-        f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.' in detalle["errores"]
-    )
+    assert respuesta.json()["detail"] == {
+        "mensaje": NO_SE_CAMBIA_NADA,
+        "errores": [f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.'],
+    }
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 

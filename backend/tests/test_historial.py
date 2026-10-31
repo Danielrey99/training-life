@@ -212,8 +212,9 @@ def test_el_limite_devuelve_sesiones_completas_no_series_sueltas(cliente, escena
 
 
 def test_el_limite_recorta_despues_de_filtrar_por_fecha_no_antes(cliente, escenario):
-    """Con `hasta=` puesto, `limite=1` debe dar la sesión más reciente *dentro
-    del rango*, no la más reciente de todas descartada luego por la fecha.
+    """Con `hasta=` puesto, `limite=1` debe dar la sesión más reciente *hasta ese
+    día, incluido*, no la más reciente de todas descartada luego por la fecha. (El
+    historial no tiene `desde`: las pantallas solo piden hasta un día.)
     """
     for fecha in ("2026-09-01", "2026-09-03", "2026-09-05"):
         entrenar(
@@ -230,48 +231,6 @@ def test_el_limite_recorta_despues_de_filtrar_por_fecha_no_antes(cliente, escena
     )
 
     assert [sesion["fecha"] for sesion in historial] == ["2026-09-03"]
-
-
-# --- Tope de fecha (`hasta`) --------------------------------------------
-
-
-def test_hasta_incluye_ese_dia(cliente, escenario):
-    for fecha in ("2026-09-01", "2026-09-02", "2026-09-04", "2026-09-05"):
-        entrenar(
-            cliente,
-            fecha,
-            escenario["ejercicio_id"],
-            escenario["rutina_id"],
-            escenario["slot_id"],
-            series=1,
-        )
-
-    historial = historial_de_ejercicio(cliente, escenario["ejercicio_id"], hasta="2026-09-04")
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-04", "2026-09-02", "2026-09-01"]
-
-
-def test_desde_ya_no_filtra(cliente, escenario):
-    """El historial ya no tiene `desde`: un `?desde=` que llegue se ignora sin error.
-
-    Con el filtro antiguo, `desde=2026-09-03&hasta=2026-09-04` no tenía ninguna
-    sesión (el 1 quedaba fuera por `desde`); ahora solo manda `hasta` y sale la del 1.
-    """
-    for fecha in ("2026-09-01", "2026-09-05"):
-        entrenar(
-            cliente,
-            fecha,
-            escenario["ejercicio_id"],
-            escenario["rutina_id"],
-            escenario["slot_id"],
-            series=1,
-        )
-
-    historial = historial_de_ejercicio(
-        cliente, escenario["ejercicio_id"], desde="2026-09-03", hasta="2026-09-04"
-    )
-
-    assert [sesion["fecha"] for sesion in historial] == ["2026-09-01"]
 
 
 # --- Historial de lo que se ha ocultado ----------------------------------

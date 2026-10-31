@@ -351,7 +351,8 @@ def test_borrar_en_definitivo_un_ejercicio_en_uso_se_lleva_tambien_sus_notas(
 
     # El hueco sí lo bloquea: sin modo, 409. (Las notas por sí solas no
     # bloquean nada: un ejercicio que solo tiene notas se borra directo.)
-    assert cliente.delete(f"/ejercicios/{ejercicio_id}").status_code == 409
+    sin_modo = cliente.delete(f"/ejercicios/{ejercicio_id}")
+    assert (sin_modo.status_code, sin_modo.json()["detail"]) == (409, PIDE_MODO["ejercicio"])
 
     respuesta = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo")
 
@@ -493,10 +494,13 @@ def test_algo_oculto_se_puede_borrar_en_definitivo(cliente, grupo_muscular_id):
     sesion_con_series(cliente, rutina_id, date(2026, 9, 5), (otro_slot, ejercicio_id))
 
     ocultar(cliente, f"/rutinas/{rutina_id}/slots/{slot_id}")
-    assert cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}").status_code == 409
+    # Ya oculto, el 409 sin modo sigue siendo el que pide elegir, no el de editar algo oculto.
+    sin_modo = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}")
+    assert (sin_modo.status_code, sin_modo.json()["detail"]) == (409, PIDE_MODO["hueco"])
     hueco = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=definitivo")
     ocultar(cliente, f"/rutinas/{rutina_id}")
-    assert cliente.delete(f"/rutinas/{rutina_id}").status_code == 409
+    sin_modo = cliente.delete(f"/rutinas/{rutina_id}")
+    assert (sin_modo.status_code, sin_modo.json()["detail"]) == (409, PIDE_MODO["rutina"])
     rutina = cliente.delete(f"/rutinas/{rutina_id}?modo=definitivo")
     ocultar(cliente, f"/ejercicios/{ejercicio_id}")
     ejercicio = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=definitivo")
@@ -1004,7 +1008,8 @@ def test_borrar_en_definitivo_el_principal_de_un_hueco_con_series_del_comodin(
     poner_alternativas(cliente, rutina_id, slot_id, [comodin])
     registrar_serie(cliente, rutina_id, slot_id, comodin)
 
-    assert cliente.delete(f"/ejercicios/{principal}").status_code == 409
+    sin_modo = cliente.delete(f"/ejercicios/{principal}")
+    assert (sin_modo.status_code, sin_modo.json()["detail"]) == (409, PIDE_MODO["ejercicio"])
     respuesta = cliente.delete(f"/ejercicios/{principal}?modo=definitivo")
 
     assert respuesta.status_code == 204
@@ -1568,7 +1573,12 @@ def test_con_historial_coincide_con_que_el_delete_pida_modo(
     borrado = cliente.delete(f"/rutinas/{rutina_id}")
 
     assert aviso["con_historial"] is con_historial
-    assert borrado.status_code == (409 if con_historial else 204)
+    if con_historial:
+        assert (borrado.status_code, borrado.json()["detail"]) == (409, PIDE_MODO["rutina"])
+        assert cliente.get(f"/rutinas/{rutina_id}").json()["oculto_desde"] is None
+    else:
+        assert borrado.status_code == 204, borrado.text
+        assert cliente.get(f"/rutinas/{rutina_id}").status_code == 404
 
 
 def test_el_aviso_dice_que_la_rutina_toco_dias_pasados(cliente, ppl):
@@ -1867,7 +1877,12 @@ def test_con_historial_del_ejercicio_coincide_con_que_el_delete_pida_modo(
     borrado = cliente.delete(f"/ejercicios/{ejercicio_id}")
 
     assert aviso["con_historial"] is con_historial
-    assert borrado.status_code == (409 if con_historial else 204), borrado.text
+    if con_historial:
+        assert (borrado.status_code, borrado.json()["detail"]) == (409, PIDE_MODO["ejercicio"])
+        assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["oculto_desde"] is None
+    else:
+        assert borrado.status_code == 204, borrado.text
+        assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
 
 
 def test_el_aviso_de_un_ejercicio_no_cuenta_la_sesion_abierta_hoy(cliente, press_en_dos_rutinas):
