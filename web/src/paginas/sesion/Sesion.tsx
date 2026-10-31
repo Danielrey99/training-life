@@ -6,6 +6,7 @@ import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
+import { Ocultos } from '../../componentes/Ocultos'
 import { fechaCompleta, fechaTitulo, hoy } from '../../utiles/fechas'
 import { serieLarga } from '../../utiles/medidas'
 import { seriesObjetivoDe } from '../programas/textos'
@@ -68,6 +69,7 @@ export function Sesion() {
   // queda en gris (otros lápices, las ✕, los demás huecos, Terminar y Cancelar).
   const [editandoSerie, setEditandoSerie] = useState<number | null>(null)
   const [notaAbierta, setNotaAbierta] = useState(false)
+  const [verOcultos, setVerOcultos] = useState(false)
   const hayAbierta = editandoSerie !== null || notaAbierta
 
   useEffect(() => {
@@ -129,6 +131,7 @@ export function Sesion() {
       .filter((serie) => serie.slot_id === hueco.id)
       .sort((una, otra) => una.numero_serie - otra.numero_serie)
   const visibles = huecos.filter((hueco) => !hueco.oculto_desde)
+  const ocultosConSeries = huecos.filter((hueco) => hueco.oculto_desde)
   const completos = visibles.filter(
     (hueco) => deHueco(hueco).length >= seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
   ).length
@@ -207,7 +210,7 @@ export function Sesion() {
     const clave = hueco.id
     const elegido = elegidos[clave] ?? null
     // La posición entre los visibles, como en el día del historial: uno oculto que ya
-    // tiene series sale sin número y no mueve el de los demás.
+    // tiene series sale sin número (y al final, plegado) y no mueve el de los demás.
     const posicion = visibles.indexOf(hueco) + 1
     const nombre = elegido?.nombre ?? hueco.ejercicio_principal.nombre
     const titulo = posicion > 0 ? `${posicion} · ${nombre}` : nombre
@@ -269,7 +272,20 @@ export function Sesion() {
         <span className="sesion-hueco-derecho" />
       </header>
 
-      <div className="huecos">{huecos.map((hueco) => bloque(hueco))}</div>
+      <div className="huecos">{visibles.map((hueco) => bloque(hueco))}</div>
+
+      {/* Los ocultos en la rutina con series de hoy, al final y plegados, como en las demás
+          listas: arriba quedan los que se están haciendo, en orden. */}
+      <Ocultos
+        cuantos={ocultosConSeries.length}
+        singular="ejercicio oculto en la rutina"
+        plural="ejercicios ocultos en la rutina"
+        abierto={verOcultos}
+        alAlternar={() => setVerOcultos(!verOcultos)}
+      />
+      {verOcultos && ocultosConSeries.length > 0 && (
+        <div className="huecos">{ocultosConSeries.map((hueco) => bloque(hueco))}</div>
+      )}
 
       {/* La nota se puede escribir en cualquier momento, no solo al terminar: si hay que
           esperar al final, se olvida lo que se quería apuntar. */}

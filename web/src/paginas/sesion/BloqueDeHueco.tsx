@@ -50,7 +50,11 @@ export function BloqueDeHueco(props: Props) {
         <span className="hueco-plegado-nombre">
           <span>{titulo}</span>
           {comodin && <span className="etiqueta-chica">alternativa</span>}
-          {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+          {hueco.oculto_desde ? (
+            <span className="etiqueta-chica">oculto en la rutina</span>
+          ) : (
+            elegido?.oculto_desde && <span className="etiqueta-chica">oculto</span>
+          )}
         </span>
         <span className={completo ? 'hueco-cuenta num completo' : 'hueco-cuenta num'}>
           {hechas}/{objetivo}
@@ -125,7 +129,9 @@ function HuecoAbierto({
     <section className="hueco-abierto">
       <div className="hueco-cabecera">
         <span className="hueco-nombre">{titulo}</span>
-        {elegido && comodines.length > 0 && !bloqueado && (
+        {/* En un hueco oculto en la rutina no se apunta nada, con ningún ejercicio: cambiar
+            solo borraría sus series. */}
+        {elegido && comodines.length > 0 && !bloqueado && !hueco.oculto_desde && (
           <SelectorDeEjercicio
             principal={hueco.ejercicio_principal}
             comodines={comodines}
@@ -139,7 +145,11 @@ function HuecoAbierto({
         {objetivoDelEjercicio(hueco, elegido?.id) && (
           <span className="objetivo num">{objetivoDelEjercicio(hueco, elegido?.id)}</span>
         )}
-        {hueco.oculto_desde && <span className="etiqueta-chica">oculto</span>}
+        {hueco.oculto_desde ? (
+          <span className="etiqueta-chica">oculto en la rutina</span>
+        ) : (
+          ejercicioOculto && <span className="etiqueta-chica">oculto</span>
+        )}
       </div>
 
       {ultima && ultima.series.length > 0 && (

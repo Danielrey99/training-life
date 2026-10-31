@@ -88,9 +88,13 @@ export function BloqueDelDia({
   // Las series nuevas, solo en un hueco visible y con un ejercicio visible: el backend no
   // admite ninguna de las dos cosas ocultas.
   const admiteNuevas = editando && !hueco.oculto_desde && !ejercicio.oculto_desde
-  const comodines = hueco.alternativas
-    .map((alternativa) => alternativa.ejercicio)
-    .filter((otro) => !otro.oculto_desde)
+  const oculto = Boolean(hueco.oculto_desde || ejercicio.oculto_desde)
+  const comodines = hueco.alternativas.map((alternativa) => alternativa.ejercicio)
+  // La flecha sale si hay otro ejercicio visible al que cambiar, también con el de este día
+  // oculto: es la forma de seguir con el hueco sin volver a mostrarlo, como en la sesión.
+  const hayOtro = [principal, ...comodines].some(
+    (otro) => otro.id !== ejercicio.id && !otro.oculto_desde,
+  )
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Arranca con la última serie del bloque o, si no tiene, con la última vez, que el día
   // ya da del ejercicio que se va a apuntar.
@@ -105,15 +109,18 @@ export function BloqueDelDia({
         </h2>
         {/* Elegir con qué ejercicio se hizo es parte de añadir la serie: la flecha sigue en
             el hueco al que se añade, y solo desaparece si lo abierto es otra cosa. */}
-        {admiteNuevas && (vacio ? !bloqueado || anadiendo : !bloqueado) && comodines.length > 0 && (
-          <SelectorDeEjercicio
-            principal={principal}
-            comodines={comodines}
-            elegido={ejercicio}
-            sesion={sesion}
-            elegir={(otro) => (vacio ? alElegir(otro) : alPedirCambiar(otro))}
-          />
-        )}
+        {editando &&
+          !hueco.oculto_desde &&
+          (vacio ? !bloqueado || anadiendo : !bloqueado) &&
+          hayOtro && (
+            <SelectorDeEjercicio
+              principal={principal}
+              comodines={comodines}
+              elegido={ejercicio}
+              sesion={sesion}
+              elegir={(otro) => (vacio ? alElegir(otro) : alPedirCambiar(otro))}
+            />
+          )}
         {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
         {!vacio && !editando && (
           <Link
@@ -127,8 +134,17 @@ export function BloqueDelDia({
       </div>
       {/* El objetivo, debajo del nombre y aparte de las mejoras: es lo que pide la rutina,
           no cómo fue el día. En su línea, para que no se mueva con el largo del nombre. */}
-      {objetivoDelEjercicio(hueco, ejercicio.id) && (
-        <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
+      {(objetivoDelEjercicio(hueco, ejercicio.id) || oculto) && (
+        <div className="dia-objetivo-fila">
+          {objetivoDelEjercicio(hueco, ejercicio.id) && (
+            <span className="dia-objetivo num">{objetivoDelEjercicio(hueco, ejercicio.id)}</span>
+          )}
+          {oculto && (
+            <span className="etiqueta-chica">
+              {hueco.oculto_desde ? 'oculto en la rutina' : 'oculto'}
+            </span>
+          )}
+        </div>
       )}
       {mejora && (
         <div className="dia-insignias">
@@ -219,6 +235,13 @@ export function BloqueDelDia({
             + Añadir serie
           </button>
         ))}
+
+      {editando && ejercicio.oculto_desde && !hueco.oculto_desde && (
+        <p className="nota">
+          {ejercicio.nombre} está oculto. Puedes corregir sus series, pero para apuntar más
+          muéstralo desde la pestaña Ejercicios.
+        </p>
+      )}
 
       {!vacio && (
         <div className="dia-vez">

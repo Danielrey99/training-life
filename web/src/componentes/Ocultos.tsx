@@ -9,7 +9,7 @@ type Props = {
 }
 
 /**
- * "Ver 2 rutinas ocultas ⌄" / "Esconder…", al pie de una lista con ocultos (P1, X1,
+ * "Ver 2 rutinas ocultas ⌄" / "Esconder…", al pie de una lista con ocultos (P1, X1, E2,
  * la ficha de un ejercicio): solo si hay alguno. Lo oculto va plegado para que no
  * estorbe, pero sigue a mano para mostrarlo o borrarlo.
  */

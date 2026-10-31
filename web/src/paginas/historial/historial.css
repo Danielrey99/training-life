@@ -498,9 +498,13 @@
   padding-top: 5px;
 }
 
-/* El objetivo, justo debajo del nombre (el hueco de la columna de 8 px se acorta). */
-.dia-hueco > .dia-objetivo {
-  align-self: flex-start;
+/* El objetivo, justo debajo del nombre (el hueco de la columna de 8 px se acorta), con la
+   etiqueta «oculto» al lado si lo está, como en la sesión. */
+.dia-objetivo-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-top: -6px;
 }
 
