@@ -407,10 +407,12 @@ export function Dia() {
   if (sesion === undefined) return <p className="aviso">Cargando…</p>
   if (sesion === null) {
     return (
-      <p className="aviso">
-        El {fechaEnFrase(fecha, false)} no tiene ninguna sesión.{' '}
-        <Link to={volver}>Volver al calendario</Link>
-      </p>
+      <div className="aviso-y-salida">
+        <p className="aviso">El {fechaEnFrase(fecha, false)} no tiene ninguna sesión.</p>
+        <Link to={volver} className="boton">
+          Volver al calendario
+        </Link>
+      </div>
     )
   }
 

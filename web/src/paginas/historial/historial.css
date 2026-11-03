@@ -322,11 +322,17 @@
 }
 
 .hoja-vacia {
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px 0 4px;
   border-top: 1px solid var(--borde);
   font-size: 14px;
   color: var(--texto-tenue);
+}
+
+.hoja-vacia p {
+  margin: 0;
 }
 
 /* En el PC, la hoja es una ventana centrada: abajo del todo quedaría lejos. */

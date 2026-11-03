@@ -178,10 +178,15 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
         {!resumen && !error && <p className="hoja-subtitulo">Cargando…</p>}
 
         {resumen?.situacion === 'primera_vez' && (
-          <p className="hoja-vacia">
-            Todavía no tienes rutinas. Crea una en <Link to="/programas">Programas</Link> para poder
-            apuntar lo que hiciste.
-          </p>
+          <div className="hoja-vacia">
+            <p>
+              Todavía no tienes rutinas. Crea una en la pestaña Programas para poder apuntar lo que
+              hiciste.
+            </p>
+            <Link to="/programas" className="boton">
+              Ir a Programas
+            </Link>
+          </div>
         )}
 
         {cuentan.map((opcion) => (
