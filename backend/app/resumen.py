@@ -36,27 +36,12 @@ from typing import Literal
 from sqlalchemy import TIMESTAMP, Date, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.fechas import hoy
+from app.fechas import MESES, hoy
 from app.models import Ejercicio, Entrenamiento, GrupoMuscular, Rutina, Serie
 from app.seguimiento import seguimiento
 
 # Cuántas barras terminadas tiene la gráfica de volumen, en semanas o en meses.
 PERIODOS = 8
-
-MESES = (
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-)
 
 CENTIMOS = Decimal("0.01")
 DECIMA = Decimal("0.1")

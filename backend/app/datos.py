@@ -18,7 +18,14 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.fechas import ZONA_HORARIA, hoy, hoy_en, zona_horaria
+from app.fechas import (
+    ZONA_HORARIA,
+    fecha_en_texto,
+    hoy,
+    hoy_en,
+    nombre_del_dia,
+    zona_horaria,
+)
 from app.medidas import validar_medidas, validar_objetivo
 from app.models import (
     Ejercicio,
@@ -252,17 +259,17 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
 
     # Ids repetidos.
     ids_de_ejercicio = [e.id for e in datos.ejercicios] + [p.id for p in datos.predefinidos]
-    for id_ in _repetidos(ids_de_ejercicio):
-        errores.append(f"Hay dos ejercicios con el id {id_}.")
+    if _repetidos(ids_de_ejercicio):
+        errores.append("Hay dos ejercicios con el mismo identificador.")
     # Dos ids con el mismo nombre serían el mismo ejercicio de aquí: dos alternativas de un
     # hueco chocarían en la base, o una alternativa sería su propio principal.
     for nombre in _repetidos(p.nombre for p in datos.predefinidos):
-        errores.append(f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.')
-    for id_ in _repetidos(r.id for r in datos.rutinas):
-        errores.append(f"Hay dos rutinas con el id {id_}.")
+        errores.append(f"El ejercicio predefinido «{nombre}» está dos veces en el archivo.")
+    if _repetidos(r.id for r in datos.rutinas):
+        errores.append("Hay dos rutinas con el mismo identificador.")
     huecos = [(rutina, hueco) for rutina in datos.rutinas for hueco in rutina.slots]
-    for id_ in _repetidos(hueco.id for _, hueco in huecos):
-        errores.append(f"Hay dos ejercicios de rutina con el id {id_}.")
+    if _repetidos(hueco.id for _, hueco in huecos):
+        errores.append("Hay dos ejercicios de una rutina con el mismo identificador.")
 
     # Predefinidos y grupos de esta instalación, por nombre.
     nombres = {p.nombre for p in datos.predefinidos}
@@ -285,7 +292,7 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
             mapas.predefinidos[predefinido.id] = existentes[predefinido.nombre]
         else:
             errores.append(
-                f'El ejercicio predefinido "{predefinido.nombre}" no existe en esta versión'
+                f"El ejercicio predefinido «{predefinido.nombre}» no existe en esta versión"
                 " de la app."
             )
     mapas.grupos = {
@@ -294,8 +301,8 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     for ejercicio in datos.ejercicios:
         if ejercicio.grupo_muscular not in mapas.grupos:
             errores.append(
-                f'El grupo muscular "{ejercicio.grupo_muscular}" del ejercicio'
-                f' "{ejercicio.nombre}" no existe en esta versión de la app.'
+                f"El grupo muscular «{ejercicio.grupo_muscular}» del ejercicio"
+                f" «{ejercicio.nombre}» no existe en esta versión de la app."
             )
 
     # Solo con los ejercicios que se han podido resolver: un predefinido que no existe aquí
@@ -314,17 +321,14 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     rutina_del_hueco = {hueco.id: rutina for rutina, hueco in huecos}
     for nota in datos.notas:
         if nota.ejercicio_id not in ejercicios:
-            errores.append(
-                f"Una nota es de un ejercicio que no está en el archivo ({nota.ejercicio_id})."
-            )
+            errores.append("Una nota es de un ejercicio que no está en el archivo.")
     for rutina, hueco in huecos:
         elegidos = [(hueco.ejercicio_principal_id, hueco)]
         elegidos += [(a.ejercicio_id, a) for a in hueco.alternativas]
         for ejercicio_id, objetivo in elegidos:
             if ejercicio_id not in ejercicios:
                 errores.append(
-                    f'La rutina "{rutina.nombre}" usa un ejercicio que no está en el archivo'
-                    f" ({ejercicio_id})."
+                    f"La rutina «{rutina.nombre}» usa un ejercicio que no está en el archivo."
                 )
             elif ejercicio_id in tipo_de:
                 # El objetivo es de la familia del ejercicio (`app/medidas.py`).
@@ -333,33 +337,34 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 )
                 if mal:
                     errores.append(
-                        f'La rutina "{rutina.nombre}" tiene un objetivo mal puesto. {mal}'
+                        f"La rutina «{rutina.nombre}» tiene un objetivo mal puesto. {mal}"
                     )
     # UNIQUE(rutina_id, orden).
     for rutina in datos.rutinas:
         for orden in _repetidos(hueco.orden for hueco in rutina.slots):
             errores.append(
-                f'La rutina "{rutina.nombre}" tiene dos ejercicios en la posición {orden}.'
+                f"La rutina «{rutina.nombre}» tiene dos ejercicios en la posición {orden}."
             )
     for programa in datos.programas:
         for dia in programa.dias:
             if dia.rutina_id not in rutinas:
                 errores.append(
-                    f'El programa "{programa.nombre}" usa una rutina que no está en el archivo'
-                    f" ({dia.rutina_id})."
+                    f"El programa «{programa.nombre}» usa una rutina que no está en el archivo."
                 )
         # Una sola fila vigente por día.
         for dia_semana in _repetidos(d.dia_semana for d in programa.dias if d.hasta is None):
+            dia = nombre_del_dia(dia_semana)
+            # «los lunes», pero «los sábados».
+            dias = f"{dia}s" if dia.endswith("o") else dia
             errores.append(
-                f'El programa "{programa.nombre}" tiene dos rutinas a la vez el día {dia_semana}'
-                " de la semana."
+                f"El programa «{programa.nombre}» tiene dos rutinas a la vez los {dias}."
             )
     hoy_ = hoy()
     if datos.zona_horaria is not None:
         zona = zona_horaria(datos.zona_horaria)
         if zona is None:
             errores.append(
-                f'La zona horaria del archivo ("{datos.zona_horaria}") no la conoce esta'
+                f"La zona horaria del archivo («{datos.zona_horaria}») no la conoce esta"
                 " versión de la app."
             )
         else:
@@ -370,9 +375,9 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 cuando = "se empezó a usar" if periodo.desde > hoy_ else "se dejó de usar"
                 fecha = periodo.desde if periodo.desde > hoy_ else periodo.hasta
                 errores.append(
-                    f'El programa "{programa.nombre}" {cuando} el {fecha}, un día que todavía'
-                    " no ha llegado. Comprueba la fecha del teléfono o del ordenador que hizo"
-                    " la copia."
+                    f"El programa «{programa.nombre}» {cuando} el {fecha_en_texto(fecha)}, un día"
+                    " que todavía no ha llegado. Comprueba la fecha del teléfono o del ordenador"
+                    " que hizo la copia."
                 )
     abiertos = [
         p.nombre for p in datos.programas for periodo in p.periodos if periodo.hasta is None
@@ -382,31 +387,28 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     for excepcion in datos.excepciones:
         if excepcion.rutina_id is not None and excepcion.rutina_id not in rutinas:
             errores.append(
-                f"El día {excepcion.fecha} tiene una rutina que no está en el archivo"
-                f" ({excepcion.rutina_id})."
+                f"El {fecha_en_texto(excepcion.fecha)} tiene una rutina que no está en el archivo."
             )
     for fecha in _repetidos(x.fecha for x in datos.excepciones):
-        errores.append(f"El día {fecha} está cambiado dos veces.")
+        errores.append(f"El {fecha_en_texto(fecha)} está planificado dos veces.")
 
     for sesion in datos.entrenamientos:
         rutina = rutinas.get(sesion.rutina_id)
+        del_dia = fecha_en_texto(sesion.fecha)
         if rutina is None:
-            errores.append(
-                f"La sesión del {sesion.fecha} es de una rutina que no está en el archivo"
-                f" ({sesion.rutina_id})."
-            )
+            errores.append(f"La sesión del {del_dia} es de una rutina que no está en el archivo.")
         if sesion.fecha > hoy_:
             errores.append(
-                f"La sesión del {sesion.fecha} es de un día que todavía no ha llegado."
+                f"La sesión del {del_dia} es de un día que todavía no ha llegado."
                 " Comprueba la fecha del teléfono o del ordenador que hizo la copia."
             )
         if sesion.cubre_fecha is not None:
             primero, ultimo = plazo(sesion.cubre_fecha)
             if not primero <= sesion.fecha <= ultimo:
                 errores.append(
-                    f"La sesión del {sesion.fecha} cuenta como la del {sesion.cubre_fecha}, fuera"
-                    " de su plazo. Lo de un día se entrena entre el lunes de su semana y seis días"
-                    " después."
+                    f"La sesión del {del_dia} cuenta como la del"
+                    f" {fecha_en_texto(sesion.cubre_fecha)}, fuera de su plazo, que va del"
+                    f" {fecha_en_texto(primero)} al {fecha_en_texto(ultimo)}."
                 )
         for serie in sesion.series:
             if serie.ejercicio_id in tipo_de:
@@ -415,19 +417,17 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                     nombre_de[serie.ejercicio_id], tipo_de[serie.ejercicio_id], serie.model_dump()
                 )
                 if mal:
-                    errores.append(
-                        f"La sesión del {sesion.fecha} tiene una serie mal apuntada. {mal}"
-                    )
+                    errores.append(f"La sesión del {del_dia} tiene una serie mal apuntada. {mal}")
             if serie.ejercicio_id not in ejercicios:
                 errores.append(
-                    f"La sesión del {sesion.fecha} tiene una serie de un ejercicio que no está"
-                    f" en el archivo ({serie.ejercicio_id})."
+                    f"La sesión del {del_dia} tiene una serie de un ejercicio que no está"
+                    " en el archivo."
                 )
             # Toda serie va en un hueco de la rutina de su sesión.
             if rutina is not None and rutina_del_hueco.get(serie.slot_id) is not rutina:
                 errores.append(
-                    f"La sesión del {sesion.fecha} tiene una serie fuera de los ejercicios de"
-                    f' "{rutina.nombre}".'
+                    f"La sesión del {del_dia} tiene una serie fuera de los ejercicios de"
+                    f" «{rutina.nombre}»."
                 )
         # En una sesión, cada hueco se hace con un solo ejercicio.
         ejercicios_de_hueco: dict[int, dict[int, None]] = {}
@@ -435,17 +435,17 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
             ejercicios_de_hueco.setdefault(serie.slot_id, {})[serie.ejercicio_id] = None
         for ids in ejercicios_de_hueco.values():
             if len(ids) > 1:
-                partes = [f'de "{nombre_de.get(id_, id_)}"' for id_ in ids]
+                partes = [f"de «{nombre_de.get(id_, id_)}»" for id_ in ids]
                 cuales = ", ".join(partes[:-1]) + " y " + partes[-1]
-                donde = f' de "{rutina.nombre}"' if rutina is not None else ""
+                donde = f" de «{rutina.nombre}»" if rutina is not None else ""
                 errores.append(
-                    f"La sesión del {sesion.fecha} tiene series {cuales} en el mismo ejercicio"
+                    f"La sesión del {del_dia} tiene series {cuales} en el mismo ejercicio"
                     f"{donde}. En una sesión, cada uno se hace con un solo ejercicio."
                 )
     for fecha in _repetidos(s.fecha for s in datos.entrenamientos):
-        errores.append(f"Hay dos sesiones el {fecha}.")
+        errores.append(f"Hay dos sesiones el {fecha_en_texto(fecha)}.")
     for fecha in _repetidos(s.cubre_fecha for s in datos.entrenamientos if s.cubre_fecha):
-        errores.append(f"Hay dos sesiones que cuentan como la del {fecha}.")
+        errores.append(f"Hay dos sesiones que cuentan como la del {fecha_en_texto(fecha)}.")
 
     # Sin repetir un mismo error (una sesión con varias series malas).
     return list(dict.fromkeys(errores))[:MAXIMO_DE_ERRORES], mapas

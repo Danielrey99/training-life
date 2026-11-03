@@ -348,7 +348,7 @@ def quitar_rutina_de_dia(
     programa = _obtener_programa_modificable(db, programa_id)
     if not any(fila.dia_semana == dia_semana for fila in programa.dias):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso."
         )
     _cambiar_dia(db, programa, dia_semana, None)
     db.commit()

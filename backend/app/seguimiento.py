@@ -17,7 +17,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import and_, distinct, exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.fechas import hoy
+from app.fechas import fecha_en_texto, hoy
 from app.models import Entrenamiento, Rutina, RutinaSlot, Serie
 from app.plan import (
     DiaPlan,
@@ -568,10 +568,10 @@ def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "mensaje": (
-                        f"La sesión del {sesion.fecha} cuenta como lo del {sesion.cubre_fecha}, y con"
-                        f" este cambio ya no queda ningún día de esta semana con"
-                        f" {sesion.rutina.nombre} para ella. Deja algún día con esa rutina, o borra"
-                        " antes esa sesión."
+                        f"La sesión del {fecha_en_texto(sesion.fecha)} cuenta como lo del"
+                        f" {fecha_en_texto(sesion.cubre_fecha)}, y con este cambio ya no queda"
+                        f" ningún día de esta semana con {sesion.rutina.nombre} para ella. Deja"
+                        " algún día con esa rutina o borra antes esa sesión."
                     ),
                     "entrenamiento_id": sesion.id,
                     "fecha": sesion.fecha.isoformat(),

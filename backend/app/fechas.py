@@ -20,6 +20,37 @@ def hoy() -> date:
     return hoy_en(ZONA_HORARIA)
 
 
+MESES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+DIAS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def nombre_del_dia(dia_semana: int) -> str:
+    """«lunes» para el 1 y «domingo» para el 7, como `dia_semana` en la API."""
+    return DIAS[dia_semana - 1]
+
+
+def fecha_en_texto(fecha: date) -> str:
+    """Una fecha para leerla en un mensaje, como la escribe la web: «martes 27 de
+    octubre», y con el año si no es el de hoy («jueves 1 de octubre de 2025»).
+    """
+    texto = f"{DIAS[fecha.weekday()]} {fecha.day} de {MESES[fecha.month - 1]}"
+    return texto if fecha.year == hoy().year else f"{texto} de {fecha.year}"
+
+
 def hoy_en(zona: ZoneInfo) -> date:
     """El día de hoy en otra zona: la de quien exportó un archivo que se importa."""
     return datetime.now(zona).date()

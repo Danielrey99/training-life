@@ -64,7 +64,7 @@ def obtener_rutina_visible(db: Session, rutina_id: int) -> Rutina:
     if rutina is None or rutina.oculto:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe ninguna rutina con id {rutina_id}",
+            detail="Esa rutina no existe o está oculta.",
         )
     return rutina
 
@@ -315,7 +315,10 @@ def ordenar_huecos(
     if set(datos.slot_ids) != set(visibles):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Manda todos los huecos visibles de la rutina, cada uno una vez",
+            detail=(
+                "Para ordenar la rutina hacen falta todos sus ejercicios a la vista, cada uno"
+                " una vez."
+            ),
         )
     ordenes = sorted(slot.orden for slot in visibles.values())
     # Dos pasos: primero cada uno a un valor que no choca con nadie (los ocultos
@@ -448,10 +451,15 @@ def _obtener_slot_modificable(
     rutina = _obtener_rutina_modificable(db, rutina_id, admitir_oculta=True)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ese ejercicio no está en esta rutina."
+        )
     exigir_visible(rutina, "Esta rutina está oculta. Muéstrala antes de cambiarla.")
     if not admitir_oculto:
-        exigir_visible(slot, "Este hueco está oculto. Muéstralo antes de cambiarlo.")
+        exigir_visible(
+            slot,
+            "Este ejercicio está oculto en la rutina. Muéstralo en la rutina antes de cambiarlo.",
+        )
     return slot
 
 
@@ -465,7 +473,9 @@ def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int) -> RutinaSl
     _obtener_rutina_legible(db, rutina_id)
     slot = db.get(RutinaSlot, slot_id)
     if slot is None or slot.rutina_id != rutina_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hueco no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ese ejercicio no está en esta rutina."
+        )
     return slot
 
 
@@ -482,7 +492,7 @@ def _validar_orden_disponible(
     if db.scalar(stmt.limit(1)) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya hay un hueco con orden={orden} en esta rutina",
+            detail=f"Ya hay otro ejercicio en la posición {orden} de esta rutina.",
         )
 
 
@@ -548,7 +558,7 @@ def _siguiente_orden(db: Session, rutina_id: int) -> int:
     if siguiente > ORDEN_MAXIMO:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Esta rutina no admite más ejercicios",
+            detail="Esta rutina no admite más ejercicios.",
         )
     return siguiente
 
@@ -617,7 +627,10 @@ def actualizar_slot(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ese ejercicio ya es comodín de este hueco. Quítalo antes de hacerlo principal",
+            detail=(
+                "Ese ejercicio ya es una alternativa de este. Quítalo de las alternativas antes"
+                " de hacerlo el principal."
+            ),
         )
     _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump(exclude={"alternativas"}).items():
@@ -704,7 +717,8 @@ def borrar_slot(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Este hueco tiene series registradas. Repite la petición con ?modo=ocultar"
+                "Este ejercicio de la rutina tiene series apuntadas. Repite la petición con"
+                " ?modo=ocultar"
                 " (conserva todo) o ?modo=definitivo (lo borra con sus series, sin poder"
                 " deshacerlo)."
             ),

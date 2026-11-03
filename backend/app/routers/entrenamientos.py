@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.fechas import hoy
+from app.fechas import fecha_en_texto, hoy
 from app.medidas import validar_medidas
 from app.models import Ejercicio, Entrenamiento, RutinaSlot, Serie
 from app.plan import DiaPlan, dias_del_plan
@@ -31,9 +31,7 @@ def _obtener_entrenamiento(db: Session, entrenamiento_id: int) -> Entrenamiento:
     """404 si no existe."""
     entrenamiento = db.get(Entrenamiento, entrenamiento_id)
     if entrenamiento is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
     return entrenamiento
 
 
@@ -45,7 +43,10 @@ def _validar_fecha_no_futura(fecha: date) -> None:
     if fecha > hoy():
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El {fecha} todavía no ha llegado. Solo se registran días de hoy hacia atrás.",
+            detail=(
+                f"El {fecha_en_texto(fecha)} todavía no ha llegado. Solo se apuntan días de"
+                " hoy hacia atrás."
+            ),
         )
 
 
@@ -90,9 +91,10 @@ def _validar_en_plazo(fecha: date, cubre: date) -> None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Lo del {cubre} solo se puede entrenar del {desde} al {hasta}. Se adelanta"
-                " dentro de su semana y se recupera hasta el día antes del mismo día de la"
-                " semana siguiente."
+                f"Lo del {fecha_en_texto(cubre)} solo se puede entrenar entre el"
+                f" {fecha_en_texto(desde)} y el {fecha_en_texto(hasta)}. Se adelanta dentro"
+                " de su semana y se recupera hasta el día antes del mismo día de la semana"
+                " siguiente."
             ),
         )
 
@@ -114,7 +116,7 @@ def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
     if dia.descanso or dia.rutina.id != datos.rutina_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El {cubre} no toca esa rutina.",
+            detail=f"El {fecha_en_texto(cubre)} no toca esa rutina.",
         )
     _validar_mismo_programa(cubre, plan, fecha)
     return dia
@@ -129,8 +131,8 @@ def _validar_mismo_programa(cubre: date, plan: dict[date, DiaPlan], fecha: date)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"El {cubre} lo planificaba otro programa, y lo que tocaba con un programa que ya"
-                " no está activo no se recupera."
+                f"El {fecha_en_texto(cubre)} lo planificaba otro programa, y lo que tocaba con"
+                " un programa que ya no está activo no se recupera."
             ),
         )
 
@@ -147,18 +149,19 @@ def _validar_intercambio(db: Session, datos: EntrenamientoCreate) -> None:
         detalle = "Para intercambiar hacen falta dos días distintos."
     elif otro < hoy():
         detalle = (
-            f"El {otro} ya ha pasado. Solo se puede intercambiar con un día de hoy en adelante."
+            f"El {fecha_en_texto(otro)} ya ha pasado. Solo se puede intercambiar con un día"
+            " de hoy en adelante."
         )
     elif datos.cubre_fecha != datos.fecha:
-        detalle = (
-            "Al intercambiar, la sesión cuenta como la de hoy, así que "
-            f"cubre_fecha tiene que ser {datos.fecha}."
-        )
+        detalle = "Al intercambiar, la sesión cuenta como lo que toca hoy."
     else:
         [dia] = dias_del_plan(db, otro, otro)
         if not dia.descanso and dia.rutina.id == datos.rutina_id:
             return
-        detalle = f"El {otro} no toca esa rutina. Intercambiar trae a hoy lo que toca ese día."
+        detalle = (
+            f"El {fecha_en_texto(otro)} no toca esa rutina. Intercambiar trae a hoy lo que"
+            " toca ese día."
+        )
     raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detalle)
 
 
@@ -177,7 +180,10 @@ def _dejar_sitio_en(db: Session, dia: DiaPlan) -> None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "mensaje": f"Lo del {cubre} ya está hecho. Lo cuenta la sesión del {otra.fecha}.",
+                "mensaje": (
+                    f"Lo del {fecha_en_texto(cubre)} ya está hecho. Lo cuenta la sesión del"
+                    f" {fecha_en_texto(otra.fecha)}."
+                ),
                 "entrenamiento_id": otra.id,
             },
         )
@@ -213,7 +219,10 @@ def listar_entrenamientos(
     if desde is not None and hasta is not None and desde > hasta:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango de fechas está invertido. La fecha 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
+            detail=(
+                f"Las fechas están al revés. El {fecha_en_texto(desde)} va después del"
+                f" {fecha_en_texto(hasta)}."
+            ),
         )
     stmt = select(Entrenamiento)
     if desde is not None:
@@ -376,7 +385,7 @@ def _validar_slot(
     if slot is None or slot.rutina_id != rutina_id or oculto_y_nuevo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe ningún hueco con id {slot_id} en la rutina de este entrenamiento",
+            detail="Ese ejercicio no está en la rutina de esta sesión.",
         )
     if actual == (slot_id, ejercicio_id):
         return
@@ -386,7 +395,7 @@ def _validar_slot(
     if ejercicio_id not in ejercicios_del_hueco:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Ese ejercicio no es ni el principal ni un comodín de este hueco",
+            detail="Ese ejercicio no es ni el de la rutina ni una de sus alternativas.",
         )
 
 
@@ -429,12 +438,16 @@ def _validar_un_ejercicio_por_hueco(
         return
     anterior = series[0].ejercicio
     nuevo = db.get(Ejercicio, ejercicio_id)
-    cuantas = "la serie" if len(series) == 1 else f"las {len(series)} series"
+    cuantas, esas = (
+        ("la serie", "esa serie")
+        if len(series) == 1
+        else (f"las {len(series)} series", "esas series")
+    )
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
             f"Esta sesión ya tiene {cuantas} de {anterior.nombre} en ese ejercicio de la rutina, "
-            f"y en cada uno se hace un solo ejercicio por sesión. Borra antes esas series "
+            f"y en cada uno se hace un solo ejercicio por sesión. Borra antes {esas} "
             f"para apuntar {nuevo.nombre}."
         ),
     )

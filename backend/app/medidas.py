@@ -136,12 +136,12 @@ def validar_objetivo(nombre: str, tipo: str, objetivo: Mapping[str, Any]) -> str
     con_reps = objetivo.get("reps_min") is not None
     if FAMILIA[tipo] == "repeticiones" and not con_reps:
         return (
-            f"El objetivo de {nombre} va en repeticiones (reps_min y reps_max), "
-            f"no en duración, porque {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
+            f"El objetivo de {nombre} va en repeticiones y no en tiempo, porque {nombre} "
+            f"se apunta {COMO_SE_APUNTA[tipo]}."
         )
     if FAMILIA[tipo] == "duracion" and con_reps:
         return (
-            f"El objetivo de {nombre} va en segundos (duracion_min_s y duracion_max_s), "
-            f"no en repeticiones, porque {nombre} se apunta {COMO_SE_APUNTA[tipo]}."
+            f"El objetivo de {nombre} va en tiempo y no en repeticiones, porque {nombre} "
+            f"se apunta {COMO_SE_APUNTA[tipo]}."
         )
     return None

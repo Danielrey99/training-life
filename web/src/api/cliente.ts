@@ -71,7 +71,16 @@ export class ErrorDeApi extends Error {
 function motivoDelFallo(detail: unknown): string | null {
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) {
-    return detail.map((fallo: { msg?: string }) => fallo.msg).join('. ')
+    // Los fallos de una comprobación del servidor (`value_error`) traen una frase para
+    // quien usa la app, tras un «Value error, » que sobra. Los demás («Input should be a
+    // valid integer») son de Pydantic, en inglés y con nombres de campo: se dice lo mismo
+    // con palabras de la app.
+    const frases = detail.map((fallo: { type?: string; msg?: string }) =>
+      fallo.type === 'value_error' && fallo.msg
+        ? fallo.msg.replace(/^Value error, /, '')
+        : DATO_NO_VALIDO,
+    )
+    return [...new Set(frases)].join(' ')
   }
   if (detail && typeof detail === 'object' && 'mensaje' in detail) {
     return String(detail.mensaje)
@@ -83,6 +92,7 @@ function motivoDelFallo(detail: unknown): string | null {
 const SIN_CONEXION =
   'No se puede conectar con el servidor de la app. Comprueba que está en marcha e inténtalo de nuevo.'
 const FALLO_DEL_SERVIDOR = 'Algo ha fallado en el servidor. Inténtalo de nuevo.'
+const DATO_NO_VALIDO = 'Algún dato no es válido. Revísalo e inténtalo de nuevo.'
 
 /**
  * Falla con un `ErrorDeApi` en vez de dejar que la pantalla se encuentre un

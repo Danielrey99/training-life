@@ -45,7 +45,7 @@ def _validar_grupo_muscular(db: Session, grupo_muscular_id: int) -> None:
     if db.get(GrupoMuscular, grupo_muscular_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe ningún grupo muscular con id {grupo_muscular_id}",
+            detail="Ese grupo muscular no existe.",
         )
 
 

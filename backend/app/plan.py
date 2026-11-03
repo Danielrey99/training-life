@@ -16,6 +16,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.fechas import fecha_en_texto
 from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo, Rutina
 
 # Lo que pide la pantalla de resumen: la constancia de un año entero.
@@ -48,7 +49,10 @@ def validar_rango(desde: date, hasta: date) -> None:
     if desde > hasta:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango de fechas está invertido. La fecha 'desde' ({desde}) es posterior a 'hasta' ({hasta}).",
+            detail=(
+                f"Las fechas están al revés. El {fecha_en_texto(desde)} va después del"
+                f" {fecha_en_texto(hasta)}."
+            ),
         )
 
 
@@ -58,7 +62,7 @@ def validar_rango_del_plan(desde: date, hasta: date) -> None:
     if (hasta - desde).days + 1 > DIAS_MAXIMOS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"El rango no puede pasar de {DIAS_MAXIMOS} días.",
+            detail=f"Como mucho se piden {DIAS_MAXIMOS} días de una vez.",
         )
 
 
