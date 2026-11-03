@@ -37,6 +37,7 @@ from app.models import (
     ProgramaDia,
     ProgramaPeriodo,
     Rutina,
+    RutinaPeriodoOculto,
     RutinaSlot,
     Serie,
     SlotAlternativa,
@@ -71,6 +72,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
     ).all()
     notas = db.scalars(select(NotaEjercicio).order_by(NotaEjercicio.id)).all()
     rutinas = db.scalars(select(Rutina).order_by(Rutina.id)).all()
+    tramos = db.scalars(select(RutinaPeriodoOculto).order_by(RutinaPeriodoOculto.id)).all()
     huecos = db.scalars(select(RutinaSlot).order_by(RutinaSlot.id)).all()
     alternativas = db.scalars(select(SlotAlternativa).order_by(SlotAlternativa.id)).all()
     programas = db.scalars(select(Programa).order_by(Programa.id)).all()
@@ -94,6 +96,11 @@ def exportar(db: Session) -> ArchivoDeDatos:
         .order_by(Ejercicio.id)
     ).all()
 
+    tramos_de: dict[int, list[dict]] = {}
+    for tramo in tramos:
+        tramos_de.setdefault(tramo.rutina_id, []).append(
+            {"desde": tramo.desde, "hasta": tramo.hasta}
+        )
     alternativas_de: dict[int, list[dict]] = {}
     for alternativa in alternativas:
         alternativas_de.setdefault(alternativa.slot_id, []).append(
@@ -181,6 +188,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
                     "created_at": r.created_at,
                     "updated_at": r.updated_at,
                     "slots": huecos_de.get(r.id, []),
+                    "periodos_ocultos": tramos_de.get(r.id, []),
                 }
                 for r in rutinas
             ],
@@ -392,6 +400,14 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
         ]
         + [(f"El programa «{p.nombre}»", p.oculto_desde) for p in datos.programas]
     )
+    for rutina in datos.rutinas:
+        for tramo in rutina.periodos_ocultos:
+            if tramo.hasta > hoy_:
+                errores.append(
+                    f"La rutina «{rutina.nombre}» se volvió a mostrar el"
+                    f" {fecha_en_texto(tramo.hasta)}, un día que todavía no ha llegado."
+                    " Comprueba la fecha del teléfono o del ordenador que hizo la copia."
+                )
     for quien, desde in ocultos:
         if desde is not None and desde > hoy_:
             errores.append(
@@ -523,7 +539,7 @@ def borrar_todo(db: Session) -> None:
     Sentencias directas, en el orden que piden las FK: lo que es RESTRICT hacia algo se
     borra antes que ese algo (series → huecos, rutinas y ejercicios; huecos → rutinas
     y ejercicios). Lo que es CASCADE se va solo (días y periodos con su programa,
-    series con su sesión, comodines con su hueco).
+    series con su sesión, comodines con su hueco, tramos ocultos con su rutina).
     """
     db.execute(delete(ExcepcionDelPlan))
     db.execute(delete(Programa))
@@ -587,6 +603,11 @@ def cargar(db: Session, datos: ArchivoDeDatos, mapas: Mapas) -> None:
     db.add_all(nueva for _, nueva in rutinas)
     db.flush()
     rutina_nueva = {r.id: nueva.id for r, nueva in rutinas}
+    db.add_all(
+        RutinaPeriodoOculto(rutina_id=rutina_nueva[r.id], desde=t.desde, hasta=t.hasta)
+        for r in datos.rutinas
+        for t in r.periodos_ocultos
+    )
 
     huecos = [
         (

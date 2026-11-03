@@ -77,7 +77,7 @@ def importar_datos(
     # En Python `True == 1`: sin esto, `"version": true` diría que es de una versión anterior.
     if isinstance(version, bool):
         version = None
-    if isinstance(version, int) and version > 2:
+    if isinstance(version, int) and version > 3:
         raise _no_se_puede(
             "Este archivo es de una versión más nueva de la app. Actualízala para cargarlo."
         )
@@ -86,7 +86,7 @@ def importar_datos(
         raise _no_se_puede(
             "Este archivo es de una versión anterior de la app y ya no se puede cargar."
         )
-    if version != 2:
+    if version not in (2, 3):
         raise _no_se_puede(NO_ES_UNA_COPIA)
     try:
         datos = ArchivoDeDatos.model_validate(archivo)

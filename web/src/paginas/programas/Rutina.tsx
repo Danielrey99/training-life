@@ -387,7 +387,7 @@ export function Rutina() {
       {pregunta === 'ocultar' && (
         <Dialogo
           titulo={`¿Ocultar ${rutina.nombre}?`}
-          cuerpo="Dejará de salir al elegir rutina y al entrenar. Los días de tus programas que la tienen la conservan, pero cuentan como descanso. Su historial sigue intacto."
+          cuerpo="Dejará de salir al elegir rutina y al entrenar. Los días de tus programas que la tienen la conservan, pero cuentan como descanso, salvo los que ya hayas entrenado. Si la vuelves a mostrar, los días en que estuvo oculta seguirán como descanso. Su historial sigue intacto."
           confirmar="Ocultar"
           alConfirmar={async () => {
             // Lo que hubiera en el borrador se descarta: lo oculto no se edita.

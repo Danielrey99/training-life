@@ -874,6 +874,18 @@ class SlotDeArchivo(RutinaSlotBase):
         return self
 
 
+class PeriodoOcultoDeArchivo(BaseModel):
+    desde: date
+    hasta: date
+
+    @model_validator(mode="after")
+    def _validar_rango(self):
+        # El mismo CHECK de la base (`rutina_periodos_ocultos_rango_check`).
+        if self.hasta <= self.desde:
+            raise ValueError("un tramo oculto termina antes de empezar")
+        return self
+
+
 class RutinaDeArchivo(BaseModel):
     id: int
     nombre: Nombre
@@ -881,6 +893,9 @@ class RutinaDeArchivo(BaseModel):
     created_at: AwareDatetime
     updated_at: AwareDatetime
     slots: list[SlotDeArchivo] = []
+    # Los tramos ya cerrados en que estuvo oculta. Un archivo de la versión 2 no los
+    # trae: no se guardaban.
+    periodos_ocultos: list[PeriodoOcultoDeArchivo] = []
 
 
 class DiaDeArchivo(BaseModel):
@@ -952,7 +967,8 @@ class ArchivoDeDatos(BaseModel):
     """
 
     formato: Literal["training-life"] = "training-life"
-    version: Literal[2] = 2
+    # La 3 añade los tramos ocultos de las rutinas; la 2 se sigue cargando, sin ellos.
+    version: Literal[2, 3] = 3
     exportado_en: AwareDatetime
     # La zona horaria de quien exportó (`Europe/Madrid`): al importar, una fecha de
     # mañana aquí puede ser de hoy allí. Opcional: un archivo sin ella vale igual.

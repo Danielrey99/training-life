@@ -14,6 +14,7 @@ from app.models import (
     ProgramaDia,
     ProgramaPeriodo,
     Rutina,
+    RutinaPeriodoOculto,
     RutinaSlot,
     Serie,
     SlotAlternativa,
@@ -370,14 +371,43 @@ def aviso_de_borrar_rutina(
     )
 
 
+def _ocultar(db: Session, rutina: Rutina) -> None:
+    """Oculta una rutina visible desde hoy. Si se había mostrado hoy (un tramo cerrado
+    que acaba hoy o después), ese tramo se reabre: así no quedan dos tramos pegados y
+    «Oculta desde el …» sigue diciendo el primer día.
+    """
+    hoy_ = hoy()
+    pegados = db.scalars(
+        select(RutinaPeriodoOculto).where(
+            RutinaPeriodoOculto.rutina_id == rutina.id, RutinaPeriodoOculto.hasta >= hoy_
+        )
+    ).all()
+    rutina.oculto_desde = min([tramo.desde for tramo in pegados] + [hoy_])
+    for tramo in pegados:
+        db.delete(tramo)
+
+
+def _mostrar(db: Session, rutina: Rutina) -> None:
+    """Muestra una rutina y guarda el tramo en que estuvo oculta, para que mostrarla no
+    convierta en «sin hacer» los días que le tocaban entonces. Si se ocultó hoy (o el
+    reloj ha ido hacia atrás), el tramo estaría vacío y no se guarda.
+    """
+    hoy_ = hoy()
+    if rutina.oculto_desde is not None and rutina.oculto_desde < hoy_:
+        db.add(RutinaPeriodoOculto(rutina_id=rutina.id, desde=rutina.oculto_desde, hasta=hoy_))
+    rutina.oculto_desde = None
+
+
 @router.post("/{rutina_id}/mostrar", response_model=RutinaOut)
 def mostrar_rutina(
     rutina_id: int,
     db: Session = Depends(get_db),
 ):
-    """Deshace un `modo=ocultar`: la rutina vuelve a ofrecerse para usarla."""
+    """Deshace un `modo=ocultar`: la rutina vuelve a ofrecerse para usarla. Los días
+    en que estuvo oculta siguen siendo descanso (ver `_mostrar`).
+    """
     rutina = _obtener_rutina_modificable(db, rutina_id, admitir_oculta=True)
-    rutina.oculto_desde = None
+    _mostrar(db, rutina)
     db.commit()
     db.refresh(rutina)
     return rutina
@@ -402,7 +432,7 @@ def borrar_rutina(
     if modo == "ocultar":
         # Si ya estaba oculta, se conserva desde cuándo.
         if rutina.oculto_desde is None:
-            rutina.oculto_desde = hoy()
+            _ocultar(db, rutina)
         db.commit()
         return
 

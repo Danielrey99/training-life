@@ -22,6 +22,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.models import RutinaPeriodoOculto
 from tests.ayudas import (
     consultas_de,
     crear_ejercicio,
@@ -1137,10 +1138,10 @@ def test_en_un_año_pasado_no_hay_nada_por_llegar(cliente, ppl, hoy_es):
 # --- Consultas ----------------------------------------------------------------
 
 
-def test_siempre_hace_las_mismas_consultas(cliente, ppl, hoy_es, grupo_muscular_id):
-    """Una consulta por rutina, por periodo o por sesión haría lenta la pantalla:
-    tienen que ser las mismas haya lo que haya. Son 11: el volumen y las series, la
-    referencia anterior de cada vista y las del seguimiento del año.
+def test_siempre_hace_las_mismas_consultas(cliente, sesion_bd, ppl, hoy_es, grupo_muscular_id):
+    """Una consulta por rutina, por periodo, por tramo oculto o por sesión haría lenta
+    la pantalla: tienen que ser las mismas haya lo que haya. Como mucho 12: el volumen
+    y las series, la referencia anterior de cada vista y las del seguimiento del año.
     """
 
     def consultas(mes) -> int:
@@ -1169,6 +1170,13 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, hoy_es, grupo_muscular_
     # En la semana en curso (del 14 al 20 de septiembre).
     sesion_con_series(cliente, MARTES_15, ppl["Leg"], ejercicios[1], (40, 10))
     assert cliente.delete(f"/rutinas/{otras[0]}?modo=ocultar").status_code == 204
+    # Tramos ya cerrados en que alguna rutina estuvo oculta, dentro del año.
+    sesion_bd.add_all(
+        RutinaPeriodoOculto(rutina_id=rutina, desde=desde, hasta=desde + timedelta(days=4))
+        for rutina in todas
+        for desde in (date(2026, 2, 2), date(2026, 5, 4))
+    )
+    sesion_bd.commit()
     con_muchas = consultas(SEPTIEMBRE)
 
-    assert con_muchas == con_pocas <= 11
+    assert con_muchas == con_pocas <= 12

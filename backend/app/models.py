@@ -30,6 +30,9 @@ class Ocultable:
     Se guarda desde cuándo está oculto y no un sí/no, porque la app enseña esa
     fecha ("oculto desde el 10 de septiembre"). El sí/no se deduce de ella, sin
     guardarlo aparte: dos columnas que dicen lo mismo acaban contradiciéndose.
+
+    Es solo el tramo de ahora. De las rutinas, que deciden qué días se entrena, se
+    guardan además los tramos ya cerrados (`RutinaPeriodoOculto`).
     """
 
     oculto_desde: Mapped[date | None] = mapped_column(Date, default=None)
@@ -156,6 +159,29 @@ class Rutina(Ocultable, Base):
                 if dia.hasta is None and not dia.programa.oculto
             }
         )
+
+
+class RutinaPeriodoOculto(Base):
+    """Un tramo ya cerrado en que una rutina estuvo oculta, de `desde` a `hasta` (sin
+    incluir `hasta`, el día en que se volvió a mostrar).
+
+    Existe para que mostrar una rutina no reescriba el pasado: los días que le tocaban
+    mientras estaba oculta siguen siendo descanso. El tramo de ahora, si está oculta, no
+    va aquí: es su `oculto_desde`.
+    """
+
+    __tablename__ = "rutina_periodos_ocultos"
+    __table_args__ = (
+        # Un tramo vacío (ocultar y mostrar el mismo día) no se guarda.
+        CheckConstraint("hasta > desde", name="rutina_periodos_ocultos_rango_check"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Sin relationship en Rutina: al borrarla, los tramos se van con el ON DELETE
+    # CASCADE de la base, sin que SQLAlchemy intervenga.
+    rutina_id: Mapped[int] = mapped_column(ForeignKey("rutinas.id", ondelete="CASCADE"))
+    desde: Mapped[date] = mapped_column(Date)
+    hasta: Mapped[date] = mapped_column(Date)
 
 
 # Exactamente un par de objetivo, y completo: repeticiones o duración, nunca los dos

@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Entrenamiento, ExcepcionDelPlan
+from app.models import Entrenamiento, ExcepcionDelPlan, RutinaPeriodoOculto
 from tests.ayudas import consultas_de, rango_invertido
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
@@ -274,9 +274,10 @@ def test_junto_a_los_bordes_del_calendario_lo_hecho_cuenta_y_se_planifica(
     ]
 
 
-def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
+def test_siempre_hace_las_mismas_consultas(cliente, sesion_bd, ppl, grupo_muscular_id):
     """Una por día o por sesión haría lento el resumen del año: tienen que ser las
-    mismas pida lo que pida y haya lo que haya.
+    mismas pida lo que pida y haya lo que haya, también con tramos en que alguna
+    rutina estuvo oculta (siete para el plan y dos para las sesiones, como mucho).
     """
 
     def consultas(desde, hasta) -> int:
@@ -292,6 +293,16 @@ def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):
     for fecha, nombre in ((MARTES_8, "Brazos"), (JUEVES_10, "Core")):
         rutina = cliente.post("/rutinas", json={"nombre": nombre}).json()["id"]
         hecha(cliente, grupo_muscular_id, fecha, rutina)
+        # Tramos ya cerrados en que estuvo oculta, dentro del rango: una consulta por
+        # rutina o por tramo se notaría aquí.
+        sesion_bd.add_all(
+            RutinaPeriodoOculto(rutina_id=rutina, desde=desde, hasta=desde + timedelta(days=3))
+            for desde in (date(2026, 3, 2), date(2026, 6, 1))
+        )
+    sesion_bd.add(
+        RutinaPeriodoOculto(rutina_id=ppl["Push"], desde=date(2026, 7, 6), hasta=date(2026, 7, 8))
+    )
+    sesion_bd.commit()
     con_mas = consultas(LUNES_7 - timedelta(days=300), VIERNES_18)
 
-    assert con_mas == con_pocas <= 8
+    assert con_mas == con_pocas <= 9

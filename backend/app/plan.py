@@ -17,7 +17,14 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.fechas import fecha_en_texto
-from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo, Rutina
+from app.models import (
+    ExcepcionDelPlan,
+    Programa,
+    ProgramaDia,
+    ProgramaPeriodo,
+    Rutina,
+    RutinaPeriodoOculto,
+)
 
 # Lo que pide la pantalla de resumen: la constancia de un año entero.
 DIAS_MAXIMOS = 400
@@ -33,13 +40,22 @@ class DiaPlan:
     # excepción.
     programa_id: int | None
     rutina: Rutina | None
-    # Sin rutina, o con una rutina que ese día ya estaba oculta: un día con una
-    # rutina oculta se sigue enseñando (en gris), pero no se entrena.
+    # Sin rutina, o con una rutina que ese día estaba oculta (ahora o en un tramo ya
+    # cerrado): un día con una rutina oculta se sigue enseñando (en gris), pero no se
+    # entrena. Es lo que toca, no lo que pasó: si una sesión de esa rutina ya contaba
+    # ese día antes de ocultarla, el seguimiento lo da por hecho.
     descanso: bool
 
 
-def _oculta_ese_dia(rutina: Rutina | None, fecha: date) -> bool:
-    return rutina is not None and rutina.oculto_desde is not None and rutina.oculto_desde <= fecha
+def _oculta_ese_dia(
+    rutina: Rutina, fecha: date, tramos: dict[int, list[tuple[date, date]]]
+) -> bool:
+    """Si la rutina estaba oculta ese día: lo está ahora desde antes, o el día cae en un
+    tramo en que lo estuvo (`[desde, hasta)`).
+    """
+    if rutina.oculto_desde is not None and rutina.oculto_desde <= fecha:
+        return True
+    return any(desde <= fecha < hasta for desde, hasta in tramos.get(rutina.id, ()))
 
 
 def validar_rango(desde: date, hasta: date) -> None:
@@ -77,8 +93,8 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
     días de margen alrededor del que le han pedido (el seguimiento).
     """
     # Los periodos que tocan el rango, con su programa y los días de este ya
-    # cargados, y las excepciones del rango: dos consultas en total, en vez de
-    # una por día.
+    # cargados, las excepciones del rango y los tramos en que alguna rutina estuvo
+    # oculta: un número fijo de consultas, en vez de una por día.
     periodos = db.scalars(
         select(ProgramaPeriodo)
         .where(
@@ -102,6 +118,14 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
             .options(selectinload(ExcepcionDelPlan.rutina))
         )
     }
+
+    tramos: dict[int, list[tuple[date, date]]] = {}
+    for tramo in db.scalars(
+        select(RutinaPeriodoOculto).where(
+            RutinaPeriodoOculto.desde <= hasta, RutinaPeriodoOculto.hasta > desde
+        )
+    ):
+        tramos.setdefault(tramo.rutina_id, []).append((tramo.desde, tramo.hasta))
 
     plan = []
     # Contando días y no sumando hasta pasarse: después del 31-12-9999 no hay fecha.
@@ -141,7 +165,7 @@ def resolver_dias(db: Session, desde: date, hasta: date) -> list[DiaPlan]:
                 origen,
                 programa_id,
                 rutina,
-                descanso=rutina is None or _oculta_ese_dia(rutina, fecha),
+                descanso=rutina is None or _oculta_ese_dia(rutina, fecha, tramos),
             )
         )
     return plan

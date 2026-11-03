@@ -25,6 +25,7 @@ from app.models import (
     ProgramaDia,
     ProgramaPeriodo,
     Rutina,
+    RutinaPeriodoOculto,
     RutinaSlot,
     Serie,
     SlotAlternativa,
@@ -38,6 +39,7 @@ from app.schemas import (
     ExcepcionDeArchivo,
     NotaDeArchivo,
     PeriodoDeArchivo,
+    PeriodoOcultoDeArchivo,
     ProgramaDeArchivo,
     RutinaDeArchivo,
     SerieDeArchivo,
@@ -102,10 +104,10 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     opcional relleno en algún sitio (si no, una ida y vuelta que perdiera ese campo
     pasaría igual): ejercicios propios (uno oculto), notas (una de un predefinido que
     no se usa en nada más), una rutina visible con un hueco oculto y comodines en un
-    orden que no es el de sus ids, una rutina oculta, un programa activo con un
-    periodo cerrado y un día cambiado de rutina (fila cerrada), otro programa oculto,
-    excepciones (una de descanso), sesiones terminadas, una cancelada y la de hoy en
-    curso. Las marcas de tiempo llevan microsegundos para ver que se conservan.
+    orden que no es el de sus ids y un tramo ya cerrado en que estuvo oculta, una
+    rutina oculta, un programa activo con un periodo cerrado y un día cambiado de
+    rutina (fila cerrada), otro programa oculto, excepciones (una de descanso),
+    sesiones terminadas, una cancelada y la de hoy en curso. Las marcas de tiempo llevan microsegundos para ver que se conservan.
 
     Los predefinidos: la sentadilla es principal; `comodin` solo comodín; `de_nota`
     solo tiene una nota; `de_serie` solo aparece en una serie (un comodín que se
@@ -170,6 +172,12 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
 
     push = rutina("Push")
     pull = rutina("Pull", oculto_desde=date(2026, 9, 14))
+    # Push estuvo oculta del lunes 3 al martes 4 de agosto (se mostró el 5): ese lunes
+    # le tocaba con PPL y es descanso. Si la ida y vuelta perdiera el tramo, el
+    # seguimiento de `lo_que_se_ve` lo daría por «sin hacer».
+    sesion_bd.add(
+        RutinaPeriodoOculto(rutina_id=push, desde=date(2026, 8, 3), hasta=date(2026, 8, 5))
+    )
 
     def hueco(rutina_id, principal, orden, **campos):
         fila = RutinaSlot(
@@ -455,7 +463,7 @@ def importar(cliente, archivo, **params):
 
 
 def _foto(sesion_bd) -> dict:
-    """Cada fila de las 11 tablas de datos, enteras y con todas sus columnas. De los
+    """Cada fila de las 12 tablas de datos, enteras y con todas sus columnas. De los
     ejercicios, solo los propios: los predefinidos no son datos de nadie.
     """
     sesion_bd.expire_all()
@@ -468,6 +476,7 @@ def _foto(sesion_bd) -> dict:
         "ejercicios": todo(Ejercicio, Ejercicio.es_predefinido.is_(False)),
         "notas": todo(NotaEjercicio),
         "rutinas": todo(Rutina),
+        "tramos_ocultos": todo(RutinaPeriodoOculto),
         "huecos": todo(RutinaSlot),
         "comodines": todo(SlotAlternativa),
         "programas": todo(Programa),
@@ -582,7 +591,7 @@ def test_exportar_sin_datos_da_el_formato_con_las_listas_vacias(cliente, hoy_es)
     archivo = respuesta.json()
     assert sin_marca(archivo) == {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "zona_horaria": "Europe/Madrid",
         "predefinidos": [],
         "ejercicios": [],
@@ -630,6 +639,9 @@ def test_se_exporta_lo_oculto_lo_cancelado_y_lo_cerrado(cliente, datos):
 
     rutinas = {r["nombre"]: r for r in archivo["rutinas"]}
     assert rutinas["Pull"]["oculto_desde"] == "2026-09-14"
+    # Los tramos ya cerrados en que estuvo oculta, dentro de su rutina.
+    assert rutinas["Push"]["periodos_ocultos"] == [{"desde": "2026-08-03", "hasta": "2026-08-05"}]
+    assert rutinas["Pull"]["periodos_ocultos"] == []
     assert [h["oculto_desde"] for h in rutinas["Push"]["slots"]] == [None, None, "2026-09-01"]
 
     programas = {p["nombre"]: p for p in archivo["programas"]}
@@ -728,7 +740,7 @@ def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
     con_poco = consultas_de(lambda: cliente.get("/datos/exportar"))
 
     # Se vacía y se monta el mismo escenario con diez sesiones más.
-    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/exportar"))
@@ -764,12 +776,12 @@ def test_el_escenario_rellena_cada_campo_del_formato(cliente, datos_por_tipo):
     assert [ruta for ruta, relleno in rellenos.items() if not relleno] == []
 
 
-def test_exportar_escribe_la_version_2_con_el_tipo_y_las_medidas_de_cada_serie(
+def test_exportar_escribe_la_version_3_con_el_tipo_y_las_medidas_de_cada_serie(
     cliente, datos_por_tipo
 ):
     archivo = exportado(cliente)
 
-    assert archivo["version"] == 2
+    assert archivo["version"] == 3
     tipos = {e["nombre"]: e["tipo_registro"] for e in archivo["ejercicios"]}
     assert tipos == {
         "Press inclinado con mancuernas": "peso_reps",
@@ -847,7 +859,7 @@ def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente,
     hoy_es(HOY)
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         "rutinas": [
             {
@@ -872,7 +884,7 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     return {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": predefinido_id, "nombre": predefinido_nombre}],
         "ejercicios": [
@@ -971,7 +983,7 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
 
 
 def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos):
-    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, vacio)
 
@@ -1000,7 +1012,7 @@ def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         "ejercicios": [
             {
@@ -1127,8 +1139,8 @@ def _otro_formato(a):
     a["formato"] = "otra-app"
 
 
-def _version_3(a):
-    a["version"] = 3
+def _version_4(a):
+    a["version"] = 4
 
 
 def _version_1(a):
@@ -1141,7 +1153,7 @@ def _version_0(a):
 
 
 def _version_texto(a):
-    a["version"] = "2"
+    a["version"] = "3"
 
 
 def _version_verdadero(a):
@@ -1314,6 +1326,24 @@ def _programa_que_se_deja_de_usar_despues_de_hoy(a):
     _programa(a, "Viejo")["periodos"][0]["hasta"] = "2026-09-20"
 
 
+def _tramo_oculto(a):
+    [tramo] = _rutina(a, "Push")["periodos_ocultos"]
+    return tramo
+
+
+def _tramo_oculto_vacio(a):
+    tramo = _tramo_oculto(a)
+    tramo["hasta"] = tramo["desde"]
+
+
+def _tramo_oculto_invertido(a):
+    _tramo_oculto(a)["hasta"] = "2026-08-01"
+
+
+def _rutina_mostrada_despues_de_hoy(a):
+    _tramo_oculto(a)["hasta"] = "2026-09-17"
+
+
 def _periodo_cerrado_entero_en_el_futuro(a):
     periodo = _programa(a, "Viejo")["periodos"][0]
     periodo["desde"], periodo["hasta"] = "2026-09-20", "2026-09-25"
@@ -1426,7 +1456,7 @@ USA_UN_EJERCICIO = "La rutina «Push» usa un ejercicio que no está en el archi
 MALOS = [
     (_sin_formato, NO_ES_UNA_COPIA, None),
     (_otro_formato, NO_ES_UNA_COPIA, None),
-    (_version_3, MAS_NUEVA, None),
+    (_version_4, MAS_NUEVA, None),
     (_version_1, ANTERIOR, None),
     (_version_0, NO_ES_UNA_COPIA, None),
     (_version_texto, NO_ES_UNA_COPIA, None),
@@ -1523,6 +1553,13 @@ MALOS = [
     (_dia_semana_8, DANADO, "programas.0.dias.0.dia_semana"),
     (_reps_al_reves, DANADO, "rutinas.0.slots.0"),
     (_comodin_con_el_objetivo_a_medias, DANADO, "rutinas.0.slots.0.alternativas.0"),
+    (_tramo_oculto_vacio, DANADO, "rutinas.0.periodos_ocultos.0"),
+    (_tramo_oculto_invertido, DANADO, "rutinas.0.periodos_ocultos.0"),
+    (
+        _rutina_mostrada_despues_de_hoy,
+        NO_SE_CAMBIA_NADA,
+        "La rutina «Push» se volvió a mostrar el jueves 17 de septiembre" + EN_EL_FUTURO,
+    ),
     (
         _programa_que_empieza_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
@@ -1727,7 +1764,12 @@ def _dia_de_programa_que_empieza_dentro_de_tres_dias(a):
     )
 
 
+def _rutina_mostrada_hoy(a):
+    _tramo_oculto(a)["hasta"] = HOY.isoformat()
+
+
 BUENOS = [
+    _rutina_mostrada_hoy,
     _programa_que_empezo_hoy,
     _programa_que_se_dejo_de_usar_hoy,
     _sesion_de_hoy,
@@ -2045,7 +2087,7 @@ def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         # Treinta errores distintos: treinta notas de ejercicios que no están darían
         # un solo error, porque la frase ya no dice el id y no se repite.
@@ -2271,6 +2313,66 @@ def test_lo_oculto_en_el_hoy_de_la_zona_del_archivo_se_importa(cliente, datos, m
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
+def test_una_rutina_mostrada_en_el_hoy_de_la_zona_del_archivo_se_importa(
+    cliente, datos, monkeypatch
+):
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    archivo = copy.deepcopy(exportado(cliente))
+    archivo["zona_horaria"] = "Asia/Tokyo"
+    _rutina_mostrada_despues_de_hoy(archivo)
+
+    assert importar(cliente, archivo).status_code == 200
+
+    archivo["zona_horaria"] = "America/New_York"
+    antes = exportado(cliente)
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        f"La rutina «Push» se volvió a mostrar el {en_texto('2026-09-17')}" + EN_EL_FUTURO
+    ]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def test_un_archivo_de_la_version_2_se_sigue_cargando_sin_tramos_ocultos(cliente, sesion_bd, datos):
+    """La versión 2 no guardaba los tramos en que una rutina estuvo oculta: se carga
+    igual, sin ellos, y lo siguiente que se exporta ya es de la versión 3.
+    """
+    archivo = exportado(cliente)
+    archivo["version"] = 2
+    for rutina in archivo["rutinas"]:
+        del rutina["periodos_ocultos"]
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert _foto(sesion_bd)["tramos_ocultos"] == []
+    de_nuevo = exportado(cliente)
+    assert de_nuevo["version"] == 3
+    assert [r["periodos_ocultos"] for r in de_nuevo["rutinas"]] == [[], []]
+    # Sin el tramo, el lunes 3 de agosto vuelve a ser un día de Push sin hacer.
+    [lunes] = cliente.get(
+        "/plan/seguimiento", params={"desde": "2026-08-03", "hasta": "2026-08-03"}
+    ).json()
+    assert (lunes["estado"], lunes["descanso"]) == ("sin_hacer", False)
+
+
+def test_el_tramo_oculto_importado_deja_el_dia_en_descanso(cliente, datos):
+    """El lunes 3 de agosto le tocaba a Push con PPL, pero Push estuvo oculta del 3
+    al 5: descanso, antes y después de la ida y vuelta.
+    """
+
+    def lunes_3():
+        [dia] = cliente.get(
+            "/plan/seguimiento", params={"desde": "2026-08-03", "hasta": "2026-08-03"}
+        ).json()
+        return dia["rutina"]["nombre"], dia["estado"]
+
+    assert lunes_3() == ("Push", "descanso")
+    assert importar(cliente, exportado(cliente)).status_code == 200
+    assert lunes_3() == ("Push", "descanso")
+
+
 @pytest.mark.parametrize("exportado_en", ["2026-09-17T00:30:00+09:00", "2026-09-30T12:00:00+00:00"])
 def test_un_exportado_en_del_futuro_no_relaja_las_fechas(cliente, datos, monkeypatch, exportado_en):
     """`exportado_en` lo escribió el mismo reloj que puede estar mal: no cuenta como
@@ -2346,7 +2448,7 @@ def test_comprobar_dice_que_hay_en_el_archivo_y_que_hay_ahora_sin_cambiar_nada(c
 
 def test_comprobar_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
     hoy_es(HOY)
-    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, vacio, comprobar=True).json()
 
@@ -2476,7 +2578,7 @@ def test_tras_importar_el_resumen_coincide_con_la_respuesta_de_importar(cliente,
     elif que == "uno pequeño":
         archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
     else:
-        archivo = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+        archivo = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 
     respuesta = importar(cliente, archivo)
 
@@ -2492,7 +2594,7 @@ def test_el_resumen_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
     montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = consultas_de(lambda: cliente.get("/datos/resumen"))
 
-    vacio = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
     assert importar(cliente, vacio).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/resumen"))
@@ -2525,7 +2627,7 @@ def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos, que):
     antes = _predefinidos_en_bd(sesion_bd)
     archivo = exportado(cliente)
     if que == "uno vacío":
-        archivo = {"formato": "training-life", "version": 2, "exportado_en": _AHORA}
+        archivo = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 
     assert importar(cliente, archivo).status_code == 200
 
@@ -2544,7 +2646,7 @@ def test_los_predefinidos_del_archivo_van_por_nombre_y_no_por_id(
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": 4242, "nombre": "Sentadilla con barra"}],
         "notas": [{"ejercicio_id": 4242, "nota": "Barra baja", **marca}],
@@ -2620,7 +2722,7 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": _AHORA,
         "predefinidos": [{"id": 7, "nombre": "Press del autor"}],
         "notas": [{"ejercicio_id": 7, "nota": "Con pausa", **marca}],
@@ -2703,6 +2805,7 @@ FORMATO_DE = {
     Ejercicio: EjercicioDeArchivo,
     NotaEjercicio: NotaDeArchivo,
     Rutina: RutinaDeArchivo,
+    RutinaPeriodoOculto: PeriodoOcultoDeArchivo,
     RutinaSlot: SlotDeArchivo,
     SlotAlternativa: AlternativaDeHueco,
     Programa: ProgramaDeArchivo,
@@ -2721,6 +2824,7 @@ NO_SE_EXPORTA = {
     },
     NotaEjercicio: {"id": "nada la referencia"},
     RutinaSlot: {"rutina_id": "va dentro de su rutina"},
+    RutinaPeriodoOculto: {"id": "nada la referencia", "rutina_id": "va dentro de su rutina"},
     Programa: {"id": "nada la referencia"},
     ProgramaDia: {"id": "nada la referencia", "programa_id": "va dentro de su programa"},
     ProgramaPeriodo: {"id": "nada la referencia", "programa_id": "va dentro de su programa"},
@@ -2789,7 +2893,7 @@ def test_borrar_no_deja_ninguna_fila_ni_hijos_sueltos(cliente, sesion_bd, datos)
     sin él (un hueco, un comodín, un día, una serie) también saldría.
     """
     antes = _foto(sesion_bd)
-    # Que no pase por estar ya vacío: el escenario llena las 11 tablas.
+    # Que no pase por estar ya vacío: el escenario llena las 12 tablas.
     assert all(antes.values()), [tabla for tabla, filas in antes.items() if not filas]
 
     borrar(cliente)

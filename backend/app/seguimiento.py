@@ -114,14 +114,18 @@ def cuenta(sesion: Entrenamiento, dia: DiaPlan, vacia: bool | None = None) -> bo
     """Si la sesión cuenta de verdad para `dia`.
 
     No basta con que lo diga `cubre_fecha`: el plan de ese día tiene que seguir
-    siendo su rutina (se puede haber cambiado el programa u ocultado la rutina
-    después), y la sesión no puede estar cancelada. Si falla algo de eso, la sesión
-    no cuenta, pero sigue reteniendo el día: si el plan vuelve a ser el de antes,
-    vuelve a contar.
+    siendo su rutina (se puede haber cambiado el programa después), y la sesión no
+    puede estar cancelada. Si falla algo de eso, la sesión no cuenta, pero sigue
+    reteniendo el día: si el plan vuelve a ser el de antes, vuelve a contar.
+
+    Que la rutina estuviera oculta ese día no importa: ocultarla dice que deja de
+    tocar, pero no deshace lo que ya contaba (lo entrenado ese día o adelantado antes).
+    Con la rutina oculta no se puede crear ni recuperar ninguna sesión suya, así que
+    toda sesión que cuenta un día oculto se hizo antes de ocultarla.
     """
     return (
         sesion.cubre_fecha == dia.fecha
-        and not dia.descanso
+        and dia.rutina is not None
         and dia.rutina.id == sesion.rutina_id
         and not esta_cancelada(sesion, vacia)
     )
@@ -170,7 +174,8 @@ class DiaSeguimiento(DiaPlan):
 def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
     """El estado de cada día de `desde` a `hasta`, los dos incluidos.
 
-    - `descanso`: no tocaba nada (o tocaba una rutina que ese día estaba oculta).
+    - `descanso`: no tocaba nada, o tocaba una rutina que ese día estaba oculta y
+      ninguna sesión lo cuenta.
     - `hecho`: lo cuenta una sesión de ese mismo día.
     - `movido`: lo cuenta una sesión de otro día (recuperado o adelantado).
     - `sin_hacer`, `pendiente` o `proximo`: nadie lo cuenta, y es pasado, hoy o
@@ -182,7 +187,7 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
     un día puede contar otro que cae fuera del rango pedido, y saber si lo cuenta
     de verdad pide el plan de ese otro día. Así el resultado de un día no depende
     del rango en que se pida. Siempre son las mismas consultas, sea cual sea el
-    rango: seis para el plan y dos para las sesiones.
+    rango: como mucho siete para el plan y dos para las sesiones.
     """
     validar_rango_del_plan(desde, hasta)
     antes, despues = sumar(desde, -MARGEN), sumar(hasta, MARGEN)
@@ -223,10 +228,12 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
         fecha = desde + timedelta(days=n)
         dia = plan[fecha]
         cubierto_por = cuentan.get(fecha)
-        if dia.descanso:
-            estado = "descanso"
-        elif cubierto_por is not None:
+        # Primero lo que se hizo: un día ya contado sigue contado aunque luego se
+        # ocultara su rutina.
+        if cubierto_por is not None:
             estado = "hecho" if cubierto_por.fecha == fecha else "movido"
+        elif dia.descanso:
+            estado = "descanso"
         elif fecha < hoy_:
             estado = "sin_hacer"
         else:
@@ -237,7 +244,7 @@ def seguimiento(db: Session, desde: date, hasta: date) -> list[DiaSeguimiento]:
                 dia.origen,
                 dia.programa_id,
                 dia.rutina,
-                dia.descanso,
+                dia.descanso and cubierto_por is None,
                 estado=estado,
                 cubierto_por=cubierto_por,
                 sesion=del_dia.get(fecha),

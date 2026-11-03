@@ -397,7 +397,7 @@ def importar_propios(cliente, grupo_muscular_id, *ejercicios) -> list[int]:
     filas = [e if isinstance(e, tuple) else (e, None) for e in ejercicios]
     archivo = {
         "formato": "training-life",
-        "version": 2,
+        "version": 3,
         "exportado_en": MARCA["created_at"],
         "ejercicios": [
             {
