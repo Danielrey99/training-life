@@ -38,7 +38,14 @@ export type Medida = {
   aplica?: (sesion: SesionHistorial) => boolean
   // Cómo se escribe un valor en el eje de la gráfica, si no es como un número.
   marca?: (valor: number) => string
+  // El eje en minutos y no en segundos (el tiempo total y el de cardio, como el boceto).
+  enMinutos?: boolean
+  // Los pasos del eje, si no valen los redondos de siempre (el ritmo, en segundos).
+  pasos?: number[]
 }
+
+// Entre dos marcas del ritmo: segundos que se leen bien como «5:00», «5:15», «5:30».
+const PASOS_DEL_RITMO = [1, 2, 5, 10, 15, 30, 60, 120, 300]
 
 /** «26,7 kg»: el valor, ya en la unidad elegida, con un decimal como mucho. */
 export function enKilos(valor: number): string {
@@ -185,6 +192,7 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       rotulo: 'Suma de las series',
       valor: totalDeTiempo,
       enPeso: false,
+      enMinutos: true,
       escribir: (valor) => duracionLegible(Math.round(valor)),
       cambio: cambioDeTiempo,
       globo: (_, valor) => duracionLegible(Math.round(valor)),
@@ -218,6 +226,7 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       rotulo: 'Suma de la sesión',
       valor: totalDeTiempo,
       enPeso: false,
+      enMinutos: true,
       escribir: (valor) => duracionLegible(Math.round(valor)),
       cambio: cambioDeTiempo,
       globo: (_, valor) => duracionLegible(Math.round(valor)),
@@ -232,6 +241,8 @@ const MEDIDAS: Record<TipoRegistro, Medida[]> = {
       escribir: ritmoEnTexto,
       // El eje, sin la unidad: «5:26».
       marca: (valor) => ritmoEnTexto(valor).split(' ')[0],
+      // En segundos enteros: con pasos de décimas, ritmos parecidos repetían «5:12».
+      pasos: PASOS_DEL_RITMO,
       // Un ritmo más bajo es mejor: el signo es el de la diferencia, tal cual.
       cambio: (diferencia) => conSigno(diferencia, ritmoEnTexto(Math.abs(diferencia))),
       globo: (_, valor) => ritmoEnTexto(valor),

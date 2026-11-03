@@ -18,6 +18,11 @@ type Props = {
   alElegir: (id: number) => void
   // Cómo se escribe cada valor del eje; sin esto, como un número («5:26» para el ritmo).
   formatoDeMarca?: (valor: number) => string
+  // El eje, en otra unidad que los valores: los valores se dividen por esto (60, los
+  // segundos en minutos). Las marcas se escriben en esa unidad.
+  divisor?: number
+  // Los pasos que valen entre dos marcas, en la unidad del eje (el ritmo: 1, 5, 15, 30 s…).
+  pasos?: number[]
   // Cuántos días caben a lo ancho. Con más, la gráfica se desplaza de lado (con «Todo»:
   // la misma escala que 6 meses, para que los puntos y los meses no se apilen).
   diasVisibles?: number
@@ -64,16 +69,22 @@ function useAncho() {
 
 /**
  * Los valores redondos entre los que cabe la serie: unas cinco líneas de la
- * cuadrícula con un paso de 1, 2, 2,5 o 5 (por una potencia de diez). Si todos los
- * puntos valen lo mismo se abre un margen, para que la línea no quede pegada al borde.
+ * cuadrícula con un paso de 1, 2, 2,5 o 5 (por una potencia de diez), o de los `pasos`
+ * que se le den. Si todos los puntos valen lo mismo se abre un margen, para que la línea
+ * no quede pegada al borde.
  */
-function escala(minimo: number, maximo: number): number[] {
+function escala(minimo: number, maximo: number, pasos?: number[]): number[] {
   const margen = maximo === minimo ? Math.max(maximo * 0.2, 1) : 0
   const bajo = minimo - margen
   const alto = maximo + margen
   const bruto = (alto - bajo) / 4
   const potencia = 10 ** Math.floor(Math.log10(bruto))
-  const paso = [1, 2, 2.5, 5, 10].map((m) => m * potencia).find((p) => p >= bruto) ?? bruto
+  const redondos = [1, 2, 2.5, 5, 10].map((m) => m * potencia)
+  // Con `pasos`, el primero que llega; si ninguno llega, el mayor las veces que haga falta.
+  const mayor = pasos?.[pasos.length - 1] ?? 1
+  const paso = pasos
+    ? (pasos.find((p) => p >= bruto) ?? mayor * Math.ceil(bruto / mayor))
+    : (redondos.find((p) => p >= bruto) ?? bruto)
   const inicio = Math.floor(bajo / paso) * paso
   const marcas: number[] = []
   for (let valor = inicio; valor < alto + paso; valor += paso) {
@@ -88,12 +99,22 @@ function escala(minimo: number, maximo: number): number[] {
  * en el tiempo (dos sesiones muy separadas se ven separadas). El punto elegido lleva
  * un globo con su día y su valor; se elige tocando un punto.
  */
-export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarca }: Props) {
+export function Grafica({
+  puntos,
+  elegido,
+  alElegir,
+  diasVisibles,
+  formatoDeMarca,
+  divisor = 1,
+  pasos,
+}: Props) {
   const [lienzo, visible] = useAncho()
   const desplazable = useRef<HTMLDivElement>(null)
+  // En la unidad del eje.
   const marcas = escala(
-    Math.min(...puntos.map((p) => p.valor)),
-    Math.max(...puntos.map((p) => p.valor)),
+    Math.min(...puntos.map((p) => p.valor)) / divisor,
+    Math.max(...puntos.map((p) => p.valor)) / divisor,
+    pasos,
   )
   const bajo = marcas[0]
   const alto = marcas[marcas.length - 1]
@@ -118,7 +139,9 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarc
     total === 0
       ? (IZQUIERDA + derecha) / 2
       : IZQUIERDA + (diasEntre(primero, fecha) / total) * (derecha - IZQUIERDA)
-  const y = (valor: number) => ABAJO - ((valor - bajo) / (alto - bajo)) * (ABAJO - ARRIBA)
+  // Un valor sin convertir (`valor`, de un punto) o una marca, ya en la unidad del eje.
+  const enEje = (marca: number) => ABAJO - ((marca - bajo) / (alto - bajo)) * (ABAJO - ARRIBA)
+  const y = (valor: number) => enEje(valor / divisor)
 
   const activo = puntos.find((p) => p.id === elegido) ?? puntos[puntos.length - 1]
   const trazado = puntos.map((p) => `${x(p.fecha).toFixed(1)},${y(p.valor).toFixed(1)}`)
@@ -182,7 +205,7 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarc
         >
           <g stroke="var(--borde)" strokeWidth="1">
             {marcas.map((marca) => (
-              <line key={marca} x1={IZQUIERDA} y1={y(marca)} x2={ancho} y2={y(marca)} />
+              <line key={marca} x1={IZQUIERDA} y1={enEje(marca)} x2={ancho} y2={enEje(marca)} />
             ))}
           </g>
           <g fill="var(--texto-tenue)" fontSize="11" textAnchor="middle">
@@ -270,8 +293,8 @@ export function Grafica({ puntos, elegido, alElegir, diasVisibles, formatoDeMarc
       <svg className="progresion-valores" width={IZQUIERDA} height={ABAJO + 8} aria-hidden>
         <g fill="var(--texto-tenue)" fontSize="11" textAnchor="end">
           {marcas.map((marca) => (
-            <text key={marca} x={IZQUIERDA - 8} y={y(marca) + 4}>
-              {formatoDeMarca ? formatoDeMarca(marca) : marca.toLocaleString('es-ES')}
+            <text key={marca} x={IZQUIERDA - 8} y={enEje(marca) + 4}>
+              {formatoDeMarca ? formatoDeMarca(marca * divisor) : marca.toLocaleString('es-ES')}
             </text>
           ))}
         </g>

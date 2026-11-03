@@ -188,6 +188,8 @@ export function Progresion() {
               elegido={elegido}
               alElegir={setElegido}
               formatoDeMarca={medida.marca}
+              divisor={medida.enMinutos ? 60 : 1}
+              pasos={medida.pasos}
               // Todo, a la escala de 6 meses: con más, se desliza de lado.
               diasVisibles={rango.dias === null ? 182 : undefined}
             />
