@@ -436,8 +436,9 @@ export function Dia() {
   })
   // Lo que pide la rutina ese día: las series del ejercicio que se hizo en cada hueco
   // visible (o del que se ofrece, si no tiene series).
+  // Uno oculto en la rutina después también cuenta si se hizo ese día: ese día tocaba.
   const objetivo = actuales
-    .filter((bloque) => !bloque.hueco.oculto_desde)
+    .filter((bloque) => !bloque.hueco.oculto_desde || bloque.series.length > 0)
     .reduce((total, bloque) => total + seriesObjetivoDe(bloque.hueco, bloque.ejercicio.id), 0)
   const hayVolumen = series.some((serie) => serie.ejercicio.tipo_registro === 'peso_reps')
   const mejoras = actuales.map((bloque) =>
