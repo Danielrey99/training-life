@@ -12,8 +12,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Entrenamiento
-from tests.ayudas import consultas_de
+from app.models import Entrenamiento, ExcepcionDelPlan
+from tests.ayudas import consultas_de, rango_invertido
 from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
 
 MARTES_8 = date(2026, 9, 8)
@@ -170,8 +170,13 @@ def test_un_dia_sale_igual_lo_pida_solo_o_dentro_de_un_rango(cliente, ppl, grupo
 @pytest.mark.parametrize(
     "desde, hasta, lo_que_dice",
     [
-        pytest.param(HOY, LUNES_14, "invertido", id="invertido"),
-        pytest.param(HOY, HOY + timedelta(days=400), "400 días", id="mas-de-400-dias"),
+        pytest.param(HOY, LUNES_14, rango_invertido(HOY, LUNES_14), id="invertido"),
+        pytest.param(
+            HOY,
+            HOY + timedelta(days=400),
+            "Como mucho se piden 400 días de una vez.",
+            id="mas-de-400-dias",
+        ),
     ],
 )
 def test_un_rango_invalido_da_422(cliente, ppl, desde, hasta, lo_que_dice):
@@ -180,7 +185,7 @@ def test_un_rango_invalido_da_422(cliente, ppl, desde, hasta, lo_que_dice):
     )
 
     assert respuesta.status_code == 422
-    assert lo_que_dice in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == lo_que_dice
 
 
 def test_un_rango_de_justo_400_dias_vale(cliente, ppl):
@@ -223,6 +228,50 @@ def test_los_dias_del_borde_del_calendario_no_dan_500(cliente, ppl, ruta, params
     cuerpo = respuesta.json()
     dias = cuerpo if ruta == "/plan/seguimiento" else [cuerpo]
     assert [dia["fecha"] for dia in dias] == fechas
+
+
+def test_junto_a_los_bordes_del_calendario_lo_hecho_cuenta_y_se_planifica(
+    cliente, sesion_bd, ppl, grupo_muscular_id
+):
+    """El anterior, con algo dentro: lo del 1-1-0001, recuperado el día 3, cuenta
+    y lo ven el seguimiento y la hoja de ese día; el 31-12-9999 se planifica, sale
+    en el seguimiento y se restablece. Antes del arreglo, el margen de seis días a
+    cada lado se salía del calendario (500).
+    """
+    primero, tercero, ultimo = date(1, 1, 1), date(1, 1, 3), date(9999, 12, 31)
+    # El pasado no se planifica por la API: el día cambiado se mete en la base.
+    sesion_bd.add(ExcepcionDelPlan(fecha=primero, rutina_id=ppl["Push"]))
+    sesion_bd.commit()
+    recuperada = hecha(cliente, grupo_muscular_id, tercero, ppl["Push"], cubre_fecha=primero)
+
+    principio = seguimiento(cliente, primero, date(1, 1, 7))
+    hoja = cliente.get("/plan/hoy", params={"fecha": tercero.isoformat()})
+    assert cliente.put(f"/plan/excepciones/{ultimo}", json={"rutina_id": ppl["Leg"]}).json() == {
+        "fecha": ultimo.isoformat(),
+        "rutina": {"id": ppl["Leg"], "nombre": "Leg", "oculto_desde": None},
+    }
+    final = seguimiento(cliente, date(9999, 12, 25), ultimo)
+    restablecer = cliente.delete(
+        "/plan/excepciones", params={"desde": HOY.isoformat(), "hasta": ultimo.isoformat()}
+    )
+
+    assert principio[primero]["estado"] == "movido"
+    assert principio[primero]["cubierto_por"] == {
+        "entrenamiento_id": recuperada,
+        "fecha": tercero.isoformat(),
+    }
+    assert principio[tercero]["sesion"]["entrenamiento_id"] == recuperada
+    assert hoja.status_code == 200, hoja.text
+    assert hoja.json()["semana"][2]["sesion"]["entrenamiento_id"] == recuperada
+    assert (final[ultimo]["origen"], final[ultimo]["rutina"]["id"]) == ("excepcion", ppl["Leg"])
+    assert final[ultimo]["estado"] == "proximo"
+    assert restablecer.status_code == 204
+    assert cliente.get("/plan/excepciones").json() == [
+        {
+            "fecha": primero.isoformat(),
+            "rutina": {"id": ppl["Push"], "nombre": "Push", "oculto_desde": None},
+        }
+    ]
 
 
 def test_siempre_hace_las_mismas_consultas(cliente, ppl, grupo_muscular_id):

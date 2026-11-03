@@ -46,7 +46,7 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
 
 def test_el_peso_conserva_los_decimales_exactos(cliente, grupo_muscular_id):
     """Es Numeric (Decimal), no float: 100.25 debe volver como 100.25 exacto."""
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Peso muerto")
+    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Peso muerto con déficit")
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
 
     serie = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5).json()
@@ -170,7 +170,7 @@ def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente, grupo_muscular_
 
     for respuesta in (creado, editado):
         assert respuesta.status_code == 404
-        assert respuesta.json()["detail"] == "No existe ningún grupo muscular con id 9999"
+        assert respuesta.json()["detail"] == "Ese grupo muscular no existe."
     guardado = cliente.get(f"/ejercicios/{remo}").json()
     assert (guardado["nombre"], guardado["grupo_muscular_id"]) == ("Remo", grupo_muscular_id)
 
@@ -291,7 +291,7 @@ def test_mover_un_hueco_al_orden_de_otro_da_409(cliente, grupo_muscular_id):
     )
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"] == "Ya hay un hueco con orden=1 en esta rutina"
+    assert respuesta.json()["detail"] == "Ya hay otro ejercicio en la posición 1 de esta rutina."
     assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"][1]["orden"] == 2
 
 
@@ -401,7 +401,7 @@ def test_corregir_una_serie_no_la_pasa_a_un_hueco_de_otra_rutina(cliente, grupo_
     )
 
     assert respuesta.status_code == 404
-    assert "en la rutina de este entrenamiento" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == ("Ese ejercicio no está en la rutina de esta sesión.")
     assert cliente.get(f"/entrenamientos/{sesion}").json()["series"] == [serie]
 
 
@@ -412,7 +412,7 @@ def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
     respuesta = cliente.post("/entrenamientos", json={"rutina_id": push, "fecha": FECHA})
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {push}"
+    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
     assert cliente.get("/entrenamientos").json() == []
 
 
@@ -420,15 +420,16 @@ def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
 #
 # En una sesión, todas las series de un hueco son del mismo ejercicio: apuntar o
 # mover una de otro da 409 y no guarda nada. Push tiene dos huecos: el A, de
-# Crunch en polea con Plancha de comodín, y el B, de Rueda abdominal con Crunch en
-# polea de comodín (para poder mover una serie de crunch de A a B).
+# Crunch en polea alta con Plancha con lastre de comodín, y el B, de Rueda abdominal
+# de pie con Crunch en polea alta de comodín (para poder mover una serie de crunch de
+# A a B). Ninguno se llama como un predefinido: la API no lo dejaría crear.
 
 
 @pytest.fixture
 def abdominales(cliente, grupo_muscular_id) -> dict:
-    crunch = crear_ejercicio(cliente, grupo_muscular_id, "Crunch en polea")
-    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha")
-    rueda = crear_ejercicio(cliente, grupo_muscular_id, "Rueda abdominal")
+    crunch = crear_ejercicio(cliente, grupo_muscular_id, "Crunch en polea alta")
+    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha con lastre")
+    rueda = crear_ejercicio(cliente, grupo_muscular_id, "Rueda abdominal de pie")
     push = crear_rutina(cliente)
     a = cliente.post(
         f"/rutinas/{push}/slots",
@@ -483,9 +484,9 @@ def test_no_se_apunta_una_serie_de_otro_ejercicio_en_un_hueco_que_ya_tiene_serie
 
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == (
-        "Esta sesión ya tiene la serie de Crunch en polea en ese ejercicio de la rutina, y en "
-        "cada uno se hace un solo ejercicio por sesión. Borra antes esas series para apuntar "
-        "Plancha."
+        "Esta sesión ya tiene la serie de Crunch en polea alta en ese ejercicio de la rutina,"
+        " y en cada uno se hace un solo ejercicio por sesión. Borra antes esa serie para"
+        " apuntar Plancha con lastre."
     )
     assert _series_de(cliente, sesion) == [crunch]
 
@@ -498,10 +499,11 @@ def test_el_409_de_mezclar_cuenta_las_series_en_plural(cliente, abdominales):
     respuesta = _apuntar(cliente, sesion, e.plancha, e.a, numero=4)
 
     assert respuesta.status_code == 409, respuesta.text
-    assert respuesta.json()["detail"].startswith(
-        "Esta sesión ya tiene las 3 series de Crunch en polea en ese ejercicio de la rutina,"
+    assert respuesta.json()["detail"] == (
+        "Esta sesión ya tiene las 3 series de Crunch en polea alta en ese ejercicio de la rutina,"
+        " y en cada uno se hace un solo ejercicio por sesión. Borra antes esas series para"
+        " apuntar Plancha con lastre."
     )
-    assert respuesta.json()["detail"].endswith("para apuntar Plancha.")
     assert len(_series_de(cliente, sesion)) == 3
 
 
@@ -519,7 +521,7 @@ def test_el_mismo_hueco_admite_otro_ejercicio_en_otra_sesion(cliente, abdominale
 
     assert con_plancha.status_code == 201, con_plancha.text
     assert con_crunch.status_code == 409, con_crunch.text
-    assert "la serie de Plancha" in con_crunch.json()["detail"]
+    assert "la serie de Plancha con lastre" in con_crunch.json()["detail"]
 
 
 def test_otro_hueco_de_la_misma_sesion_admite_otro_ejercicio(cliente, abdominales):
@@ -565,8 +567,8 @@ def test_cambiar_el_ejercicio_de_una_serie_con_mas_del_anterior_da_409(cliente, 
     )
 
     assert respuesta.status_code == 409, respuesta.text
-    assert "ya tiene las 2 series de Crunch en polea" in respuesta.json()["detail"]
-    assert respuesta.json()["detail"].endswith("para apuntar Plancha.")
+    assert "ya tiene las 2 series de Crunch en polea alta" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"].endswith("para apuntar Plancha con lastre.")
     assert _series_de(cliente, sesion)[0] == primera
 
 
@@ -585,8 +587,8 @@ def test_mover_una_serie_a_un_hueco_con_series_de_otro_ejercicio_da_409(cliente,
     )
 
     assert respuesta.status_code == 409, respuesta.text
-    assert "la serie de Rueda abdominal" in respuesta.json()["detail"]
-    assert respuesta.json()["detail"].endswith("para apuntar Crunch en polea.")
+    assert "la serie de Rueda abdominal de pie" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"].endswith("para apuntar Crunch en polea alta.")
     assert _series_de(cliente, sesion)[0] == crunch
 
 
@@ -689,7 +691,7 @@ def test_un_ejercicio_que_no_es_del_hueco_da_422_y_no_409(cliente, grupo_muscula
     for respuesta in (al_apuntar, al_corregir):
         assert (respuesta.status_code, respuesta.json()["detail"]) == (
             422,
-            "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+            "Ese ejercicio no es ni el de la rutina ni una de sus alternativas.",
         ), respuesta.text
     assert _series_de(cliente, sesion)[0] == crunch
 
@@ -713,7 +715,7 @@ def test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409(
     oculto = _apuntar(cliente, sesion, e.plancha, e.a, numero=2)
 
     assert de_otra_rutina.status_code == 404, de_otra_rutina.text
-    assert "en la rutina de este entrenamiento" in de_otra_rutina.json()["detail"]
+    assert de_otra_rutina.json()["detail"] == ("Ese ejercicio no está en la rutina de esta sesión.")
     assert oculto.status_code == 404, oculto.text
     assert oculto.json()["detail"] == "Ejercicio no encontrado"
     assert _series_de(cliente, sesion) == [crunch]
@@ -1081,8 +1083,8 @@ def lo_que_existe(cliente, grupo_muscular_id) -> dict:
 
 NO_HAY_EJERCICIO = "Ejercicio no encontrado"
 NO_HAY_RUTINA = "Rutina no encontrada"
-NO_HAY_HUECO = "Hueco no encontrado"
-NO_HAY_SESION = "Entrenamiento no encontrado"
+NO_HAY_HUECO = "Ese ejercicio no está en esta rutina."
+NO_HAY_SESION = "Sesión no encontrada"
 
 
 @pytest.mark.parametrize(
@@ -1202,9 +1204,7 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
     assert respuesta.status_code == 404, respuesta.text
     esperado = {
         "serie": NO_HAY_EJERCICIO,
-        "hueco de la serie": (
-            f"No existe ningún hueco con id {INEXISTENTE} en la rutina de este entrenamiento"
-        ),
-    }.get(donde, f"No existe ninguna rutina con id {INEXISTENTE}")
+        "hueco de la serie": ("Ese ejercicio no está en la rutina de esta sesión."),
+    }.get(donde, "Esa rutina no existe o está oculta.")
     assert respuesta.json()["detail"] == esperado
     assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == cuantas

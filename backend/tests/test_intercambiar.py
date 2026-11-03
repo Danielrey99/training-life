@@ -19,7 +19,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import Entrenamiento, ExcepcionDelPlan
-from tests.ayudas import dejar_planificado
+from tests.ayudas import dejar_planificado, todavia_no_ha_llegado
 from tests.semana import (
     HOY,
     JUEVES_17,
@@ -30,6 +30,7 @@ from tests.semana import (
     VIERNES_18,
     cubre,
     hecha,
+    sin_dia_para_ella,
 )
 
 
@@ -202,7 +203,10 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             LUNES_14,
             HOY,
             HOY,
-            "El 2026-09-14 ya ha pasado. Solo se puede intercambiar con un día de hoy en adelante.",
+            (
+                "El lunes 14 de septiembre ya ha pasado. Solo se puede intercambiar con un"
+                " día de hoy en adelante."
+            ),
             id="con-un-dia-pasado",
         ),
         pytest.param(
@@ -210,8 +214,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             VIERNES_18,
-            "Al intercambiar, la sesión cuenta como la de hoy, así que cubre_fecha tiene que ser"
-            " 2026-09-16.",
+            "Al intercambiar, la sesión cuenta como lo que toca hoy.",
             id="cuenta-otro-dia",
         ),
         pytest.param(
@@ -219,8 +222,7 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             None,
-            "Al intercambiar, la sesión cuenta como la de hoy, así que cubre_fecha tiene que ser"
-            " 2026-09-16.",
+            "Al intercambiar, la sesión cuenta como lo que toca hoy.",
             id="sin-cubre-fecha",
         ),
         pytest.param(
@@ -228,7 +230,10 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             VIERNES_18,
             HOY,
             HOY,
-            "El 2026-09-18 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
+            (
+                "El viernes 18 de septiembre no toca esa rutina. Intercambiar trae a hoy lo que"
+                " toca ese día."
+            ),
             id="otra-rutina",
         ),
         pytest.param(
@@ -236,7 +241,10 @@ def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
             JUEVES_17,
             HOY,
             HOY,
-            "El 2026-09-17 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
+            (
+                "El jueves 17 de septiembre no toca esa rutina. Intercambiar trae a hoy lo que"
+                " toca ese día."
+            ),
             id="un-descanso",
         ),
     ],
@@ -258,7 +266,7 @@ def test_una_fecha_futura_da_su_422_antes_que_el_del_intercambio(cliente, sesion
     )
 
     assert respuesta.status_code == 422
-    assert "todavía no ha llegado" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == todavia_no_ha_llegado(JUEVES_17)
     assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
 
 
@@ -271,7 +279,7 @@ def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, se
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], HOY)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {ppl['Leg']}"
+    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
     assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
 
 
@@ -286,7 +294,10 @@ def test_un_422_del_intercambio_no_borra_la_cancelada_de_hoy(cliente, sesion_bd,
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-18 no toca esa rutina. Intercambiar trae a hoy lo que toca ese día.",
+        (
+            "El viernes 18 de septiembre no toca esa rutina. Intercambiar trae a hoy lo que"
+            " toca ese día."
+        ),
     )
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 
@@ -328,7 +339,7 @@ def test_si_lo_adelantado_se_queda_sin_dia_da_409_y_no_se_crea_nada(
     respuesta = empezar_intercambiando(cliente, ppl["Push"], LUNES_21)
 
     assert respuesta.status_code == 409, respuesta.text
-    assert respuesta.json()["detail"]["entrenamiento_id"] == adelantada
+    assert respuesta.json()["detail"] == sin_dia_para_ella(LUNES_14, HOY, "Pull", adelantada)
     assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
     assert cuantas(sesion_bd, Entrenamiento) == 1
     assert cubre(cliente, adelantada) == HOY.isoformat()
@@ -352,7 +363,13 @@ def test_si_lo_del_otro_dia_ya_se_hizo_da_409_y_lo_deshace_todo(
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], VIERNES_18)
 
     assert respuesta.status_code == 409, respuesta.text
-    assert respuesta.json()["detail"]["entrenamiento_id"] == adelantada
+    assert respuesta.json()["detail"] == {
+        "mensaje": (
+            "Lo del miércoles 16 de septiembre ya está hecho. Lo cuenta la sesión del martes"
+            " 15 de septiembre."
+        ),
+        "entrenamiento_id": adelantada,
+    }
     assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
     assert cuantas(sesion_bd, Entrenamiento) == 2
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()

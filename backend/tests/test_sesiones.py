@@ -11,7 +11,15 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app import fechas
-from tests.ayudas import crear_ejercicio, crear_rutina, entrenar, rutina_en_bd, serie_en
+from tests.ayudas import (
+    crear_ejercicio,
+    crear_rutina,
+    entrenar,
+    rango_invertido,
+    rutina_en_bd,
+    serie_en,
+    todavia_no_ha_llegado,
+)
 from tests.semana import HOY
 
 AYER = HOY - timedelta(days=1)
@@ -93,8 +101,12 @@ def test_con_una_sesion_en_curso_no_se_puede_empezar_otra_hoy(cliente):
 
     assert respuesta.status_code == 409
     # Dice cuál es y que está en curso, para que la pantalla ofrezca continuarla.
-    assert respuesta.json()["detail"]["entrenamiento_id"] == abierta["id"]
-    assert respuesta.json()["detail"]["en_curso"] is True
+    assert respuesta.json()["detail"] == {
+        "mensaje": "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra.",
+        "entrenamiento_id": abierta["id"],
+        "en_curso": True,
+    }
+    assert [s["id"] for s in cliente.get("/entrenamientos").json()] == [abierta["id"]]
 
 
 def test_terminada_la_sesion_de_hoy_no_se_puede_empezar_otra(cliente, grupo_muscular_id):
@@ -106,8 +118,13 @@ def test_terminada_la_sesion_de_hoy_no_se_puede_empezar_otra(cliente, grupo_musc
     respuesta = entrenar(cliente, HOY)
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["entrenamiento_id"] == sesion["id"]
-    assert respuesta.json()["detail"]["en_curso"] is False
+    assert respuesta.json()["detail"] == {
+        "mensaje": "Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo,"
+        " cambia antes la fecha de la otra desde su día en el historial.",
+        "entrenamiento_id": sesion["id"],
+        "en_curso": False,
+    }
+    assert [s["id"] for s in cliente.get("/entrenamientos").json()] == [sesion["id"]]
 
 
 def test_una_sesion_de_hoy_terminada_sin_series_no_ocupa_el_dia(cliente):
@@ -366,7 +383,7 @@ def test_el_listado_con_el_rango_invertido_da_422(cliente):
     )
 
     assert respuesta.status_code == 422
-    assert "invertido" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == rango_invertido(HOY, AYER)
 
 
 # --- El futuro no se registra --------------------------------------------
@@ -381,7 +398,7 @@ def test_no_se_puede_apuntar_un_entrenamiento_en_el_futuro(cliente):
     respuesta = entrenar(cliente, manana)
 
     assert respuesta.status_code == 422
-    assert "todavía no ha llegado" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == todavia_no_ha_llegado(manana)
     assert cliente.get("/entrenamientos").json() == []
 
 
@@ -394,7 +411,7 @@ def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
     )
 
     assert respuesta.status_code == 422
-    assert "todavía no ha llegado" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == todavia_no_ha_llegado(HOY + timedelta(days=1))
     assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
 
 
@@ -430,4 +447,7 @@ def test_a_las_00_30_en_espana_se_empieza_la_sesion_del_dia_nuevo(cliente, madru
     assert respuesta.json()["en_curso"] is True
     manana = entrenar(cliente, "2025-07-02")
     assert manana.status_code == 422
-    assert "todavía no ha llegado" in manana.json()["detail"]
+    # Sin año: «hoy» es de 2025, el año que manda es el de `hoy()` y no el del reloj real.
+    assert manana.json()["detail"] == (
+        "El miércoles 2 de julio todavía no ha llegado. Solo se apuntan días de hoy hacia atrás."
+    )

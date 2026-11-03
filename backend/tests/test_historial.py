@@ -142,7 +142,7 @@ def hueco_con_comodin(cliente, grupo_muscular_id, escenario):
     """El escenario de siempre, con un comodín en el hueco y tres días: el
     principal el 1, el comodín el 8 y otra vez el principal el 15.
     """
-    comodin_id = crear_ejercicio(cliente, grupo_muscular_id, "Press banca en máquina")
+    comodin_id = crear_ejercicio(cliente, grupo_muscular_id, "Press banca en máquina convergente")
     poner_alternativas(cliente, escenario["rutina_id"], escenario["slot_id"], [comodin_id])
     for fecha, ejercicio_id in [
         ("2026-09-01", escenario["ejercicio_id"]),

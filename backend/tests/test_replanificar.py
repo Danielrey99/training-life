@@ -26,6 +26,7 @@ from tests.semana import (
     cubre,
     hecha,
     sesion,
+    sin_dia_para_ella,
 )
 
 
@@ -58,10 +59,7 @@ def test_si_la_rutina_se_queda_sin_dia_no_se_guarda_nada(cliente, ppl, grupo_mus
     respuesta = planificar(cliente, VIERNES_18, None)
 
     assert respuesta.status_code == 409
-    detalle = respuesta.json()["detail"]
-    assert detalle["entrenamiento_id"] == adelantada
-    assert detalle["fecha"] == MARTES_15.isoformat()
-    assert "Leg" in detalle["mensaje"]
+    assert respuesta.json()["detail"] == sin_dia_para_ella(MARTES_15, VIERNES_18, "Leg", adelantada)
     # Ni la sesión ni el plan cambiaron.
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
     assert cliente.get("/plan/excepciones").json() == []

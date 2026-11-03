@@ -7,7 +7,7 @@ alcance a los ejercicios predefinidos, que vienen con la app y no son datos de n
 """
 
 import copy
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -46,6 +46,7 @@ from app.schemas import (
 from tests.ayudas import (
     consultas_de,
     crear_ejercicio,
+    en_texto,
     entrenar,
     lista_de_predefinidos,
     objetivo,
@@ -1418,10 +1419,9 @@ SESION_EN_EL_FUTURO = (
     " es de un día que todavía no ha llegado. Comprueba la fecha del teléfono o del"
     " ordenador que hizo la copia."
 )
-ZONA_DESCONOCIDA = 'La zona horaria del archivo ("{}") no la conoce esta versión de la app.'
-FUERA_DE_PLAZO = (
-    ", fuera de su plazo. Lo de un día se entrena entre el lunes de su semana y seis días después."
-)
+ZONA_DESCONOCIDA = "La zona horaria del archivo («{}») no la conoce esta versión de la app."
+
+USA_UN_EJERCICIO = "La rutina «Push» usa un ejercicio que no está en el archivo."
 
 MALOS = [
     (_sin_formato, NO_ES_UNA_COPIA, None),
@@ -1443,33 +1443,78 @@ MALOS = [
     (
         _serie_por_tiempo_de_un_predefinido,
         NO_SE_CAMBIA_NADA,
-        MAL_APUNTADA.format("2026-09-09")
+        MAL_APUNTADA.format("miércoles 9 de septiembre")
         + "Sentadilla con barra se apunta con peso y repeticiones. Sobra la duración.",
     ),
     (_hora_sin_zona, DANADO, "rutinas.0.created_at"),
     (_nombre_vacio, DANADO, "rutinas.0.nombre"),
-    (_rutina_con_id_repetido, NO_SE_CAMBIA_NADA, "Hay dos rutinas con el id"),
-    (_ejercicio_con_el_id_de_un_predefinido, NO_SE_CAMBIA_NADA, "Hay dos ejercicios con el id"),
-    (_hueco_con_id_repetido, NO_SE_CAMBIA_NADA, "Hay dos ejercicios de rutina con el id"),
-    (_nota_de_un_ejercicio_que_no_esta, NO_SE_CAMBIA_NADA, "Una nota es de un ejercicio"),
-    (_principal_que_no_esta, NO_SE_CAMBIA_NADA, 'La rutina "Push" usa un ejercicio'),
-    (_comodin_que_no_esta, NO_SE_CAMBIA_NADA, 'La rutina "Push" usa un ejercicio'),
-    (_dia_de_una_rutina_que_no_esta, NO_SE_CAMBIA_NADA, 'El programa "PPL" usa una rutina'),
-    (_excepcion_de_una_rutina_que_no_esta, NO_SE_CAMBIA_NADA, "El día 2026-09-12 tiene una"),
-    (_sesion_de_una_rutina_que_no_esta, NO_SE_CAMBIA_NADA, "La sesión del 2026-09-10 es de"),
+    (_rutina_con_id_repetido, NO_SE_CAMBIA_NADA, "Hay dos rutinas con el mismo identificador."),
+    (
+        _ejercicio_con_el_id_de_un_predefinido,
+        NO_SE_CAMBIA_NADA,
+        "Hay dos ejercicios con el mismo identificador.",
+    ),
+    (
+        _hueco_con_id_repetido,
+        NO_SE_CAMBIA_NADA,
+        "Hay dos ejercicios de una rutina con el mismo identificador.",
+    ),
+    (
+        _nota_de_un_ejercicio_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "Una nota es de un ejercicio que no está en el archivo.",
+    ),
+    (_principal_que_no_esta, NO_SE_CAMBIA_NADA, USA_UN_EJERCICIO),
+    (_comodin_que_no_esta, NO_SE_CAMBIA_NADA, USA_UN_EJERCICIO),
+    (
+        _dia_de_una_rutina_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» usa una rutina que no está en el archivo.",
+    ),
+    (
+        _excepcion_de_una_rutina_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "El sábado 12 de septiembre tiene una rutina que no está en el archivo.",
+    ),
+    (
+        _sesion_de_una_rutina_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del jueves 10 de septiembre es de una rutina que no está en el archivo.",
+    ),
     (_serie_de_un_ejercicio_que_no_esta, NO_SE_CAMBIA_NADA, "una serie de un ejercicio"),
-    (_serie_en_un_hueco_de_otra_rutina, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
-    (_serie_en_un_hueco_que_no_esta, NO_SE_CAMBIA_NADA, 'fuera de los ejercicios de "Push"'),
+    (_serie_en_un_hueco_de_otra_rutina, NO_SE_CAMBIA_NADA, "fuera de los ejercicios de «Push»."),
+    (_serie_en_un_hueco_que_no_esta, NO_SE_CAMBIA_NADA, "fuera de los ejercicios de «Push»."),
     # Dos ejercicios en un hueco de una sesión: en sus propios tests, con la frase entera.
-    (_predefinido_que_no_existe, NO_SE_CAMBIA_NADA, '"Press con kettlebell de cristal" no'),
-    (_grupo_que_no_existe, NO_SE_CAMBIA_NADA, 'El grupo muscular "Orejas"'),
-    (_sesiones_el_mismo_dia, NO_SE_CAMBIA_NADA, "Hay dos sesiones el 2026-09-10"),
-    (_cubre_fecha_repetida, NO_SE_CAMBIA_NADA, "cuentan como la del 2026-09-07"),
-    (_excepcion_repetida, NO_SE_CAMBIA_NADA, "El día 2026-09-12 está cambiado dos veces"),
+    (
+        _predefinido_que_no_existe,
+        NO_SE_CAMBIA_NADA,
+        "El ejercicio predefinido «Press con kettlebell de cristal» no existe en esta versión"
+        " de la app.",
+    ),
+    (_grupo_que_no_existe, NO_SE_CAMBIA_NADA, "El grupo muscular «Orejas» del ejercicio «"),
+    (_sesiones_el_mismo_dia, NO_SE_CAMBIA_NADA, "Hay dos sesiones el jueves 10 de septiembre."),
+    (
+        _cubre_fecha_repetida,
+        NO_SE_CAMBIA_NADA,
+        "Hay dos sesiones que cuentan como la del lunes 7 de septiembre.",
+    ),
+    (
+        _excepcion_repetida,
+        NO_SE_CAMBIA_NADA,
+        "El sábado 12 de septiembre está planificado dos veces.",
+    ),
     (_dos_periodos_abiertos_en_dos_programas, NO_SE_CAMBIA_NADA, "más de un programa activo"),
     (_dos_periodos_abiertos_en_un_programa, NO_SE_CAMBIA_NADA, "más de un programa activo"),
-    (_dos_filas_vigentes_el_mismo_dia, NO_SE_CAMBIA_NADA, "dos rutinas a la vez el día 3"),
-    (_orden_repetido, NO_SE_CAMBIA_NADA, 'La rutina "Push" tiene dos ejercicios en la posición 1'),
+    (
+        _dos_filas_vigentes_el_mismo_dia,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» tiene dos rutinas a la vez los miércoles.",
+    ),
+    (
+        _orden_repetido,
+        NO_SE_CAMBIA_NADA,
+        "La rutina «Push» tiene dos ejercicios en la posición 1.",
+    ),
     # El resto de comodines incoherentes y de objetivos mal formados, en `test_huecos.py`
     # y `test_objetivos.py`: el archivo usa las mismas comprobaciones.
     (_comodin_repetido, DANADO, "rutinas.0.slots.0"),
@@ -1481,22 +1526,22 @@ MALOS = [
     (
         _programa_que_empieza_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
-        'El programa "PPL" se empezó a usar el 2026-09-20' + EN_EL_FUTURO,
+        "El programa «PPL» se empezó a usar el domingo 20 de septiembre" + EN_EL_FUTURO,
     ),
     (
         _programa_que_se_deja_de_usar_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
-        'El programa "Viejo" se dejó de usar el 2026-09-20' + EN_EL_FUTURO,
+        "El programa «Viejo» se dejó de usar el domingo 20 de septiembre" + EN_EL_FUTURO,
     ),
     (
         _periodo_cerrado_entero_en_el_futuro,
         NO_SE_CAMBIA_NADA,
-        'El programa "Viejo" se empezó a usar el 2026-09-20' + EN_EL_FUTURO,
+        "El programa «Viejo» se empezó a usar el domingo 20 de septiembre" + EN_EL_FUTURO,
     ),
     (
         _sesion_de_un_dia_que_no_ha_llegado,
         NO_SE_CAMBIA_NADA,
-        "La sesión del 2026-09-17" + SESION_EN_EL_FUTURO,
+        "La sesión del jueves 17 de septiembre" + SESION_EN_EL_FUTURO,
     ),
     (_zona_que_no_existe, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("Marte/Olympus")),
     (_zona_vacia, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("")),
@@ -1506,17 +1551,21 @@ MALOS = [
     (
         _cuenta_un_dia_antes_de_su_plazo,
         NO_SE_CAMBIA_NADA,
-        "La sesión del 2026-09-07 cuenta como la del 2026-09-14" + FUERA_DE_PLAZO,
+        "La sesión del lunes 7 de septiembre cuenta como la del lunes 14 de septiembre, fuera de"
+        " su plazo, que va del lunes 14 de septiembre al domingo 20 de septiembre.",
     ),
     (
         _cuenta_un_dia_despues_de_su_plazo,
         NO_SE_CAMBIA_NADA,
-        "La sesión del 2026-09-09 cuenta como la del 2026-09-02" + FUERA_DE_PLAZO,
+        "La sesión del miércoles 9 de septiembre cuenta como la del miércoles 2 de septiembre,"
+        " fuera de su plazo, que va del lunes 31 de agosto al martes 8 de septiembre.",
     ),
     (
         _cuenta_el_ultimo_dia_que_existe,
         NO_SE_CAMBIA_NADA,
-        "La sesión del 2026-09-07 cuenta como la del 9999-12-31" + FUERA_DE_PLAZO,
+        "La sesión del lunes 7 de septiembre cuenta como la del viernes 31 de diciembre de 9999,"
+        " fuera de su plazo, que va del lunes 27 de diciembre de 9999 al viernes 31 de diciembre"
+        " de 9999.",
     ),
     # Un predefinido dos veces con distinto id: su nombre depende de la siembra, así que
     # va en su propio test, con la frase entera.
@@ -1590,9 +1639,56 @@ def test_un_predefinido_dos_veces_con_distinto_id_da_422_y_no_cambia_nada(
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == {
         "mensaje": NO_SE_CAMBIA_NADA,
-        "errores": [f'El ejercicio predefinido "{nombre}" está dos veces en el archivo.'],
+        "errores": [f"El ejercicio predefinido «{nombre}» está dos veces en el archivo."],
     }
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+def test_varios_ids_repetidos_se_dicen_una_sola_vez(cliente, datos):
+    """La frase ya no dice el id, así que dos ids repetidos distintos darían dos frases
+    iguales: sale una vez por clase de cosa (ejercicios, rutinas y ejercicios de una
+    rutina).
+    """
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    for n in (0, 1):
+        archivo["ejercicios"][n]["id"] = archivo["predefinidos"][n]["id"]
+    push, pull = _rutina(archivo, "Push"), _rutina(archivo, "Pull")
+    pull["id"] = push["id"]
+    push["slots"][1]["id"] = push["slots"][0]["id"]
+    pull["slots"][0]["id"] = push["slots"][2]["id"]
+
+    respuesta = importar(cliente, archivo, comprobar=True)
+
+    assert respuesta.status_code == 422, respuesta.text
+    errores = respuesta.json()["detail"]["errores"]
+    for frase in (
+        "Hay dos ejercicios con el mismo identificador.",
+        "Hay dos rutinas con el mismo identificador.",
+        "Hay dos ejercicios de una rutina con el mismo identificador.",
+    ):
+        assert errores.count(frase) == 1, errores
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize(
+    "dia_semana, los_dias",
+    [(1, "los lunes"), (3, "los miércoles"), (6, "los sábados"), (7, "los domingos")],
+)
+def test_dos_rutinas_a_la_vez_el_mismo_dia_lo_dice_en_plural(cliente, datos, dia_semana, los_dias):
+    """«Los lunes», pero «los sábados»: el día de la semana en plural, sin el número."""
+    archivo = exportado(cliente)
+    dias = _programa(archivo, "PPL")["dias"]
+    for _ in range(2):
+        dias.append({**copy.deepcopy(dias[0]), "dia_semana": dia_semana, "hasta": None})
+
+    respuesta = importar(cliente, archivo, comprobar=True)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert (
+        f"El programa «PPL» tiene dos rutinas a la vez {los_dias}."
+        in respuesta.json()["detail"]["errores"]
+    )
 
 
 def _programa_que_empezo_hoy(a):
@@ -1681,9 +1777,9 @@ def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos)
     assert respuesta.json()["detail"] == {
         "mensaje": NO_SE_CAMBIA_NADA,
         "errores": [
-            'La sesión del 2026-09-09 tiene series de "Sentadilla con barra" y de "Remo en'
-            ' máquina vieja" en el mismo ejercicio de "Push". En una sesión, cada uno se hace'
-            " con un solo ejercicio."
+            "La sesión del miércoles 9 de septiembre tiene series de «Sentadilla con barra» y"
+            " de «Remo en máquina vieja» en el mismo ejercicio de «Push». En una sesión, cada"
+            " uno se hace con un solo ejercicio."
         ],
     }
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
@@ -1704,9 +1800,9 @@ def test_una_sesion_con_tres_ejercicios_en_un_hueco_los_nombra_con_comas(cliente
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"]["errores"] == [
-        'La sesión del 2026-09-09 tiene series de "Sentadilla con barra", de "Remo en máquina'
-        ' vieja" y de "Press inclinado con mancuernas" en el mismo ejercicio de "Push". En una'
-        " sesión, cada uno se hace con un solo ejercicio."
+        "La sesión del miércoles 9 de septiembre tiene series de «Sentadilla con barra», de"
+        " «Remo en máquina vieja» y de «Press inclinado con mancuernas» en el mismo ejercicio"
+        " de «Push». En una sesión, cada uno se hace con un solo ejercicio."
     ]
 
 
@@ -1752,18 +1848,18 @@ def _distancia_en_una_serie_de_peso_y_repeticiones(a):
 MAL_POR_TIPO = [
     (
         _distancia_en_una_serie_de_peso_y_repeticiones,
-        MAL_APUNTADA.format("2026-09-03")
+        MAL_APUNTADA.format("jueves 3 de septiembre")
         + "Remo con barra se apunta con peso y repeticiones. Sobra la distancia.",
     ),
     # El tipo del archivo manda: las series de un ejercicio se miran con el suyo.
     (
         _dominadas_por_tiempo,
-        MAL_APUNTADA.format("2026-09-02")
+        MAL_APUNTADA.format("miércoles 2 de septiembre")
         + "Dominadas lastradas se apunta por tiempo. Falta la duración",
     ),
     (
         _plancha_de_peso_y_repeticiones,
-        MAL_APUNTADA.format("2026-09-02")
+        MAL_APUNTADA.format("miércoles 2 de septiembre")
         + "Plancha con disco se apunta con peso y repeticiones. Faltan el peso y las"
         " repeticiones y sobra la duración.",
     ),
@@ -1835,27 +1931,27 @@ def _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo(a):
     _de(a, "Plancha con disco")["tipo_registro"] = "corporal"
 
 
-MAL_OBJETIVO = 'La rutina "Core" tiene un objetivo mal puesto. '
+MAL_OBJETIVO = "La rutina «Core» tiene un objetivo mal puesto. "
 EN_SEGUNDOS = (
-    "El objetivo de Plancha con disco va en segundos (duracion_min_s y duracion_max_s), no"
-    " en repeticiones, porque Plancha con disco se apunta por tiempo."
+    "El objetivo de Plancha con disco va en tiempo y no en repeticiones, porque Plancha con"
+    " disco se apunta por tiempo."
 )
 OBJETIVOS_QUE_NO_CUADRAN = [
     (_plancha_de_principal_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
     (
         _dominadas_de_alternativa_en_segundos,
-        MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones (reps_min y"
-        " reps_max), no en duración, porque Dominadas lastradas se apunta con repeticiones y carga.",
+        MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones y no en tiempo,"
+        " porque Dominadas lastradas se apunta con repeticiones y carga.",
     ),
     (
         _sentadilla_de_principal_en_segundos,
-        MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones (reps_min y"
-        " reps_max), no en duración, porque Sentadilla con barra se apunta con peso y repeticiones.",
+        MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones y no en tiempo,"
+        " porque Sentadilla con barra se apunta con peso y repeticiones.",
     ),
     (
         _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
-        MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones (reps_min y"
-        " reps_max), no en duración, porque Plancha con disco se apunta con repeticiones y carga.",
+        MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones y no en tiempo,"
+        " porque Plancha con disco se apunta con repeticiones y carga.",
     ),
 ]
 
@@ -1936,7 +2032,10 @@ def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
     assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    assert any('"Sentadilla de cristal" no' in e for e in detalle["errores"]), detalle
+    assert (
+        "El ejercicio predefinido «Sentadilla de cristal» no existe en esta versión de la app."
+        in detalle["errores"]
+    ), detalle
     assert not any("mal apuntada" in e for e in detalle["errores"]), detalle
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
@@ -1948,7 +2047,12 @@ def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
         "formato": "training-life",
         "version": 2,
         "exportado_en": _AHORA,
-        "notas": [{"ejercicio_id": 1000 + n, "nota": "x", **marca} for n in range(30)],
+        # Treinta errores distintos: treinta notas de ejercicios que no están darían
+        # un solo error, porque la frase ya no dice el id y no se repite.
+        "excepciones": [
+            {"fecha": (HOY - timedelta(days=n)).isoformat(), "rutina_id": 1000 + n, **marca}
+            for n in range(30)
+        ],
     }
 
     detalle = importar(cliente, archivo).json()["detail"]
@@ -2029,8 +2133,8 @@ def _con_una_sesion_y_un_periodo_del(archivo, dia, zona):
 
 def _errores_del_futuro(dia):
     return [
-        f'El programa "PPL" se empezó a usar el {dia}' + EN_EL_FUTURO,
-        f"La sesión del {dia}" + SESION_EN_EL_FUTURO,
+        f"El programa «PPL» se empezó a usar el {en_texto(dia)}" + EN_EL_FUTURO,
+        f"La sesión del {en_texto(dia)}" + SESION_EN_EL_FUTURO,
     ]
 
 
@@ -2448,7 +2552,12 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert '"Press del autor" no existe' in str(respuesta.json()["detail"])
+    assert respuesta.json()["detail"] == {
+        "mensaje": NO_SE_CAMBIA_NADA,
+        "errores": [
+            "El ejercicio predefinido «Press del autor» no existe en esta versión de la app."
+        ],
+    }
     assert cliente.get(f"/ejercicios/{propio}").status_code == 200
     assert cliente.get(f"/ejercicios/{propio}/notas").json() == []
 

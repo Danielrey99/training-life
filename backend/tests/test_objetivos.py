@@ -35,24 +35,23 @@ from tests.ayudas import (
 )
 
 UNO_DE_LOS_DOS = (
-    "El objetivo lleva repeticiones (reps_min y reps_max) o duración "
-    "(duracion_min_s y duracion_max_s), uno de los dos y completo"
+    "El objetivo lleva repeticiones o tiempo, uno de los dos, con su mínimo y su máximo."
 )
 EN_SEGUNDOS = (
-    "El objetivo de Plancha va en segundos (duracion_min_s y duracion_max_s), no en "
-    "repeticiones, porque Plancha se apunta por tiempo."
+    "El objetivo de Plancha con lastre va en tiempo y no en repeticiones, porque Plancha con"
+    " lastre se apunta por tiempo."
 )
 EN_REPETICIONES = (
-    "El objetivo de Dominadas va en repeticiones (reps_min y reps_max), no en duración, porque "
-    "Dominadas se apunta con repeticiones y carga."
+    "El objetivo de Dominadas en anillas va en repeticiones y no en tiempo, porque Dominadas en"
+    " anillas se apunta con repeticiones y carga."
 )
 EN_SEGUNDOS_CARDIO = (
-    "El objetivo de Cinta va en segundos (duracion_min_s y duracion_max_s), no en "
-    "repeticiones, porque Cinta se apunta por tiempo y, si se quiere, distancia."
+    "El objetivo de Cinta va en tiempo y no en repeticiones, porque Cinta se apunta por tiempo"
+    " y, si se quiere, distancia."
 )
 EN_REPETICIONES_PRESS = (
-    "El objetivo de Press banca va en repeticiones (reps_min y reps_max), no en duración, porque "
-    "Press banca se apunta con peso y repeticiones."
+    "El objetivo de Press banca va en repeticiones y no en tiempo, porque Press banca se apunta"
+    " con peso y repeticiones."
 )
 EN_SEGUNDOS_OBJ = objetivo(3, duracion=(30, 60))
 EN_REPS_OBJ = objetivo(3, (6, 10))
@@ -67,8 +66,10 @@ def e(cliente, grupo_muscular_id) -> SimpleNamespace:
     return SimpleNamespace(
         press=crear_ejercicio(cliente, grupo_muscular_id, "Press banca"),
         remo=crear_ejercicio(cliente, grupo_muscular_id, "Remo"),
-        dominadas=crear_ejercicio(cliente, grupo_muscular_id, "Dominadas", tipo="corporal"),
-        plancha=crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo"),
+        dominadas=crear_ejercicio(
+            cliente, grupo_muscular_id, "Dominadas en anillas", tipo="corporal"
+        ),
+        plancha=crear_ejercicio(cliente, grupo_muscular_id, "Plancha con lastre", tipo="tiempo"),
         cinta=crear_ejercicio(cliente, grupo_muscular_id, "Cinta", tipo="cardio"),
         rutina=crear_rutina(cliente, "Mixta"),
     )
@@ -140,12 +141,12 @@ MAL_FORMADOS = [
     pytest.param({**SIN_PAR, "duracion_max_s": 60}, UNO_DE_LOS_DOS, id="duracion-sin-minimo"),
     pytest.param(
         {**SIN_PAR, "reps_min": 10, "reps_max": 6},
-        "reps_max no puede ser menor que reps_min",
+        "El máximo de repeticiones no puede ser menor que el mínimo.",
         id="reps-al-reves",
     ),
     pytest.param(
         {**SIN_PAR, "duracion_min_s": 60, "duracion_max_s": 30},
-        "duracion_max_s no puede ser menor que duracion_min_s",
+        "El tiempo máximo no puede ser menor que el mínimo.",
         id="duracion-al-reves",
     ),
     pytest.param(
@@ -177,7 +178,7 @@ def test_un_objetivo_mal_formado_da_422_del_esquema_y_no_crea_nada(
     cliente, sesion_bd, e, obj, lo_que_dice, donde
 ):
     """El 422 es el del esquema (una lista de errores de Pydantic) y por lo que se
-    prueba: así no se confunde con el de la familia, que daría la Plancha con reps.
+    prueba: así no se confunde con el de la familia, que daría la Plancha con lastre con reps.
     """
     if donde == "principal":
         respuesta = anadir(cliente, e.rutina, principal=e.plancha, obj=obj)
@@ -483,7 +484,10 @@ def test_un_objetivo_equivocado_da_422_antes_que_el_409_de_ya_es_comodin(cliente
 
     assert (con_reps.status_code, con_reps.json()["detail"]) == (422, EN_SEGUNDOS)
     assert en_segundos.status_code == 409
-    assert "ya es comodín" in en_segundos.json()["detail"]
+    assert en_segundos.json()["detail"] == (
+        "Ese ejercicio ya es una alternativa de este. Quítalo de las alternativas antes"
+        " de hacerlo el principal."
+    )
 
 
 # --- PUT con lista: se actualiza en su sitio ------------------------------------
@@ -530,8 +534,8 @@ def test_cambiar_el_objetivo_de_una_alternativa_conserva_su_fila(cliente, sesion
 def test_una_lista_quita_anade_e_intercambia_principal_y_alternativa_a_la_vez(
     cliente, sesion_bd, e
 ):
-    """Press (reps) con Plancha (segundos) y Dominadas de alternativas pasa a Plancha
-    de principal, con Press de alternativa y Remo nuevo: Dominadas se va, Plancha
+    """Press (reps) con Plancha con lastre (segundos) y Dominadas en anillas de alternativas pasa a Plancha con lastre
+    de principal, con Press de alternativa y Remo nuevo: Dominadas en anillas se va, Plancha con lastre
     deja de ser alternativa y Press lo pasa a ser, cada uno con el objetivo que se
     manda (no el que tenía en su otro papel).
     """
@@ -649,7 +653,7 @@ def test_cambiar_el_principal_por_uno_de_otra_familia_pide_su_par_y_borra_el_otr
     cliente, sesion_bd, e
 ):
     """El PUT es completo: el par que no llega queda nulo. Con el par de antes (reps
-    para la Plancha) es un 422 y no cambia nada.
+    para la Plancha con lastre) es un 422 y no cambia nada.
     """
     slot = anadido(cliente, e.rutina, principal=e.press, alternativas=[alternativa(e.remo)])["id"]
 
@@ -682,8 +686,8 @@ def test_una_serie_con_una_alternativa_se_valida_por_el_ejercicio_y_no_por_la_fi
     error.
 
     Para que se note, la fila de la alternativa (Remo) lleva a propósito el id de
-    otro ejercicio (Dominadas) que no está en el hueco: con ids de fila, Remo daría 422
-    y Dominadas colaría.
+    otro ejercicio (Dominadas en anillas) que no está en el hueco: con ids de fila, Remo daría 422
+    y Dominadas en anillas colaría.
     """
     slot = anadido(cliente, e.rutina, principal=e.press)["id"]
     sesion_bd.add(
@@ -701,7 +705,7 @@ def test_una_serie_con_una_alternativa_se_valida_por_el_ejercicio_y_no_por_la_fi
     assert intrusa.status_code == 422, intrusa.text
     assert (
         intrusa.json()["detail"]
-        == "Ese ejercicio no es ni el principal ni un comodín de este hueco"
+        == "Ese ejercicio no es ni el de la rutina ni una de sus alternativas."
     )
     assert con_la_alternativa.status_code == 201, con_la_alternativa.text
 

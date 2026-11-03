@@ -7,6 +7,7 @@ Hoy es el **miércoles 16 de septiembre de 2026**, y el programa Push (lunes), P
 
 from datetime import date
 
+from app.fechas import fecha_en_texto
 from tests.ayudas import ejercicio_de_prueba, serie_en
 
 LUNES_7 = date(2026, 9, 7)
@@ -64,3 +65,19 @@ def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int
     entrenamiento_id = respuesta.json()["id"]
     con_una_serie(cliente, grupo_muscular_id, entrenamiento_id)
     return entrenamiento_id
+
+
+def sin_dia_para_ella(fecha, cubre_fecha, rutina, entrenamiento_id) -> dict:
+    """El 409 de replanificar cuando lo hecho por adelantado se queda sin ningún día
+    de esta semana con su rutina: dice qué sesión es, para poder abrirla.
+    """
+    return {
+        "mensaje": (
+            f"La sesión del {fecha_en_texto(fecha)} cuenta como lo del"
+            f" {fecha_en_texto(cubre_fecha)}, y con este cambio ya no queda ningún día de esta"
+            f" semana con {rutina} para ella. Deja algún día con esa rutina o borra antes esa"
+            " sesión."
+        ),
+        "entrenamiento_id": entrenamiento_id,
+        "fecha": fecha.isoformat(),
+    }

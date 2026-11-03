@@ -153,7 +153,10 @@ def test_con_orden_explicito_se_respeta_y_choca_tambien_con_un_oculto(
 
     for respuesta, orden in ((con_el_visible, 3), (con_el_oculto, 7)):
         assert respuesta.status_code == 409, respuesta.text
-        assert respuesta.json()["detail"] == f"Ya hay un hueco con orden={orden} en esta rutina"
+        assert (
+            respuesta.json()["detail"]
+            == f"Ya hay otro ejercicio en la posición {orden} de esta rutina."
+        )
     assert huecos_guardados(sesion_bd) == (2, 0)
 
 
@@ -170,7 +173,7 @@ def test_sin_orden_con_el_100_ocupado_da_409_y_no_crea_nada(cliente, sesion_bd, 
     )
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"] == "Esta rutina no admite más ejercicios"
+    assert respuesta.json()["detail"] == "Esta rutina no admite más ejercicios."
     assert huecos_guardados(sesion_bd) == (1, 0)
 
 
@@ -184,7 +187,7 @@ def test_una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden(
     respuesta = anadir_hueco(cliente, rutina["id"], ejercicio_predefinido_id)
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         409,
-        "Esta rutina no admite más ejercicios",
+        "Esta rutina no admite más ejercicios.",
     )
     assert huecos_guardados(sesion_bd) == (100, 0)
 
@@ -212,7 +215,11 @@ def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, ejercicios)
     editado = editar_hueco(cliente, pull, hueco["id"], ejercicios["Aperturas"], series=2)
     borrado = cliente.delete(f"/rutinas/{pull}/slots/{hueco['id']}")
 
-    assert (editado.status_code, borrado.status_code) == (404, 404)
+    for respuesta in (editado, borrado):
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (
+            404,
+            "Ese ejercicio no está en esta rutina.",
+        )
     [guardado] = cliente.get(f"/rutinas/{push}").json()["slots"]
     assert (guardado["id"], guardado["ejercicio_principal"]["id"], guardado["series_objetivo"]) == (
         hueco["id"],
@@ -247,7 +254,10 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     quitar = editar_hueco(cliente, pull, hueco, press, alternativas=[])
 
     assert [r.status_code for r in (mostrar, anadir, quitar)] == [404, 404, 404]
-    assert all(r.json()["detail"] == "Hueco no encontrado" for r in (mostrar, anadir, quitar))
+    assert all(
+        r.json()["detail"] == "Ese ejercicio no está en esta rutina."
+        for r in (mostrar, anadir, quitar)
+    )
     assert filas_de_comodines(sesion_bd, hueco).keys() == {ejercicios["Fondos"]}
 
 
@@ -288,8 +298,8 @@ def test_un_hueco_nuevo_con_un_comodin_que_no_vale_da_404_y_no_se_crea(
 @pytest.mark.parametrize(
     "caso, lo_que_dice",
     [
-        ("igual al principal", "Un comodín no puede ser el ejercicio principal"),
-        ("repetido", "Hay comodines repetidos"),
+        ("igual al principal", "Una alternativa no puede ser el mismo ejercicio que el principal."),
+        ("repetido", "Hay alternativas repetidas."),
     ],
 )
 def test_un_hueco_nuevo_con_comodines_incoherentes_da_422(
@@ -325,7 +335,10 @@ def test_con_la_lista_nula_sigue_sin_poder_pasar_un_comodin_a_principal(cliente,
     respuesta = editar_hueco(cliente, rutina, slot, fondos, alternativas=None)
 
     assert respuesta.status_code == 409
-    assert "ya es comodín" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == (
+        "Ese ejercicio ya es una alternativa de este. Quítalo de las alternativas antes"
+        " de hacerlo el principal."
+    )
     assert comodines(cliente, rutina, slot) == [fondos]
 
 
@@ -479,7 +492,9 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
     filas = filas_de_comodines(sesion_bd, slot)
 
     mensaje = {
-        "hueco": "Este hueco está oculto. Muéstralo antes de cambiarlo.",
+        "hueco": (
+            "Este ejercicio está oculto en la rutina. Muéstralo en la rutina antes de cambiarlo."
+        ),
         "rutina": "Esta rutina está oculta. Muéstrala antes de cambiarla.",
     }[que]
 
@@ -493,8 +508,8 @@ def test_no_se_cambian_los_comodines_de_un_hueco_oculto_ni_de_una_rutina_oculta(
 @pytest.mark.parametrize(
     "caso, lo_que_dice",
     [
-        ("igual al principal", "Un comodín no puede ser el ejercicio principal"),
-        ("repetido", "Hay comodines repetidos"),
+        ("igual al principal", "Una alternativa no puede ser el mismo ejercicio que el principal."),
+        ("repetido", "Hay alternativas repetidas."),
     ],
 )
 def test_editar_con_comodines_incoherentes_da_422(

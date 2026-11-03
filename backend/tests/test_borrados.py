@@ -401,7 +401,7 @@ def test_las_notas_de_un_ejercicio_oculto_se_pueden_leer_y_escribir(cliente, gru
 
 
 EJERCICIO_OCULTO = "Este ejercicio está oculto. Muéstralo antes de editarlo."
-HUECO_OCULTO = "Este hueco está oculto. Muéstralo antes de cambiarlo."
+HUECO_OCULTO = "Este ejercicio está oculto en la rutina. Muéstralo en la rutina antes de cambiarlo."
 RUTINA_OCULTA = "Esta rutina está oculta. Muéstrala antes de cambiarla."
 
 
@@ -586,7 +586,7 @@ def test_un_hueco_que_no_existe_da_404_aunque_su_rutina_este_oculta(cliente, gru
         ):
             assert (respuesta.status_code, respuesta.json()["detail"]) == (
                 404,
-                "Hueco no encontrado",
+                "Ese ejercicio no está en esta rutina.",
             )
     assert len(cliente.get(f"/rutinas/{otra}").json()["slots"]) == 1
 
@@ -742,7 +742,7 @@ def test_un_hueco_oculto_no_se_puede_usar_en_una_serie_nueva(cliente, grupo_musc
     # 404 y no 409: lo oculto deja de ofrecerse, así que para elegirlo es como si no
     # existiera, igual que un ejercicio oculto en una serie nueva.
     assert respuesta.status_code == 404
-    assert "en la rutina de este entrenamiento" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == ("Ese ejercicio no está en la rutina de esta sesión.")
     assert len(cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]) == 1
 
 
@@ -765,7 +765,7 @@ def test_una_serie_no_se_puede_mover_a_otro_hueco_oculto(cliente, grupo_muscular
     )
 
     assert respuesta.status_code == 404
-    assert "en la rutina de este entrenamiento" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == ("Ese ejercicio no está en la rutina de esta sesión.")
     assert series_de(cliente, entrenamiento_id) == [serie]
 
 
@@ -810,7 +810,7 @@ def test_en_un_hueco_oculto_una_serie_se_corrige_a_su_comodin_pero_no_a_otro_eje
     ajena = cliente.put(ruta, json=cuerpo_serie(remo, slot_id, peso=50, repeticiones=10))
     assert (ajena.status_code, ajena.json()["detail"]) == (
         422,
-        "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+        "Ese ejercicio no es ni el de la rutina ni una de sus alternativas.",
     )
     assert series_de(cliente, entrenamiento_id) == [serie]
 
@@ -1123,7 +1123,7 @@ def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_
     """El camino contrario al anterior: acabaría siendo las dos cosas a la vez. (Con
     la lista de comodines en el mismo PUT sí vale: ver `test_huecos.py`.)
     """
-    _, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
+    principal, comodin, rutina_id, slot_id = con_comodin(cliente, grupo_muscular_id)
 
     respuesta = cliente.put(
         f"/rutinas/{rutina_id}/slots/{slot_id}",
@@ -1137,7 +1137,12 @@ def test_un_comodin_no_puede_pasar_a_principal_de_su_mismo_hueco(cliente, grupo_
     )
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"].startswith("Ese ejercicio ya es comodín de este hueco")
+    assert respuesta.json()["detail"] == (
+        "Ese ejercicio ya es una alternativa de este. Quítalo de las alternativas antes"
+        " de hacerlo el principal."
+    )
+    [hueco] = cliente.get(f"/rutinas/{rutina_id}").json()["slots"]
+    assert hueco["ejercicio_principal"]["id"] == principal
 
 
 def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente, grupo_muscular_id):
@@ -1156,10 +1161,10 @@ def test_una_serie_de_un_hueco_solo_admite_su_principal_o_sus_comodines(cliente,
     en_la_del_principal = ruta_de_sesion(FECHA)
     en_la_del_comodin = ruta_de_sesion("2026-09-05")
 
-    ajeno = cliente.post(en_la_del_principal, json=cuerpo_serie(otro, slot_id))
-    assert (ajeno.status_code, ajeno.json()["detail"]) == (
+    de_fuera = cliente.post(en_la_del_principal, json=cuerpo_serie(otro, slot_id))
+    assert (de_fuera.status_code, de_fuera.json()["detail"]) == (
         422,
-        "Ese ejercicio no es ni el principal ni un comodín de este hueco",
+        "Ese ejercicio no es ni el de la rutina ni una de sus alternativas.",
     )
     assert (
         cliente.post(en_la_del_principal, json=cuerpo_serie(principal, slot_id)).status_code == 201
@@ -1189,7 +1194,7 @@ def test_una_serie_se_puede_corregir_aunque_su_ejercicio_ya_no_sea_comodin(
     assert corregida.json()["peso"] == "65.00"
     assert cambiada.status_code == 422
     assert cambiada.json()["detail"] == (
-        "Ese ejercicio no es ni el principal ni un comodín de este hueco"
+        "Ese ejercicio no es ni el de la rutina ni una de sus alternativas."
     )
 
 
@@ -1291,6 +1296,28 @@ def test_si_su_dia_aun_no_ha_llegado_con_el_programa_activo_se_borra_directa(cli
     # El motivo son los días pasados, no otra cosa: no tiene huecos ni sesiones.
     assert aviso_de_rutina(cliente, pull)["toco_dias_pasados"] is True
     assert cliente.get(f"/rutinas/{pull}").status_code == 200
+
+
+def test_una_rutina_que_entra_hoy_en_el_programa_activo_se_borra_directa(cliente, ppl):
+    """El martes del PPL pasa hoy a ser Brazos: su única fila de programa empieza
+    hoy y no tiene nada en común con el pasado. Sin huecos ni sesiones, el DELETE
+    sin modo la borra y el martes vuelve a descanso. (Hasta ahora este caso solo se
+    cubría de rebote, según el orden en que Postgres devolviera las filas de otro
+    test: la cobertura de ramas dependía de la suerte.)
+    """
+    brazos = crear_rutina(cliente, "Brazos")
+    programa = cliente.get("/programas").json()[0]["id"]
+    respuesta = cliente.put(f"/programas/{programa}/dias/2", json={"rutina_id": brazos})
+    assert respuesta.status_code == 200, respuesta.text
+
+    aviso = aviso_de_rutina(cliente, brazos)
+    borrada = cliente.delete(f"/rutinas/{brazos}")
+
+    assert (aviso["con_historial"], aviso["toco_dias_pasados"]) == (False, False)
+    assert aviso["dias_de_programa"] == 1
+    assert borrada.status_code == 204, borrada.text
+    assert cliente.get(f"/rutinas/{brazos}").status_code == 404
+    assert plan_del_dia(cliente, date(2026, 9, 22))["descanso"] is True
 
 
 # --- El aviso de borrar un hueco ---------------------------------------------
@@ -1409,7 +1436,7 @@ def test_el_aviso_de_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina(
     respuesta = aviso_de_hueco(cliente, otra, escenario["a"])
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Hueco no encontrado"
+    assert respuesta.json()["detail"] == "Ese ejercicio no está en esta rutina."
 
 
 def test_borrar_en_definitivo_un_hueco_se_lleva_las_sesiones_que_vacia_y_deja_las_demas(

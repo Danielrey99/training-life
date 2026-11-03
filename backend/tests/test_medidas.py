@@ -13,8 +13,8 @@ Lo que falta o sobra da 422 con el nombre del ejercicio, al apuntar y al corregi
 (con el ejercicio final: cambiar a una alternativa de otro tipo exige sus medidas).
 La base de datos solo comprueba la forma de la serie, con sus CHECK.
 
-El escenario: la rutina tiene un hueco A de Press banca con Dominadas y Plancha de
-alternativas (tres de los cuatro tipos en un hueco), un hueco B de Dominadas y un C de Plancha.
+El escenario: la rutina tiene un hueco A de Press banca con Dominadas en anillas y Plancha con lastre de
+alternativas (tres de los cuatro tipos en un hueco), un hueco B de Dominadas en anillas y un C de Plancha con lastre.
 """
 
 from types import SimpleNamespace
@@ -42,13 +42,15 @@ def peso_corporal_de_otro_tipo(nombre: str) -> str:
 def e(cliente, grupo_muscular_id) -> SimpleNamespace:
     ids = {
         "press": crear_ejercicio(cliente, grupo_muscular_id, "Press banca"),
-        "dominadas": crear_ejercicio(cliente, grupo_muscular_id, "Dominadas", tipo="corporal"),
-        "plancha": crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo"),
+        "dominadas": crear_ejercicio(
+            cliente, grupo_muscular_id, "Dominadas en anillas", tipo="corporal"
+        ),
+        "plancha": crear_ejercicio(cliente, grupo_muscular_id, "Plancha con lastre", tipo="tiempo"),
     }
     rutina = crear_rutina(cliente, "Mixta")
 
     def objetivo_de(nombre) -> dict:
-        # Plancha es de tiempo: su objetivo va en segundos; el de los demás, en reps.
+        # Plancha con lastre es de tiempo: su objetivo va en segundos; el de los demás, en reps.
         return objetivo(3, (6, 10), (30, 60) if nombre == "plancha" else None)
 
     def hueco(principal, orden, *alternativas) -> int:
@@ -243,19 +245,19 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
         pytest.param(
             "dominadas",
             {"repeticiones": 8},
-            "Dominadas se apunta con repeticiones y carga. Falta el peso.",
+            "Dominadas en anillas se apunta con repeticiones y carga. Falta el peso.",
             id="corporal-sin-carga-nula",
         ),
         pytest.param(
             "dominadas",
             {"peso": 0, "repeticiones": 8, "duracion_s": 20},
-            "Dominadas se apunta con repeticiones y carga. Sobra la duración.",
+            "Dominadas en anillas se apunta con repeticiones y carga. Sobra la duración.",
             id="corporal-con-duracion",
         ),
         pytest.param(
             "plancha",
             {},
-            "Plancha se apunta por tiempo. Falta la duración.",
+            "Plancha con lastre se apunta por tiempo. Falta la duración.",
             id="tiempo-sin-nada",
         ),
     ],
@@ -276,13 +278,13 @@ def test_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
         pytest.param(
             "plancha",
             {"peso": 0, "repeticiones": 8},
-            "Plancha se apunta por tiempo. Falta la duración y sobran las repeticiones.",
+            "Plancha con lastre se apunta por tiempo. Falta la duración y sobran las repeticiones.",
             id="tiempo-por-repeticiones",
         ),
         pytest.param(
             "plancha",
             {"duracion_s": 30, "repeticiones": 8},
-            "Plancha se apunta por tiempo. Sobran las repeticiones.",
+            "Plancha con lastre se apunta por tiempo. Sobran las repeticiones.",
             id="tiempo-con-repeticiones",
         ),
         pytest.param(
@@ -294,7 +296,7 @@ def test_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
         pytest.param(
             "dominadas",
             {"peso": 0},
-            "Dominadas se apunta con repeticiones y carga. Faltan las repeticiones.",
+            "Dominadas en anillas se apunta con repeticiones y carga. Faltan las repeticiones.",
             id="corporal-sin-repeticiones",
         ),
     ],
@@ -376,7 +378,7 @@ def test_unas_medidas_mal_puestas_dan_su_422_antes_que_el_409_de_mezclar(cliente
     bien = apuntar(cliente, e, "plancha", numero=2, slot_id=e.a, duracion_s=30)
 
     assert mal.status_code == 422, mal.text
-    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo.")
+    assert mal.json()["detail"].startswith("Plancha con lastre se apunta por tiempo.")
     assert bien.status_code == 409, bien.text
     assert bien.json()["detail"].startswith("Esta sesión ya tiene la serie de Press banca ")
     assert series_de(cliente, e) == [press]
@@ -391,7 +393,7 @@ def test_un_ejercicio_que_no_es_del_hueco_se_dice_antes_que_sus_medidas(cliente,
     assert respuesta.status_code == 422, respuesta.text
     assert (
         respuesta.json()["detail"]
-        == "Ese ejercicio no es ni el principal ni un comodín de este hueco"
+        == "Ese ejercicio no es ni el de la rutina ni una de sus alternativas."
     )
 
 
@@ -416,7 +418,7 @@ def test_cambiar_a_una_alternativa_de_otro_tipo_exige_sus_medidas(cliente, e):
 
     mal = corregir(cliente, e, serie, "plancha", peso=60, repeticiones=8)
     assert mal.status_code == 422, mal.text
-    assert mal.json()["detail"].startswith("Plancha se apunta por tiempo.")
+    assert mal.json()["detail"].startswith("Plancha con lastre se apunta por tiempo.")
     assert series_de(cliente, e) == [serie]
 
     bien = corregir(cliente, e, serie, "plancha", duracion_s=40)
@@ -552,7 +554,7 @@ def test_corregir_una_serie_copia_el_peso_corporal_del_cuerpo_como_la_variante(
 
 
 def test_pasar_a_una_alternativa_de_otro_tipo_con_peso_corporal_da_422_y_no_cambia_nada(cliente, e):
-    """Dominadas en el hueco A (alternativa) con su peso corporal; pasarla a plancha
+    """Dominadas en anillas en el hueco A (alternativa) con su peso corporal; pasarla a plancha
     con su duración pero conservando el peso corporal: 422 que nombra la plancha.
     """
     serie = apuntada(
@@ -562,7 +564,7 @@ def test_pasar_a_una_alternativa_de_otro_tipo_con_peso_corporal_da_422_y_no_camb
     respuesta = corregir(cliente, e, serie, "plancha", duracion_s=30, peso_corporal=80)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"] == peso_corporal_de_otro_tipo("Plancha")
+    assert respuesta.json()["detail"] == peso_corporal_de_otro_tipo("Plancha con lastre")
     assert series_de(cliente, e) == [serie]
 
 
@@ -576,7 +578,7 @@ def test_el_peso_corporal_de_una_serie_de_un_ejercicio_oculto_se_puede_corregir(
     otra = apuntar(cliente, e, "dominadas", numero=2, peso=0, repeticiones=10)
     corregida = corregir(cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=82)
 
-    assert otra.status_code == 404, otra.text
+    assert (otra.status_code, otra.json()["detail"]) == (404, "Ejercicio no encontrado")
     assert corregida.status_code == 200, corregida.text
     assert corregida.json()["peso_corporal"] == "82.00"
 
@@ -822,13 +824,13 @@ def test_en_cardio_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercic
         pytest.param(
             "dominadas",
             {"peso": 0, "repeticiones": 8, "distancia_m": 100},
-            "Dominadas se apunta con repeticiones y carga. Sobra la distancia.",
+            "Dominadas en anillas se apunta con repeticiones y carga. Sobra la distancia.",
             id="corporal",
         ),
         pytest.param(
             "plancha",
             {"duracion_s": 60, "distancia_m": 100},
-            "Plancha se apunta por tiempo. Sobra la distancia.",
+            "Plancha con lastre se apunta por tiempo. Sobra la distancia.",
             id="tiempo",
         ),
     ],

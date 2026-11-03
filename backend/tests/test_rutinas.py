@@ -438,7 +438,9 @@ def test_reordenar_una_rutina_sin_huecos_no_hace_nada(cliente):
     assert respuesta.json()["slots"] == []
 
 
-MENSAJE_DE_ORDEN = "Manda todos los huecos visibles de la rutina, cada uno una vez"
+MENSAJE_DE_ORDEN = (
+    "Para ordenar la rutina hacen falta todos sus ejercicios a la vista, cada uno una vez."
+)
 
 
 @pytest.mark.parametrize(

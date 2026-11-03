@@ -24,6 +24,7 @@ from tests.ayudas import (
     crear_rutina,
     dejar_planificado,
     planificar,
+    rango_invertido,
 )
 from tests.semana import HOY
 
@@ -199,7 +200,9 @@ def test_el_pasado_no_se_planifica(cliente, sesion_bd, semana_push):
         cliente.delete(f"/plan/excepciones/{ayer.isoformat()}"),
     ):
         assert respuesta.status_code == 422
-        assert "ya ha pasado" in respuesta.json()["detail"]
+        assert respuesta.json()["detail"] == (
+            "El martes 15 de septiembre ya ha pasado. Solo se puede planificar de hoy en adelante."
+        )
     [excepcion] = cliente.get("/plan/excepciones").json()
     assert (excepcion["fecha"], excepcion["rutina"]["id"]) == (
         ayer.isoformat(),
@@ -213,7 +216,7 @@ def test_no_se_puede_planificar_una_rutina_oculta(cliente, semana_push):
     respuesta = planificar(cliente, HOY, semana_push["pull"])
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {semana_push['pull']}"
+    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
     assert cliente.get("/plan/excepciones").json() == []
 
 
@@ -227,7 +230,7 @@ def test_restablecer_un_dia_lo_devuelve_al_programa(cliente, semana_push):
     otra_vez = cliente.delete(ruta)
     assert (otra_vez.status_code, otra_vez.json()["detail"]) == (
         404,
-        "Ese día no estaba cambiado. Ya es lo que dice el programa",
+        "Ese día no estaba cambiado. Ya es lo que dice el programa.",
     )
 
 
@@ -262,7 +265,7 @@ def test_restablecer_un_rango_invertido_da_422_y_no_borra_nada(cliente, semana_p
     )
 
     assert respuesta.status_code == 422
-    assert "El rango de fechas está invertido" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == rango_invertido(HOY + timedelta(days=6), HOY)
     assert [e["fecha"] for e in cliente.get("/plan/excepciones").json()] == [manana.isoformat()]
 
 
@@ -383,7 +386,7 @@ def test_crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado(cl
     respuesta = crear_activado(cliente, 999_999, quitar_excepciones=True)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "No existe ninguna rutina con id 999999"
+    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
     assert nombres_de_programas(cliente) == ["Todo Push"]
     assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is True
     assert fechas_cambiadas(cliente) == [HOY.isoformat(), (HOY + timedelta(days=3)).isoformat()]
@@ -396,7 +399,7 @@ def test_crear_un_programa_con_una_rutina_oculta_no_quita_lo_planificado(cliente
     respuesta = crear_activado(cliente, semana_push["pull"], quitar_excepciones=True)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == f"No existe ninguna rutina con id {semana_push['pull']}"
+    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
     assert nombres_de_programas(cliente) == ["Todo Push"]
     assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
 
@@ -413,7 +416,7 @@ def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, s
 def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias_planificados(
     cliente, grupo_muscular_id, semana_push
 ):
-    dominadas = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas")
+    dominadas = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas en anillas")
     crear_hueco(cliente, semana_push["pull"], dominadas)
     assert planificar(cliente, HOY, semana_push["pull"]).status_code == 200
 
@@ -446,7 +449,7 @@ def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push
         params={"desde": HOY.isoformat(), "hasta": (HOY - timedelta(days=1)).isoformat()},
     )
     assert respuesta.status_code == 422
-    assert "El rango de fechas está invertido" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == rango_invertido(HOY, HOY - timedelta(days=1))
 
 
 def test_la_base_de_datos_no_admite_dos_dias_planificados_la_misma_fecha(

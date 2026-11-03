@@ -13,6 +13,10 @@ rutina tiene. Un test que cuente huecos o ejercicios de una rutina debe pasar el
 `slot_id` explícito.
 """
 
+from datetime import date
+
+from app.fechas import fecha_en_texto
+
 NOMBRE_DE_PRUEBA = "Rutina de prueba"
 
 # El 409 del DELETE sin `modo` de lo que tiene historial: una frase fija que solo
@@ -22,18 +26,47 @@ PIDE_MODO = {
     "todo) o ?modo=definitivo (lo borra con todo lo que lo usa, sin poder deshacerlo).",
     "rutina": "Esta rutina tiene historial. Repite la petición con ?modo=ocultar (conserva "
     "todo) o ?modo=definitivo (la borra con todo lo que la usa, sin poder deshacerlo).",
-    "hueco": "Este hueco tiene series registradas. Repite la petición con ?modo=ocultar "
-    "(conserva todo) o ?modo=definitivo (lo borra con sus series, sin poder deshacerlo).",
+    "hueco": "Este ejercicio de la rutina tiene series apuntadas. Repite la petición con "
+    "?modo=ocultar (conserva todo) o ?modo=definitivo (lo borra con sus series, sin poder "
+    "deshacerlo).",
     "programa": "Este programa ha estado activo. Repite la petición con ?modo=ocultar "
     "(conserva todo) o ?modo=definitivo (lo borra con sus días y periodos, sin poder "
     "deshacerlo).",
 }
 
 
+# Los 422 de fechas que salen en más de un endpoint, con el texto exacto: comparar
+# solo un trozo dejaría pasar una frase rota. Las fechas van como las escribe la web
+# («martes 15 de septiembre»), con `fecha_en_texto`, que tiene sus propios tests con
+# el texto literal en `test_fechas.py`.
+
+
+def en_texto(fecha) -> str:
+    """`fecha_en_texto` también para una fecha escrita como «2026-09-14»."""
+    return fecha_en_texto(date.fromisoformat(fecha) if isinstance(fecha, str) else fecha)
+
+
+def rango_invertido(desde, hasta) -> str:
+    return f"Las fechas están al revés. El {en_texto(desde)} va después del {en_texto(hasta)}."
+
+
+def todavia_no_ha_llegado(fecha) -> str:
+    return f"El {en_texto(fecha)} todavía no ha llegado. Solo se apuntan días de hoy hacia atrás."
+
+
+def fuera_de_plazo(cubre, desde, hasta) -> str:
+    return (
+        f"Lo del {en_texto(cubre)} solo se puede entrenar entre el {en_texto(desde)}"
+        f" y el {en_texto(hasta)}. Se adelanta dentro de su semana y se recupera hasta el"
+        " día antes del mismo día de la semana siguiente."
+    )
+
+
 # --- Crear lo básico por la API -------------------------------------------
-# Siempre crean uno nuevo (aunque ya exista otro con ese nombre) y fallan si la API
-# no da 201: un test que monta su escenario con ellas no puede seguir con un id
-# que no existe.
+# Siempre crean uno nuevo y fallan si la API no da 201: un test que monta su
+# escenario con ellas no puede seguir con un id que no existe. Dos ejercicios no
+# pueden llamarse igual, ni uno propio como un predefinido: cada test que cree más de
+# uno les pone nombre.
 
 
 def crear_ejercicio(cliente, grupo_muscular_id, nombre="Press banca", tipo=None) -> int:

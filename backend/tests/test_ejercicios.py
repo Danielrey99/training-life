@@ -279,7 +279,9 @@ def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
     """El PUT da 200 y cambia el nombre, pero el tipo se ignora: ni otro válido ni
     uno que no existe (que tampoco da 422, porque el campo no es del PUT).
     """
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas", tipo="corporal")
+    ejercicio_id = crear_ejercicio(
+        cliente, grupo_muscular_id, "Dominadas en anillas", tipo="corporal"
+    )
 
     respuesta = cliente.put(
         f"/ejercicios/{ejercicio_id}",
@@ -302,7 +304,7 @@ def test_el_tipo_sale_con_el_ejercicio_en_rutinas_y_series(cliente, grupo_muscul
     cliente tiene que saber cómo pintar cada serie sin cruzar datos).
     """
     press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha", tipo="tiempo")
+    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha con lastre", tipo="tiempo")
     rutina, [slot] = rutina_con_huecos(
         cliente, "Core", hueco(press, alternativa(plancha, duracion=(30, 45)))
     )
@@ -328,3 +330,351 @@ def test_el_tipo_sale_con_el_ejercicio_en_rutinas_y_series(cliente, grupo_muscul
     assert [a["ejercicio"]["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
     assert con_press.json()["ejercicio"]["tipo_registro"] == "peso_reps"
     assert sesion["series"][0]["ejercicio"]["tipo_registro"] == "tiempo"
+
+
+# --- Nombres que no se repiten ---------------------------------------------------
+#
+# Un ejercicio nuevo o renombrado no puede llamarse como otro (predefinido, propio o
+# propio oculto), sin distinguir mayúsculas, tildes ni espacios. Solo lo comprueba la
+# API: la base no lo impide, y un archivo importado puede traer dos que se llamen igual.
+
+PREDEFINIDO_CON_TILDE = "Press banca en máquina"
+MARCA = {"created_at": "2026-09-01T10:00:00+00:00", "updated_at": "2026-09-01T10:00:00+00:00"}
+
+
+def choca_con_predefinido(nombre) -> str:
+    return (
+        f"Ya hay un ejercicio predefinido que se llama «{nombre}». Búscalo en la pestaña"
+        " Ejercicios o elige otro nombre."
+    )
+
+
+def choca_con_propio(nombre) -> str:
+    return f"Ya tienes un ejercicio que se llama «{nombre}». Elige otro nombre."
+
+
+def choca_con_oculto(nombre) -> str:
+    return (
+        f"Ya tienes un ejercicio oculto que se llama «{nombre}». Muéstralo desde la pestaña"
+        " Ejercicios o elige otro nombre."
+    )
+
+
+def nuevo(cliente, nombre, grupo_muscular_id):
+    cuerpo = {"nombre": nombre, "grupo_muscular_id": grupo_muscular_id}
+    return cliente.post("/ejercicios", json=cuerpo)
+
+
+def editado(cliente, ejercicio_id, nombre, grupo_muscular_id, descripcion=None):
+    cuerpo = {"nombre": nombre, "grupo_muscular_id": grupo_muscular_id, "descripcion": descripcion}
+    return cliente.put(f"/ejercicios/{ejercicio_id}", json=cuerpo)
+
+
+def todos_los_ejercicios(cliente) -> list[dict]:
+    return cliente.get("/ejercicios").json() + cliente.get("/ejercicios?ocultos=true").json()
+
+
+def propios(cliente) -> list[tuple[str, int]]:
+    """Los propios, visibles y ocultos, como (nombre, id)."""
+    return sorted(
+        (e["nombre"], e["id"]) for e in todos_los_ejercicios(cliente) if not e["es_predefinido"]
+    )
+
+
+def ocultar_en_la_base(sesion_bd, ejercicio_id) -> None:
+    from app.models import Ejercicio
+
+    sesion_bd.get(Ejercicio, ejercicio_id).oculto_desde = date(2026, 9, 1)
+    sesion_bd.commit()
+
+
+def importar_propios(cliente, grupo_muscular_id, *ejercicios) -> list[int]:
+    """Sustituye los datos por un archivo con estos propios, cada uno un nombre o un
+    (nombre, oculto_desde). Devuelve sus ids nuevos, en el orden del archivo.
+    """
+    grupos = {g["id"]: g["nombre"] for g in cliente.get("/grupos-musculares").json()}
+    filas = [e if isinstance(e, tuple) else (e, None) for e in ejercicios]
+    archivo = {
+        "formato": "training-life",
+        "version": 2,
+        "exportado_en": MARCA["created_at"],
+        "ejercicios": [
+            {
+                "id": n + 1,
+                "nombre": nombre,
+                "grupo_muscular": grupos[grupo_muscular_id],
+                "tipo_registro": "peso_reps",
+                "oculto_desde": oculto,
+                # Para encontrar cada uno después, aunque se llamen igual.
+                "descripcion": f"fila {n}",
+                **MARCA,
+            }
+            for n, (nombre, oculto) in enumerate(filas)
+        ],
+    }
+    respuesta = cliente.post("/datos/importar", json=archivo)
+    assert respuesta.status_code == 200, respuesta.text
+    por_fila = {
+        e["descripcion"]: e["id"] for e in todos_los_ejercicios(cliente) if not e["es_predefinido"]
+    }
+    return [por_fila[f"fila {n}"] for n in range(len(filas))]
+
+
+@pytest.mark.parametrize(
+    "nombre, clave",
+    [
+        ("Press banca", "press banca"),
+        ("PRESS BANCA", "press banca"),
+        ("Elevación lateral", "elevacion lateral"),
+        ("ÁÉÍÓÚ àèìòù âêîôû äëïöü ÄËÏÖÜ", "aeiou aeiou aeiou aeiou aeiou"),
+        ("Pingüino", "pinguino"),
+        ("  Press \t  banca\n inclinado  ", "press banca inclinado"),
+    ],
+)
+def test_la_clave_de_un_nombre_ignora_mayusculas_tildes_y_espacios(nombre, clave):
+    from app.nombres import clave_de_nombre
+
+    assert clave_de_nombre(nombre) == clave
+
+
+def test_la_clave_de_un_nombre_distingue_la_enie_y_la_cedilla():
+    """La ñ y la ç son letras, no una n o una c con tilde: «Año» y «Ano» son nombres
+    distintos (por eso la clave usa una tabla y no NFD, que las quitaría).
+    """
+    from app.nombres import clave_de_nombre
+
+    assert clave_de_nombre("AÑO") == clave_de_nombre("Año") == "año"
+    assert clave_de_nombre("Año") != clave_de_nombre("Ano")
+    assert clave_de_nombre("Ç") == "ç"
+    assert clave_de_nombre("Ç") != clave_de_nombre("c")
+
+
+@pytest.mark.parametrize(
+    "nombre, guardado",
+    [
+        ("SENTADILLA  CON   BARRA", "Sentadilla con barra"),
+        ("press banca en maquina", PREDEFINIDO_CON_TILDE),
+    ],
+)
+def test_no_se_crea_un_ejercicio_con_el_nombre_de_un_predefinido(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id, nombre, guardado
+):
+    """En mayúsculas, con espacios dobles o sin tildes sigue siendo el mismo nombre. El
+    mensaje lo nombra como está guardado.
+    """
+    respuesta = nuevo(cliente, nombre, grupo_muscular_id)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"] == choca_con_predefinido(guardado)
+    assert propios(cliente) == []
+
+
+def test_no_se_crea_un_ejercicio_con_el_nombre_de_uno_propio(cliente, grupo_muscular_id):
+    existente = crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+
+    respuesta = nuevo(cliente, "curl  con CUERDA", grupo_muscular_id)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"] == choca_con_propio("Curl con cuerda")
+    assert propios(cliente) == [("Curl con cuerda", existente)]
+
+
+def test_no_se_crea_un_ejercicio_con_el_nombre_de_uno_oculto(cliente, sesion_bd, grupo_muscular_id):
+    """Uno oculto no se ve en la lista, así que el mensaje dice dónde está."""
+    existente = crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+    ocultar_en_la_base(sesion_bd, existente)
+
+    respuesta = nuevo(cliente, "Curl con cuerda", grupo_muscular_id)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"] == choca_con_oculto("Curl con cuerda")
+    assert propios(cliente) == [("Curl con cuerda", existente)]
+
+
+def test_con_enie_frente_a_n_son_dos_nombres_distintos(cliente, grupo_muscular_id):
+    crear_ejercicio(cliente, grupo_muscular_id, "Giro de muñeca con palo")
+
+    assert nuevo(cliente, "Giro de muneca con palo", grupo_muscular_id).status_code == 201
+
+
+def test_un_grupo_que_no_existe_da_404_antes_que_el_nombre_repetido(
+    cliente, ejercicio_predefinido_id
+):
+    respuesta = nuevo(cliente, "Sentadilla con barra", 999_999)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        404,
+        "Ese grupo muscular no existe.",
+    )
+    assert propios(cliente) == []
+
+
+def test_cambiar_solo_mayusculas_o_tildes_del_nombre_se_guarda(cliente, grupo_muscular_id):
+    """Es el mismo nombre: no choca consigo mismo, y queda la forma nueva."""
+    ejercicio = crear_ejercicio(cliente, grupo_muscular_id, "elevacion frontal con disco")
+
+    for nombre in ("Elevación frontal con disco", "ELEVACIÓN FRONTAL CON DISCO"):
+        respuesta = editado(cliente, ejercicio, nombre, grupo_muscular_id)
+
+        assert respuesta.status_code == 200, respuesta.text
+        assert cliente.get(f"/ejercicios/{ejercicio}").json()["nombre"] == nombre
+
+
+def test_renombrar_un_ejercicio_con_el_nombre_de_otro_da_409_y_no_cambia_nada(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    curl = crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo con cuerda")
+
+    contra_propio = editado(cliente, remo, "CURL con cuerda", grupo_muscular_id, "x")
+    contra_predefinido = editado(cliente, remo, "sentadilla con barra", grupo_muscular_id, "x")
+
+    assert (contra_propio.status_code, contra_propio.json()["detail"]) == (
+        409,
+        choca_con_propio("Curl con cuerda"),
+    )
+    assert (contra_predefinido.status_code, contra_predefinido.json()["detail"]) == (
+        409,
+        choca_con_predefinido("Sentadilla con barra"),
+    )
+    guardado = cliente.get(f"/ejercicios/{remo}").json()
+    assert (guardado["nombre"], guardado["descripcion"]) == ("Remo con cuerda", None)
+    assert propios(cliente) == [("Curl con cuerda", curl), ("Remo con cuerda", remo)]
+
+
+def test_un_propio_que_ya_se_llama_como_un_predefinido_se_sigue_pudiendo_editar(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    """Un archivo importado (o un predefinido que llegó después) puede dejar un propio
+    que se llama como un predefinido. Solo se valida lo que cambia: su descripción y
+    las mayúsculas de su nombre se cambian sin un 409.
+    """
+    [propio] = importar_propios(cliente, grupo_muscular_id, "Sentadilla con barra")
+
+    con_descripcion = editado(
+        cliente, propio, "Sentadilla con barra", grupo_muscular_id, "Con barra baja"
+    )
+    con_mayusculas = editado(cliente, propio, "SENTADILLA con barra", grupo_muscular_id)
+
+    assert con_descripcion.status_code == 200, con_descripcion.text
+    assert con_mayusculas.status_code == 200, con_mayusculas.text
+    assert cliente.get(f"/ejercicios/{propio}").json()["nombre"] == "SENTADILLA con barra"
+
+
+def test_al_editar_un_oculto_con_nombre_repetido_manda_el_409_de_oculto(
+    cliente, sesion_bd, grupo_muscular_id
+):
+    crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+    oculto = crear_ejercicio(cliente, grupo_muscular_id, "Remo con cuerda")
+    ocultar_en_la_base(sesion_bd, oculto)
+
+    respuesta = editado(cliente, oculto, "Curl con cuerda", grupo_muscular_id)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        "Este ejercicio está oculto. Muéstralo antes de editarlo.",
+    )
+
+
+def test_al_editar_un_predefinido_con_nombre_repetido_manda_el_403(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+
+    respuesta = editado(cliente, ejercicio_predefinido_id, "Curl con cuerda", grupo_muscular_id)
+
+    assert respuesta.status_code == 403, respuesta.text
+    guardado = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json()
+    assert guardado["nombre"] == "Sentadilla con barra"
+
+
+def test_al_editar_con_un_grupo_que_no_existe_y_nombre_repetido_manda_el_404(
+    cliente, grupo_muscular_id
+):
+    crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
+    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo con cuerda")
+
+    respuesta = editado(cliente, remo, "Curl con cuerda", 999_999)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        404,
+        "Ese grupo muscular no existe.",
+    )
+
+
+def test_si_varios_se_llaman_igual_el_mensaje_nombra_el_predefinido(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    """Un propio importado con el nombre de un predefinido: conviven, y al crear otro
+    igual se nombra el predefinido, que es el que hay que buscar.
+    """
+    importar_propios(cliente, grupo_muscular_id, "sentadilla CON barra")
+
+    respuesta = nuevo(cliente, "Sentadilla con barra", grupo_muscular_id)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        choca_con_predefinido("Sentadilla con barra"),
+    )
+
+
+def test_si_varios_propios_se_llaman_igual_el_mensaje_nombra_el_visible(cliente, grupo_muscular_id):
+    """Uno oculto y uno visible importados con el mismo nombre: el visible es el que se
+    encuentra en la lista, así que es el que se nombra, aunque el oculto vaya antes.
+    """
+    importar_propios(
+        cliente, grupo_muscular_id, ("CURL con cuerda", "2026-08-01"), "Curl con cuerda"
+    )
+
+    respuesta = nuevo(cliente, "curl con cuerda", grupo_muscular_id)
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        choca_con_propio("Curl con cuerda"),
+    )
+
+
+def test_importar_no_mira_los_nombres_y_la_copia_se_vuelve_a_cargar(cliente, grupo_muscular_id):
+    """Dos propios con el mismo nombre en el archivo se cargan los dos, y la copia de
+    esa instalación vuelve a cargarse: una copia propia nunca puede quedar rechazada.
+    """
+    ids = importar_propios(cliente, grupo_muscular_id, "Curl con cuerda", "curl  con CUERDA")
+    assert len(set(ids)) == 2
+
+    copia = cliente.get("/datos/exportar").json()
+    respuesta = cliente.post("/datos/importar", json=copia)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert [nombre for nombre, _ in propios(cliente)] == ["Curl con cuerda", "curl  con CUERDA"]
+
+
+# --- Dos con el mismo nombre salen siempre en el mismo orden ---------------------
+
+
+def tocar(sesion_bd, tabla, fila_id) -> None:
+    """Reescribe la fila sin cambiar nada: en Postgres pasa al final de la tabla, así
+    que sin desempate por id podría salir detrás de la otra.
+    """
+    from sqlalchemy import text
+
+    sesion_bd.execute(text(f"UPDATE {tabla} SET nombre = nombre WHERE id = :id"), {"id": fila_id})
+    sesion_bd.commit()
+
+
+def test_dos_ejercicios_con_el_mismo_nombre_salen_por_id(cliente, sesion_bd, grupo_muscular_id):
+    ids = importar_propios(cliente, grupo_muscular_id, "Curl con cuerda", "Curl con cuerda")
+    tocar(sesion_bd, "ejercicios", min(ids))
+
+    lista = cliente.get("/ejercicios").json()
+
+    assert [e["id"] for e in lista if e["nombre"] == "Curl con cuerda"] == sorted(ids)
+
+
+@pytest.mark.parametrize("ruta, tabla", [("/rutinas", "rutinas"), ("/programas", "programas")])
+def test_dos_rutinas_o_programas_con_el_mismo_nombre_salen_por_id(cliente, sesion_bd, ruta, tabla):
+    ids = [cliente.post(ruta, json={"nombre": "Igual"}).json()["id"] for _ in range(2)]
+    tocar(sesion_bd, tabla, ids[0])
+
+    lista = cliente.get(ruta).json()
+
+    assert [x["id"] for x in lista if x["nombre"] == "Igual"] == sorted(ids)

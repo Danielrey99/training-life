@@ -16,6 +16,7 @@ import pytest
 
 from app.models import Entrenamiento
 
+from tests.ayudas import en_texto, fuera_de_plazo, todavia_no_ha_llegado
 from tests.semana import (
     DOMINGO_13,
     HOY,
@@ -56,7 +57,8 @@ def test_el_lunes_siguiente_ya_no_se_recupera_lo_del_lunes_anterior(cliente, ppl
     respuesta = sesion(cliente, LUNES_14, ppl["Push"], cubre_fecha=LUNES_7)
 
     assert respuesta.status_code == 422
-    assert "hasta el día antes" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == fuera_de_plazo(LUNES_7, LUNES_7, DOMINGO_13)
+    assert cliente.get("/entrenamientos").json() == []
 
 
 def test_se_adelanta_desde_el_lunes_de_la_misma_semana(cliente, ppl):
@@ -73,9 +75,7 @@ def test_no_se_adelanta_lo_de_la_semana_siguiente(cliente, ppl):
     respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_21)
 
     assert respuesta.status_code == 422
-    assert respuesta.json()["detail"].startswith(
-        "Lo del 2026-09-21 solo se puede entrenar del 2026-09-21 al 2026-09-27."
-    )
+    assert respuesta.json()["detail"] == fuera_de_plazo("2026-09-21", "2026-09-21", "2026-09-27")
     assert cliente.get("/entrenamientos").json() == []
 
 
@@ -86,9 +86,7 @@ def test_lo_del_ultimo_dia_que_existe_da_422_por_el_plazo(cliente, ppl):
     respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=date(9999, 12, 31))
 
     assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"].startswith(
-        "Lo del 9999-12-31 solo se puede entrenar del 9999-12-27 al 9999-12-31."
-    )
+    assert respuesta.json()["detail"] == fuera_de_plazo("9999-12-31", "9999-12-27", "9999-12-31")
     assert cliente.get("/entrenamientos").json() == []
 
 
@@ -117,7 +115,8 @@ def test_un_dia_que_no_toca_esa_rutina_no_se_cuenta(cliente, ppl, rutina, dia):
     respuesta = sesion(cliente, dia, ppl[rutina], cubre_fecha=dia)
 
     assert respuesta.status_code == 422
-    assert "no toca esa rutina" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == f"El {en_texto(dia)} no toca esa rutina."
+    assert cliente.get("/entrenamientos").json() == []
 
 
 def test_lo_que_tocaba_con_el_programa_anterior_no_se_recupera(cliente, ppl):
@@ -137,14 +136,19 @@ def test_lo_que_tocaba_con_el_programa_anterior_no_se_recupera(cliente, ppl):
     respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_14)
 
     assert respuesta.status_code == 422
-    assert "otro programa" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == (
+        "El lunes 14 de septiembre lo planificaba otro programa, y lo que tocaba con un"
+        " programa que ya no está activo no se recupera."
+    )
+    assert cliente.get("/entrenamientos").json() == []
 
 
 def test_una_fecha_futura_se_rechaza_antes_que_el_dia_que_cuenta(cliente, ppl):
     respuesta = sesion(cliente, JUEVES_17, ppl["Pull"], cubre_fecha=MARTES_15)
 
     assert respuesta.status_code == 422
-    assert "todavía no ha llegado" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == todavia_no_ha_llegado(JUEVES_17)
+    assert cliente.get("/entrenamientos").json() == []
 
 
 def test_un_dia_que_no_se_puede_contar_da_422_aunque_la_fecha_este_ocupada(
@@ -158,7 +162,7 @@ def test_un_dia_que_no_se_puede_contar_da_422_aunque_la_fecha_este_ocupada(
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-15 no toca esa rutina.",
+        "El martes 15 de septiembre no toca esa rutina.",
     )
     assert cliente.get(f"/entrenamientos/{ocupada}").json()["series"] != []
 
@@ -175,7 +179,7 @@ def test_una_peticion_mal_hecha_no_borra_la_cancelada_que_ocupaba_la_fecha(clien
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-15 no toca esa rutina.",
+        "El martes 15 de septiembre no toca esa rutina.",
     )
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 
@@ -195,11 +199,22 @@ def test_un_409_por_el_dia_que_cuenta_no_borra_la_cancelada_que_ocupaba_la_fecha
     respuesta = sesion(cliente, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["entrenamiento_id"] == recuperada
+    assert respuesta.json()["detail"] == ya_hecho(LUNES_14, MARTES_15, recuperada)
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
 
 
 # --- Un día lo cuenta una sesión como mucho ------------------------------
+
+
+def ya_hecho(cubre, fecha_de_la_otra, otra_id) -> dict:
+    """El 409 de un día que ya cuenta otra sesión: dice cuál, para poder abrirla."""
+    return {
+        "mensaje": (
+            f"Lo del {en_texto(cubre)} ya está hecho. Lo cuenta la sesión del"
+            f" {en_texto(fecha_de_la_otra)}."
+        ),
+        "entrenamiento_id": otra_id,
+    }
 
 
 def test_un_dia_ya_recuperado_no_se_recupera_otra_vez(cliente, ppl, grupo_muscular_id):
@@ -209,7 +224,8 @@ def test_un_dia_ya_recuperado_no_se_recupera_otra_vez(cliente, ppl, grupo_muscul
     respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_14)
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["entrenamiento_id"] == recuperada
+    assert respuesta.json()["detail"] == ya_hecho(LUNES_14, MARTES_15, recuperada)
+    assert [s["id"] for s in cliente.get("/entrenamientos").json()] == [recuperada]
 
 
 def test_la_sesion_en_curso_cuenta_su_dia_aunque_este_vacia(cliente, ppl):
@@ -220,7 +236,7 @@ def test_la_sesion_en_curso_cuenta_su_dia_aunque_este_vacia(cliente, ppl):
     respuesta = sesion(cliente, MARTES_15, ppl["Push"], cubre_fecha=LUNES_14)
 
     assert respuesta.status_code == 409
-    assert respuesta.json()["detail"]["entrenamiento_id"] == en_curso["id"]
+    assert respuesta.json()["detail"] == ya_hecho(LUNES_14, HOY, en_curso["id"])
 
 
 def test_una_sesion_cancelada_suelta_su_dia_y_se_borra(cliente, ppl):
@@ -305,7 +321,8 @@ def test_no_se_mueve_mas_alla_del_plazo_de_su_dia(cliente, ppl, hoy_es):
 
     assert respuesta.status_code == 422
     # El texto dice hasta dónde se puede mover.
-    assert "del 2026-09-14 al 2026-09-20" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == fuera_de_plazo(LUNES_14, LUNES_14, "2026-09-20")
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 
 def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl, hoy_es):
@@ -315,10 +332,7 @@ def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl
     assert corregir(cliente, adelantada, LUNES_14).status_code == 200
     al_domingo = corregir(cliente, adelantada, DOMINGO_13)
     assert al_domingo.status_code == 422
-    assert (
-        "Lo del 2026-09-18 solo se puede entrenar del 2026-09-14 al 2026-09-24"
-        in (al_domingo.json()["detail"])
-    )
+    assert al_domingo.json()["detail"] == fuera_de_plazo(VIERNES_18, LUNES_14, "2026-09-24")
     assert cliente.get(f"/entrenamientos/{adelantada}").json()["fecha"] == "2026-09-14"
 
 
@@ -329,7 +343,8 @@ def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):
     respuesta = corregir(cliente, recuperada, JUEVES_17)
 
     assert respuesta.status_code == 422
-    assert "todavía no ha llegado" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == todavia_no_ha_llegado(JUEVES_17)
+    assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 
 def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha_libre(cliente, ppl, hoy_es):
@@ -359,8 +374,8 @@ def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
 # desde hoy, miércoles 16, manda otro.
 
 AVISO_OTRO_PROGRAMA = (
-    "El 2026-09-14 lo planificaba otro programa, y lo que tocaba con un programa que ya"
-    " no está activo no se recupera."
+    "El lunes 14 de septiembre lo planificaba otro programa, y lo que tocaba con un"
+    " programa que ya no está activo no se recupera."
 )
 
 
@@ -452,7 +467,7 @@ def test_fuera_de_plazo_y_de_otro_programa_el_aviso_es_el_del_plazo(cliente, ppl
     respuesta = corregir(cliente, recuperada, LUNES_21)
 
     assert respuesta.status_code == 422
-    assert "del 2026-09-14 al 2026-09-20" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] == fuera_de_plazo(LUNES_14, LUNES_14, "2026-09-20")
     assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 

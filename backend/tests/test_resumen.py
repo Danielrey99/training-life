@@ -181,9 +181,10 @@ def test_sin_datos_todo_sale_a_cero(cliente, hoy_es):
     datos = pedir(cliente)
 
     assert set(datos) == {"mes", "por_semana", "por_mes", "constancia"}
-    for vista in (datos["por_semana"], datos["por_mes"]):
+    en_curso = {"por_semana": ("2026-09-14", "2026-09-20"), "por_mes": ("2026-09-01", "2026-09-30")}
+    for clave, vista in ((clave, datos[clave]) for clave in en_curso):
         assert len(vista["periodos"]) == 8
-        assert vista["en_curso"] is not None
+        assert (vista["en_curso"]["desde"], vista["en_curso"]["hasta"]) == en_curso[clave]
         for periodo in todas_las_barras(vista):
             assert periodo["volumen"] == "0.00"
             assert (periodo["cambio"], periodo["comparado_con"]) == (None, None)
@@ -928,8 +929,8 @@ def tres_tipos(cliente) -> dict:
     grupos = [g["id"] for g in cliente.get("/grupos-musculares").json()[:3]]
     return {
         "press": crear_ejercicio(cliente, grupos[0], "Press banca"),
-        "dominadas": crear_ejercicio(cliente, grupos[1], "Dominadas", tipo="corporal"),
-        "plancha": crear_ejercicio(cliente, grupos[2], "Plancha", tipo="tiempo"),
+        "dominadas": crear_ejercicio(cliente, grupos[1], "Dominadas en anillas", tipo="corporal"),
+        "plancha": crear_ejercicio(cliente, grupos[2], "Plancha con lastre", tipo="tiempo"),
         "grupos": grupos,
     }
 

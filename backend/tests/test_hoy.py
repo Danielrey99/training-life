@@ -10,7 +10,13 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 
 from datetime import date
 
-from tests.ayudas import crear_ejercicio, crear_hueco, serie_en
+from tests.ayudas import (
+    crear_ejercicio,
+    crear_hueco,
+    crear_rutina,
+    dejar_planificado,
+    serie_en,
+)
 from tests.semana import (
     DOMINGO_13,
     HOY,
@@ -452,11 +458,12 @@ def test_una_rutina_oculta_no_sale_entre_las_rutinas(cliente, ppl):
 # --- Registrar un día pasado ---------------------------------------------
 
 
-def test_un_descanso_pasado_ofrece_recuperar_y_el_resto_sin_contar_sin_adelantar(cliente, ppl):
+def test_un_descanso_pasado_ofrece_recuperar_y_todas_las_rutinas_sin_contar(cliente, ppl):
     """La hoja de registrar un día pasado es para apuntar de ese día hacia atrás:
-    ofrece recuperar lo que estaba en plazo y, el resto, sin contar. Antes ofrecía
-    también adelantar el Pull del miércoles y el Leg del viernes, como la pantalla
-    de Entrenar; adelantar queda solo para hoy.
+    ofrece recuperar lo que estaba en plazo y, sin contar, todas las rutinas, también
+    las que se recuperan (decisión del autor del 2-11-2026: antes solo salía el resto).
+    Antes aún ofrecía adelantar el Pull del miércoles y el Leg del viernes, como la
+    pantalla de Entrenar; adelantar queda solo para hoy.
     """
     cliente.post("/rutinas", json={"nombre": "Brazos"})
 
@@ -468,8 +475,12 @@ def test_un_descanso_pasado_ofrece_recuperar_y_el_resto_sin_contar_sin_adelantar
         ("2026-09-11", "Leg"),
         ("2026-09-14", "Push"),
     ]
-    # Pull, Leg y Push ya salen para recuperar: no se repiten sin contar.
-    assert ofrecidas(resumen) == [("sin_contar", "Brazos", None, True)]
+    assert ofrecidas(resumen) == [
+        ("sin_contar", "Brazos", None, True),
+        ("sin_contar", "Leg", None, True),
+        ("sin_contar", "Pull", None, True),
+        ("sin_contar", "Push", None, True),
+    ]
 
 
 def test_un_descanso_pasado_sin_nada_por_recuperar_no_adelanta_lo_que_queda(
@@ -493,10 +504,13 @@ def test_un_descanso_pasado_sin_nada_por_recuperar_no_adelanta_lo_que_queda(
     ]
 
 
-def test_un_dia_pasado_movido_no_adelanta_lo_que_queda(cliente, ppl, grupo_muscular_id):
+def test_un_dia_pasado_movido_no_adelanta_y_ofrece_todas_sin_contar(
+    cliente, ppl, grupo_muscular_id
+):
     """El Pull del miércoles 9 se adelantó al martes 8, y el viernes 11 tocaba Leg.
     Antes, la hoja del miércoles 9 ofrecía adelantar ese Leg; ahora sale sin contar,
-    igual que el Pull. El Push del lunes 7 sigue para recuperar.
+    con todas las demás: el Pull y también el Push del lunes 7, que sigue para
+    recuperar.
     """
     # El Leg del viernes 4 hecho, para que no salga entre lo que se recupera.
     hecha(cliente, grupo_muscular_id, VIERNES_4, ppl["Leg"], cubre_fecha=VIERNES_4)
@@ -509,11 +523,15 @@ def test_un_dia_pasado_movido_no_adelanta_lo_que_queda(cliente, ppl, grupo_muscu
     assert ofrecidas(resumen) == [
         ("sin_contar", "Leg", None, True),
         ("sin_contar", "Pull", None, True),
+        ("sin_contar", "Push", None, True),
     ]
 
 
 def test_un_dia_de_entrenamiento_pasado_no_ofrece_intercambiar(cliente, ppl):
-    """Intercambiar cambia el plan, y el pasado no se planifica."""
+    """Intercambiar cambia el plan, y el pasado no se planifica. Sin contar salen
+    todas, también la que tocaba (el Push del lunes 14): apuntarla así crea una
+    sesión que no cuenta, y el día sigue sin hacer.
+    """
     cliente.post("/rutinas", json={"nombre": "Brazos"})
 
     resumen = hoy(cliente, LUNES_14)
@@ -523,7 +541,51 @@ def test_un_dia_de_entrenamiento_pasado_no_ofrece_intercambiar(cliente, ppl):
         ("2026-09-09", "Pull"),
         ("2026-09-11", "Leg"),
     ]
-    assert ofrecidas(resumen) == [("sin_contar", "Brazos", None, True)]
+    assert ofrecidas(resumen) == [
+        ("sin_contar", "Brazos", None, True),
+        ("sin_contar", "Leg", None, True),
+        ("sin_contar", "Pull", None, True),
+        ("sin_contar", "Push", None, True),
+    ]
+
+
+def leg_planificado_el_lunes_sin_programa(cliente, hoy_es) -> None:
+    """Sin programa, con Push y Leg, y el Leg puesto a mano el lunes 14 sin hacer.
+    Hoy es el miércoles 16: ese Leg sigue en plazo (hasta el domingo 20).
+    """
+    rutinas = {n: crear_rutina(cliente, n) for n in ("Push", "Leg")}
+    hoy_es(LUNES_14)
+    dejar_planificado(cliente, LUNES_14, rutinas["Leg"])
+    hoy_es(HOY)
+
+
+def test_hoy_sin_programa_lo_que_se_recupera_no_se_repite_sin_contar(cliente, hoy_es):
+    """En Entrenar, una rutina no sale dos veces: el Leg del lunes, por recuperar, no
+    vuelve a salir en «Entrenar una rutina». En un día pasado sí (test siguiente).
+    """
+    leg_planificado_el_lunes_sin_programa(cliente, hoy_es)
+
+    resumen = hoy(cliente)
+
+    assert resumen["situacion"] == "sin_programa"
+    assert [r[:2] for r in recuperables(resumen)] == [("2026-09-14", "Leg")]
+    assert ofrecidas(resumen) == [("sin_contar", "Push", None, True)]
+
+
+def test_un_dia_pasado_sin_programa_ofrece_todas_sin_contar(cliente, hoy_es):
+    """La hoja del martes 15: el Leg del lunes se recupera, y además sale sin contar
+    con las demás, como en un día pasado con programa.
+    """
+    leg_planificado_el_lunes_sin_programa(cliente, hoy_es)
+
+    resumen = hoy(cliente, MARTES_15)
+
+    assert resumen["situacion"] == "sin_programa"
+    assert [r[:2] for r in recuperables(resumen)] == [("2026-09-14", "Leg")]
+    assert ofrecidas(resumen) == [
+        ("sin_contar", "Leg", None, True),
+        ("sin_contar", "Push", None, True),
+    ]
 
 
 def test_un_dia_pasado_con_sesion(cliente, ppl, grupo_muscular_id):
@@ -540,5 +602,6 @@ def test_una_fecha_futura_da_422(cliente, ppl):
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         422,
-        "El 2026-09-17 todavía no ha llegado. Solo se registran días de hoy hacia atrás.",
+        "El jueves 17 de septiembre todavía no ha llegado. Solo se apuntan días de hoy hacia"
+        " atrás.",
     )
