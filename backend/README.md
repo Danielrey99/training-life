@@ -73,7 +73,8 @@ backend/
 │   ├── models.py           # tablas (modelos SQLAlchemy)
 │   ├── schemas.py          # forma de los datos que entran/salen de la API (Pydantic)
 │   ├── historial.py        # la consulta de progresión, compartida por dos endpoints
-│   ├── fechas.py           # qué día es "hoy" en la zona horaria de quien lo usa, no la del servidor
+│   ├── fechas.py           # qué día es "hoy" en la zona horaria de quien lo usa, y las fechas de los mensajes
+│   ├── nombres.py          # cuándo dos nombres de ejercicio son el mismo
 │   ├── ocultos.py          # qué se puede hacer con algo oculto (leer y borrar sí, editar no)
 │   ├── plan.py             # qué toca cada día, según el programa activo en esa fecha
 │   ├── seguimiento.py      # qué se hizo con cada día del plan, y lo que necesita la pantalla de hoy
@@ -97,7 +98,7 @@ backend/
 │   ├── semana.py            # la semana de ejemplo que comparten los tests del seguimiento
 │   ├── test_borrados.py     # borrado con historial y cascadas
 │   ├── test_crud.py         # camino feliz y validaciones de entrada
-│   ├── test_ejercicios.py   # dónde se usa cada ejercicio
+│   ├── test_ejercicios.py   # dónde se usa cada ejercicio y que los nombres no se repitan
 │   ├── test_rutinas.py      # duplicar, reordenar y crear una rutina con sus huecos
 │   ├── test_huecos.py       # el orden de un hueco nuevo y sustituir sus comodines
 │   ├── test_historial.py    # la progresión de un ejercicio
@@ -114,6 +115,7 @@ backend/
 │   ├── test_medidas.py      # las medidas de cada serie según el tipo de su ejercicio
 │   ├── test_objetivos.py    # el objetivo propio de cada ejercicio de un hueco
 │   ├── test_intercambiar.py # empezar hoy lo que toca otro día, intercambiando los dos
+│   ├── test_fechas.py       # cómo se escriben las fechas en los mensajes
 │   └── test_infraestructura.py
 ├── alembic.ini              # configuración general de Alembic
 ├── requirements.txt         # dependencias Python
@@ -220,7 +222,7 @@ No hay ningún paso previo que recordar:
 | `test_rutinas.py` | Duplicar una rutina (el nombre de la copia, qué se copia y qué no), reordenar sus huecos, crear una rutina con sus huecos y comodines de una vez (y que un fallo no deje nada a medias) y que el listado no haga una consulta por rutina |
 | `test_huecos.py` | El orden automático de un hueco nuevo, y sustituir sus comodines con una lista: que se conserven las filas de los que siguen, la lista repetida, un comodín oculto que se conserva y quitar uno con series |
 | `test_crud.py` | Camino feliz de cada CRUD y las validaciones de entrada |
-| `test_ejercicios.py` | Dónde se usa un ejercicio: su número en cada rutina contando solo los visibles, los huecos y rutinas ocultos, los programas donde está y cuál es el activo, y que las consultas no crezcan con los datos |
+| `test_ejercicios.py` | Dónde se usa un ejercicio: su número en cada rutina contando solo los visibles, los huecos y rutinas ocultos, los programas donde está y cuál es el activo, y que las consultas no crezcan con los datos. Que dos ejercicios no se llamen igual (sin distinguir mayúsculas, tildes ni espacios) al crear y al renombrar, con el mensaje que dice con cuál choca, y que uno importado que ya choca se pueda seguir editando |
 | `test_historial.py` | La progresión de un ejercicio: agrupación por sesión, límite por sesiones, filtros de fecha, que cruce rutinas y papeles (principal o comodín) y que ocultar no la esconda |
 | `test_sesiones.py` | La sesión en curso: terminarla, que una abierta de otro día no cuente, una sesión por día (y que una vacía no ocupe el suyo) y los filtros del listado |
 | `test_programas.py` | Los programas y sus días: una rutina en varios días y programas, un día con una sola rutina, que editar un día no cambie los días pasados, qué les pasa a los días cuando su rutina se oculta o se borra, y activar, ocultar y borrar programas sin dejar nunca dos activos, y su último periodo de uso y que el listado no haga una consulta por programa |
@@ -235,6 +237,7 @@ No hay ningún paso previo que recordar:
 | `test_objetivos.py` | El objetivo de cada ejercicio de un hueco: el esquema (un par completo, repeticiones o duración), la familia del ejercicio en crear y editar huecos, las alternativas con su propio objetivo, sustituirlas en su sitio, duplicar, los CHECK de las dos tablas, la migración que copia el objetivo del principal y exportar e importar |
 | `test_medidas.py` | Las medidas de una serie según el tipo de su ejercicio (peso y repeticiones, peso corporal con lastre o ayuda, tiempo, cardio con distancia opcional): qué falta o sobra con su frase, los topes, el peso corporal que ningún cálculo usa, el orden de las comprobaciones y los CHECK de la base |
 | `test_intercambiar.py` | Empezar hoy lo que toca otro día (`intercambiar_con`): que se intercambien los dos días y se cree la sesión en una sola transacción, cada error sin dejar nada cambiado, y los cruces con lo hecho por adelantado |
+| `test_fechas.py` | Cómo se escribe una fecha en los mensajes de error («martes 27 de octubre»), con el año solo si no es el de hoy, también en los bordes del calendario |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona (la limpieza entre tests), que la cadena entera de migraciones baja y sube desde cero, y que lo sembrado (los grupos musculares y los ejercicios predefinidos con su tipo y su descripción) coincide exactamente con la lista compartida `shared/predefinidos.json`, que copiará el móvil |
 
 ## Convenciones de código
@@ -284,8 +287,8 @@ No hay usuarios, login ni JWT, y no se prevén: la app es de una sola persona y 
 | `GET` | `/ejercicios/{id}` | Obtiene un ejercicio por id, también si está oculto (404 si no existe). |
 | `GET` | `/ejercicios/{id}/donde-se-usa` | Las rutinas donde aparece, una fila por hueco: si es el principal o un comodín, su número entre los huecos visibles de la rutina, si el hueco o la rutina están ocultos y en qué programas está la rutina (cuál es el activo y en qué días). También para un predefinido. |
 | `GET` | `/ejercicios/{id}/aviso-de-borrado` | Lo que se perdería al borrarlo, para enseñarlo antes de preguntar: si tiene historial, cuántas series (también las hechas con un comodín en los huecos donde es el principal) y de cuántas sesiones, tus notas, los huecos donde está y las sesiones que se quedarían sin series. 404 en un predefinido, que no se puede borrar. |
-| `POST` | `/ejercicios` | Crea un ejercicio propio. Lleva `tipo_registro` (`peso_reps` por defecto, `corporal`, `tiempo` o `cardio`): cómo se apunta cada serie suya, y no se puede cambiar después (el `PUT` lo ignora). |
-| `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es predefinido, 409 si está oculto: hay que mostrarlo antes). |
+| `POST` | `/ejercicios` | Crea un ejercicio propio. Lleva `tipo_registro` (`peso_reps` por defecto, `corporal`, `tiempo` o `cardio`): cómo se apunta cada serie suya, y no se puede cambiar después (el `PUT` lo ignora). 409 si ya hay un ejercicio con ese nombre, sin distinguir mayúsculas, tildes ni espacios, y el mensaje dice cuál es. |
+| `PUT` | `/ejercicios/{id}` | Edita un ejercicio propio (403 si es predefinido, 409 si está oculto: hay que mostrarlo antes, y 409 si el nombre nuevo es el de otro ejercicio; solo se comprueba si cambia). |
 | `DELETE` | `/ejercicios/{id}` | Borra un ejercicio propio. Sin uso asociado, lo borra de verdad; en uso, hace falta `?modo=ocultar` (borrado lógico) o `?modo=definitivo` (pierde el historial) — sin ninguno de los dos, 409 con una frase que pide elegir; lo que se perdería lo cuenta `GET /ejercicios/{id}/aviso-de-borrado`. Con `?modo=definitivo` se van los huecos donde es el principal enteros, también con las series que se hicieron en ellos con un comodín, y las sesiones que se quedan sin ninguna serie (menos la abierta hoy). Tus notas nunca bloquean el borrado: se van siempre con el ejercicio, y `?modo=ocultar` las conserva. |
 | `POST` | `/ejercicios/{id}/mostrar` | Deshace un `?modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo. |
 | `GET` | `/ejercicios/{id}/historial` | Los días en que se hizo este ejercicio, del más reciente al más antiguo, con las series de cada día. Acepta `?hasta=` (fecha incluida) y `?limite=`, que cuenta **sesiones**, no series — 50 por defecto, 500 como máximo. Sigue funcionando aunque el ejercicio esté ocultado: ocultar no borra el historial. |
