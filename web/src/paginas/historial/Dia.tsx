@@ -854,8 +854,9 @@ export function Dia() {
           titulo="¿Borrar este día?"
           cuerpo={
             // El día ya está en la cabecera: solo se nombra el que cuenta si es otro.
-            `Se borrarán la sesión y ` +
-            `${dia.series.length === 1 ? 'su serie' : `sus ${contar(dia.series.length, 'serie', 'series')}`}` +
+            (dia.series.length === 0
+              ? 'Se borrará la sesión, que no tiene ninguna serie'
+              : `Se borrarán la sesión y ${dia.series.length === 1 ? 'su serie' : `sus ${contar(dia.series.length, 'serie', 'series')}`}`) +
             `${quedaSinHacer}.`
           }
           confirmar="Borrar"
