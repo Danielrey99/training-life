@@ -9,7 +9,8 @@
  * pantallas no tienen que hacer nada, y un texto nuevo solo necesita estar en la lista.
  */
 
-// Los textos explicativos centrados de la app (pies, leyendas, vacíos, avisos).
+// Los textos explicativos centrados de la app (pies, leyendas, vacíos, avisos). No los
+// títulos: «Te damos la bienvenida» en dos líneas sigue centrado, como en el boceto.
 const TEXTOS = [
   '.dia-leyenda',
   '.cifras-pie',
@@ -18,7 +19,7 @@ const TEXTOS = [
   '.resumen-vacio',
   '.resumen-pie',
   '.entrada-pie',
-  '.tarjeta-hoy p',
+  '.tarjeta-hoy p:not(.tarjeta-grande)',
   '.ejercicio-hoja-pie',
   '.programas-vacio',
   '.programas-pie',

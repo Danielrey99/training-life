@@ -6,14 +6,20 @@ type Pestana = {
   nombre: string
   icono: NombreIcono
   destino: string
-  // Rutas que cuentan como esta sección: la sesión en curso es de Entrenar,
-  // aunque su URL no empiece por la de la pestaña.
+  // Rutas que cuentan como esta sección: la sesión en curso y los ajustes (el engranaje
+  // de Entrenar) son de Entrenar, y la progresión de un ejercicio, de Historial, aunque
+  // su URL no empiece por la de la pestaña (decisión del autor).
   rutas: string[]
 }
 
 const PESTANAS: Pestana[] = [
-  { nombre: 'Entrenar', icono: 'entrenar', destino: '/', rutas: ['/sesion'] },
-  { nombre: 'Historial', icono: 'historial', destino: '/historial', rutas: ['/historial'] },
+  { nombre: 'Entrenar', icono: 'entrenar', destino: '/', rutas: ['/sesion', '/ajustes'] },
+  {
+    nombre: 'Historial',
+    icono: 'historial',
+    destino: '/historial',
+    rutas: ['/historial', '/progresion'],
+  },
   { nombre: 'Programas', icono: 'programas', destino: '/programas', rutas: ['/programas'] },
   { nombre: 'Ejercicios', icono: 'ejercicios', destino: '/ejercicios', rutas: ['/ejercicios'] },
 ]

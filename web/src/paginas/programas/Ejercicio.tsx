@@ -389,12 +389,14 @@ export function Ejercicio() {
               <Icono nombre="abajo" pequeno />
             </button>
           )}
+          {/* Para que nadie oculte o borre un ejercicio de la rutina solo para hacer otro: basta
+              con cambiarlo, y su historial no se toca. Dentro del campo, pegada a él. */}
+          {origen.tipo === 'existente' && !soloLectura && (
+            <p className="ejercicio-ayuda">
+              Puedes cambiarlo por otro sin perder lo que ya hiciste.
+            </p>
+          )}
         </div>
-        {/* Para que nadie oculte o borre un ejercicio de la rutina solo para hacer otro: basta
-            con cambiarlo, y su historial no se toca. */}
-        {origen.tipo === 'existente' && !soloLectura && (
-          <p className="ejercicio-ayuda">Puedes cambiarlo por otro sin perder lo que ya hiciste.</p>
-        )}
 
         {formulario.principal && (
           <CamposDelObjetivo
@@ -587,7 +589,7 @@ export function Ejercicio() {
       {pregunta === 'mostrar' && origen.tipo === 'existente' && (
         <Dialogo
           titulo={`¿Mostrar ${principalNombre} en ${origen.rutina.nombre}?`}
-          cuerpo={`Volverá a salir en la rutina ${origen.rutina.nombre} y en tus próximas sesiones.`}
+          cuerpo="Volverá a salir en esta rutina y en tus próximas sesiones."
           confirmar="Mostrar"
           alConfirmar={async () => {
             await api.mostrarHueco(origen.rutina.id, origen.hueco.id)

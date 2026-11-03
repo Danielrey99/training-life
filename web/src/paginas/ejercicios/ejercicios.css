@@ -14,6 +14,19 @@
   margin-bottom: 0;
 }
 
+/* Sin ejercicios en la lista: el recuadro y Nuevo ejercicio, a 12 px. El verde, del tamaño
+   de un botón normal (como el boceto): está solo y no hace falta que destaque más. */
+.biblioteca-vacia {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.biblioteca-vacia .boton-principal {
+  min-height: 48px;
+  font-size: 15px;
+}
+
 /* --- La hoja de grupos --------------------------------------------------- */
 
 .grupos-rejilla {
@@ -249,8 +262,15 @@
   border-color: var(--acento);
 }
 
-.tipo-opcion.fija {
-  cursor: default;
+/* El tipo de un ejercicio ya creado: un campo apagado y con candado, para que se vea de un
+   vistazo que no se puede cambiar. */
+.tipo-fijo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--superficie);
+  color: var(--texto-tenue);
 }
 
 .tipo-opcion input {

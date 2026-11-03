@@ -67,8 +67,10 @@
   font-weight: 600;
 }
 
+/* Centrado bajo el periodo, como el resto de la tarjeta. */
 .resumen-sin-series {
   margin: 0;
+  text-align: center;
   font-size: 14px;
   color: var(--texto-tenue);
 }

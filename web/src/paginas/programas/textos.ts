@@ -88,13 +88,16 @@ export function lineaDeAlternativas(cuantas: number) {
   return cuantas === 1 ? '1 alternativa' : `${cuantas} alternativas`
 }
 
-/** "Pecho · predefinido" o "Pecho · tuyo": de qué grupo es y quién lo creó. */
+/**
+ * "Pecho · predefinido" o "Pecho · mío", como en la pestaña Ejercicios: de qué grupo es y
+ * quién lo creó.
+ */
 export function deDonde(
   ejercicio: { grupo_muscular_id: number; es_predefinido: boolean },
   grupos: Map<number, string>,
 ) {
   const grupo = grupos.get(ejercicio.grupo_muscular_id) ?? 'Sin grupo'
-  return `${grupo} · ${ejercicio.es_predefinido ? 'predefinido' : 'tuyo'}`
+  return `${grupo} · ${ejercicio.es_predefinido ? 'predefinido' : 'mío'}`
 }
 
 /**

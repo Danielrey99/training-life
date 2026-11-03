@@ -197,10 +197,9 @@ export function Formulario() {
           </>
         ) : (
           <>
-            <div className="tipo-opcion fija">
-              <span className="tipo-texto">
-                <strong>{TIPOS.find((opcion) => opcion.clave === tipo)?.nombre}</strong>
-              </span>
+            <div className="campo-texto tipo-fijo">
+              {TIPOS.find((opcion) => opcion.clave === tipo)?.nombre}
+              <Icono nombre="candado" pequeno />
             </div>
             <p className="tipo-aviso">
               No se puede cambiar. Si no es el que querías, crea otro ejercicio y borra este.

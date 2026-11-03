@@ -551,9 +551,11 @@
   margin-top: 6px;
 }
 
-/* El peso corporal de una serie, en su línea debajo de la carga. */
+/* El peso corporal o el ritmo de una serie, en su línea debajo de la carga, también
+   donde la fila es ancha (el día del historial): sin `flex-basis`, cabía al lado. */
 .serie-corporal {
   display: block;
+  flex-basis: 100%;
   font-size: 13px;
   font-weight: 400;
   color: var(--texto-tenue);

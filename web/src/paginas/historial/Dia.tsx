@@ -681,6 +681,7 @@ export function Dia() {
             type="button"
             className="campo-texto dia-fecha-boton"
             aria-labelledby="dia-fecha-etiqueta"
+            aria-invalid={falloFecha !== null}
             disabled={hayAbierta}
             onClick={() => setEligiendoFecha(true)}
           >

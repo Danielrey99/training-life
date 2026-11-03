@@ -102,6 +102,16 @@ export function Biblioteca() {
     (ejercicio) => !ejercicio.es_predefinido,
   )
 
+  // Sin ninguno propio a la vista, crear uno es lo único que se puede hacer aquí.
+  const nuevo = (
+    <Link
+      to="/ejercicios/nuevo"
+      className={`boton${origen === 'mios' && sinPropios ? ' boton-principal' : ''}`}
+    >
+      Nuevo ejercicio
+    </Link>
+  )
+
   return (
     <div className="programas">
       <header className="programas-cabecera">
@@ -147,26 +157,25 @@ export function Biblioteca() {
       </div>
 
       {lista.length > 0 ? (
-        <div className="programas-rutinas">
-          {lista.map((ejercicio) => (
-            <FilaDeEjercicio key={ejercicio.id} ejercicio={ejercicio} grupos={nombreDeGrupo} />
-          ))}
-        </div>
+        <>
+          <div className="programas-rutinas">
+            {lista.map((ejercicio) => (
+              <FilaDeEjercicio key={ejercicio.id} ejercicio={ejercicio} grupos={nombreDeGrupo} />
+            ))}
+          </div>
+          {nuevo}
+        </>
       ) : (
-        <p className="recuadro-vacio">
-          {origen === 'mios' && sinPropios
-            ? 'Todavía no has creado ningún ejercicio.'
-            : 'Ningún ejercicio coincide con lo que buscas.'}
-        </p>
+        // El recuadro y el botón, juntos y a 12 px, como en el boceto.
+        <div className="biblioteca-vacia">
+          <p className="recuadro-vacio">
+            {origen === 'mios' && sinPropios
+              ? 'Todavía no has creado ningún ejercicio.'
+              : 'Ningún ejercicio coincide con lo que buscas.'}
+          </p>
+          {nuevo}
+        </div>
       )}
-
-      {/* Sin ninguno propio a la vista, crear uno es lo único que se puede hacer aquí. */}
-      <Link
-        to="/ejercicios/nuevo"
-        className={`boton${origen === 'mios' && sinPropios ? ' boton-principal' : ''}`}
-      >
-        Nuevo ejercicio
-      </Link>
 
       {eligiendoGrupo && (
         <HojaDeGrupos

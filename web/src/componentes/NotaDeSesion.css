@@ -28,9 +28,14 @@
   white-space: pre-wrap;
 }
 
+/* Con aire para dos líneas, como en el boceto: con el alto de un campo de una línea, el
+   texto quedaba pegado al borde de abajo. */
 .nota-sesion textarea {
   resize: none;
   font: inherit;
+  height: 72px;
+  padding: 10px;
+  line-height: 1.4;
 }
 
 .nota-sesion-anadir {
