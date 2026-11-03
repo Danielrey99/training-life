@@ -2194,6 +2194,83 @@ def test_con_la_zona_de_tokio_pasado_mañana_sigue_sin_valer(cliente, datos, mon
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
+def _ocultar_ejercicio(a, dia):
+    next(e for e in a["ejercicios"] if e["nombre"] == "Remo en máquina vieja")["oculto_desde"] = dia
+    return "El ejercicio «Remo en máquina vieja»"
+
+
+def _ocultar_rutina(a, dia):
+    _rutina(a, "Pull")["oculto_desde"] = dia
+    return "La rutina «Pull»"
+
+
+def _ocultar_hueco(a, dia):
+    hueco = _rutina(a, "Push")["slots"][2]
+    nombre = next(
+        e["nombre"] for e in a["ejercicios"] if e["id"] == hueco["ejercicio_principal_id"]
+    )
+    assert nombre == "Remo en máquina vieja"
+    hueco["oculto_desde"] = dia
+    return "El ejercicio «Remo en máquina vieja» de la rutina «Push»"
+
+
+def _ocultar_programa(a, dia):
+    _programa(a, "Viejo")["oculto_desde"] = dia
+    return "El programa «Viejo»"
+
+
+OCULTAR = [_ocultar_ejercicio, _ocultar_rutina, _ocultar_hueco, _ocultar_programa]
+
+
+@pytest.mark.parametrize("ocultar", OCULTAR)
+def test_algo_oculto_desde_un_dia_que_no_ha_llegado_no_se_importa(cliente, datos, ocultar):
+    """La app nunca oculta con fecha futura: viene de un reloj mal puesto y dejaría
+    el ejercicio, la rutina o el programa visibles y ocultos a la vez según el día.
+    """
+    antes = exportado(cliente)
+    archivo = copy.deepcopy(antes)
+    quien = ocultar(archivo, "2026-09-17")
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        f"{quien} se ocultó el {en_texto('2026-09-17')}" + EN_EL_FUTURO
+    ]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize("ocultar", OCULTAR)
+def test_algo_oculto_hoy_si_se_importa(cliente, datos, ocultar):
+    """El límite es estricto: lo oculto en el propio «hoy» vale."""
+    archivo = copy.deepcopy(exportado(cliente))
+    ocultar(archivo, "2026-09-16")
+
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 200, respuesta.text
+
+
+def test_lo_oculto_en_el_hoy_de_la_zona_del_archivo_se_importa(cliente, datos, monkeypatch):
+    """Con el mismo «hoy» que los periodos: en Tokio ya es el 17, aquí aún el 16."""
+    reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
+    archivo = copy.deepcopy(exportado(cliente))
+    archivo["zona_horaria"] = "Asia/Tokyo"
+    _ocultar_rutina(archivo, "2026-09-17")
+
+    assert importar(cliente, archivo).status_code == 200
+
+    archivo["zona_horaria"] = "America/New_York"
+    antes = exportado(cliente)
+    respuesta = importar(cliente, archivo)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"]["errores"] == [
+        f"La rutina «Pull» se ocultó el {en_texto('2026-09-17')}" + EN_EL_FUTURO
+    ]
+    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
 @pytest.mark.parametrize("exportado_en", ["2026-09-17T00:30:00+09:00", "2026-09-30T12:00:00+00:00"])
 def test_un_exportado_en_del_futuro_no_relaja_las_fechas(cliente, datos, monkeypatch, exportado_en):
     """`exportado_en` lo escribió el mismo reloj que puede estar mal: no cuenta como

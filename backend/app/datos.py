@@ -246,8 +246,8 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     No se valida a propósito lo que no rompe nada y podría venir de una copia legítima
     (periodos solapados), ni que la fecha de una sesión y el día que cuenta sean del
     mismo programa: la app lo deja así al activar otro programa con un adelanto
-    pendiente. Sí las fechas que la app nunca crea: un periodo de programa o
-    una sesión que empieza después de hoy, y un día que cuenta una sesión fuera de su
+    pendiente. Sí las fechas que la app nunca crea: un periodo de programa, una
+    sesión o algo oculto que empieza después de hoy, y un día que cuenta una sesión fuera de su
     plazo. Vienen de un dispositivo con la fecha mal puesta y rompen cosas más tarde
     (desactivar el programa, el estado de los días). "Hoy" es el mayor entre hoy aquí y
     hoy en la zona de quien exportó, con el reloj de ahora y no con `exportado_en`, que
@@ -379,6 +379,25 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                     " que todavía no ha llegado. Comprueba la fecha del teléfono o del ordenador"
                     " que hizo la copia."
                 )
+    ocultos = (
+        [(f"El ejercicio «{e.nombre}»", e.oculto_desde) for e in datos.ejercicios]
+        + [(f"La rutina «{r.nombre}»", r.oculto_desde) for r in datos.rutinas]
+        + [
+            (
+                f"El ejercicio «{nombre_de.get(h.ejercicio_principal_id, '')}» de la rutina"
+                f" «{r.nombre}»",
+                h.oculto_desde,
+            )
+            for r, h in huecos
+        ]
+        + [(f"El programa «{p.nombre}»", p.oculto_desde) for p in datos.programas]
+    )
+    for quien, desde in ocultos:
+        if desde is not None and desde > hoy_:
+            errores.append(
+                f"{quien} se ocultó el {fecha_en_texto(desde)}, un día que todavía no ha"
+                " llegado. Comprueba la fecha del teléfono o del ordenador que hizo la copia."
+            )
     abiertos = [
         p.nombre for p in datos.programas for periodo in p.periodos if periodo.hasta is None
     ]
