@@ -446,9 +446,9 @@ def _validar_un_ejercicio_por_hueco(
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail=(
-            f"Esta sesión ya tiene {cuantas} de {anterior.nombre} en ese ejercicio de la rutina, "
+            f"Esta sesión ya tiene {cuantas} de «{anterior.nombre}» en ese ejercicio de la rutina, "
             f"y en cada uno se hace un solo ejercicio por sesión. Borra antes {esas} "
-            f"para apuntar {nuevo.nombre}."
+            f"para apuntar «{nuevo.nombre}»."
         ),
     )
 

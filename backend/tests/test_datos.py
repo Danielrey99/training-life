@@ -1444,7 +1444,7 @@ MALOS = [
         _serie_por_tiempo_de_un_predefinido,
         NO_SE_CAMBIA_NADA,
         MAL_APUNTADA.format("miércoles 9 de septiembre")
-        + "Sentadilla con barra se apunta con peso y repeticiones. Sobra la duración.",
+        + "«Sentadilla con barra» se apunta con peso y repeticiones. Sobra la duración.",
     ),
     (_hora_sin_zona, DANADO, "rutinas.0.created_at"),
     (_nombre_vacio, DANADO, "rutinas.0.nombre"),
@@ -1849,18 +1849,18 @@ MAL_POR_TIPO = [
     (
         _distancia_en_una_serie_de_peso_y_repeticiones,
         MAL_APUNTADA.format("jueves 3 de septiembre")
-        + "Remo con barra se apunta con peso y repeticiones. Sobra la distancia.",
+        + "«Remo con barra» se apunta con peso y repeticiones. Sobra la distancia.",
     ),
     # El tipo del archivo manda: las series de un ejercicio se miran con el suyo.
     (
         _dominadas_por_tiempo,
         MAL_APUNTADA.format("miércoles 2 de septiembre")
-        + "Dominadas lastradas se apunta por tiempo. Falta la duración",
+        + "«Dominadas lastradas» se apunta por tiempo. Falta la duración",
     ),
     (
         _plancha_de_peso_y_repeticiones,
         MAL_APUNTADA.format("miércoles 2 de septiembre")
-        + "Plancha con disco se apunta con peso y repeticiones. Faltan el peso y las"
+        + "«Plancha con disco» se apunta con peso y repeticiones. Faltan el peso y las"
         " repeticiones y sobra la duración.",
     ),
 ]
@@ -1933,25 +1933,25 @@ def _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo(a):
 
 MAL_OBJETIVO = "La rutina «Core» tiene un objetivo mal puesto. "
 EN_SEGUNDOS = (
-    "El objetivo de Plancha con disco va en tiempo y no en repeticiones, porque Plancha con"
-    " disco se apunta por tiempo."
+    "El objetivo de «Plancha con disco» va en tiempo y no en repeticiones, porque «Plancha con"
+    " disco» se apunta por tiempo."
 )
 OBJETIVOS_QUE_NO_CUADRAN = [
     (_plancha_de_principal_en_reps, MAL_OBJETIVO + EN_SEGUNDOS),
     (
         _dominadas_de_alternativa_en_segundos,
-        MAL_OBJETIVO + "El objetivo de Dominadas lastradas va en repeticiones y no en tiempo,"
-        " porque Dominadas lastradas se apunta con repeticiones y carga.",
+        MAL_OBJETIVO + "El objetivo de «Dominadas lastradas» va en repeticiones y no en tiempo,"
+        " porque «Dominadas lastradas» se apunta con repeticiones y carga.",
     ),
     (
         _sentadilla_de_principal_en_segundos,
-        MAL_OBJETIVO + "El objetivo de Sentadilla con barra va en repeticiones y no en tiempo,"
-        " porque Sentadilla con barra se apunta con peso y repeticiones.",
+        MAL_OBJETIVO + "El objetivo de «Sentadilla con barra» va en repeticiones y no en tiempo,"
+        " porque «Sentadilla con barra» se apunta con peso y repeticiones.",
     ),
     (
         _plancha_que_pasa_a_corporal_sin_tocar_su_objetivo,
-        MAL_OBJETIVO + "El objetivo de Plancha con disco va en repeticiones y no en tiempo,"
-        " porque Plancha con disco se apunta con repeticiones y carga.",
+        MAL_OBJETIVO + "El objetivo de «Plancha con disco» va en repeticiones y no en tiempo,"
+        " porque «Plancha con disco» se apunta con repeticiones y carga.",
     ),
 ]
 

@@ -471,6 +471,19 @@ def _series_de(cliente, sesion) -> list[dict]:
     return cliente.get(f"/entrenamientos/{sesion}").json()["series"]
 
 
+def _mezcla(cuantas, anterior, nuevo) -> str:
+    """El 409 de mezclar, para los tests que no fijan el texto (lo fijan, literal, los
+    dos primeros de abajo).
+    """
+    las, esas = (
+        ("la serie", "esa serie") if cuantas == 1 else (f"las {cuantas} series", "esas series")
+    )
+    return (
+        f"Esta sesión ya tiene {las} de «{anterior}» en ese ejercicio de la rutina, y en cada"
+        f" uno se hace un solo ejercicio por sesión. Borra antes {esas} para apuntar «{nuevo}»."
+    )
+
+
 def test_no_se_apunta_una_serie_de_otro_ejercicio_en_un_hueco_que_ya_tiene_series(
     cliente, abdominales
 ):
@@ -485,9 +498,9 @@ def test_no_se_apunta_una_serie_de_otro_ejercicio_en_un_hueco_que_ya_tiene_serie
 
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == (
-        "Esta sesión ya tiene la serie de Crunch en polea alta en ese ejercicio de la rutina,"
+        "Esta sesión ya tiene la serie de «Crunch en polea alta» en ese ejercicio de la rutina,"
         " y en cada uno se hace un solo ejercicio por sesión. Borra antes esa serie para"
-        " apuntar Plancha con lastre."
+        " apuntar «Plancha con lastre»."
     )
     assert _series_de(cliente, sesion) == [crunch]
 
@@ -501,9 +514,9 @@ def test_el_409_de_mezclar_cuenta_las_series_en_plural(cliente, abdominales):
 
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == (
-        "Esta sesión ya tiene las 3 series de Crunch en polea alta en ese ejercicio de la rutina,"
+        "Esta sesión ya tiene las 3 series de «Crunch en polea alta» en ese ejercicio de la rutina,"
         " y en cada uno se hace un solo ejercicio por sesión. Borra antes esas series para"
-        " apuntar Plancha con lastre."
+        " apuntar «Plancha con lastre»."
     )
     assert len(_series_de(cliente, sesion)) == 3
 
@@ -521,8 +534,11 @@ def test_el_mismo_hueco_admite_otro_ejercicio_en_otra_sesion(cliente, abdominale
     con_crunch = _apuntar(cliente, dia_5, e.crunch, e.a, numero=2)
 
     assert con_plancha.status_code == 201, con_plancha.text
-    assert con_crunch.status_code == 409, con_crunch.text
-    assert "la serie de Plancha con lastre" in con_crunch.json()["detail"]
+    assert (con_crunch.status_code, con_crunch.json()["detail"]) == (
+        409,
+        _mezcla(1, "Plancha con lastre", "Crunch en polea alta"),
+    )
+    assert [s["ejercicio_id"] for s in _series_de(cliente, dia_5)] == [e.plancha]
 
 
 def test_otro_hueco_de_la_misma_sesion_admite_otro_ejercicio(cliente, abdominales):
@@ -551,7 +567,11 @@ def test_cambiar_el_ejercicio_de_la_unica_serie_del_hueco_si_se_puede(cliente, a
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["ejercicio_id"] == e.plancha
-    assert _apuntar(cliente, sesion, e.crunch, e.a, numero=2).status_code == 409
+    despues = _apuntar(cliente, sesion, e.crunch, e.a, numero=2)
+    assert (despues.status_code, despues.json()["detail"]) == (
+        409,
+        _mezcla(1, "Plancha con lastre", "Crunch en polea alta"),
+    )
 
 
 def test_cambiar_el_ejercicio_de_una_serie_con_mas_del_anterior_da_409(cliente, abdominales):
@@ -568,8 +588,7 @@ def test_cambiar_el_ejercicio_de_una_serie_con_mas_del_anterior_da_409(cliente, 
     )
 
     assert respuesta.status_code == 409, respuesta.text
-    assert "ya tiene las 2 series de Crunch en polea alta" in respuesta.json()["detail"]
-    assert respuesta.json()["detail"].endswith("para apuntar Plancha con lastre.")
+    assert respuesta.json()["detail"] == _mezcla(2, "Crunch en polea alta", "Plancha con lastre")
     assert _series_de(cliente, sesion)[0] == primera
 
 
@@ -588,8 +607,9 @@ def test_mover_una_serie_a_un_hueco_con_series_de_otro_ejercicio_da_409(cliente,
     )
 
     assert respuesta.status_code == 409, respuesta.text
-    assert "la serie de Rueda abdominal de pie" in respuesta.json()["detail"]
-    assert respuesta.json()["detail"].endswith("para apuntar Crunch en polea alta.")
+    assert respuesta.json()["detail"] == _mezcla(
+        1, "Rueda abdominal de pie", "Crunch en polea alta"
+    )
     assert _series_de(cliente, sesion)[0] == crunch
 
 

@@ -570,7 +570,7 @@ def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
                     "mensaje": (
                         f"La sesión del {fecha_en_texto(sesion.fecha)} cuenta como lo del"
                         f" {fecha_en_texto(sesion.cubre_fecha)}, y con este cambio ya no queda"
-                        f" ningún día de esta semana con {sesion.rutina.nombre} para ella. Deja"
+                        f" ningún día de esta semana con «{sesion.rutina.nombre}» para ella. Deja"
                         " algún día con esa rutina o borra antes esa sesión."
                     ),
                     "entrenamiento_id": sesion.id,

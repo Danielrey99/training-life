@@ -75,7 +75,7 @@ def sin_dia_para_ella(fecha, cubre_fecha, rutina, entrenamiento_id) -> dict:
         "mensaje": (
             f"La sesión del {fecha_en_texto(fecha)} cuenta como lo del"
             f" {fecha_en_texto(cubre_fecha)}, y con este cambio ya no queda ningún día de esta"
-            f" semana con {rutina} para ella. Deja algún día con esa rutina o borra antes esa"
+            f" semana con «{rutina}» para ella. Deja algún día con esa rutina o borra antes esa"
             " sesión."
         ),
         "entrenamiento_id": entrenamiento_id,

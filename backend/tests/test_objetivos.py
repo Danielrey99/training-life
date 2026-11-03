@@ -38,19 +38,19 @@ UNO_DE_LOS_DOS = (
     "El objetivo lleva repeticiones o tiempo, uno de los dos, con su mínimo y su máximo."
 )
 EN_SEGUNDOS = (
-    "El objetivo de Plancha con lastre va en tiempo y no en repeticiones, porque Plancha con"
-    " lastre se apunta por tiempo."
+    "El objetivo de «Plancha con lastre» va en tiempo y no en repeticiones, porque «Plancha con"
+    " lastre» se apunta por tiempo."
 )
 EN_REPETICIONES = (
-    "El objetivo de Dominadas en anillas va en repeticiones y no en tiempo, porque Dominadas en"
-    " anillas se apunta con repeticiones y carga."
+    "El objetivo de «Dominadas en anillas» va en repeticiones y no en tiempo, porque «Dominadas en"
+    " anillas» se apunta con repeticiones y carga."
 )
 EN_SEGUNDOS_CARDIO = (
-    "El objetivo de Cinta va en tiempo y no en repeticiones, porque Cinta se apunta por tiempo"
+    "El objetivo de «Cinta» va en tiempo y no en repeticiones, porque «Cinta» se apunta por tiempo"
     " y, si se quiere, distancia."
 )
 EN_REPETICIONES_PRESS = (
-    "El objetivo de Press banca va en repeticiones y no en tiempo, porque Press banca se apunta"
+    "El objetivo de «Press banca» va en repeticiones y no en tiempo, porque «Press banca» se apunta"
     " con peso y repeticiones."
 )
 EN_SEGUNDOS_OBJ = objetivo(3, duracion=(30, 60))
