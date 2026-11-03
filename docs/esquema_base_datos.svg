@@ -1,6 +1,6 @@
 <svg width="1320" height="1275" viewBox="0 0 1320 1275" xmlns="http://www.w3.org/2000/svg" role="img">
 <title>Esquema de la base de datos de Training Life: tablas y relaciones de borrado</title>
-<desc>Diagrama de las 12 tablas y sus foreign keys, mostrando para cada una si es ON DELETE CASCADE, ON DELETE RESTRICT o sin ondelete explícito, y qué tablas se pueden ocultar (columna oculto_desde), cuáles son historial y cuáles son accesorios que se borran con su padre.</desc>
+<desc>Diagrama de las 13 tablas y sus foreign keys, mostrando para cada una si es ON DELETE CASCADE, ON DELETE RESTRICT o sin ondelete explícito, y qué tablas se pueden ocultar (columna oculto_desde), cuáles son historial y cuáles son accesorios que se borran con su padre.</desc>
 <defs>
 <marker id="arrow-verde" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
 <path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -110,6 +110,14 @@
 <text x="55" y="604" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="55" y="621" font-family="Arial, sans-serif" font-size="11" fill="#085041">ejercicio_id → ejercicios</text>
 
+<!-- rutina_periodos_ocultos -->
+<rect x="980" y="440" width="250" height="127" rx="10" fill="#CECBF6" stroke="#3C3489" stroke-width="1.5"/>
+<text x="995" y="463" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#26215C">rutina_periodos_ocultos</text>
+<text x="995" y="484" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">id (PK)</text>
+<text x="995" y="501" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">rutina_id → rutinas</text>
+<text x="995" y="518" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">desde, hasta (tramos ya cerrados;</text>
+<text x="995" y="535" font-family="Arial, sans-serif" font-size="11" fill="#3C3489">el de ahora es rutinas.oculto_desde)</text>
+
 <!-- ============ FLECHAS (del HIJO al PADRE, siempre en horizontal/vertical) ============ -->
 
 <!-- verde: CASCADE -->
@@ -134,6 +142,9 @@
 <line x1="280" y1="585" x2="340" y2="585" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
 <text x="310" y="577" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
 
+<path d="M1000,440 L1000,215 L900,215 L900,170" fill="none" stroke="#0F6E56" stroke-width="1.8" marker-end="url(#arrow-verde)"/>
+<text x="1006" y="420" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#0F6E56">CASCADE</text>
+
 <!-- naranja: RESTRICT -->
 <line x1="1020" y1="100" x2="940" y2="100" stroke="#993C1D" stroke-width="1.8" marker-end="url(#arrow-naranja)"/>
 <text x="980" y="92" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#993C1D">RESTRICT</text>
@@ -150,7 +161,7 @@
 <line x1="700" y1="510" x2="600" y2="510" stroke="#993C1D" stroke-width="1.8" marker-end="url(#arrow-naranja)"/>
 <text x="650" y="502" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#993C1D">RESTRICT</text>
 
-<path d="M1145,380 L1145,640 L470,640 L470,600" fill="none" stroke="#993C1D" stroke-width="1.8" marker-end="url(#arrow-naranja)"/>
+<path d="M1250,380 L1250,640 L470,640 L470,600" fill="none" stroke="#993C1D" stroke-width="1.8" marker-end="url(#arrow-naranja)"/>
 <text x="808" y="632" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#993C1D">RESTRICT</text>
 
 <!-- gris: sin ondelete explícito -->
@@ -179,7 +190,7 @@
 <text x="84" y="1064" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde = se puede ocultar (columna oculto_desde, la fecha desde la que está oculto): ejercicios, rutinas, rutina_slots y programas.</text>
 
 <rect x="60" y="1074" width="16" height="16" rx="3" fill="#CECBF6" stroke="#3C3489"/>
-<text x="84" y="1086" font-family="Arial, sans-serif" font-size="11" fill="#444441">Morado = historial: lo que se entrenó (entrenamientos, series) y en qué fechas estuvo activo cada programa (programa_periodos).</text>
+<text x="84" y="1086" font-family="Arial, sans-serif" font-size="11" fill="#444441">Morado = historial: lo que se entrenó (entrenamientos, series) en qué fechas estuvo activo cada programa (programa_periodos) y oculta cada rutina (rutina_periodos_ocultos).</text>
 
 <rect x="60" y="1096" width="16" height="16" rx="3" fill="#D3F1E5" stroke="#0F6E56"/>
 <text x="84" y="1108" font-family="Arial, sans-serif" font-size="11" fill="#444441">Verde claro = accesorio de su padre, que no significa nada sin él y se borra con él (CASCADE): slot_alternativas, notas_ejercicio, programa_dias y excepciones_del_plan.</text>

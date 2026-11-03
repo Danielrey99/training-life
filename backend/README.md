@@ -112,6 +112,7 @@ backend/
 │   ├── test_replanificar.py # qué pasa con lo hecho por adelantado al cambiar el plan
 │   ├── test_resumen.py      # el volumen por semana y por mes, su desglose y la constancia
 │   ├── test_datos.py        # exportar, importar y borrar los datos
+│   ├── test_tramos_ocultos.py # los días en que una rutina estuvo oculta
 │   ├── test_medidas.py      # las medidas de cada serie según el tipo de su ejercicio
 │   ├── test_objetivos.py    # el objetivo propio de cada ejercicio de un hueco
 │   ├── test_intercambiar.py # empezar hoy lo que toca otro día, intercambiando los dos
@@ -172,7 +173,7 @@ uvicorn app.main:app --reload
 
 ![Esquema de la base de datos de Training Life](../docs/esquema_base_datos.svg)
 
-Las 12 tablas y sus claves ajenas, con la regla de borrado de cada una —`CASCADE` arrastra al hijo, `RESTRICT` impide borrar al padre mientras exista— y qué tablas se pueden ocultar (columna `oculto_desde`), cuáles son historial y cuáles son accesorios que se borran con su padre. El diagrama se mantiene a mano: al añadir o cambiar una tabla hay que actualizarlo.
+Las 13 tablas y sus claves ajenas, con la regla de borrado de cada una —`CASCADE` arrastra al hijo, `RESTRICT` impide borrar al padre mientras exista— y qué tablas se pueden ocultar (columna `oculto_desde`), cuáles son historial y cuáles son accesorios que se borran con su padre. El diagrama se mantiene a mano: al añadir o cambiar una tabla hay que actualizarlo.
 
 Cada tabla se define primero como una clase Python en `app/models.py`. Para que ese cambio llegue de verdad a PostgreSQL hace falta generar y aplicar una migración:
 
@@ -238,6 +239,7 @@ No hay ningún paso previo que recordar:
 | `test_medidas.py` | Las medidas de una serie según el tipo de su ejercicio (peso y repeticiones, peso corporal con lastre o ayuda, tiempo, cardio con distancia opcional): qué falta o sobra con su frase, los topes, el peso corporal que ningún cálculo usa, el orden de las comprobaciones y los CHECK de la base |
 | `test_intercambiar.py` | Empezar hoy lo que toca otro día (`intercambiar_con`): que se intercambien los dos días y se cree la sesión en una sola transacción, cada error sin dejar nada cambiado, y los cruces con lo hecho por adelantado |
 | `test_fechas.py` | Cómo se escribe una fecha en los mensajes de error («martes 27 de octubre»), con el año solo si no es el de hoy, también en los bordes del calendario |
+| `test_tramos_ocultos.py` | Los días en que una rutina estuvo oculta: que al mostrarla sigan siendo descanso (y no salgan en «Por recuperar»), que ocultar y mostrar el mismo día no guarde nada, que volver a ocultarla el día en que se mostró reabra el tramo, y que lo ya entrenado o adelantado antes de ocultarla siga contando. |
 | `test_infraestructura.py` | Que el propio andamiaje de los tests funciona (la limpieza entre tests), que la cadena entera de migraciones baja y sube desde cero, y que lo sembrado (los grupos musculares y los ejercicios predefinidos con su tipo y su descripción) coincide exactamente con la lista compartida `shared/predefinidos.json`, que copiará el móvil |
 
 ## Convenciones de código
@@ -314,7 +316,7 @@ No hay usuarios, login ni JWT, y no se prevén: la app es de una sola persona y 
 | `GET` | `/rutinas/{id}/aviso-de-borrado` | Lo que se perdería al borrarla, para enseñarlo antes de preguntar (el 409 del `DELETE` solo pide elegir `modo`, y sin historial borraría sin preguntar): si tiene historial, cuántos huecos, sesiones con series, días de programa y días planificados a mano, si tocó días pasados y si hay una sesión suya abierta hoy, que se borraría con ella. También de una rutina oculta. |
 | `POST` | `/rutinas/{id}/duplicar` | Una copia independiente, que se llama como hace Windows con los archivos (`Push - copia`, `Push - copia (2)`…). Copia los huecos visibles con sus comodines; no copia los ocultos, los días de programa ni el historial. Se puede duplicar una rutina oculta; la copia nace visible. |
 | `PUT` | `/rutinas/{id}/orden` | Reordena los huecos visibles de una vez (`{slot_ids}` en el orden nuevo, 422 si no son exactamente los visibles). Con `PUT` sueltos no se puede: intercambiar dos huecos choca a medias con la restricción única del orden. Los ocultos conservan el suyo. |
-| `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. |
+| `POST` | `/rutinas/{id}/mostrar` | Deshace un `?modo=ocultar`: la rutina vuelve a ofrecerse para usarla. Guarda el tramo en que estuvo oculta (`rutina_periodos_ocultos`): los días que le tocaban entonces siguen siendo descanso, salvo los que ya contaba una sesión suya de antes de ocultarla. |
 | `POST` | `/rutinas/{id}/slots` | Añade un hueco a una rutina propia, con sus comodines si llegan en `alternativas` (cada una con su objetivo: el objetivo es de repeticiones o de duración según el tipo del ejercicio, y 422 si no cuadra). `orden` es opcional: sin él, el hueco va al final (el mayor `orden` de todos los huecos, también los ocultos, más uno; 409 si pasara de 100). |
 | `PUT` | `/rutinas/{id}/slots/{slot_id}` | Edita un hueco (409 si el hueco o su rutina están ocultos). El principal solo se valida si cambia: si se ocultó después, el hueco se puede seguir corrigiendo. Con `alternativas`, la lista sustituye a los comodines actuales (vacía, los quita todos): los que siguen cambian de objetivo en su sitio, sin borrarlos, y solo se valida lo que se añade, así que un comodín oculto que se conserva no da error; sin ella, los comodines y sus objetivos no se tocan y no se puede pasar a principal un ejercicio que ya es comodín del hueco (409). |
 | `DELETE` | `/rutinas/{id}/slots/{slot_id}` | Borra un hueco. Mismo patrón que `Ejercicio`/`Rutina`: directo si no tiene series registradas; si tiene, exige `?modo=ocultar` o `?modo=definitivo`, que borra también esas series y las sesiones que se quedan sin ninguna (la de hoy en curso se conserva); sin ninguno, 409 con una frase que pide elegir. |
