@@ -344,7 +344,8 @@ def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
 
     series = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
     assert [serie["numero_serie"] for serie in series] == [2]
-    assert cliente.delete(f"{ruta}/{primera}").status_code == 404
+    otra_vez = cliente.delete(f"{ruta}/{primera}")
+    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Serie no encontrada")
 
 
 def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grupo_muscular_id):

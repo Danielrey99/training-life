@@ -347,6 +347,7 @@ def test_la_ayuda_admite_hasta_lo_que_cabe_en_la_columna_y_no_mas(cliente, e):
     assert justo.json()["peso"] == "-9999.99"
     assert pasado.status_code == 422
     assert es_de_pydantic_por(pasado, "peso"), pasado.text
+    assert series_de(cliente, e) == [justo.json()]
 
 
 @pytest.mark.parametrize(
@@ -863,6 +864,7 @@ def test_una_distancia_que_no_es_un_entero_de_metros_da_422(cliente, c):
 
     assert respuesta.status_code == 422, respuesta.text
     assert es_de_pydantic_por(respuesta, "distancia_m"), respuesta.text
+    assert series_de(cliente, c) == []
 
 
 def test_corregir_una_serie_de_cardio_cambia_la_distancia_y_la_quita_si_no_se_manda(cliente, c):

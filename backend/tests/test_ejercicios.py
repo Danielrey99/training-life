@@ -1,6 +1,7 @@
 """Tests de la ficha de un ejercicio: `GET /ejercicios/{id}/donde-se-usa`
 («Rutinas donde se usa»), que una nota solo se alcanza por la ruta de su ejercicio,
-y su tipo de registro (cómo se apunta: se elige al crearlo y no cambia).
+su tipo de registro (cómo se apunta: se elige al crearlo y no cambia), que dos
+ejercicios no se llamen igual y el orden de dos con el mismo nombre en los listados.
 
 El aviso y el borrado de un ejercicio están en `test_borrados.py`; las medidas que
 pide cada tipo a sus series, en `test_medidas.py`.
@@ -632,6 +633,32 @@ def test_si_varios_propios_se_llaman_igual_el_mensaje_nombra_el_visible(cliente,
         409,
         choca_con_propio("Curl con cuerda"),
     )
+
+
+def test_mostrar_un_oculto_no_mira_el_nombre_y_conviven_los_dos(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    """Decisión del autor: mostrar solo deshace el ocultar. Uno oculto que se llama como
+    uno propio visible, o como un predefinido, vuelve a la lista sin un 409 y conviven.
+    """
+    oculto_propio, visible, oculto_como_predefinido = importar_propios(
+        cliente,
+        grupo_muscular_id,
+        ("CURL con cuerda", "2026-08-01"),
+        "Curl con cuerda",
+        ("sentadilla con barra", "2026-08-01"),
+    )
+
+    for ejercicio in (oculto_propio, oculto_como_predefinido):
+        respuesta = cliente.post(f"/ejercicios/{ejercicio}/mostrar")
+        assert respuesta.status_code == 200, respuesta.text
+        assert respuesta.json()["oculto_desde"] is None
+
+    visibles = {e["id"]: e["nombre"] for e in cliente.get("/ejercicios").json()}
+    assert visibles[oculto_propio] == "CURL con cuerda"
+    assert visibles[visible] == "Curl con cuerda"
+    assert visibles[oculto_como_predefinido] == "sentadilla con barra"
+    assert visibles[ejercicio_predefinido_id] == "Sentadilla con barra"
 
 
 def test_importar_no_mira_los_nombres_y_la_copia_se_vuelve_a_cargar(cliente, grupo_muscular_id):

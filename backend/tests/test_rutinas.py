@@ -481,7 +481,9 @@ def test_reordenar_con_un_hueco_repetido_da_422(cliente, tres_huecos):
     respuesta = ordenar(cliente, rutina, [a, b, c, a])
 
     assert respuesta.status_code == 422
-    assert "repetidos" in str(respuesta.json()["detail"])
+    assert [e["msg"] for e in respuesta.json()["detail"]] == [
+        "Value error, Hay ejercicios repetidos."
+    ]
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
 
 

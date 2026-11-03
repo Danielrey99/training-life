@@ -312,7 +312,7 @@ def test_un_hueco_nuevo_con_comodines_incoherentes_da_422(
     respuesta = anadir_hueco(cliente, rutina, press, alternativas=lista)
 
     assert respuesta.status_code == 422
-    assert lo_que_dice in str(respuesta.json()["detail"])
+    assert [e["msg"] for e in respuesta.json()["detail"]] == [f"Value error, {lo_que_dice}"]
     assert huecos_guardados(sesion_bd) == (0, 0)
 
 
@@ -524,7 +524,7 @@ def test_editar_con_comodines_incoherentes_da_422(
     respuesta = editar_hueco(cliente, rutina, slot, press, alternativas=lista)
 
     assert respuesta.status_code == 422
-    assert lo_que_dice in str(respuesta.json()["detail"])
+    assert [e["msg"] for e in respuesta.json()["detail"]] == [f"Value error, {lo_que_dice}"]
     assert filas_de_comodines(sesion_bd, slot) == filas
 
 

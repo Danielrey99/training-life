@@ -370,7 +370,10 @@ def test_quitar_lo_planificado_sin_activar_da_422_y_no_crea_ni_borra_nada(client
     respuesta = cliente.post("/programas", json=cuerpo)
 
     assert respuesta.status_code == 422
-    assert "Solo se quitan los días cambiados a mano al activar el programa" in respuesta.text
+    # Un `value_error`, que la web enseña tal cual: se fija el texto entero.
+    assert [e["msg"] for e in respuesta.json()["detail"]] == [
+        "Value error, Solo se quitan los días cambiados a mano al activar el programa."
+    ]
     assert nombres_de_programas(cliente) == ["Todo Push"]
     assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is True
     assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
