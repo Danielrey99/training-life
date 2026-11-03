@@ -191,6 +191,7 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
   return (
     <Link
       to={`/programas/${programa.id}`}
+      state={{ empezar: true }}
       className={`programas-tarjeta${programa.activo ? ' activo' : ''}${oculto ? ' oculto' : ''}`}
     >
       <span className="programas-tarjeta-texto">

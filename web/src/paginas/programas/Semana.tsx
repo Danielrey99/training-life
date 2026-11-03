@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { api, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina, RutinaMinima } from '../../api/tipos'
@@ -96,6 +96,10 @@ export function Semana() {
   const id = Number(programaId)
   const navegar = useNavigate()
   const volver = useVolver()
+  const ubicacion = useLocation()
+  // La lista de programas la abre para empezar de cero: un modo editar que se dejó a medias
+  // al ir a crear una rutina (y no se volvió) no reaparece días después.
+  const empezar = (ubicacion.state as { empezar?: boolean } | null)?.empezar === true
 
   const [datos, setDatos] = useState<Datos | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -109,6 +113,15 @@ export function Semana() {
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
+
+  // Antes que la lectura, que es la que recoge el borrador. La marca se quita para que
+  // volver aquí desde una rutina nueva sí lo recoja.
+  useEffect(() => {
+    if (empezar) {
+      tirarBorrador(semanaEnEdicion(id))
+      navegar(ubicacion.pathname, { replace: true, state: null })
+    }
+  }, [empezar, id, navegar, ubicacion.pathname])
 
   useEffect(() => {
     let vigente = true
