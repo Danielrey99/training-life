@@ -5,7 +5,13 @@ import { api } from '../../api/cliente'
 import type { Hoy, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { colorDelDia } from '../../utiles/colores'
-import { conArticulo, diaDeLaSemana, fechaEnFrase, fechaLarga } from '../../utiles/fechas'
+import {
+  conArticulo,
+  diaDeLaSemana,
+  fechaCompleta,
+  fechaLarga,
+  nombreDelDia,
+} from '../../utiles/fechas'
 
 type Props = {
   fecha: string
@@ -37,9 +43,9 @@ function contarEjercicios(cuantos: number) {
  *
  * Ofrece lo que tocaba y lo que seguía por recuperar ese día (`GET /plan/hoy` con
  * esa fecha), pero no adelantar: la hoja apunta de hoy hacia atrás, y adelantar se
- * hace solo desde Entrenar (decisión del autor). Cualquier otra rutina se apunta
- * igual, pero sin contar para ningún día del programa. No cambia lo planificado:
- * registra lo que pasó.
+ * hace solo desde Entrenar (decisión del autor). Debajo, todas las rutinas, también
+ * esas, para apuntarlas sin contar para ningún día del programa. No cambia lo
+ * planificado: registra lo que pasó.
  */
 export function HojaRegistrar({ fecha, alCerrar }: Props) {
   const navegar = useNavigate()
@@ -66,6 +72,15 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
     return () => window.removeEventListener('keydown', alPulsarTecla)
   }, [eleccion, alCerrar])
 
+  // «del miércoles 9»: lo que se recupera es de pocos días antes que el de la hoja, cuyo
+  // título ya dice el mes. De otro mes, la fecha entera. Siempre igual, y no según lo lejos
+  // que quede de hoy: así salían «del 16 de octubre» y «del miércoles 21» en la misma lista.
+  function delDia(iso: string) {
+    return iso.slice(0, 7) === fecha.slice(0, 7)
+      ? `${nombreDelDia(iso)} ${Number(iso.slice(8))}`
+      : fechaCompleta(iso)
+  }
+
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen?.rutinas.find((una) => una.id === rutina.id)
     return datos ? contarEjercicios(datos.ejercicios) : ''
@@ -88,7 +103,7 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
       cuentan.push({
         clave: `recuperar-${recuperable.fecha}`,
         rutina: recuperable.rutina,
-        titulo: `Recuperar el ${recuperable.rutina.nombre} del ${fechaEnFrase(recuperable.fecha, false)}`,
+        titulo: `Recuperar el ${recuperable.rutina.nombre} del ${delDia(recuperable.fecha)}`,
         detalle: null,
         cubre: recuperable.fecha,
       })

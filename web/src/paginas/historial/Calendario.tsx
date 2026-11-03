@@ -141,7 +141,14 @@ export function Calendario() {
         </button>
       </div>
 
-      <MesConMarcas mes={mes} dias={dias} hoy={hoy} programa={programa} alTocar={tocar} />
+      <MesConMarcas
+        mes={mes}
+        dias={dias}
+        hoy={hoy}
+        programa={programa}
+        tocado={registrando ?? undefined}
+        alTocar={tocar}
+      />
 
       {resumen && mes <= hoy && (
         <>

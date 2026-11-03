@@ -13,6 +13,9 @@ type Props = {
   programa: Programa | null
   // La fecha marcada como elegida (en la hoja de cambiar la fecha de una sesión).
   elegida?: string
+  // El día que se tocó para registrarlo, enmarcado detrás de su hoja: así se ve en el
+  // mes qué día se está apuntando.
+  tocado?: string
   alTocar: (dia: DiaSeguimiento) => void
 }
 
@@ -21,7 +24,7 @@ type Props = {
  * usan el calendario y la hoja de cambiar la fecha de una sesión, para que se vean
  * igual: los días futuros, apagados y sin poder tocarlos (salvo que tengan sesión).
  */
-export function MesConMarcas({ mes, dias, hoy, programa, elegida, alTocar }: Props) {
+export function MesConMarcas({ mes, dias, hoy, programa, elegida, tocado, alTocar }: Props) {
   // Huecos antes del día 1, para que cada columna sea un día de la semana.
   const vacios = diaDeLaSemana(mes) - 1
   return (
@@ -39,6 +42,7 @@ export function MesConMarcas({ mes, dias, hoy, programa, elegida, alTocar }: Pro
         if (dia.fecha === hoy) clases.push('es-hoy')
         else if (dia.fecha > hoy) clases.push('futuro')
         if (dia.fecha === elegida) clases.push('elegida')
+        if (dia.fecha === tocado) clases.push('tocado')
         const tocable = Boolean(dia.sesion) || dia.fecha <= hoy
         return (
           <button

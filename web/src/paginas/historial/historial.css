@@ -74,6 +74,11 @@
   font-weight: 700;
 }
 
+/* El día que se está registrando, detrás de su hoja: un recuadro gris, como el verde de hoy. */
+.calendario-dia.tocado {
+  border-color: var(--texto-tenue);
+}
+
 /* La fecha elegida, en la hoja de cambiar la fecha de una sesión: con fondo, para que se
    distinga del recuadro verde de hoy y no tape el color de las marcas. */
 .calendario-dia.elegida {
