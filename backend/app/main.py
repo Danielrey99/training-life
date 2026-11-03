@@ -22,13 +22,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# El navegador bloquea las peticiones entre orígenes distintos, y en desarrollo
-# la web (localhost:5173, Vite) y esta API (localhost:8000) lo son. Se nombra el
-# origen en vez de abrir a todos: un "*" dejaría que cualquier página llamara a
-# la API desde el navegador.
-# En producción la web se servirá desde el mismo origen que la API y esto dejará
-# de hacer falta.
-
 
 @app.exception_handler(RequestValidationError)
 async def _json_que_no_se_puede_leer(request: Request, error: RequestValidationError):
@@ -43,6 +36,12 @@ async def _json_que_no_se_puede_leer(request: Request, error: RequestValidationE
     return await request_validation_exception_handler(request, error)
 
 
+# El navegador bloquea las peticiones entre orígenes distintos, y en desarrollo
+# la web (localhost:5173, Vite) y esta API (localhost:8000) lo son. Se nombra el
+# origen en vez de abrir a todos: un "*" dejaría que cualquier página llamara a
+# la API desde el navegador.
+# En producción la web se servirá desde el mismo origen que la API y esto dejará
+# de hacer falta.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
