@@ -47,14 +47,15 @@ function loQueSePierde(aviso: AvisoDeBorrarRutina, oculta: boolean) {
   if (aviso.huecos > 0) {
     cosas.push(aviso.huecos === 1 ? 'su ejercicio' : `sus ${aviso.huecos} ejercicios`)
   }
+  // Las sesiones se borran enteras, no solo sus series (decisión del autor). Los días que
+  // contaban no quedan sin hacer: pasan a descanso, y eso ya lo dice otra frase.
   if (aviso.sesiones > 0) {
-    cosas.push(
-      aviso.sesiones === 1
-        ? 'las series de su sesión'
-        : `las series de sus ${aviso.sesiones} sesiones`,
-    )
+    cosas.push(aviso.sesiones === 1 ? 'su sesión entera' : `sus ${aviso.sesiones} sesiones enteras`)
   }
-  if (cosas.length > 0) frases.push(`Se borrarán también ${enumerar(cosas)}.`)
+  // Una sola cosa y una sola vez: «Se borrará también su ejercicio», no «Se borrarán».
+  const una = aviso.huecos + aviso.sesiones === 1
+  const verbo = una ? 'Se borrará' : 'Se borrarán'
+  if (cosas.length > 0) frases.push(`${verbo} también ${enumerar(cosas)}.`)
   if (aviso.dias_de_programa > 0) {
     frases.push('Los días de tus programas que la tienen pasarán a descanso.')
   }
