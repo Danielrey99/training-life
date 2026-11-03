@@ -67,10 +67,14 @@ export function Sesion() {
   const [elegidos, setElegidos] = useState<Record<number, Ejercicio | null>>({})
   const [aBorrar, setABorrar] = useState<Serie | null>(null)
   // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
-  // se hace un solo ejercicio por sesión y cambiar borra las series que había.
-  const [aCambiar, setACambiar] = useState<{ hueco: HuecoDeRutina; ejercicio: Ejercicio } | null>(
-    null,
-  )
+  // se hace un solo ejercicio por sesión y cambiar borra las series que había. `de` es el
+  // ejercicio de esas series, guardado al preguntar: mientras se borran, el diálogo sigue
+  // abierto y pueden no quedar series de las que sacarlo.
+  const [aCambiar, setACambiar] = useState<{
+    hueco: HuecoDeRutina
+    ejercicio: Ejercicio
+    de: string
+  } | null>(null)
   const [confirmando, setConfirmando] = useState<'terminar' | 'cancelar' | null>(null)
   // Las ediciones van de una en una: una serie o la nota, y mientras tanto el resto se
   // queda en gris (otros lápices, las ✕, los demás huecos, Terminar y Cancelar).
@@ -191,7 +195,7 @@ export function Sesion() {
     if (elegidos[hueco.id]?.id === ejercicio.id) return
     // Sin series no hay nada que perder: se cambia sin preguntar.
     if (deHueco(hueco).length === 0) elegirEjercicio(hueco, ejercicio)
-    else setACambiar({ hueco, ejercicio })
+    else setACambiar({ hueco, ejercicio, de: deHueco(hueco)[0].ejercicio.nombre })
   }
 
   /** Borra las series que había en el hueco, una a una, y pasa al ejercicio elegido. */
@@ -205,9 +209,13 @@ export function Sesion() {
         )
       }
     } catch {
-      // Se vuelve a leer lo que quedó: no se sabe cuántas llegaron a borrarse.
-      setSesion(await api.entrenamiento(activa.id))
-      throw new Error('No se pudieron borrar todas las series. Inténtalo otra vez.')
+      // Se vuelve a leer lo que quedó: no se sabe cuántas llegaron a borrarse. Si no queda
+      // ninguna (falló la respuesta, no el borrado), el cambio ya está hecho.
+      const leida = await api.entrenamiento(activa.id)
+      setSesion(leida)
+      if (leida.series.some((serie) => serie.slot_id === hueco.id)) {
+        throw new Error('No se pudieron borrar todas las series. Inténtalo otra vez.')
+      }
     }
     elegirEjercicio(hueco, ejercicio)
     setACambiar(null)
@@ -352,10 +360,11 @@ export function Sesion() {
           titulo={`¿Cambiar a ${aCambiar.ejercicio.nombre}?`}
           cuerpo={(() => {
             const series = deHueco(aCambiar.hueco)
-            const cuantas = series.length === 1 ? 'la serie' : `las ${series.length} series`
-            return `Se borrarán ${cuantas} de ${series[0].ejercicio.nombre} de ${
-              deOtroDia ? 'este día' : 'hoy'
-            }.`
+            const cuantas =
+              series.length === 1
+                ? 'Se borrará la serie'
+                : `Se borrarán las ${series.length} series`
+            return `${cuantas} de ${aCambiar.de} de ${deOtroDia ? 'este día' : 'hoy'}.`
           })()}
           confirmar="Cambiar"
           peligro

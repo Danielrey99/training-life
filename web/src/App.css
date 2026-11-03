@@ -85,6 +85,18 @@
   border-color: var(--error);
 }
 
+/* Un aviso que deja la pantalla sin nada más (un día sin sesión, un fallo al enseñarla),
+   con el botón para salir debajo. */
+.aviso-y-salida {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.aviso-y-salida .aviso {
+  margin: 0;
+}
+
 .etiqueta {
   align-self: flex-start;
   font-size: 0.78rem;
