@@ -354,6 +354,9 @@ export function Dia() {
   const [ejerciciosNuevos, setEjerciciosNuevos] = useState<Record<number, Ejercicio>>({})
   const [ultimasElegidas, setUltimasElegidas] = useState<Record<number, SesionHistorial | null>>({})
   const [borrandoDia, setBorrandoDia] = useState(false)
+  // Guardar sin ninguna serie borra el día entero, como terminar una sesión sin series, y
+  // pregunta antes (decisión del autor): un día vacío en el historial no dice nada.
+  const [guardandoVacio, setGuardandoVacio] = useState(false)
   const [falloFecha, setFalloFecha] = useState<string | null>(null)
   const [falloGuardar, setFalloGuardar] = useState<string | null>(null)
 
@@ -443,6 +446,14 @@ export function Dia() {
   const mejorados = mejoras.filter((una) => una?.clase === 'mejor').length
   // Con un formulario abierto, el resto se queda en gris: primero se guarda o se cancela.
   const hayAbierta = abierta !== null
+
+  // Lo que pasa con lo que contaba la sesión si se borra el día.
+  const quedaSinHacer =
+    dia.cubre_fecha === dia.fecha
+      ? ', y este día quedará sin hacer'
+      : dia.cubre_fecha
+        ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
+        : ''
 
   let cuenta: string | null = null
   if (dia.cubre_fecha && dia.cubre_fecha !== dia.fecha) {
@@ -646,7 +657,11 @@ export function Dia() {
         <button
           type="button"
           className="dia-cabecera-boton"
-          onClick={() => (editando ? void guardar() : empezarAEditar())}
+          onClick={() => {
+            if (!editando) empezarAEditar()
+            else if (seriesNuevas.length === 0) setGuardandoVacio(true)
+            else void guardar()
+          }}
           disabled={editando && (hayAbierta || guardando)}
         >
           {editando ? 'Guardar' : 'Editar'}
@@ -836,12 +851,7 @@ export function Dia() {
             // El día ya está en la cabecera: solo se nombra el que cuenta si es otro.
             `Se borrarán la sesión y ` +
             `${dia.series.length === 1 ? 'su serie' : `sus ${contar(dia.series.length, 'serie', 'series')}`}` +
-            (dia.cubre_fecha === dia.fecha
-              ? ', y este día quedará sin hacer'
-              : dia.cubre_fecha
-                ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
-                : '') +
-            '.'
+            `${quedaSinHacer}.`
           }
           confirmar="Borrar"
           peligro
@@ -851,6 +861,20 @@ export function Dia() {
             navegar(volver, { replace: true })
           }}
           alCancelar={() => setBorrandoDia(false)}
+        />
+      )}
+
+      {guardandoVacio && (
+        <Dialogo
+          titulo="¿Borrar este día?"
+          cuerpo={`No queda ninguna serie, así que al guardar se borrará la sesión entera${quedaSinHacer}.`}
+          confirmar="Borrar"
+          peligro
+          alConfirmar={async () => {
+            await api.borrarEntrenamiento(dia.id)
+            navegar(volver, { replace: true })
+          }}
+          alCancelar={() => setGuardandoVacio(false)}
         />
       )}
     </div>
