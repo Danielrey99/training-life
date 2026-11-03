@@ -54,12 +54,14 @@ export default function App() {
               hasta el Guardar de la rutina. */}
             <Route path="/programas/rutinas/nueva" element={<RutinaNueva />} />
             <Route path="/programas/rutinas/nueva/ejercicios/:indice" element={<Ejercicio />} />
-            <Route path="/programas/rutinas/:rutinaId" element={<Rutina />} />
+            {/* Con `key`, otra rutina u otro programa (tras duplicar) empieza de cero y no
+              enseña un momento el anterior. */}
+            <Route path="/programas/rutinas/:rutinaId" element={<Rutina key={pathname} />} />
             <Route
               path="/programas/rutinas/:rutinaId/ejercicios/:huecoId"
               element={<Ejercicio />}
             />
-            <Route path="/programas/:programaId" element={<Semana />} />
+            <Route path="/programas/:programaId" element={<Semana key={pathname} />} />
             <Route path="/ajustes" element={<Ajustes />} />
             <Route path="/ejercicios" element={<Biblioteca />} />
             {/* "nuevo" antes que el id, o se leería como uno. */}
