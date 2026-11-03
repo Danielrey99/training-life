@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
+import { textoDelFallo } from '../api/cliente'
 import './Dialogo.css'
 
 type Comunes = {
@@ -84,7 +85,7 @@ export function Dialogo({
     try {
       await accion?.()
     } catch (error) {
-      setFallo((error as Error).message)
+      setFallo(textoDelFallo(error))
       setEnCurso(false)
     }
   }

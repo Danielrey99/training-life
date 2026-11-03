@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 
+import { textoDelFallo } from '../api/cliente'
 import { Dialogo } from './Dialogo'
 import { Icono } from './Icono'
 
@@ -67,7 +68,7 @@ export function NotaDeSesion({
       await alGuardar(texto.trim() === '' ? null : texto.trim())
       alCerrar()
     } catch (error) {
-      setFallo((error as Error).message)
+      setFallo(textoDelFallo(error))
     } finally {
       setGuardando(false)
     }

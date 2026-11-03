@@ -9,6 +9,7 @@ import type {
   Resumen as DatosResumen,
 } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
   diaYMes,
@@ -134,7 +135,7 @@ export function Resumen() {
 
   const [datos, setDatos] = useState<DatosResumen | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   useEffect(() => {
     let vigente = true
@@ -145,7 +146,7 @@ export function Resumen() {
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       })
       .catch((fallo: Error) => {
-        if (vigente) setError(fallo.message)
+        if (vigente) setError(fallo)
       })
     return () => {
       vigente = false
@@ -215,7 +216,7 @@ export function Resumen() {
       <div className="resumen">
         {cabecera}
         {selectorDeMes}
-        <p className="aviso error">{error}</p>
+        <FalloAlCargar fallo={error} />
       </div>
     )
   }

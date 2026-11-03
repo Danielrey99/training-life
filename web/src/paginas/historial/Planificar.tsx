@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { DiaSeguimiento, Hoy, Programa, RutinaDeHoy } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia, colorDeRutina, SIN_DIA } from '../../utiles/colores'
 import {
   conArticulo,
@@ -74,7 +75,7 @@ export function Planificar() {
   const [resumen, setResumen] = useState<Hoy | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
   const [dias, setDias] = useState<DiaSeguimiento[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [abierto, setAbierto] = useState<DiaSeguimiento | null>(null)
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
   const cargandoMas = useRef(false)
@@ -95,7 +96,7 @@ export function Planificar() {
         setPrograma(programas.find((uno) => uno.activo) ?? null)
         setDias(lista)
       } catch (fallo) {
-        if (vigente) setError((fallo as Error).message)
+        if (vigente) setError(fallo)
       }
     }
     void cargar()
@@ -120,14 +121,14 @@ export function Planificar() {
       const mas = await leerDias(sumarDias(ultimo, 1), sumarDias(ultimo, 7 * SEMANAS_POR_TANDA))
       setDias((antes) => [...antes, ...mas])
     } catch (fallo) {
-      setError((fallo as Error).message)
+      setError(fallo)
     } finally {
       cargandoMas.current = false
       setCargando(false)
     }
   }, [ultimo])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!resumen) return <p className="aviso">Cargando…</p>
 
   const hoy = resumen.fecha
@@ -427,7 +428,7 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           cuerpo: porQueNoSePuede(dia.rutina.nombre, dia.fecha, dia.cubierto_por.fecha),
         })
       } else {
-        setFallo((error as Error).message)
+        setFallo(textoDelFallo(error))
       }
     }
   }

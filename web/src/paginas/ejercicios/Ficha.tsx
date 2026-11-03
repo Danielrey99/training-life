@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { api } from '../../api/cliente'
+import { api, textoDelFallo } from '../../api/cliente'
 import type {
   AvisoDeBorrarEjercicio,
   Ejercicio,
@@ -14,6 +14,7 @@ import type {
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
@@ -133,7 +134,7 @@ export function Ficha() {
   const [busqueda, setBusqueda] = useSearchParams()
   const verOcultos = busqueda.get('ver') === 'ocultos'
   const [datos, setDatos] = useState<Datos | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [fallo, setFallo] = useState<string | null>(null)
   const [pregunta, setPregunta] = useState<Pregunta>(null)
   const [aviso, setAviso] = useState<AvisoDeBorrarEjercicio | null>(null)
@@ -160,7 +161,7 @@ export function Ficha() {
         if (vigente) setDatos(leidos)
       })
       .catch((problema: Error) => {
-        if (vigente) setError(problema.message)
+        if (vigente) setError(problema)
       })
     return () => {
       vigente = false
@@ -180,7 +181,7 @@ export function Ficha() {
     setBusqueda(siguiente, { replace: true })
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { ejercicio, notas, usos } = datos
@@ -201,7 +202,7 @@ export function Ficha() {
       setAviso(await api.avisoDeBorrarEjercicio(id))
       setPregunta('borrar')
     } catch (problema) {
-      setFallo((problema as Error).message)
+      setFallo(textoDelFallo(problema))
     }
   }
 
@@ -522,7 +523,7 @@ function FormularioDeNota({
     try {
       await alGuardar(texto.trim())
     } catch (problema) {
-      setFallo((problema as Error).message)
+      setFallo(textoDelFallo(problema))
       setGuardando(false)
     }
   }

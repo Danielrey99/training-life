@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 
+import { textoDelFallo } from '../../api/cliente'
 import type { TipoRegistro } from '../../api/tipos'
 import { CampoDeDuracion } from '../../componentes/CampoDeDuracion'
 import { Icono } from '../../componentes/Icono'
@@ -254,7 +255,7 @@ export function FormularioDeSerie({
         variante: variante.trim() === '' ? null : variante.trim(),
       })
     } catch (error) {
-      setFallo((error as Error).message)
+      setFallo(textoDelFallo(error))
     } finally {
       setGuardando(false)
     }

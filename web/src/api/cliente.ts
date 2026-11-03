@@ -95,6 +95,15 @@ const FALLO_DEL_SERVIDOR = 'Algo ha fallado en el servidor. Inténtalo de nuevo.
 const DATO_NO_VALIDO = 'Algún dato no es válido. Revísalo e inténtalo de nuevo.'
 
 /**
+ * Lo que se enseña de un fallo cualquiera. Los de la API ya traen una frase para quien
+ * usa la app; los demás son fallos de la propia web, en inglés y técnicos («Cannot read
+ * properties of undefined»), y no le dicen nada.
+ */
+export function textoDelFallo(fallo: unknown): string {
+  return fallo instanceof ErrorDeApi ? fallo.message : 'Algo ha fallado. Inténtalo de nuevo.'
+}
+
+/**
  * Falla con un `ErrorDeApi` en vez de dejar que la pantalla se encuentre un
  * JSON inesperado: `fetch` solo lanza si la red se cae, no si la API responde
  * 404 o 500. En los dos casos el mensaje es una frase para quien usa la app

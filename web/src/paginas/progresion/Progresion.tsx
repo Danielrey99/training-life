@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { diaYMesConAnio, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
@@ -49,7 +50,7 @@ export function Progresion() {
   const [ejercicio, setEjercicio] = useState<Ejercicio | null>(null)
   // De la más reciente a la más antigua, como las da la API.
   const [sesiones, setSesiones] = useState<SesionHistorial[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [elegido, setElegido] = useState<number | null>(null)
   const [todas, setTodas] = useState(false)
 
@@ -62,7 +63,7 @@ export function Progresion() {
         setEjercicio(datosEjercicio)
         setSesiones(historial)
       })
-      .catch((fallo: Error) => setError(fallo.message))
+      .catch((fallo: Error) => setError(fallo))
   }, [ejercicioId])
 
   function cambiar(clave: string, valor: string) {
@@ -78,7 +79,7 @@ export function Progresion() {
     setTodas(false)
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!ejercicio || !sesiones) return <p className="aviso">Cargando…</p>
 
   const rango = rangoElegido ?? rangoPorDefecto(sesiones)

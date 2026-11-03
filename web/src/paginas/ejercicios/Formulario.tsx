@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { GrupoMuscular, TipoRegistro } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { useVolver } from '../../utiles/volver'
 import { TIPOS } from './tiposDeRegistro'
 import '../historial/historial.css'
@@ -32,7 +33,7 @@ export function Formulario() {
   const [grupo, setGrupo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [tipo, setTipo] = useState<TipoRegistro>('peso_reps')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [falta, setFalta] = useState<Falta>({})
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -56,7 +57,7 @@ export function Formulario() {
         setGrupos(todos.sort((uno, otro) => uno.nombre.localeCompare(otro.nombre, 'es')))
       })
       .catch((problema: Error) => {
-        if (vigente) setError(problema.message)
+        if (vigente) setError(problema)
       })
     return () => {
       vigente = false
@@ -98,13 +99,13 @@ export function Formulario() {
       if (problema instanceof ErrorDeApi && problema.estado === 409) {
         setFalta({ nombre: problema.message })
       } else {
-        setFallo((problema as Error).message)
+        setFallo(textoDelFallo(problema))
       }
       setGuardando(false)
     }
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!grupos) return <p className="aviso">Cargando…</p>
 
   return (

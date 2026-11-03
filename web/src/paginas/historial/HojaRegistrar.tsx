@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { Hoy, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia } from '../../utiles/colores'
 import {
   conArticulo,
@@ -50,7 +51,7 @@ function contarEjercicios(cuantos: number) {
 export function HojaRegistrar({ fecha, alCerrar }: Props) {
   const navegar = useNavigate()
   const [resumen, setResumen] = useState<Hoy | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [eleccion, setEleccion] = useState<Eleccion | null>(null)
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
     api
       .hoy(fecha)
       .then((leido) => vigente && setResumen(leido))
-      .catch((fallo: Error) => vigente && setError(fallo.message))
+      .catch((fallo: Error) => vigente && setError(fallo))
     return () => {
       vigente = false
     }
@@ -174,7 +175,7 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
           Elige qué rutina hiciste para apuntarlo ahora.
         </p>
 
-        {error && <p className="aviso error">{error}</p>}
+        {error ? <FalloAlCargar fallo={error} /> : null}
         {!resumen && !error && <p className="hoja-subtitulo">Cargando…</p>}
 
         {resumen?.situacion === 'primera_vez' && (

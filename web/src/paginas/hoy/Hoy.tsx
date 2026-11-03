@@ -13,6 +13,7 @@ import type {
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { MarcaDelDia } from '../../componentes/MarcaDelDia'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { conArticulo, fechaEnFrase, fechaLarga, nombreDelDia, sumarDias } from '../../utiles/fechas'
 import '../sesion/sesion.css'
 import './hoy.css'
@@ -62,7 +63,7 @@ export function Hoy() {
   const [programa, setPrograma] = useState<Programa | null>(null)
   const [enCurso, setEnCurso] = useState<Entrenamiento | null>(null)
   const [sinTerminar, setSinTerminar] = useState<Entrenamiento[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [confirmando, setConfirmando] = useState<Confirmacion | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   // Cada vez que cambia, se vuelve a leer todo (al volver a la pestaña o si ha cambiado el día).
@@ -86,8 +87,9 @@ export function Hoy() {
         setPrograma(programas.find((uno) => uno.activo) ?? null)
         setEnCurso(abierta)
         setSinTerminar(aMedias)
+        setError(null)
       } catch (fallo) {
-        if (vigente) setError((fallo as Error).message)
+        if (vigente) setError(fallo)
       }
     }
     void cargar()
@@ -106,7 +108,7 @@ export function Hoy() {
     return () => document.removeEventListener('visibilitychange', alVolver)
   }, [])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!resumen) return <p className="aviso">Cargando…</p>
 
   const hoy = resumen.fecha

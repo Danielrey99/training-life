@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { ComprobacionDeImportar, ResumenDeDatos } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -70,7 +70,7 @@ export function Ajustes() {
       const errores = error.message === 'El archivo está dañado.' ? [] : (detalle?.errores ?? [])
       setFallo({ mensaje: error.message, errores })
     } else {
-      setFallo({ mensaje: (error as Error).message, errores: [] })
+      setFallo({ mensaje: textoDelFallo(error), errores: [] })
     }
   }
 

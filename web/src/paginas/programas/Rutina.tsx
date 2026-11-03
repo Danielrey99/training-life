@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, textoDelFallo } from '../../api/cliente'
 import type { AvisoDeBorrarRutina, HuecoDeRutina, Rutina as DatosRutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { diaYMesConAnio } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -91,7 +92,7 @@ export function Rutina() {
   const verOcultos = busqueda.get('ver') === 'ocultos'
 
   const [rutina, setRutina] = useState<DatosRutina | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [orden, setOrden] = useState<HuecoDeRutina[]>([])
@@ -110,11 +111,7 @@ export function Rutina() {
       })
       .catch((fallo: Error) => {
         if (!vigente) return
-        setError(
-          fallo instanceof ErrorDeApi && fallo.estado === 404
-            ? 'Esa rutina no existe.'
-            : fallo.message,
-        )
+        setError(fallo)
       })
     return () => {
       vigente = false
@@ -125,7 +122,7 @@ export function Rutina() {
     setRutina(await api.rutina(id))
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} siNoExiste="Esa rutina no existe." />
   if (!rutina) return <p className="aviso">Cargando…</p>
 
   const oculta = rutina.oculto_desde !== null
@@ -165,7 +162,7 @@ export function Rutina() {
     try {
       if (limpio !== rutina!.nombre) await api.actualizarRutina(id, limpio)
     } catch (fallo) {
-      setFalloNombre((fallo as Error).message)
+      setFalloNombre(textoDelFallo(fallo))
       setGuardando(false)
       return
     }
@@ -173,9 +170,9 @@ export function Rutina() {
       const nuevo = orden.map((hueco) => hueco.id)
       if (nuevo.some((huecoId, i) => huecoId !== visibles[i].id)) await api.ordenarHuecos(id, nuevo)
     } catch (fallo) {
-      setFallo(`No se pudo guardar el orden. ${(fallo as Error).message}`)
+      setFallo(`No se pudo guardar el orden. ${textoDelFallo(fallo)}`)
     }
-    await cargar().catch((fallo: Error) => setFallo(fallo.message))
+    await cargar().catch((fallo: Error) => setFallo(textoDelFallo(fallo)))
     setEditando(false)
     setGuardando(false)
   }
@@ -186,7 +183,7 @@ export function Rutina() {
       setAviso(await api.avisoDeBorrarRutina(id))
       setPregunta('borrar')
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
     }
   }
 
@@ -197,7 +194,7 @@ export function Rutina() {
       const copia = await api.duplicarRutina(id)
       navegar(`/programas/rutinas/${copia.id}`)
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
     } finally {
       setGuardando(false)
     }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type {
   AvisoDeBorrarHueco,
   Ejercicio as DatosEjercicio,
@@ -11,6 +11,7 @@ import type {
 } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { diaYMesConAnio } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -146,7 +147,7 @@ export function Ejercicio() {
 
   const [datos, setDatos] = useState<Datos | null>(null)
   const [formulario, setFormulario] = useState<Formulario>(vacio)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [hoja, setHoja] = useState<'principal' | 'alternativa' | null>(null)
   const [pregunta, setPregunta] = useState<Pregunta | null>(null)
   const [aviso, setAviso] = useState<AvisoDeBorrarHueco | null>(null)
@@ -177,11 +178,7 @@ export function Ejercicio() {
       })
       .catch((fallo: Error) => {
         if (!vigente) return
-        setError(
-          fallo instanceof ErrorDeApi && fallo.estado === 404
-            ? 'Ese ejercicio no existe.'
-            : fallo.message,
-        )
+        setError(fallo)
       })
     return () => {
       vigente = false
@@ -190,7 +187,7 @@ export function Ejercicio() {
 
   const cerrarHoja = useCallback(() => setHoja(null), [])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} siNoExiste="Ese ejercicio no existe." />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { origen, ejercicios, grupos } = datos
@@ -299,7 +296,7 @@ export function Ejercicio() {
         })
       volver(padre)
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }
   }
@@ -311,7 +308,7 @@ export function Ejercicio() {
       setAviso(await api.avisoDeBorrarHueco(origen.rutina.id, origen.hueco.id))
       setPregunta('borrar')
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
     }
   }
 

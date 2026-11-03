@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { api } from '../../api/cliente'
+import { api, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
@@ -126,7 +126,7 @@ export function RutinaNueva() {
         navegar(`/programas/rutinas/${rutina.id}`, { replace: true })
       }
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }
   }

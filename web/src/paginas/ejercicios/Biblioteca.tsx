@@ -5,6 +5,7 @@ import { api } from '../../api/cliente'
 import type { Ejercicio, GrupoMuscular } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { diaYMesConAnio } from '../../utiles/fechas'
 import '../programas/ejercicio.css'
 import '../programas/programas.css'
@@ -46,7 +47,7 @@ function delOrigen(ejercicio: Ejercicio, origen: Origen) {
  */
 export function Biblioteca() {
   const [datos, setDatos] = useState<Datos | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [busqueda, setBusqueda] = useSearchParams()
 
   const texto = busqueda.get('q') ?? ''
@@ -63,7 +64,7 @@ export function Biblioteca() {
         if (vigente) setDatos({ visibles, ocultos, grupos })
       })
       .catch((fallo: Error) => {
-        if (vigente) setError(fallo.message)
+        if (vigente) setError(fallo)
       })
     return () => {
       vigente = false
@@ -79,7 +80,7 @@ export function Biblioteca() {
     setBusqueda(siguiente, { replace: true })
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const nombreDeGrupo = new Map(datos.grupos.map((uno) => [uno.id, uno.nombre]))

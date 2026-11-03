@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type {
   Ejercicio,
   Entrenamiento,
@@ -13,6 +13,7 @@ import type {
 import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import {
   diaDeLaSemana,
   fechaCompleta,
@@ -334,7 +335,7 @@ export function Dia() {
   const [bloques, setBloques] = useState<Bloque[]>([])
   // La sesión anterior de la misma rutina con volumen, para su cambio; nula si no hay.
   const [anterior, setAnterior] = useState<Entrenamiento | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [editando, setEditando] = useState(false)
   const [abierta, setAbierta] = useState<Abierta | null>(null)
   // El borrador del modo editar: nada llega a la API hasta pulsar Guardar. Las series
@@ -394,7 +395,7 @@ export function Dia() {
         setBloques(suyos)
         setAnterior(previas.find((otra) => volumenDe(otra.series) > 0) ?? null)
       } catch (fallo) {
-        if (vigente) setError((fallo as Error).message)
+        if (vigente) setError(fallo)
       }
     }
     void cargar()
@@ -403,7 +404,7 @@ export function Dia() {
     }
   }, [fecha, version])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (sesion === undefined) return <p className="aviso">Cargando…</p>
   if (sesion === null) {
     return (
@@ -537,7 +538,7 @@ export function Dia() {
       }
     } catch (fallo) {
       // Lo que ya se envió queda guardado: se vuelve a leer el día para enseñar cómo quedó.
-      setFalloGuardar(`No se pudo guardar todo. ${(fallo as Error).message}`)
+      setFalloGuardar(`No se pudo guardar todo. ${textoDelFallo(fallo)}`)
     }
     setGuardando(false)
     setEditando(false)
@@ -565,7 +566,7 @@ export function Dia() {
       const hacia = nueva > contado ? 'hasta' : 'desde'
       return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, así que solo puede ir ${hacia} el ${fechaEnFrase(limite, false)}.`
     }
-    return (fallo as Error).message
+    return textoDelFallo(fallo)
   }
 
   function cambiarSerie(serie: Serie, datos: DatosDeSerie) {

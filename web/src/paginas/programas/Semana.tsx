@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia } from '../../utiles/colores'
 import { diaYMesConAnio, fechaEnFrase, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
@@ -97,7 +98,7 @@ export function Semana() {
   const volver = useVolver()
 
   const [datos, setDatos] = useState<Datos | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [dias, setDias] = useState<DiasDelBorrador | null>(null)
@@ -127,11 +128,7 @@ export function Semana() {
       })
       .catch((fallo: Error) => {
         if (!vigente) return
-        setError(
-          fallo instanceof ErrorDeApi && fallo.estado === 404
-            ? 'Ese programa no existe.'
-            : fallo.message,
-        )
+        setError(fallo)
       })
     return () => {
       vigente = false
@@ -145,7 +142,7 @@ export function Semana() {
 
   const cerrarHoja = useCallback(() => setHojaDe(null), [])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} siNoExiste="Ese programa no existe." />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { programa, activo, rutinas } = datos
@@ -199,7 +196,7 @@ export function Semana() {
     try {
       if (limpio !== programa.nombre) await api.actualizarPrograma(id, limpio)
     } catch (fallo) {
-      setFalloNombre((fallo as Error).message)
+      setFalloNombre(textoDelFallo(fallo))
       setGuardando(false)
       return
     }
@@ -212,9 +209,9 @@ export function Semana() {
         else await api.quitarRutinaDeDia(id, dia)
       }
     } catch (fallo) {
-      setFallo(`No se pudo guardar todo. ${(fallo as Error).message}`)
+      setFallo(`No se pudo guardar todo. ${textoDelFallo(fallo)}`)
     }
-    await cargar().catch((fallo: Error) => setFallo(fallo.message))
+    await cargar().catch((fallo: Error) => setFallo(textoDelFallo(fallo)))
     setEditando(false)
     setGuardando(false)
   }

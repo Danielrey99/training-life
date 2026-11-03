@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/cliente'
 import type { DiaSemana, DiaSeguimiento, Programa } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia, SIN_DIA } from '../../utiles/colores'
 import {
   diaYMes,
@@ -60,7 +61,7 @@ export function Calendario() {
     series: number
   } | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [leyenda, setLeyenda] = useState(false)
   const [registrando, setRegistrando] = useState<string | null>(null)
 
@@ -83,7 +84,7 @@ export function Calendario() {
         })
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       } catch (fallo) {
-        if (vigente) setError((fallo as Error).message)
+        if (vigente) setError(fallo)
       }
     }
     void cargar()
@@ -108,7 +109,7 @@ export function Calendario() {
     else if (dia.fecha < hoy) setRegistrando(dia.fecha)
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
 
   const dias = cargado?.mes === mes ? cargado.dias : null
   const series = cargado?.series ?? 0

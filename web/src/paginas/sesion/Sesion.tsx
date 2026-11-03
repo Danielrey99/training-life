@@ -7,6 +7,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Ocultos } from '../../componentes/Ocultos'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { fechaCompleta, fechaTitulo, hoy } from '../../utiles/fechas'
 import { serieLarga } from '../../utiles/medidas'
 import { seriesObjetivoDe } from '../programas/textos'
@@ -61,7 +62,7 @@ export function Sesion() {
 
   const [sesion, setSesion] = useState<Entrenamiento | null>(null)
   const [rutina, setRutina] = useState<Rutina | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   const [abierto, setAbierto] = useState<number | null>(null)
   const [elegidos, setElegidos] = useState<Record<number, Ejercicio | null>>({})
@@ -115,7 +116,7 @@ export function Sesion() {
         // Una sesión que ya no existe (se canceló, o la URL viene mal copiada) no
         // puede dejar la pantalla en blanco: se vuelve a la salida.
         if (fallo instanceof ErrorDeApi && fallo.estado === 404) navegar(SALIDA, { replace: true })
-        else setError((fallo as Error).message)
+        else setError(fallo)
       }
     }
     void cargar()
@@ -124,7 +125,7 @@ export function Sesion() {
     }
   }, [entrenamientoId, navegar])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!sesion || !rutina) return <p className="aviso">Cargando…</p>
 
   const activa = sesion

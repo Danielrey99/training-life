@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { api } from '../../api/cliente'
+import { api, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { fechaEnFrase, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -48,7 +49,7 @@ export function ProgramaNuevo() {
   const [borrador, setBorrador] = useState<BorradorDePrograma | null>(() =>
     empezar ? null : leerBorrador<BorradorDePrograma>(PROGRAMA_NUEVO),
   )
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [hojaDe, setHojaDe] = useState<DiaSemana | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -69,7 +70,7 @@ export function ProgramaNuevo() {
         setBorrador((antes) => antes ?? { nombre: '', activar: false, dias: sinDias() })
       })
       .catch((fallo: Error) => {
-        if (vigente) setError(fallo.message)
+        if (vigente) setError(fallo)
       })
     return () => {
       vigente = false
@@ -88,7 +89,7 @@ export function ProgramaNuevo() {
 
   const cerrarHoja = useCallback(() => setHojaDe(null), [])
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!datos || !borrador) return <p className="aviso">Cargando…</p>
 
   const { activo, rutinas } = datos
@@ -147,7 +148,7 @@ export function ProgramaNuevo() {
       tirarBorrador(PROGRAMA_NUEVO)
       navegar(`/programas/${programa.id}`, { replace: true })
     } catch (fallo) {
-      setFallo((fallo as Error).message)
+      setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }
   }

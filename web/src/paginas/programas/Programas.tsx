@@ -5,6 +5,7 @@ import { api } from '../../api/cliente'
 import type { Programa, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
 import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from './textos'
 import './programas.css'
@@ -56,7 +57,7 @@ function enProgramas(rutina: Rutina) {
  */
 export function Programas() {
   const [datos, setDatos] = useState<Datos | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [busqueda, setBusqueda] = useSearchParams()
   const abiertos = busqueda.getAll('ver')
 
@@ -72,7 +73,7 @@ export function Programas() {
         if (vigente) setDatos({ programas, programasOcultos, rutinas, rutinasOcultas })
       })
       .catch((fallo: Error) => {
-        if (vigente) setError(fallo.message)
+        if (vigente) setError(fallo)
       })
     return () => {
       vigente = false
@@ -90,7 +91,7 @@ export function Programas() {
     setBusqueda(siguiente, { replace: true })
   }
 
-  if (error) return <p className="aviso error">{error}</p>
+  if (error) return <FalloAlCargar fallo={error} />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   // El activo primero; el resto, por nombre (ya vienen así de la API).

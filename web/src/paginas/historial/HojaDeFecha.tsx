@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/cliente'
 import type { DiaSeguimiento, Programa } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
+import { FalloAlCargar } from '../../componentes/Proteccion'
 import { finDeMes, hoy, inicioDeMes, sumarMeses, tituloDeMes } from '../../utiles/fechas'
 import { MesConMarcas } from './MesConMarcas'
 
@@ -26,7 +27,7 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
   const [mes, setMes] = useState(inicioDeMes(fecha))
   const [cargado, setCargado] = useState<{ mes: string; dias: DiaSeguimiento[] } | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   useEffect(() => {
     function alPulsarTecla(evento: KeyboardEvent) {
@@ -44,7 +45,7 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
         setCargado({ mes, dias })
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       })
-      .catch((fallo: Error) => vigente && setError(fallo.message))
+      .catch((fallo: Error) => vigente && setError(fallo))
     return () => {
       vigente = false
     }
@@ -81,7 +82,7 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
           </button>
         </div>
         {error ? (
-          <p className="aviso error">{error}</p>
+          <FalloAlCargar fallo={error} />
         ) : (
           <MesConMarcas
             mes={mes}
