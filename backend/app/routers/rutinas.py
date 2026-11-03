@@ -183,7 +183,8 @@ def listar_rutinas(
             ),
             selectinload(Rutina.dias_de_programa).selectinload(ProgramaDia.programa),
         )
-        .order_by(Rutina.nombre)
+        # Con el id detrás: dos con el mismo nombre salen siempre en el mismo orden.
+        .order_by(Rutina.nombre, Rutina.id)
     )
     return db.scalars(stmt).all()
 

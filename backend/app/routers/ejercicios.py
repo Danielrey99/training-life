@@ -22,6 +22,7 @@ from app.models import (
     Serie,
     SlotAlternativa,
 )
+from app.nombres import clave_de_nombre
 from app.schemas import (
     AvisoDeBorrarEjercicioOut,
     EjercicioCreate,
@@ -47,6 +48,43 @@ def _validar_grupo_muscular(db: Session, grupo_muscular_id: int) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ese grupo muscular no existe.",
         )
+
+
+def _validar_nombre_libre(db: Session, nombre: str) -> None:
+    """Un ejercicio nuevo o renombrado no puede llamarse como otro, sin distinguir
+    mayúsculas, tildes ni espacios (decisión del autor): crear tu propio «Press banca»
+    sin saber que la app ya lo trae repartiría tu progreso entre dos.
+
+    La base no lo impide, a propósito: si una versión nueva trae un predefinido que se
+    llama como uno propio, conviven los dos y no hay que renombrar nada.
+    """
+    clave = clave_de_nombre(nombre)
+    iguales = [
+        (otro_nombre, es_predefinido, oculto_desde)
+        for otro_nombre, es_predefinido, oculto_desde in db.execute(
+            select(Ejercicio.nombre, Ejercicio.es_predefinido, Ejercicio.oculto_desde)
+        )
+        if clave_de_nombre(otro_nombre) == clave
+    ]
+    if not iguales:
+        return
+    # Si conviven varios con ese nombre, se nombra el que más ayuda a encontrarlo.
+    otro_nombre, es_predefinido, oculto_desde = min(
+        iguales, key=lambda igual: (not igual[1], igual[2] is not None)
+    )
+    if es_predefinido:
+        detalle = (
+            f"Ya hay un ejercicio predefinido que se llama «{otro_nombre}». "
+            "Búscalo en la pestaña Ejercicios o elige otro nombre."
+        )
+    elif oculto_desde is None:
+        detalle = f"Ya tienes un ejercicio que se llama «{otro_nombre}». Elige otro nombre."
+    else:
+        detalle = (
+            f"Ya tienes un ejercicio oculto que se llama «{otro_nombre}». "
+            "Muéstralo desde la pestaña Ejercicios o elige otro nombre."
+        )
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
 
 
 def obtener_ejercicio_legible(db: Session, ejercicio_id: int) -> Ejercicio:
@@ -204,7 +242,9 @@ def listar_ejercicios(
         stmt = select(Ejercicio).where(Ejercicio.oculto_desde.is_not(None))
     else:
         stmt = select(Ejercicio).where(Ejercicio.oculto_desde.is_(None))
-    return db.scalars(stmt.order_by(Ejercicio.nombre)).all()
+    # Con el id detrás: dos que se llamen igual (un propio y un predefinido que llegó
+    # después) salen siempre en el mismo orden.
+    return db.scalars(stmt.order_by(Ejercicio.nombre, Ejercicio.id)).all()
 
 
 @router.get("/{ejercicio_id}", response_model=EjercicioOut)
@@ -287,6 +327,7 @@ def crear_ejercicio(
     través de este endpoint).
     """
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
+    _validar_nombre_libre(db, datos.nombre)
     ejercicio = Ejercicio(**datos.model_dump())
     db.add(ejercicio)
     db.commit()
@@ -311,6 +352,10 @@ def actualizar_ejercicio(
         )
     exigir_visible(ejercicio, "Este ejercicio está oculto. Muéstralo antes de editarlo.")
     _validar_grupo_muscular(db, datos.grupo_muscular_id)
+    # Solo se valida lo que cambia: uno propio que ya se llama como un predefinido que
+    # llegó después se puede seguir editando, y cambiar solo mayúsculas o tildes vale.
+    if clave_de_nombre(datos.nombre) != clave_de_nombre(ejercicio.nombre):
+        _validar_nombre_libre(db, datos.nombre)
     for campo, valor in datos.model_dump().items():
         setattr(ejercicio, campo, valor)
     db.commit()

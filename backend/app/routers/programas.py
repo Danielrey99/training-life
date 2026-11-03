@@ -115,7 +115,8 @@ def listar_programas(
             selectinload(Programa.filas_dias).selectinload(ProgramaDia.rutina),
         )
     )
-    return db.scalars(stmt.order_by(Programa.nombre)).all()
+    # Con el id detrás: dos con el mismo nombre salen siempre en el mismo orden.
+    return db.scalars(stmt.order_by(Programa.nombre, Programa.id)).all()
 
 
 @router.get("/{programa_id}", response_model=ProgramaOut)

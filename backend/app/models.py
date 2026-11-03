@@ -56,8 +56,10 @@ class Ejercicio(Ocultable, Base):
     """Un ejercicio de la biblioteca (ej. 'Press banca', 'Sentadilla').
 
     Biblioteca combinada: ejercicios predefinidos (es_predefinido=True) +
-    ejercicios propios, en la misma tabla. Sin unicidad de `nombre`: uno propio
-    puede llamarse como un predefinido.
+    ejercicios propios, en la misma tabla. Sin unicidad de `nombre` en la base: la
+    API no deja crear ni renombrar un ejercicio con el nombre de otro
+    (`app/nombres.py`), pero pueden convivir dos iguales: uno propio y un predefinido
+    que llegó después, o los que trae un archivo importado.
 
     Es la tabla base de la que dependen las rutinas/plantillas (qué
     ejercicios incluyen, ver Rutina/RutinaSlot) y de la que dependerán más

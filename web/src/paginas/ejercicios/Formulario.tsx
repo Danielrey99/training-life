@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { api } from '../../api/cliente'
+import { api, ErrorDeApi } from '../../api/cliente'
 import type { GrupoMuscular, TipoRegistro } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
@@ -94,7 +94,12 @@ export function Formulario() {
         volver(padre)
       }
     } catch (problema) {
-      setFallo((problema as Error).message)
+      // El nombre de otro ejercicio (409): bajo su campo, que es lo que hay que cambiar.
+      if (problema instanceof ErrorDeApi && problema.estado === 409) {
+        setFalta({ nombre: problema.message })
+      } else {
+        setFallo((problema as Error).message)
+      }
       setGuardando(false)
     }
   }
@@ -131,6 +136,7 @@ export function Formulario() {
           value={nombre}
           maxLength={100}
           placeholder="Ej. Jalón en polea"
+          aria-invalid={Boolean(falta.nombre)}
           onChange={(evento) => {
             setNombre(evento.target.value)
             setFalta((antes) => ({ ...antes, nombre: undefined }))

@@ -523,6 +523,12 @@
   font-size: 15px;
 }
 
+/* El campo que no vale (el nombre de otro ejercicio, la fecha ocupada): el borde rojo dice
+   cuál es. */
+.campo-texto[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
 .fallo {
   margin: 0;
   font-size: 14px;
