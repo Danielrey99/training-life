@@ -100,11 +100,13 @@ function loQueSePierde(aviso: AvisoDeBorrarEjercicio, oculto: boolean) {
       ? null
       : `se quitará de ${rutinas === 1 ? 'la rutina' : 'las rutinas'} donde se usa${conAlternativas}`
 
+  // Solo una nota: «Se borrará también tu nota», no «Se borrarán».
+  const verbo = seBorra.length === 1 && seBorra[0] === 'tu nota' ? 'Se borrará' : 'Se borrarán'
   const frases: string[] = []
   if (seBorra.length > 0 && deLasRutinas) {
-    frases.push(`Se borrarán también ${enumerar(seBorra)}, y ${deLasRutinas}.`)
+    frases.push(`${verbo} también ${enumerar(seBorra)}, y ${deLasRutinas}.`)
   } else if (seBorra.length > 0) {
-    frases.push(`Se borrarán también ${enumerar(seBorra)}.`)
+    frases.push(`${verbo} también ${enumerar(seBorra)}.`)
   } else if (deLasRutinas) {
     frases.push(`${deLasRutinas[0].toUpperCase()}${deLasRutinas.slice(1)}.`)
   }

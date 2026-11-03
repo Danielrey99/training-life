@@ -623,7 +623,8 @@ const CAMBIARLO =
 function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
   if (aviso.series === 0) return undefined
   const series = aviso.series === 1 ? 'su serie' : `sus ${aviso.series} series`
-  const desde = aviso.desde ? `, apuntadas desde el ${diaYMesConAnio(aviso.desde)}` : ''
+  const apuntadas = aviso.series === 1 ? 'apuntada' : 'apuntadas'
+  const desde = aviso.desde ? `, ${apuntadas} desde el ${diaYMesConAnio(aviso.desde)}` : ''
   const vacias = aviso.sesiones_que_se_vacian.length
   const sesiones =
     vacias === 0
@@ -635,5 +636,7 @@ function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
   const salida = oculto
     ? ''
     : ` Si solo quieres que deje de salir, ocúltalo en esta rutina y su historial se conservará. ${CAMBIARLO}`
-  return `Se borrarán también ${series}${desde}${sesiones}.${salida}`
+  // Una sola serie y nada más: «Se borrará», no «Se borrarán».
+  const verbo = aviso.series === 1 && vacias === 0 ? 'Se borrará' : 'Se borrarán'
+  return `${verbo} también ${series}${desde}${sesiones}.${salida}`
 }

@@ -835,10 +835,10 @@ export function Dia() {
       {aCambiar && (
         <Dialogo
           titulo={`¿Cambiar a ${aCambiar.ejercicio.nombre}?`}
-          cuerpo={`Se borrarán ${
+          cuerpo={`${
             aCambiar.bloque.series.length === 1
-              ? 'la serie'
-              : `las ${aCambiar.bloque.series.length} series`
+              ? 'Se borrará la serie'
+              : `Se borrarán las ${aCambiar.bloque.series.length} series`
           } de ${aCambiar.bloque.ejercicio.nombre} de este día al guardar.`}
           confirmar="Cambiar"
           peligro

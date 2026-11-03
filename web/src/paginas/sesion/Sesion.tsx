@@ -410,8 +410,10 @@ export function Sesion() {
           cuerpo={
             activa.series.length === 0
               ? 'Se borrará la sesión, como si no la hubieras empezado.'
-              : `Se borrarán ${
-                  activa.series.length === 1 ? 'la serie' : `las ${activa.series.length} series`
+              : `${
+                  activa.series.length === 1
+                    ? 'Se borrará la serie'
+                    : `Se borrarán las ${activa.series.length} series`
                 } que llevas, como si no la hubieras empezado.`
           }
           confirmar="Cancelar sesión"
