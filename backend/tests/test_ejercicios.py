@@ -17,6 +17,7 @@ from tests.ayudas import (
     consultas_de,
     crear_ejercicio,
     crear_programa,
+    importar_rutinas_y_programas,
     objetivo,
     ocultar_hueco,
 )
@@ -699,7 +700,11 @@ def test_dos_ejercicios_con_el_mismo_nombre_salen_por_id(cliente, sesion_bd, gru
 
 @pytest.mark.parametrize("ruta, tabla", [("/rutinas", "rutinas"), ("/programas", "programas")])
 def test_dos_rutinas_o_programas_con_el_mismo_nombre_salen_por_id(cliente, sesion_bd, ruta, tabla):
-    ids = [cliente.post(ruta, json={"nombre": "Igual"}).json()["id"] for _ in range(2)]
+    """Dos que se llaman igual ya solo llegan importando: la API no deja crearlos."""
+    rutinas, programas = importar_rutinas_y_programas(
+        cliente, rutinas=["Igual", "Igual"], programas=["Igual", "Igual"]
+    )
+    ids = rutinas if tabla == "rutinas" else programas
     tocar(sesion_bd, tabla, ids[0])
 
     lista = cliente.get(ruta).json()

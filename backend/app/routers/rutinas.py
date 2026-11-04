@@ -20,6 +20,7 @@ from app.models import (
     SlotAlternativa,
 )
 from app.medidas import validar_objetivo
+from app.nombres import clave_de_nombre
 from app.ocultos import exigir_visible
 from app.seguimiento import (
     cancelada_sql,
@@ -198,6 +199,34 @@ def obtener_rutina(
     return _obtener_rutina_legible(db, rutina_id)
 
 
+def _validar_nombre_libre(db: Session, nombre: str) -> None:
+    """Una rutina nueva o renombrada no puede llamarse como otra, sin distinguir
+    mayúsculas, tildes ni espacios (decisión del autor, como con los ejercicios): dos
+    rutinas iguales se confunden al elegir y en el historial.
+
+    La base no lo impide, a propósito: un archivo importado puede traer dos que ya
+    convivían, y tiene que poder cargarse.
+    """
+    clave = clave_de_nombre(nombre)
+    iguales = [
+        (otro_nombre, oculto_desde)
+        for otro_nombre, oculto_desde in db.execute(select(Rutina.nombre, Rutina.oculto_desde))
+        if clave_de_nombre(otro_nombre) == clave
+    ]
+    if not iguales:
+        return
+    # Si conviven varias con ese nombre, se nombra la visible, que es la que se encuentra.
+    otro_nombre, oculto_desde = min(iguales, key=lambda igual: igual[1] is not None)
+    if oculto_desde is None:
+        detalle = f"Ya tienes una rutina que se llama «{otro_nombre}». Elige otro nombre."
+    else:
+        detalle = (
+            f"Ya tienes una rutina oculta que se llama «{otro_nombre}». "
+            "Muéstrala desde la pestaña Programas o elige otro nombre."
+        )
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
+
+
 @router.post("", response_model=RutinaOut, status_code=status.HTTP_201_CREATED)
 def crear_rutina(
     datos: RutinaCreate,
@@ -214,6 +243,7 @@ def crear_rutina(
         [id_ for hueco in datos.slots for id_ in _ids_del_hueco(hueco)],
     )
     _validar_objetivos(db, datos.slots)
+    _validar_nombre_libre(db, datos.nombre)
     rutina = Rutina(nombre=datos.nombre)
     # Solo INSERT, todos en la misma relación: no hace falta flush() entre ellos.
     rutina.slots = [
@@ -240,6 +270,10 @@ def actualizar_rutina(
     db: Session = Depends(get_db),
 ):
     rutina = _obtener_rutina_modificable(db, rutina_id)
+    # Solo si cambia de verdad: cambiar mayúsculas o tildes vale, y dos que ya conviven
+    # se pueden seguir editando.
+    if clave_de_nombre(datos.nombre) != clave_de_nombre(rutina.nombre):
+        _validar_nombre_libre(db, datos.nombre)
     for campo, valor in datos.model_dump().items():
         setattr(rutina, campo, valor)
     db.commit()
@@ -256,7 +290,7 @@ def _nombre_de_copia(nombre: str, ocupados: set[str]) -> str:
     while True:
         sufijo = " - copia" if numero == 1 else f" - copia ({numero})"
         candidato = nombre[: 100 - len(sufijo)].rstrip() + sufijo
-        if candidato.casefold() not in ocupados:
+        if clave_de_nombre(candidato) not in ocupados:
             return candidato
         numero += 1
 
@@ -276,9 +310,8 @@ def duplicar_rutina(
     rutina oculta, porque duplicar no la modifica; la copia nace visible.
     """
     rutina = _obtener_rutina_modificable(db, rutina_id, admitir_oculta=True)
-    # También las ocultas: dos rutinas con el mismo nombre se confundirían al
-    # volver a mostrar una.
-    ocupados = {nombre.casefold() for nombre in db.scalars(select(Rutina.nombre))}
+    # También las ocultas, y por clave, como al crear: la copia no puede chocar con nada.
+    ocupados = {clave_de_nombre(nombre) for nombre in db.scalars(select(Rutina.nombre))}
     copia = Rutina(nombre=_nombre_de_copia(rutina.nombre, ocupados))
     copia.slots = [
         RutinaSlot(

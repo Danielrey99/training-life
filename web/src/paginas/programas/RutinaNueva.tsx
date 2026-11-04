@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { api, textoDelFallo } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
@@ -96,6 +96,7 @@ export function RutinaNueva() {
     }
     setGuardando(true)
     setFallo(null)
+    setFalloNombre(null)
     try {
       const rutina = await api.crearRutina({
         nombre,
@@ -126,7 +127,9 @@ export function RutinaNueva() {
         navegar(`/programas/rutinas/${rutina.id}`, { replace: true })
       }
     } catch (fallo) {
-      setFallo(textoDelFallo(fallo))
+      // El único 409 es el del nombre repetido: va bajo el nombre, como al editarlo.
+      if (fallo instanceof ErrorDeApi && fallo.estado === 409) setFalloNombre(fallo.message)
+      else setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }
   }
@@ -171,6 +174,7 @@ export function RutinaNueva() {
         <span className="campo-etiqueta">Nombre</span>
         <input
           className="campo-texto"
+          aria-invalid={falloNombre !== null}
           value={borrador.nombre}
           maxLength={100}
           placeholder="Ej. Pierna"

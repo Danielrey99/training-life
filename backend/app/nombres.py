@@ -1,4 +1,5 @@
-"""La forma de un nombre de ejercicio con la que se compara si ya existe otro igual.
+"""La forma de un nombre (de ejercicio, de rutina o de programa) con la que se
+compara si ya existe otro igual.
 
 Python puro, sin FastAPI ni SQLAlchemy: el móvil la porta tal cual y una migración
 que siembre predefinidos puede copiarla.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { api, textoDelFallo } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -135,6 +135,7 @@ export function ProgramaNuevo() {
     }
     setGuardando(true)
     setFallo(null)
+    setFalloNombre(null)
     try {
       const programa = await api.crearPrograma({
         nombre,
@@ -148,7 +149,9 @@ export function ProgramaNuevo() {
       tirarBorrador(PROGRAMA_NUEVO)
       navegar(`/programas/${programa.id}`, { replace: true })
     } catch (fallo) {
-      setFallo(textoDelFallo(fallo))
+      // El único 409 es el del nombre repetido: va bajo el nombre, como al editarlo.
+      if (fallo instanceof ErrorDeApi && fallo.estado === 409) setFalloNombre(fallo.message)
+      else setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }
   }
@@ -178,6 +181,7 @@ export function ProgramaNuevo() {
         <span className="campo-etiqueta">Nombre</span>
         <input
           className="campo-texto"
+          aria-invalid={falloNombre !== null}
           value={borrador.nombre}
           maxLength={100}
           placeholder="Ej. PPL de 5 días"

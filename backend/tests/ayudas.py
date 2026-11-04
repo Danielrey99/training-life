@@ -238,6 +238,42 @@ def crear_programa(cliente, nombre="Push Pull Leg", dias=(), activar=False) -> d
     return respuesta.json()
 
 
+def importar_rutinas_y_programas(cliente, rutinas=(), programas=()) -> tuple[list, list]:
+    """Sustituye los datos por un archivo con estas rutinas y programas (sin huecos ni
+    días), cada uno un nombre o un (nombre, oculto_desde en ISO). Es la única forma de
+    tener dos con el mismo nombre: la API no deja crearlos, importar no lo mira.
+
+    Devuelve los ids nuevos de cada lista, en el orden del archivo: se insertan en ese
+    orden, así que es el de sus ids.
+    """
+    marca = {"created_at": "2026-09-01T10:00:00+00:00", "updated_at": "2026-09-01T10:00:00+00:00"}
+
+    def filas(lista):
+        return [x if isinstance(x, tuple) else (x, None) for x in lista]
+
+    archivo = {
+        "formato": "training-life",
+        "version": 3,
+        "exportado_en": marca["created_at"],
+        "rutinas": [
+            {"id": n + 1, "nombre": nombre, "oculto_desde": oculto, **marca}
+            for n, (nombre, oculto) in enumerate(filas(rutinas))
+        ],
+        "programas": [
+            {"nombre": nombre, "oculto_desde": oculto, **marca}
+            for nombre, oculto in filas(programas)
+        ],
+    }
+    respuesta = cliente.post("/datos/importar", json=archivo)
+    assert respuesta.status_code == 200, respuesta.text
+
+    def ids(ruta, parametro):
+        todos = cliente.get(ruta).json() + cliente.get(ruta, params={parametro: True}).json()
+        return sorted(x["id"] for x in todos)
+
+    return ids("/rutinas", "ocultas"), ids("/programas", "ocultos")
+
+
 # --- El plan: días cambiados a mano ---------------------------------------
 
 

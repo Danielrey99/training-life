@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database import get_db
 from app.fechas import hoy
 from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo
+from app.nombres import clave_de_nombre
 from app.ocultos import exigir_visible
 from app.routers.rutinas import obtener_rutina_visible
 from app.schemas import (
@@ -127,6 +128,34 @@ def obtener_programa(
     return _obtener_programa_legible(db, programa_id)
 
 
+def _validar_nombre_libre(db: Session, nombre: str) -> None:
+    """Un programa nuevo o renombrado no puede llamarse como otro, sin distinguir
+    mayúsculas, tildes ni espacios (decisión del autor, como con los ejercicios): dos
+    programas iguales se confunden al elegir y en el historial.
+
+    La base no lo impide, a propósito: un archivo importado puede traer dos que ya
+    convivían, y tiene que poder cargarse.
+    """
+    clave = clave_de_nombre(nombre)
+    iguales = [
+        (otro_nombre, oculto_desde)
+        for otro_nombre, oculto_desde in db.execute(select(Programa.nombre, Programa.oculto_desde))
+        if clave_de_nombre(otro_nombre) == clave
+    ]
+    if not iguales:
+        return
+    # Si conviven varios con ese nombre, se nombra el visible, que es el que se encuentra.
+    otro_nombre, oculto_desde = min(iguales, key=lambda igual: igual[1] is not None)
+    if oculto_desde is None:
+        detalle = f"Ya tienes un programa que se llama «{otro_nombre}». Elige otro nombre."
+    else:
+        detalle = (
+            f"Ya tienes un programa oculto que se llama «{otro_nombre}». "
+            "Muéstralo desde la pestaña Programas o elige otro nombre."
+        )
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
+
+
 @router.post("", response_model=ProgramaOut, status_code=status.HTTP_201_CREATED)
 def crear_programa(
     datos: ProgramaCreate,
@@ -138,6 +167,7 @@ def crear_programa(
     """
     for dia in datos.dias:
         obtener_rutina_visible(db, dia.rutina_id)
+    _validar_nombre_libre(db, datos.nombre)
     programa = Programa(nombre=datos.nombre)
     # Todavía no ha gobernado ningún día: sus filas valen desde siempre.
     programa.filas_dias = [
@@ -161,6 +191,9 @@ def actualizar_programa(
     db: Session = Depends(get_db),
 ):
     programa = _obtener_programa_modificable(db, programa_id)
+    # Solo si cambia de verdad, como en las rutinas.
+    if clave_de_nombre(datos.nombre) != clave_de_nombre(programa.nombre):
+        _validar_nombre_libre(db, datos.nombre)
     programa.nombre = datos.nombre
     db.commit()
     db.refresh(programa)

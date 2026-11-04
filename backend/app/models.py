@@ -122,6 +122,10 @@ class NotaEjercicio(Base):
 class Rutina(Ocultable, Base):
     """Una rutina/plantilla (ej. "Push", "Leg", "Pull") — el plan, no un
     entrenamiento concreto de un día. No existen rutinas predefinidas.
+
+    Sin unicidad de `nombre` en la base: la API no deja crear ni renombrar una rutina
+    con el nombre de otra (`app/nombres.py`), pero pueden convivir dos iguales, las
+    que trae un archivo importado.
     """
 
     __tablename__ = "rutinas"
@@ -401,6 +405,10 @@ class Programa(Ocultable, Base):
     Las rutinas no son del programa: la misma puede estar en varios programas y
     en varios días de uno. Por eso la relación va en `programa_dias`, y no con
     un `programa_id` en `rutinas`, que ataría cada rutina a un solo programa.
+
+    Sin unicidad de `nombre` en la base: la API no deja crear ni renombrar un programa
+    con el nombre de otro (`app/nombres.py`), pero pueden convivir dos iguales, los que
+    trae un archivo importado.
     """
 
     __tablename__ = "programas"

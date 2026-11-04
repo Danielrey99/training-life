@@ -243,6 +243,24 @@ def test_el_nombre_de_la_copia_no_repite_el_de_una_rutina_oculta(cliente):
     assert nombre_de_la_copia(cliente, push) == "Push - copia (2)"
 
 
+def test_el_nombre_de_la_copia_no_repite_el_de_una_oculta_escrito_en_mayusculas(cliente):
+    push = crear_rutina(cliente, "Push")
+    oculta = crear_rutina(cliente, "PUSH - COPIA")
+    assert cliente.delete(f"/rutinas/{oculta}?modo=ocultar").status_code == 204
+
+    assert nombre_de_la_copia(cliente, push) == "Push - copia (2)"
+
+
+def test_el_nombre_de_la_copia_no_distingue_tildes(cliente):
+    """Duplicar nunca da 409: compara por la misma clave que crear. Antes solo miraba
+    mayúsculas, y la copia de «Glúteos» se llamaba como «Gluteos - copia».
+    """
+    gluteos = crear_rutina(cliente, "Glúteos")
+    crear_rutina(cliente, "Gluteos - copia")
+
+    assert nombre_de_la_copia(cliente, gluteos) == "Glúteos - copia (2)"
+
+
 def test_un_nombre_de_100_caracteres_se_recorta_y_conserva_el_sufijo(cliente):
     larga = crear_rutina(cliente, "a" * 100)
 

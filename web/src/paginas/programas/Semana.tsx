@@ -285,6 +285,7 @@ export function Semana() {
           <span className="campo-etiqueta">Nombre</span>
           <input
             className="campo-texto"
+            aria-invalid={falloNombre !== null}
             value={nombre}
             maxLength={100}
             onChange={(evento) => {
