@@ -28,6 +28,11 @@ export function kilos(serie: { peso: string | number | null }): number | null {
   return serie.peso === null ? null : Number(serie.peso)
 }
 
+/** El peso corporal de una serie como número, en kg; nulo si no lo lleva. */
+export function kilosCorporales(serie: { peso_corporal?: string | number | null }): number | null {
+  return serie.peso_corporal == null ? null : Number(serie.peso_corporal)
+}
+
 /** Las series que tienen peso y repeticiones, tal cual y con el tipo ya estrechado. */
 export function conPesoYReps<T extends Medidas>(series: T[]): (T & ConPesoYReps)[] {
   return series.filter(

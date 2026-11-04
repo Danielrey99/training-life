@@ -22,7 +22,7 @@ import {
   hoy,
   sumarDias,
 } from '../../utiles/fechas'
-import { conPesoYReps, kilos, serieLarga } from '../../utiles/medidas'
+import { conPesoYReps, kilos, kilosCorporales, serieLarga } from '../../utiles/medidas'
 import {
   distanciaLegible,
   duracionLegible,
@@ -519,7 +519,7 @@ export function Dia() {
           repeticiones: serie.repeticiones,
           duracion_s: serie.duracion_s,
           distancia_m: serie.distancia_m,
-          peso_corporal: serie.peso_corporal === null ? null : Number(serie.peso_corporal),
+          peso_corporal: kilosCorporales(serie),
           variante: serie.variante,
         }
         const antes = dia.series.find((otra) => otra.id === serie.id)
@@ -529,8 +529,7 @@ export function Dia() {
           antes.repeticiones !== datos.repeticiones ||
           antes.duracion_s !== datos.duracion_s ||
           antes.distancia_m !== datos.distancia_m ||
-          (antes.peso_corporal === null ? null : Number(antes.peso_corporal)) !==
-            datos.peso_corporal ||
+          kilosCorporales(antes) !== datos.peso_corporal ||
           antes.variante !== datos.variante
         ) {
           await api.actualizarSerie(dia.id, serie.id, datos)

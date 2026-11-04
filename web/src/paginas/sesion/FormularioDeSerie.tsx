@@ -6,6 +6,7 @@ import type { TipoRegistro } from '../../api/tipos'
 import { CampoDeDuracion } from '../../componentes/CampoDeDuracion'
 import { Icono } from '../../componentes/Icono'
 import { ajustes } from '../../utiles/ajustes'
+import { kilos, kilosCorporales } from '../../utiles/medidas'
 import {
   aKilos,
   aMetros,
@@ -121,15 +122,11 @@ export function FormularioDeSerie({
   alCancelar,
 }: Props) {
   const corporal = tipo === 'corporal'
-  const sembrado = semilla?.peso != null ? Number(semilla.peso) : null
+  const sembrado = semilla?.peso != null ? kilos(semilla) : null
   // El peso corporal con el que arranca, en kg. Solo cuenta si el formulario es de
   // peso corporal.
   const inicialCorporal =
-    semilla && 'peso_corporal' in semilla
-      ? semilla.peso_corporal != null
-        ? Number(semilla.peso_corporal)
-        : null
-      : ajustes().pesoCorporal
+    semilla && 'peso_corporal' in semilla ? kilosCorporales(semilla) : ajustes().pesoCorporal
 
   const textoPesoInicial = corporal
     ? pesoLegible(Math.abs(sembrado ?? 0))
