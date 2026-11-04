@@ -135,7 +135,9 @@ export function Resumen() {
 
   const [datos, setDatos] = useState<DatosResumen | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  const [error, setError] = useState<unknown>(null)
+  // Con su mes: el fallo de un mes no es el de otro.
+  const [fallido, setFallido] = useState<{ mes: string; fallo: unknown } | null>(null)
+  const error = fallido?.mes === mes ? fallido.fallo : null
 
   useEffect(() => {
     let vigente = true
@@ -146,7 +148,7 @@ export function Resumen() {
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       })
       .catch((fallo: Error) => {
-        if (vigente) setError(fallo)
+        if (vigente) setFallido({ mes, fallo })
       })
     return () => {
       vigente = false

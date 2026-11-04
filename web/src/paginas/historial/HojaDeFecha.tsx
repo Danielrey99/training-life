@@ -27,7 +27,9 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
   const [mes, setMes] = useState(inicioDeMes(fecha))
   const [cargado, setCargado] = useState<{ mes: string; dias: DiaSeguimiento[] } | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  const [error, setError] = useState<unknown>(null)
+  // Con su mes: el fallo de un mes no es el de otro.
+  const [fallido, setFallido] = useState<{ mes: string; fallo: unknown } | null>(null)
+  const error = fallido?.mes === mes ? fallido.fallo : null
 
   useEffect(() => {
     function alPulsarTecla(evento: KeyboardEvent) {
@@ -45,7 +47,7 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
         setCargado({ mes, dias })
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       })
-      .catch((fallo: Error) => vigente && setError(fallo))
+      .catch((fallo: Error) => vigente && setFallido({ mes, fallo }))
     return () => {
       vigente = false
     }
