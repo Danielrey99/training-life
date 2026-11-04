@@ -213,16 +213,15 @@ export const api = {
   rutina: (id: number) => peticion<Rutina>(`/rutinas/${id}`),
   /** Con sus ejercicios (`slots`), todo en una petición: si algo no vale, no se crea nada. */
   crearRutina: (datos: NuevaRutina) => peticion<Rutina>('/rutinas', conCuerpo('POST', datos)),
-  actualizarRutina: (id: number, nombre: string) =>
-    peticion<Rutina>(`/rutinas/${id}`, conCuerpo('PUT', { nombre })),
+  /** El *Guardar* de la rutina: el nombre y, si va, el orden de los ejercicios visibles, de golpe. */
+  actualizarRutina: (id: number, nombre: string, huecoIds?: number[]) =>
+    peticion<Rutina>(`/rutinas/${id}`, conCuerpo('PUT', { nombre, slot_ids: huecoIds })),
   borrarRutina: (id: number, modo?: ModoBorrado) =>
     peticion<void>(`/rutinas/${id}${consulta({ modo })}`, BORRAR),
   mostrarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/mostrar`, conCuerpo('POST')),
   /** La copia se llama como en Windows («Push - copia») y nace sin estar en ningún programa. */
   duplicarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/duplicar`, conCuerpo('POST')),
   /** Todos los huecos visibles, cada uno una vez, en el orden nuevo. */
-  ordenarHuecos: (id: number, huecoIds: number[]) =>
-    peticion<Rutina>(`/rutinas/${id}/orden`, conCuerpo('PUT', { slot_ids: huecoIds })),
   /** Lo que se perdería al borrarla, para enseñarlo antes de preguntar. */
   avisoDeBorrarRutina: (id: number) =>
     peticion<AvisoDeBorrarRutina>(`/rutinas/${id}/aviso-de-borrado`),
@@ -269,6 +268,12 @@ export const api = {
     ),
   borrarSerie: (entrenamientoId: number, serieId: number) =>
     peticion<void>(`/entrenamientos/${entrenamientoId}/series/${serieId}`, BORRAR),
+  /** Todas las series de un ejercicio de la rutina en la sesión, de una vez: cambiar de ejercicio. */
+  borrarSeriesDelHueco: (entrenamientoId: number, huecoId: number) =>
+    peticion<void>(
+      `/entrenamientos/${entrenamientoId}/series${consulta({ slot_id: huecoId })}`,
+      BORRAR,
+    ),
 
   // --- Programas ---
   programas: (filtro: { ocultos?: boolean } = {}) =>
@@ -276,8 +281,12 @@ export const api = {
   programa: (id: number) => peticion<Programa>(`/programas/${id}`),
   crearPrograma: (datos: NuevoPrograma) =>
     peticion<Programa>('/programas', conCuerpo('POST', datos)),
-  actualizarPrograma: (id: number, nombre: string) =>
-    peticion<Programa>(`/programas/${id}`, conCuerpo('PUT', { nombre })),
+  /** El *Guardar* de la semana: el nombre y, si van, los siete días (los que faltan, descanso), de golpe. */
+  actualizarPrograma: (
+    id: number,
+    nombre: string,
+    dias?: { dia_semana: DiaSemana; rutina_id: number }[],
+  ) => peticion<Programa>(`/programas/${id}`, conCuerpo('PUT', { nombre, dias })),
   /** Con `quitarExcepciones`, borra lo planificado a mano de hoy en adelante. */
   activarPrograma: (id: number, quitarExcepciones = false) =>
     peticion<Programa>(
@@ -290,11 +299,6 @@ export const api = {
     peticion<Programa>(`/programas/${id}/mostrar`, conCuerpo('POST')),
   borrarPrograma: (id: number, modo?: ModoBorrado) =>
     peticion<void>(`/programas/${id}${consulta({ modo })}`, BORRAR),
-  ponerRutinaEnDia: (id: number, dia: DiaSemana, rutinaId: number) =>
-    peticion<Programa>(`/programas/${id}/dias/${dia}`, conCuerpo('PUT', { rutina_id: rutinaId })),
-  /** Deja el día en descanso. */
-  quitarRutinaDeDia: (id: number, dia: DiaSemana) =>
-    peticion<void>(`/programas/${id}/dias/${dia}`, BORRAR),
 
   // --- Plan: qué toca cada día ---
   /** Qué tocaba cada día y qué pasó: hecho, movido, sin hacer… */

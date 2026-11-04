@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.ediciones import CAMPOS_DE_SERIE, cambios_de_series, mezcla_en_hueco, motivo_de_la_fecha
 from app.fechas import fecha_en_texto, hoy
 from app.medidas import validar_medidas
 from app.models import Ejercicio, Entrenamiento, RutinaSlot, Serie
@@ -16,6 +17,7 @@ from app.schemas import (
     EntrenamientoOut,
     EntrenamientoUpdate,
     SerieCreate,
+    SerieDelDia,
     SerieOut,
     SerieUpdate,
 )
@@ -50,7 +52,9 @@ def _validar_fecha_no_futura(fecha: date) -> None:
         )
 
 
-def _validar_dia_libre(db: Session, fecha: date, excepto_id: int | None = None) -> None:
+def _validar_dia_libre(
+    db: Session, fecha: date, excepto_id: int | None = None, moviendo: bool = False
+) -> None:
     """Una sesión por día como mucho, sea de la rutina que sea: se entrena una rutina al
     día. Lo garantiza también la base de datos; esto es para dar un 409 que diga
     cuál es la otra sesión (la pantalla de hoy lo usa para ofrecer *Continuar*) y
@@ -58,6 +62,9 @@ def _validar_dia_libre(db: Session, fecha: date, excepto_id: int | None = None) 
 
     Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada:
     no se hizo nada. Si es la que ocupa el día, se borra y el día queda libre.
+
+    `moviendo`: se está cambiando la fecha de un día del historial. El aviso habla de
+    ese día y va marcado como de la fecha (`campo`), para enseñarlo bajo ella.
     """
     stmt = select(Entrenamiento).where(Entrenamiento.fecha == fecha)
     if excepto_id is not None:
@@ -70,21 +77,35 @@ def _validar_dia_libre(db: Session, fecha: date, excepto_id: int | None = None) 
         # Antes que el INSERT o el UPDATE de la otra, o chocarían en la unicidad.
         db.flush()
         return
-    mensaje = (
-        "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra."
-        if otra.en_curso
-        else "Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo, cambia"
-        " antes la fecha de la otra desde su día en el historial."
-    )
+    detalle = {"entrenamiento_id": otra.id, "en_curso": otra.en_curso}
+    if moviendo and otra.en_curso:
+        mensaje = (
+            f"El {fecha_en_texto(fecha)} ya tiene una sesión empezada, y solo se hace una por"
+            " día. Termínala o cancélala desde la pestaña Entrenar antes de mover esta."
+        )
+        detalle["campo"] = "fecha"
+    elif moviendo:
+        mensaje = (
+            f"El {fecha_en_texto(fecha)} ya tiene una sesión, y solo se hace una por día. Para"
+            " usar ese día, cambia antes la fecha de esa sesión desde su día en la pestaña"
+            " Historial."
+        )
+        detalle["campo"] = "fecha"
+    elif otra.en_curso:
+        mensaje = "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra."
+    else:
+        mensaje = (
+            "Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo, cambia"
+            " antes la fecha de la otra desde su día en el historial."
+        )
     raise HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={"mensaje": mensaje, "entrenamiento_id": otra.id, "en_curso": otra.en_curso},
+        status_code=status.HTTP_409_CONFLICT, detail={"mensaje": mensaje, **detalle}
     )
 
 
 def _validar_en_plazo(fecha: date, cubre: date) -> None:
-    """Lo de un día se entrena dentro de su plazo (ver `plazo`), tanto al crear la
-    sesión como al corregir su fecha después.
+    """Lo de un día se entrena dentro de su plazo (ver `plazo`). Al corregir la fecha
+    después, lo mismo lo comprueba `_validar_fecha_nueva`, con su propio aviso.
     """
     desde, hasta = plazo(cubre)
     if not desde <= fecha <= hasta:
@@ -124,8 +145,8 @@ def _validar_cubre_fecha(db: Session, datos: EntrenamientoCreate) -> DiaPlan:
 
 def _validar_mismo_programa(cubre: date, plan: dict[date, DiaPlan], fecha: date) -> None:
     """La fecha de la sesión y el día que cuenta caen en el mismo programa (o los dos
-    sin programa), al crearla y al corregir su fecha: lo que tocaba con un programa que
-    ya no está activo no se recupera.
+    sin programa): lo que tocaba con un programa que ya no está activo no se recupera.
+    Al corregir la fecha después, lo comprueba `_validar_fecha_nueva`.
     """
     if plan[cubre].programa_id != plan[fecha].programa_id:
         raise HTTPException(
@@ -281,36 +302,145 @@ def crear_entrenamiento(
     return entrenamiento
 
 
+def _fallo_de_la_fecha(estado: int, mensaje: str) -> HTTPException:
+    """Un fallo al mover la fecha de un día, marcado para enseñarlo bajo la fecha."""
+    return HTTPException(status_code=estado, detail={"mensaje": mensaje, "campo": "fecha"})
+
+
+def _validar_fecha_nueva(db: Session, entrenamiento: Entrenamiento, fecha: date) -> None:
+    """La fecha nueva de una sesión: no del futuro, dentro del plazo del día que cuenta y
+    en un día del mismo programa que él, como al crearla (422, bajo la fecha).
+
+    El día que cuenta no cambia al corregir la fecha: la sesión sigue siendo "la del
+    lunes". Una sesión que ya cruzaba programas (se adelantó un día y después se activó
+    otro programa) se puede seguir corrigiendo: solo se valida lo que cambia.
+    """
+    if fecha > hoy():
+        raise _fallo_de_la_fecha(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"El {fecha_en_texto(fecha)} todavía no ha llegado. Solo se apuntan días de hoy"
+            " hacia atrás.",
+        )
+    cubre = entrenamiento.cubre_fecha
+    if cubre is None:
+        return
+    desde, hasta = plazo(cubre)
+    fechas = (fecha, entrenamiento.fecha, cubre)
+    plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fechas), max(fechas))}
+    en_plazo = desde <= fecha <= hasta
+    cruzaba = plan[entrenamiento.fecha].programa_id != plan[cubre].programa_id
+    if not en_plazo or (not cruzaba and plan[fecha].programa_id != plan[cubre].programa_id):
+        raise _fallo_de_la_fecha(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            motivo_de_la_fecha(entrenamiento.rutina.nombre, cubre, fecha, desde, hasta),
+        )
+
+
+def _validar_series_del_dia(
+    db: Session, entrenamiento: Entrenamiento, pedidas: list[SerieDelDia]
+) -> tuple[list[Serie], list[SerieDelDia], list[SerieDelDia]]:
+    """Las series de un día como deben quedar: cada una nueva o cambiada se valida como
+    al apuntarla o corregirla una a una, y la que llega igual no (corregir sí, elegir
+    algo oculto no). Devuelve qué borrar, qué cambiar y qué crear.
+
+    Un ejercicio por hueco: si en un hueco tocado quedan series de dos ejercicios, 422,
+    y no el 409 de apuntar una suelta, porque el choque está dentro de lo que se manda.
+    Así cambiar de ejercicio un hueco (quitar las de uno y poner las del otro) cabe en una
+    sola petición.
+    """
+    guardadas = {serie.id: serie for serie in entrenamiento.series}
+    a_borrar, a_cambiar, _, ajenas = cambios_de_series(
+        {
+            id_: {campo: getattr(serie, campo) for campo in CAMPOS_DE_SERIE}
+            for id_, serie in guardadas.items()
+        },
+        [serie.model_dump() for serie in pedidas],
+    )
+    cambian = {serie["id"] for serie in a_cambiar}
+    nuevas = [serie for serie in pedidas if serie.id is None]
+    cambiadas = [serie for serie in pedidas if serie.id in cambian]
+    tocados: set[int] = set()
+    # En el orden en que llegan: el primer fallo es el de la primera serie que no vale.
+    for serie in pedidas:
+        if serie.id in ajenas:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serie no encontrada")
+        if serie.id is None:
+            ejercicio = obtener_ejercicio_visible(db, serie.ejercicio_id)
+            _validar_slot(db, serie.slot_id, entrenamiento.rutina_id, serie.ejercicio_id)
+            tocados.add(serie.slot_id)
+        elif serie.id in cambian:
+            antes = guardadas[serie.id]
+            # Como al corregir una suelta: el mismo ejercicio basta con que sea legible.
+            if serie.ejercicio_id == antes.ejercicio_id:
+                ejercicio = obtener_ejercicio_legible(db, serie.ejercicio_id)
+            else:
+                ejercicio = obtener_ejercicio_visible(db, serie.ejercicio_id)
+            _validar_slot(
+                db,
+                serie.slot_id,
+                entrenamiento.rutina_id,
+                serie.ejercicio_id,
+                actual=(antes.slot_id, antes.ejercicio_id),
+            )
+            if (serie.slot_id, serie.ejercicio_id) != (antes.slot_id, antes.ejercicio_id):
+                tocados |= {serie.slot_id, antes.slot_id}
+        else:
+            continue
+        _validar_medidas_de_la_serie(ejercicio, SerieCreate(**serie.model_dump(exclude={"id"})))
+    finales = [
+        (serie.slot_id, serie.ejercicio_id)
+        for serie in guardadas.values()
+        if serie.id not in a_borrar and serie.id not in cambian
+    ] + [(serie.slot_id, serie.ejercicio_id) for serie in cambiadas + nuevas]
+    mezcla = mezcla_en_hueco(finales, tocados)
+    if mezcla is not None:
+        uno, otro = (db.get(Ejercicio, id_).nombre for id_ in mezcla)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"En un mismo ejercicio de la rutina hay series de «{uno}» y de «{otro}», y en"
+                " cada uno se hace un solo ejercicio por sesión. Deja solo las de uno."
+            ),
+        )
+    return [guardadas[id_] for id_ in a_borrar], cambiadas, nuevas
+
+
 @router.put("/{entrenamiento_id}", response_model=EntrenamientoOut)
 def actualizar_entrenamiento(
     entrenamiento_id: int,
     datos: EntrenamientoUpdate,
     db: Session = Depends(get_db),
 ):
-    """Corrige la fecha y las notas. La rutina y el día que cuenta se fijan al
-    crear la sesión: para apuntar otra rutina se borra el día y se registra de nuevo.
+    """El *Guardar* de un día del historial: la fecha, la nota y, si llegan, todas las
+    series como deben quedar, en una sola transacción. Todo se valida antes de escribir
+    (la sesión, la fecha, cada serie y, lo último, que el día nuevo esté libre), así que
+    o se guarda todo o nada. Sin `series`, solo la fecha y la nota: la nota de la sesión
+    en curso.
 
-    La fecha solo se mueve dentro del plazo del día que cuenta y a un día del mismo
-    programa que él, como al crearla. Una sesión que ya cruzaba programas (se adelantó
-    un día y después se activó otro programa) se puede seguir corrigiendo: solo se
-    valida lo que cambia.
+    La rutina y el día que cuenta se fijan al crear la sesión: para apuntar otra rutina
+    se borra el día y se registra de nuevo. Quitar todas las series no borra la sesión:
+    lo decide quien llama, con `DELETE`.
     """
     entrenamiento = _obtener_entrenamiento(db, entrenamiento_id)
-    _validar_fecha_no_futura(datos.fecha)
-    if datos.fecha != entrenamiento.fecha:
-        # El día que cuenta no cambia al corregir la fecha: la sesión sigue siendo "la
-        # del lunes", así que solo se mueve dentro del plazo de ese día y de su programa
-        # (422), y antes que mirar si el día nuevo está ocupado (409).
-        cubre = entrenamiento.cubre_fecha
-        if cubre is not None:
-            _validar_en_plazo(datos.fecha, cubre)
-            fechas = (datos.fecha, entrenamiento.fecha, cubre)
-            plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fechas), max(fechas))}
-            if plan[entrenamiento.fecha].programa_id == plan[cubre].programa_id:
-                _validar_mismo_programa(cubre, plan, datos.fecha)
-        _validar_dia_libre(db, datos.fecha, excepto_id=entrenamiento_id)
-    for campo, valor in datos.model_dump().items():
-        setattr(entrenamiento, campo, valor)
+    mueve = datos.fecha != entrenamiento.fecha
+    if mueve:
+        _validar_fecha_nueva(db, entrenamiento, datos.fecha)
+    if datos.series is not None:
+        a_borrar, cambiadas, nuevas = _validar_series_del_dia(db, entrenamiento, datos.series)
+    if mueve:
+        # Lo último: puede borrar una sesión cancelada que ocupe el día nuevo.
+        _validar_dia_libre(db, datos.fecha, excepto_id=entrenamiento_id, moviendo=True)
+    entrenamiento.fecha = datos.fecha
+    entrenamiento.notas = datos.notas
+    if datos.series is not None:
+        for serie in a_borrar:
+            entrenamiento.series.remove(serie)
+        guardadas = {serie.id: serie for serie in entrenamiento.series}
+        for serie in cambiadas:
+            for campo, valor in serie.model_dump(exclude={"id"}).items():
+                setattr(guardadas[serie.id], campo, valor)
+        for serie in nuevas:
+            entrenamiento.series.append(Serie(**serie.model_dump(exclude={"id"})))
     db.commit()
     db.refresh(entrenamiento)
     return entrenamiento
@@ -508,6 +638,30 @@ def actualizar_serie(
     db.commit()
     db.refresh(serie)
     return serie
+
+
+@router.delete("/{entrenamiento_id}/series", status_code=status.HTTP_204_NO_CONTENT)
+def borrar_series_del_hueco(
+    entrenamiento_id: int,
+    slot_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Borra de una vez todas las series de la sesión en un hueco: cambiar de ejercicio
+    en la sesión en curso, todo o nada. Un hueco oculto vale: es quitar lo apuntado, no
+    elegir nada. No borra la sesión aunque se quede vacía.
+
+    `slot_id` es obligatorio: sin él, esto borraría todas las series del día.
+    """
+    entrenamiento = _obtener_entrenamiento(db, entrenamiento_id)
+    slot = db.get(RutinaSlot, slot_id)
+    if slot is None or slot.rutina_id != entrenamiento.rutina_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ese ejercicio no está en la rutina de esta sesión.",
+        )
+    for serie in [serie for serie in entrenamiento.series if serie.slot_id == slot_id]:
+        entrenamiento.series.remove(serie)
+    db.commit()
 
 
 @router.delete("/{entrenamiento_id}/series/{serie_id}", status_code=status.HTTP_204_NO_CONTENT)

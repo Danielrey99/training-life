@@ -21,6 +21,7 @@ from app.models import (
     SlotAlternativa,
 )
 from tests.ayudas import (
+    cambiar_dias,
     PIDE_MODO,
     alternativa,
     consultas_de,
@@ -1248,7 +1249,7 @@ def test_ocultarla_conserva_los_dias_pasados(cliente, ppl):
 def test_una_rutina_quitada_del_programa_tambien_cuenta(cliente, ppl):
     """Su fila del programa está cerrada, pero valió para los viernes pasados."""
     programa = cliente.get("/programas").json()[0]["id"]
-    assert cliente.delete(f"/programas/{programa}/dias/5").status_code == 204
+    assert cambiar_dias(cliente, programa, {5: None}).status_code == 200
 
     respuesta = cliente.delete(f"/rutinas/{ppl['Leg']}")
     assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PIDE_MODO["rutina"])
@@ -1307,7 +1308,7 @@ def test_una_rutina_que_entra_hoy_en_el_programa_activo_se_borra_directa(cliente
     """
     brazos = crear_rutina(cliente, "Brazos")
     programa = cliente.get("/programas").json()[0]["id"]
-    respuesta = cliente.put(f"/programas/{programa}/dias/2", json={"rutina_id": brazos})
+    respuesta = cambiar_dias(cliente, programa, {2: brazos})
     assert respuesta.status_code == 200, respuesta.text
 
     aviso = aviso_de_rutina(cliente, brazos)
@@ -1709,9 +1710,7 @@ def test_el_aviso_de_una_rutina_cuenta_sus_dias_vigentes_y_planificados(cliente,
     """
     programa = cliente.get("/programas").json()[0]["id"]
     for dia, rutina in ((1, "Leg"), (2, "Push")):
-        respuesta = cliente.put(
-            f"/programas/{programa}/dias/{dia}", json={"rutina_id": ppl[rutina]}
-        )
+        respuesta = cambiar_dias(cliente, programa, {dia: ppl[rutina]})
         assert respuesta.status_code == 200, respuesta.text
     cliente.post(
         "/programas",

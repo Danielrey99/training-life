@@ -469,7 +469,13 @@ export type NuevoEntrenamiento = {
 export type EntrenamientoCorregido = {
   fecha: string
   notas: string | null
+  // El *Guardar* de un día: todas sus series como deben quedar (las que no van se
+  // borran). Sin él, no se tocan.
+  series?: SerieDelDia[]
 }
+
+/** Una serie del *Guardar* de un día: con `id`, una ya guardada; con `null`, una nueva. */
+export type SerieDelDia = NuevaSerie & { id: number | null }
 
 export type NuevaSerie = {
   ejercicio_id: number

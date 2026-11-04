@@ -6,6 +6,7 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
+from app.ediciones import reparto_del_orden
 from app.fechas import hoy
 from app.models import (
     Ejercicio,
@@ -31,7 +32,6 @@ from app.routers.ejercicios import obtener_ejercicio_visible
 from app.schemas import (
     AvisoDeBorrarHuecoOut,
     AvisoDeBorrarRutinaOut,
-    OrdenDeHuecos,
     RutinaCreate,
     RutinaOut,
     RutinaSlotCreate,
@@ -269,13 +269,42 @@ def actualizar_rutina(
     datos: RutinaUpdate,
     db: Session = Depends(get_db),
 ):
+    """El *Guardar* de la rutina editando: el nombre y, si llega, el orden de los
+    huecos visibles, en una sola transacción: o se guarda todo o nada.
+
+    El orden no se puede cambiar con PUT sueltos de cada hueco: intercambiar dos choca a
+    medias con `UNIQUE(rutina_id, orden)`. Los visibles se reparten los `orden` que ya
+    tenían (`reparto_del_orden`) y los ocultos conservan el suyo.
+    """
     rutina = _obtener_rutina_modificable(db, rutina_id)
+    reparto = {}
+    if datos.slot_ids is not None:
+        visibles = {slot.id: slot.orden for slot in rutina.slots if not slot.oculto}
+        reparto = reparto_del_orden(visibles, datos.slot_ids)
+        # 422 y no 404 con un id que no es de esta rutina.
+        if reparto is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Para ordenar la rutina hacen falta todos sus ejercicios a la vista, cada"
+                    " uno una vez."
+                ),
+            )
     # Solo si cambia de verdad: cambiar mayúsculas o tildes vale, y dos que ya conviven
     # se pueden seguir editando.
     if clave_de_nombre(datos.nombre) != clave_de_nombre(rutina.nombre):
         _validar_nombre_libre(db, datos.nombre)
-    for campo, valor in datos.model_dump().items():
-        setattr(rutina, campo, valor)
+    rutina.nombre = datos.nombre
+    if reparto:
+        huecos = {slot.id: slot for slot in rutina.slots}
+        # Dos pasos: primero cada uno a un valor que no choca con nadie (los ocultos
+        # tienen orden positivo) y luego el definitivo. Sin el flush, la restricción
+        # única saltaría a mitad de camino.
+        for slot_id in reparto:
+            huecos[slot_id].orden = -slot_id
+        db.flush()
+        for slot_id, orden in reparto.items():
+            huecos[slot_id].orden = orden
     db.commit()
     db.refresh(rutina)
     return rutina
@@ -330,44 +359,6 @@ def duplicar_rutina(
     db.commit()
     db.refresh(copia)
     return copia
-
-
-@router.put("/{rutina_id}/orden", response_model=RutinaOut)
-def ordenar_huecos(
-    rutina_id: int,
-    datos: OrdenDeHuecos,
-    db: Session = Depends(get_db),
-):
-    """Reordena los huecos visibles de una vez. Con PUT sueltos no se puede:
-    intercambiar dos huecos choca a medias con `UNIQUE(rutina_id, orden)`.
-
-    Los visibles se reparten los `orden` que ya tenían, en el orden nuevo, y los
-    ocultos conservan el suyo: así no chocan, y al mostrarlos vuelven a su sitio.
-    """
-    rutina = _obtener_rutina_modificable(db, rutina_id)
-    visibles = {slot.id: slot for slot in rutina.slots if not slot.oculto}
-    # 422 y no 404 con un id que no es de esta rutina.
-    if set(datos.slot_ids) != set(visibles):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Para ordenar la rutina hacen falta todos sus ejercicios a la vista, cada uno"
-                " una vez."
-            ),
-        )
-    ordenes = sorted(slot.orden for slot in visibles.values())
-    # Dos pasos: primero cada uno a un valor que no choca con nadie (los ocultos
-    # tienen orden positivo) y luego el definitivo. Sin el flush, la restricción
-    # única saltaría a mitad de camino.
-    for slot in visibles.values():
-        slot.orden = -slot.id
-    db.flush()
-    for orden, slot_id in zip(ordenes, datos.slot_ids, strict=True):
-        visibles[slot_id].orden = orden
-    db.commit()
-    # La lista de huecos ya cargada sigue en el orden de antes.
-    db.refresh(rutina)
-    return rutina
 
 
 @router.get("/{rutina_id}/aviso-de-borrado", response_model=AvisoDeBorrarRutinaOut)

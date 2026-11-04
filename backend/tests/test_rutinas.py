@@ -39,8 +39,13 @@ def nombre_de_la_copia(cliente, rutina_id) -> str:
     return respuesta.json()["nombre"]
 
 
-def ordenar(cliente, rutina_id, slot_ids):
-    return cliente.put(f"/rutinas/{rutina_id}/orden", json={"slot_ids": slot_ids})
+def ordenar(cliente, rutina_id, slot_ids, nombre=None):
+    """El *Guardar* de la rutina con el orden de sus huecos: `PUT /rutinas/{id}` con el
+    nombre (el que tiene, si no se da otro) y los `slot_ids` en el orden nuevo.
+    """
+    if nombre is None:
+        nombre = cliente.get(f"/rutinas/{rutina_id}").json()["nombre"]
+    return cliente.put(f"/rutinas/{rutina_id}", json={"nombre": nombre, "slot_ids": slot_ids})
 
 
 def ordenes(cliente, rutina_id) -> dict[int, int]:
@@ -485,12 +490,14 @@ def test_reordenar_sin_mandar_exactamente_los_visibles_da_422_y_no_cambia_nada(
     }[caso]
     antes = ordenes(cliente, rutina)
 
-    respuesta = ordenar(cliente, rutina, slot_ids)
+    # Con un nombre nuevo: tampoco se guarda, todo o nada.
+    respuesta = ordenar(cliente, rutina, slot_ids, nombre="Empuje")
 
     assert respuesta.status_code == 422
     # El 422 del endpoint, no uno de validación del body.
     assert respuesta.json()["detail"] == MENSAJE_DE_ORDEN
     assert ordenes(cliente, rutina) == antes
+    assert cliente.get(f"/rutinas/{rutina}").json()["nombre"] == "Push"
     assert ordenes(cliente, otra) == {de_otra: 1}
 
 
@@ -516,6 +523,54 @@ def test_una_rutina_oculta_no_se_puede_reordenar(cliente, tres_huecos):
     assert respuesta.status_code == 409
     assert respuesta.json()["detail"] == "Esta rutina está oculta. Muéstrala antes de cambiarla."
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
+
+
+def test_guardar_el_nombre_y_el_orden_de_una_vez(cliente, tres_huecos):
+    """El *Guardar* de la rutina: una sola petición, y la respuesta ya viene en el
+    orden nuevo (la web la pinta tal cual, sin volver a pedirla).
+    """
+    rutina, (a, b, c) = tres_huecos
+
+    respuesta = ordenar(cliente, rutina, [c, a, b], nombre="Empuje")
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["nombre"] == "Empuje"
+    assert [(h["id"], h["orden"]) for h in respuesta.json()["slots"]] == [(c, 1), (a, 2), (b, 3)]
+    assert ordenes(cliente, rutina) == {c: 1, a: 2, b: 3}
+
+
+def test_guardar_sin_slot_ids_solo_cambia_el_nombre(cliente, tres_huecos):
+    rutina, (a, b, c) = tres_huecos
+
+    respuesta = cliente.put(f"/rutinas/{rutina}", json={"nombre": "Empuje", "slot_ids": None})
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["nombre"] == "Empuje"
+    assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
+
+
+def test_un_nombre_repetido_al_guardar_da_409_y_el_orden_no_cambia(cliente, tres_huecos):
+    rutina, (a, b, c) = tres_huecos
+    crear_rutina(cliente, "Pull")
+
+    respuesta = ordenar(cliente, rutina, [c, b, a], nombre="pull")
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        "Ya tienes una rutina que se llama «Pull». Elige otro nombre.",
+    )
+    assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
+    assert cliente.get(f"/rutinas/{rutina}").json()["nombre"] == "Push"
+
+
+def test_con_el_orden_mal_y_el_nombre_repetido_gana_el_422_del_orden(cliente, tres_huecos):
+    """El 409 del nombre va el último."""
+    rutina, (a, b, _) = tres_huecos
+    crear_rutina(cliente, "Pull")
+
+    respuesta = ordenar(cliente, rutina, [b, a], nombre="Pull")
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (422, MENSAJE_DE_ORDEN)
 
 
 # --- Consultas del listado ------------------------------------------------

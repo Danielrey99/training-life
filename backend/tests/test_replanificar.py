@@ -15,7 +15,7 @@ from datetime import date
 from sqlalchemy import select
 
 from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo
-from tests.ayudas import planificar
+from tests.ayudas import cambiar_dias, planificar
 from tests.semana import (
     HOY,
     JUEVES_17,
@@ -167,9 +167,7 @@ def test_cambiar_un_dia_del_programa_ya_adelantado_empieza_la_semana_siguiente(
 ):
     leg_adelantado(cliente, ppl, grupo_muscular_id)
 
-    respuesta = cliente.put(
-        f"/programas/{programa_id(cliente)}/dias/5", json={"rutina_id": ppl["Push"]}
-    )
+    respuesta = cambiar_dias(cliente, programa_id(cliente), {5: ppl["Push"]})
 
     assert respuesta.status_code == 200, respuesta.text
     plan = rutinas_del_plan(cliente, VIERNES_18, VIERNES_25)
@@ -177,8 +175,38 @@ def test_cambiar_un_dia_del_programa_ya_adelantado_empieza_la_semana_siguiente(
     assert plan["2026-09-25"] == ("Push", "proximo")
 
 
+def test_guardar_dos_dias_a_la_vez_respeta_el_adelantado_solo_en_el_suyo(
+    cliente, ppl, grupo_muscular_id, sesion_bd
+):
+    """El *Guardar* de la semana cambia el miércoles y el viernes en una sola petición.
+    El viernes ya está hecho (adelantado el martes): cambia desde el sábado 19, el día
+    siguiente al contado. El miércoles no tiene nada hecho: cambia desde hoy. Cada día
+    que cambia mira el seguimiento, y sin `flush()` entre uno y otro no vería la fila
+    que el anterior acaba de abrir.
+    """
+    leg_adelantado(cliente, ppl, grupo_muscular_id)
+    id_ = programa_id(cliente)
+
+    respuesta = cambiar_dias(cliente, id_, {3: ppl["Leg"], 5: ppl["Push"]})
+
+    assert respuesta.status_code == 200, respuesta.text
+    vigentes = {
+        fila.dia_semana: (fila.rutina_id, fila.desde)
+        for fila in sesion_bd.scalars(
+            select(ProgramaDia).where(ProgramaDia.programa_id == id_, ProgramaDia.hasta.is_(None))
+        )
+    }
+    assert vigentes == {
+        1: (ppl["Push"], None),
+        3: (ppl["Leg"], HOY),
+        5: (ppl["Push"], SABADO_19),
+    }
+    plan = rutinas_del_plan(cliente, VIERNES_18, VIERNES_25)
+    assert (plan["2026-09-18"], plan["2026-09-25"]) == (("Leg", "movido"), ("Push", "proximo"))
+
+
 def test_sin_nada_adelantado_el_cambio_empieza_hoy_mismo(cliente, ppl):
-    cliente.put(f"/programas/{programa_id(cliente)}/dias/5", json={"rutina_id": ppl["Push"]})
+    assert cambiar_dias(cliente, programa_id(cliente), {5: ppl["Push"]}).status_code == 200
 
     assert rutinas_del_plan(cliente, VIERNES_18, VIERNES_18)["2026-09-18"] == (
         "Push",
@@ -189,9 +217,9 @@ def test_sin_nada_adelantado_el_cambio_empieza_hoy_mismo(cliente, ppl):
 def test_dejar_en_descanso_un_dia_ya_adelantado_tambien_lo_respeta(cliente, ppl, grupo_muscular_id):
     leg_adelantado(cliente, ppl, grupo_muscular_id)
 
-    respuesta = cliente.delete(f"/programas/{programa_id(cliente)}/dias/5")
+    respuesta = cambiar_dias(cliente, programa_id(cliente), {5: None})
 
-    assert respuesta.status_code == 204
+    assert respuesta.status_code == 200
     plan = rutinas_del_plan(cliente, VIERNES_18, VIERNES_25)
     assert plan["2026-09-18"] == ("Leg", "movido")
     assert plan["2026-09-25"] == (None, "descanso")
@@ -201,7 +229,7 @@ def test_cambiar_el_dia_de_hoy_despues_de_entrenar_lo_deja_como_estaba(cliente, 
     """Hoy se empezó el Pull; pasar los miércoles a Leg empieza el miércoles 23."""
     sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY)
 
-    cliente.put(f"/programas/{programa_id(cliente)}/dias/3", json={"rutina_id": ppl["Leg"]})
+    assert cambiar_dias(cliente, programa_id(cliente), {3: ppl["Leg"]}).status_code == 200
 
     plan = rutinas_del_plan(cliente, HOY, date(2026, 9, 23))
     assert plan["2026-09-16"] == ("Pull", "hecho")
@@ -219,7 +247,7 @@ def test_con_el_dia_cambiado_a_mano_el_programa_cambia_desde_hoy(
     leg_adelantado(cliente, ppl, grupo_muscular_id)
     id_ = programa_id(cliente)
 
-    cliente.put(f"/programas/{id_}/dias/5", json={"rutina_id": ppl["Push"]})
+    assert cambiar_dias(cliente, id_, {5: ppl["Push"]}).status_code == 200
 
     assert rutinas_del_plan(cliente, VIERNES_18, VIERNES_18)["2026-09-18"] == ("Leg", "movido")
     vigente = sesion_bd.scalar(
@@ -252,7 +280,7 @@ def test_editar_otro_programa_no_mira_lo_adelantado_del_activo(
     )
     sesion_bd.commit()
 
-    cliente.put(f"/programas/{otro}/dias/5", json={"rutina_id": ppl["Push"]})
+    assert cambiar_dias(cliente, otro, {5: ppl["Push"]}).status_code == 200
 
     vigente = sesion_bd.scalar(
         select(ProgramaDia).where(

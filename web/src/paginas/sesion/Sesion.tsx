@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { api, AvisoDeLaWeb, ErrorDeApi } from '../../api/cliente'
+import { api, ErrorDeApi } from '../../api/cliente'
 import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -199,25 +199,16 @@ export function Sesion() {
     else setACambiar({ hueco, ejercicio, de: deHueco(hueco)[0].ejercicio.nombre })
   }
 
-  /** Borra las series que había en el hueco, una a una, y pasa al ejercicio elegido. */
+  /**
+   * Borra de una vez las series que había en el hueco y pasa al ejercicio elegido. Si
+   * falla, no se ha borrado ninguna: el diálogo lo dice y todo sigue como estaba.
+   */
   async function cambiarDeEjercicio(hueco: HuecoDeRutina, ejercicio: Ejercicio) {
-    try {
-      for (const serie of deHueco(hueco)) {
-        await api.borrarSerie(activa.id, serie.id)
-        setSesion(
-          (previa) =>
-            previa && { ...previa, series: previa.series.filter((s) => s.id !== serie.id) },
-        )
-      }
-    } catch {
-      // Se vuelve a leer lo que quedó: no se sabe cuántas llegaron a borrarse. Si no queda
-      // ninguna (falló la respuesta, no el borrado), el cambio ya está hecho.
-      const leida = await api.entrenamiento(activa.id)
-      setSesion(leida)
-      if (leida.series.some((serie) => serie.slot_id === hueco.id)) {
-        throw new AvisoDeLaWeb('No se pudieron borrar todas las series. Inténtalo otra vez.')
-      }
-    }
+    await api.borrarSeriesDelHueco(activa.id, hueco.id)
+    setSesion(
+      (previa) =>
+        previa && { ...previa, series: previa.series.filter((s) => s.slot_id !== hueco.id) },
+    )
     elegirEjercicio(hueco, ejercicio)
     setACambiar(null)
   }

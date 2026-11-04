@@ -14,14 +14,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import {
-  diaDeLaSemana,
-  fechaCompleta,
-  fechaEnFrase,
-  fechaLarga,
-  hoy,
-  sumarDias,
-} from '../../utiles/fechas'
+import { fechaCompleta, fechaEnFrase, fechaLarga, sumarDias } from '../../utiles/fechas'
 import { conPesoYReps, kilos, kilosCorporales, serieLarga } from '../../utiles/medidas'
 import {
   distanciaLegible,
@@ -482,9 +475,10 @@ export function Dia() {
   }
 
   /**
-   * *Guardar*: envía el borrador. Primero la fecha y la nota, que son las que pueden no
-   * valer (la fecha ocupada o fuera de plazo): si fallan, no se toca nada más y el modo
-   * editar sigue abierto. Después las series: las borradas, las cambiadas y las nuevas.
+   * *Guardar*: envía el borrador entero de golpe (la fecha, la nota y todas las series
+   * como deben quedar) y el servidor lo guarda todo o nada. Si algo no vale, no se ha
+   * guardado nada: el modo editar sigue abierto con el borrador, y el aviso va bajo la
+   * fecha si es de ella.
    */
   async function guardar() {
     const fechaFinal = fechaNueva || dia.fecha
@@ -492,26 +486,12 @@ export function Dia() {
     setFalloFecha(null)
     setFalloGuardar(null)
     try {
-      if (fechaFinal !== dia.fecha || notasNuevas !== dia.notas) {
-        await api.actualizarEntrenamiento(dia.id, {
-          fecha: fechaFinal,
-          notas: notasNuevas,
-        })
-      }
-    } catch (fallo) {
-      const motivo = motivoDeLaFecha(fallo, fechaFinal)
-      if (fechaFinal !== dia.fecha) setFalloFecha(motivo)
-      else setFalloGuardar(motivo)
-      setGuardando(false)
-      return
-    }
-    try {
-      const quedan = new Set(seriesNuevas.map((serie) => serie.id))
-      for (const serie of dia.series) {
-        if (!quedan.has(serie.id)) await api.borrarSerie(dia.id, serie.id)
-      }
-      for (const serie of seriesNuevas) {
-        const datos = {
+      await api.actualizarEntrenamiento(dia.id, {
+        fecha: fechaFinal,
+        notas: notasNuevas,
+        series: seriesNuevas.map((serie) => ({
+          // Las nuevas llevan un id negativo en el borrador.
+          id: serie.id > 0 ? serie.id : null,
           ejercicio_id: serie.ejercicio_id,
           slot_id: serie.slot_id,
           numero_serie: serie.numero_serie,
@@ -521,51 +501,21 @@ export function Dia() {
           distancia_m: serie.distancia_m,
           peso_corporal: kilosCorporales(serie),
           variante: serie.variante,
-        }
-        const antes = dia.series.find((otra) => otra.id === serie.id)
-        if (!antes) await api.crearSerie(dia.id, datos)
-        else if (
-          kilos(antes) !== datos.peso ||
-          antes.repeticiones !== datos.repeticiones ||
-          antes.duracion_s !== datos.duracion_s ||
-          antes.distancia_m !== datos.distancia_m ||
-          kilosCorporales(antes) !== datos.peso_corporal ||
-          antes.variante !== datos.variante
-        ) {
-          await api.actualizarSerie(dia.id, serie.id, datos)
-        }
-      }
+        })),
+      })
     } catch (fallo) {
-      // Lo que ya se envió queda guardado: se vuelve a leer el día para enseñar cómo quedó.
-      setFalloGuardar(`No se pudo guardar todo. ${textoDelFallo(fallo)}`)
+      const deLaFecha =
+        fallo instanceof ErrorDeApi &&
+        (fallo.detalle as { campo?: string } | null)?.campo === 'fecha'
+      if (deLaFecha) setFalloFecha(fallo.message)
+      else setFalloGuardar(textoDelFallo(fallo))
+      setGuardando(false)
+      return
     }
     setGuardando(false)
     setEditando(false)
     if (fechaFinal !== dia.fecha) navegar(`/historial/${fechaFinal}`, { replace: true })
     else recargar()
-  }
-
-  /** Por qué no se pudo mover: con las palabras del boceto, no con las de la API. */
-  function motivoDeLaFecha(fallo: unknown, nueva: string) {
-    if (fallo instanceof ErrorDeApi && fallo.estado === 409) {
-      return (
-        `El ${fechaEnFrase(nueva, false)} ya tiene una sesión, y solo se hace una por día. ` +
-        `Para usar ese día, cambia antes la fecha de esa sesión desde su día en la pestaña Historial.`
-      )
-    }
-    if (fallo instanceof ErrorDeApi && fallo.estado === 422 && dia.cubre_fecha && nueva <= hoy()) {
-      const contado = dia.cubre_fecha
-      const lunes = sumarDias(contado, 1 - diaDeLaSemana(contado))
-      const ultimo = sumarDias(contado, 6)
-      // Dentro del plazo, el 422 solo puede ser el del programa.
-      if (nueva >= lunes && nueva <= ultimo) {
-        return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, y el ${fechaEnFrase(nueva, false)} no seguías el mismo programa que ese día. Solo se puede mover a un día en que lo siguieras.`
-      }
-      const limite = nueva > contado ? ultimo : lunes
-      const hacia = nueva > contado ? 'hasta' : 'desde'
-      return `Este ${nombre} cuenta como el del ${fechaEnFrase(contado, false)}, así que solo puede ir ${hacia} el ${fechaEnFrase(limite, false)}.`
-    }
-    return textoDelFallo(fallo)
   }
 
   function cambiarSerie(serie: Serie, datos: DatosDeSerie) {

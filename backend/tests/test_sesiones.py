@@ -12,8 +12,10 @@ import pytest
 
 from app import fechas
 from tests.ayudas import (
+    bajo_la_fecha,
     crear_ejercicio,
     crear_rutina,
+    en_texto,
     entrenar,
     rango_invertido,
     rutina_en_bd,
@@ -162,9 +164,36 @@ def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_
     )
 
     assert respuesta.status_code == 409
-    detalle = respuesta.json()["detail"]
-    assert (detalle["entrenamiento_id"], detalle["en_curso"]) == (de_hoy["id"], True)
+    # El aviso habla de la sesión que se mueve y va bajo la fecha.
+    assert respuesta.json()["detail"] == {
+        "mensaje": f"El {en_texto(HOY)} ya tiene una sesión empezada, y solo se hace una por"
+        " día. Termínala o cancélala desde la pestaña Entrenar antes de mover esta.",
+        "campo": "fecha",
+        "entrenamiento_id": de_hoy["id"],
+        "en_curso": True,
+    }
     assert cliente.get(f"/entrenamientos/{de_ayer['id']}").json()["fecha"] == AYER.isoformat()
+
+
+def test_mover_una_sesion_al_dia_de_otra_ya_hecha_da_409_bajo_la_fecha(cliente, grupo_muscular_id):
+    anteayer = AYER - timedelta(days=1)
+    hecha = empezar(cliente, AYER)
+    con_una_serie(cliente, grupo_muscular_id, hecha["id"])
+    otra = empezar(cliente, anteayer)
+    con_una_serie(cliente, grupo_muscular_id, otra["id"])
+
+    respuesta = cliente.put(f"/entrenamientos/{otra['id']}", json={"fecha": AYER.isoformat()})
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"] == {
+        "mensaje": f"El {en_texto(AYER)} ya tiene una sesión, y solo se hace una por día. Para"
+        " usar ese día, cambia antes la fecha de esa sesión desde su día en la pestaña"
+        " Historial.",
+        "campo": "fecha",
+        "entrenamiento_id": hecha["id"],
+        "en_curso": False,
+    }
+    assert cliente.get(f"/entrenamientos/{otra['id']}").json()["fecha"] == anteayer.isoformat()
 
 
 def test_mover_una_sesion_al_dia_de_una_cancelada_borra_la_cancelada(cliente, grupo_muscular_id):
@@ -404,7 +433,9 @@ def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
     )
 
     assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == todavia_no_ha_llegado(HOY + timedelta(days=1))
+    assert respuesta.json()["detail"] == bajo_la_fecha(
+        todavia_no_ha_llegado(HOY + timedelta(days=1))
+    )
     assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
 
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { api, textoDelFallo } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { AvisoDeBorrarRutina, HuecoDeRutina, Rutina as DatosRutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -149,7 +149,7 @@ export function Rutina() {
     })
   }
 
-  /** *Guardar*: el nombre y el orden. Si el nombre falla, no se toca el orden. */
+  /** *Guardar*: el nombre y el orden, de golpe. Si algo falla, no se guarda nada. */
   async function guardar() {
     const limpio = nombre.trim()
     if (!limpio) {
@@ -160,20 +160,23 @@ export function Rutina() {
     setFallo(null)
     setFalloNombre(null)
     try {
-      if (limpio !== rutina!.nombre) await api.actualizarRutina(id, limpio)
+      setRutina(
+        await api.actualizarRutina(
+          id,
+          limpio,
+          orden.map((hueco) => hueco.id),
+        ),
+      )
+      setEditando(false)
     } catch (fallo) {
-      setFalloNombre(textoDelFallo(fallo))
-      setGuardando(false)
-      return
+      // Se sigue editando, con lo que había. El nombre repetido (el único 409 con el
+      // nombre cambiado) va bajo el nombre.
+      if (fallo instanceof ErrorDeApi && fallo.estado === 409 && limpio !== rutina!.nombre) {
+        setFalloNombre(fallo.message)
+      } else {
+        setFallo(textoDelFallo(fallo))
+      }
     }
-    try {
-      const nuevo = orden.map((hueco) => hueco.id)
-      if (nuevo.some((huecoId, i) => huecoId !== visibles[i].id)) await api.ordenarHuecos(id, nuevo)
-    } catch (fallo) {
-      setFallo(`No se pudo guardar el orden. ${textoDelFallo(fallo)}`)
-    }
-    await cargar().catch((fallo: Error) => setFallo(textoDelFallo(fallo)))
-    setEditando(false)
     setGuardando(false)
   }
 

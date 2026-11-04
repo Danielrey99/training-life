@@ -1,4 +1,5 @@
-"""Tests de los programas y sus días: `/programas` y `/programas/{id}/dias/{dia}`.
+"""Tests de los programas y sus días: `/programas`. Los días se cambian con el *Guardar*
+de la semana, `PUT /programas/{id}` con la semana entera.
 
 Lo que más importa aquí es lo que el diseño decidió con cuidado: una rutina se
 reutiliza en varios días y en varios programas (no pertenece a ninguno), un día
@@ -14,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import PIDE_MODO, consultas_de, crear_programa, crear_rutina
+from tests.ayudas import PIDE_MODO, cambiar_dias, consultas_de, crear_programa, crear_rutina
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -163,10 +164,8 @@ def test_cambiar_el_nombre(cliente):
 def test_poner_una_rutina_en_un_dia_de_descanso_y_sustituir_otra(cliente):
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
     programa = crear_programa(cliente, dias=[(1, push)])
-    ruta = f"/programas/{programa['id']}/dias"
 
-    cliente.put(f"{ruta}/3", json={"rutina_id": pull})
-    respuesta = cliente.put(f"{ruta}/1", json={"rutina_id": pull})
+    respuesta = cambiar_dias(cliente, programa["id"], {1: pull, 3: pull})
 
     assert respuesta.status_code == 200
     assert rutinas_por_dia(respuesta.json()) == {1: "Pull", 3: "Pull"}
@@ -175,24 +174,13 @@ def test_poner_una_rutina_en_un_dia_de_descanso_y_sustituir_otra(cliente):
 def test_quitar_la_rutina_de_un_dia_lo_deja_en_descanso(cliente):
     push = crear_rutina(cliente)
     programa = crear_programa(cliente, dias=[(1, push)])
-    ruta = f"/programas/{programa['id']}/dias/1"
 
-    assert cliente.delete(ruta).status_code == 204
+    assert cambiar_dias(cliente, programa["id"], {1: None}).status_code == 200
     assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == []
-    # Ya era descanso: no hay nada que quitar.
-    otra_vez = cliente.delete(ruta)
-    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Ese día ya es de descanso.")
-
-
-def test_un_dia_fuera_de_rango_en_la_ruta_da_422(cliente):
-    push = crear_rutina(cliente)
-    programa = crear_programa(cliente)
-
-    respuesta = cliente.put(f"/programas/{programa['id']}/dias/8", json={"rutina_id": push})
-
-    assert respuesta.status_code == 422
-    assert [e["loc"] for e in respuesta.json()["detail"]] == [["path", "dia_semana"]]
-    assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == programa["dias"]
+    # Ya era descanso: la semana llega igual y no cambia nada (antes, quitarlo otra vez
+    # con su ruta daba 404).
+    otra_vez = cambiar_dias(cliente, programa["id"], {1: None})
+    assert (otra_vez.status_code, otra_vez.json()["dias"]) == (200, [])
 
 
 def test_un_programa_oculto_no_se_puede_editar(cliente):
@@ -203,9 +191,15 @@ def test_un_programa_oculto_no_se_puede_editar(cliente):
 
     respuestas = [
         cliente.put(ruta, json={"nombre": "Otro"}),
-        cliente.put(f"{ruta}/dias/2", json={"rutina_id": push}),
+        cliente.put(
+            ruta,
+            json={
+                "nombre": "Push Pull Leg",
+                "dias": [{"dia_semana": dia, "rutina_id": push} for dia in (1, 2)],
+            },
+        ),
         # Dejar un día en descanso también es editar.
-        cliente.delete(f"{ruta}/dias/1"),
+        cliente.put(ruta, json={"nombre": "Push Pull Leg", "dias": []}),
     ]
 
     for respuesta in respuestas:
@@ -220,7 +214,7 @@ def test_no_se_puede_poner_una_rutina_oculta_en_un_dia(cliente):
     programa = crear_programa(cliente, dias=[(1, push)])
     assert cliente.delete(f"/rutinas/{pull}?modo=ocultar").status_code == 204
 
-    respuesta = cliente.put(f"/programas/{programa['id']}/dias/3", json={"rutina_id": pull})
+    respuesta = cambiar_dias(cliente, programa["id"], {3: pull})
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
@@ -235,11 +229,167 @@ def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente
     programa = crear_programa(cliente, dias=[(6, push)])
     assert cliente.delete(f"/rutinas/{push}?modo=ocultar").status_code == 204
 
-    respuesta = cliente.put(f"/programas/{programa['id']}/dias/6", json={"rutina_id": pull})
+    respuesta = cambiar_dias(cliente, programa["id"], {6: pull})
 
     assert respuesta.status_code == 200
     assert rutinas_por_dia(respuesta.json()) == {6: "Pull"}
     assert cliente.get(f"/rutinas/{push}").json()["oculto_desde"] == hoy().isoformat()
+
+
+# --- Guardar la semana de una vez ------------------------------------------
+#
+# El *Guardar* de la semana manda el nombre y los siete días en una sola petición
+# (`PUT /programas/{id}` con `dias`): todo se valida antes de escribir, así que o se
+# guarda todo o nada. Solo se valida lo que cambia.
+
+NO_SE_PUEDE_ELEGIR = "Esa rutina no existe o está oculta."
+
+
+def guardar_semana(cliente, programa_id, nombre, dias):
+    """El PUT con el nombre y la semana entera, cada día `(dia_semana, rutina_id)`."""
+    return cliente.put(
+        f"/programas/{programa_id}",
+        json={
+            "nombre": nombre,
+            "dias": [{"dia_semana": dia, "rutina_id": rutina} for dia, rutina in dias],
+        },
+    )
+
+
+def como_esta(cliente, programa_id) -> tuple[str, dict]:
+    programa = cliente.get(f"/programas/{programa_id}").json()
+    return programa["nombre"], rutinas_por_dia(programa)
+
+
+def test_guardar_el_nombre_y_varios_dias_de_una_vez(cliente):
+    push, pull, leg = (crear_rutina(cliente, nombre) for nombre in ("Push", "Pull", "Leg"))
+    programa = crear_programa(cliente, dias=[(1, push), (3, pull)])["id"]
+
+    # El lunes cambia, el miércoles pasa a descanso y el viernes se estrena.
+    respuesta = guardar_semana(cliente, programa, "PPL nuevo", [(1, pull), (5, leg)])
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert (respuesta.json()["nombre"], rutinas_por_dia(respuesta.json())) == (
+        "PPL nuevo",
+        {1: "Pull", 5: "Leg"},
+    )
+    assert como_esta(cliente, programa) == ("PPL nuevo", {1: "Pull", 5: "Leg"})
+
+
+@pytest.mark.parametrize("cual", ["oculta", "inexistente"])
+def test_una_rutina_que_no_se_puede_elegir_da_404_y_no_guarda_nada(cliente, cual):
+    """Los días buenos que van antes que el malo tampoco se guardan, ni el nombre."""
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    programa = crear_programa(cliente, dias=[(1, push)])["id"]
+    if cual == "oculta":
+        mala = crear_rutina(cliente, "Leg")
+        assert cliente.delete(f"/rutinas/{mala}?modo=ocultar").status_code == 204
+    else:
+        mala = 999_999
+
+    respuesta = guardar_semana(cliente, programa, "Otro", [(1, pull), (2, push), (3, mala)])
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, NO_SE_PUEDE_ELEGIR)
+    assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
+
+
+def test_un_nombre_repetido_da_409_y_no_cambia_los_dias(cliente):
+    crear_programa(cliente, "Torso pierna")
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    programa = crear_programa(cliente, dias=[(1, push)])["id"]
+
+    respuesta = guardar_semana(cliente, programa, "TORSO PIERNA", [(1, pull), (4, push)])
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        409,
+        "Ya tienes un programa que se llama «Torso pierna». Elige otro nombre.",
+    )
+    assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
+
+
+def test_con_una_rutina_oculta_y_el_nombre_repetido_gana_el_404_de_la_rutina(cliente):
+    """El 409 del nombre va el último, como al crear el programa."""
+    crear_programa(cliente, "Torso pierna")
+    push, oculta = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    assert cliente.delete(f"/rutinas/{oculta}?modo=ocultar").status_code == 204
+    programa = crear_programa(cliente, dias=[(1, push)])["id"]
+
+    respuesta = guardar_semana(cliente, programa, "Torso pierna", [(1, oculta)])
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, NO_SE_PUEDE_ELEGIR)
+    assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
+
+
+def test_un_dia_que_no_cambia_vale_aunque_su_rutina_este_oculta(cliente):
+    """La web manda la semana entera: si un día con una rutina oculta bloqueara el
+    guardado, no se podría cambiar ningún otro día sin perder ese.
+    """
+    push, pull, leg = (crear_rutina(cliente, nombre) for nombre in ("Push", "Pull", "Leg"))
+    programa = crear_programa(cliente, dias=[(1, push), (3, pull)])["id"]
+    assert cliente.delete(f"/rutinas/{push}?modo=ocultar").status_code == 204
+
+    respuesta = guardar_semana(cliente, programa, "Push Pull Leg", [(1, push), (3, leg)])
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert rutinas_por_dia(respuesta.json()) == {1: "Push", 3: "Leg"}
+
+
+def test_dias_repetidos_al_guardar_dan_422_y_no_cambian_nada(cliente):
+    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
+    programa = crear_programa(cliente, dias=[(1, push)])["id"]
+
+    respuesta = guardar_semana(cliente, programa, "Otro", [(2, push), (2, pull)])
+
+    assert respuesta.status_code == 422
+    assert [e["msg"] for e in respuesta.json()["detail"]] == [
+        "Value error, Hay días repetidos, y un día no puede tener dos rutinas."
+    ]
+    assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
+
+
+def test_sin_dias_solo_cambia_el_nombre(cliente):
+    """Sin `dias` no se tocan; con `dias: []`, la semana entera pasa a descanso."""
+    push = crear_rutina(cliente, "Push")
+    programa = crear_programa(cliente, dias=[(1, push), (4, push)])["id"]
+
+    respuesta = cliente.put(f"/programas/{programa}", json={"nombre": "Otro", "dias": None})
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert como_esta(cliente, programa) == ("Otro", {1: "Push", 4: "Push"})
+    assert guardar_semana(cliente, programa, "Otro", []).status_code == 200
+    assert como_esta(cliente, programa) == ("Otro", {})
+
+
+def test_guardar_varios_dias_de_un_programa_que_nunca_estuvo_activo_no_cierra_filas(
+    cliente, sesion_bd
+):
+    """Sin pasado que conservar, cada día que cambia sustituye su fila o la quita."""
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push), (3, push)])["id"]
+
+    respuesta = guardar_semana(cliente, programa, "Push Pull Leg", [(1, leg), (5, leg)])
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert {dia: filas_del_dia(sesion_bd, programa, dia) for dia in (1, 3, 5)} == {
+        1: [(leg, None, None)],
+        3: [],
+        5: [(leg, None, None)],
+    }
+
+
+def test_guardar_varios_dias_de_un_programa_activo_los_cambia_desde_hoy(cliente, sesion_bd):
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push), (3, push)])["id"]
+    activo_desde_hace(sesion_bd, programa, 14)
+
+    respuesta = guardar_semana(cliente, programa, "Push Pull Leg", [(1, leg), (5, leg)])
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert {dia: filas_del_dia(sesion_bd, programa, dia) for dia in (1, 3, 5)} == {
+        1: [(push, None, hoy()), (leg, hoy(), None)],
+        3: [(push, None, hoy())],
+        5: [(leg, hoy(), None)],
+    }
 
 
 # --- Las rutinas ocultas o borradas y sus días ---------------------------
@@ -536,7 +686,7 @@ def test_cambiar_un_dia_de_un_programa_activo_no_cambia_los_dias_pasados(cliente
     activo_desde_hace(sesion_bd, programa["id"], 14)
     cliente.post(f"/programas/{programa['id']}/activar")
 
-    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {dia: leg}).status_code == 200
 
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
     assert rutina_del_dia(cliente, hoy()) == "Leg"
@@ -549,13 +699,13 @@ def test_dejar_en_descanso_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd)
     programa = crear_programa(cliente, dias=[(dia, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    assert cliente.delete(f"/programas/{programa['id']}/dias/{dia}").status_code == 204
+    assert cambiar_dias(cliente, programa["id"], {dia: None}).status_code == 200
 
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
     assert rutina_del_dia(cliente, hoy()) is None
-    # Ya es descanso: quitarlo otra vez da 404, aunque quede su fila cerrada.
-    otra_vez = cliente.delete(f"/programas/{programa['id']}/dias/{dia}")
-    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Ese día ya es de descanso.")
+    # Ya es descanso: quitarlo otra vez no cambia nada, aunque quede su fila cerrada.
+    assert cambiar_dias(cliente, programa["id"], {dia: None}).status_code == 200
+    assert filas_del_dia(sesion_bd, programa["id"], dia) == [(push, None, hoy())]
 
 
 def test_anadir_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd):
@@ -564,7 +714,7 @@ def test_anadir_un_dia_no_cambia_los_dias_pasados(cliente, sesion_bd):
     programa = crear_programa(cliente)
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": push})
+    assert cambiar_dias(cliente, programa["id"], {dia: push}).status_code == 200
 
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) is None
     assert rutina_del_dia(cliente, hoy()) == "Push"
@@ -583,7 +733,7 @@ def test_un_programa_que_ya_no_esta_activo_conserva_su_pasado_al_editarlo(client
     )
     sesion_bd.commit()
 
-    cliente.put(f"/programas/{programa['id']}/dias/{dia}", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {dia: leg}).status_code == 200
 
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
 
@@ -593,7 +743,7 @@ def test_editar_un_programa_que_nunca_estuvo_activo_no_guarda_historial(cliente,
     push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
     programa = crear_programa(cliente, dias=[(1, push)])
 
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
 
     assert filas_del_dia(sesion_bd, programa["id"], 1) == [(leg, None, None)]
 
@@ -606,8 +756,8 @@ def test_cambiar_dos_veces_el_mismo_dia_hoy_no_deja_filas_vacias(cliente, sesion
     programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": pull})
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {1: pull}).status_code == 200
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
 
     assert filas_del_dia(sesion_bd, programa["id"], 1) == [
         (push, None, hoy()),
@@ -620,7 +770,7 @@ def test_poner_la_misma_rutina_no_parte_el_dia(cliente, sesion_bd):
     programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": push})
+    assert cambiar_dias(cliente, programa["id"], {1: push}).status_code == 200
 
     assert filas_del_dia(sesion_bd, programa["id"], 1) == [(push, None, None)]
 
@@ -630,8 +780,8 @@ def test_el_programa_solo_ensena_sus_dias_vigentes(cliente, sesion_bd):
     programa = crear_programa(cliente, dias=[(1, push), (3, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
-    cliente.delete(f"/programas/{programa['id']}/dias/3")
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
+    assert cambiar_dias(cliente, programa["id"], {3: None}).status_code == 200
 
     assert rutinas_por_dia(cliente.get(f"/programas/{programa['id']}").json()) == {1: "Leg"}
 
@@ -641,7 +791,7 @@ def test_num_programas_solo_cuenta_dias_vigentes(cliente, sesion_bd):
     programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
 
     assert cliente.get(f"/rutinas/{push}").json()["num_programas"] == 0
     assert cliente.get(f"/rutinas/{leg}").json()["num_programas"] == 1
@@ -651,7 +801,7 @@ def test_borrar_en_definitivo_un_programa_se_lleva_tambien_las_filas_viejas(clie
     push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
     programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
-    cliente.put(f"/programas/{programa['id']}/dias/1", json={"rutina_id": leg})
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
 
     assert cliente.delete(f"/programas/{programa['id']}?modo=definitivo").status_code == 204
     assert filas_del_dia(sesion_bd, programa["id"], 1) == []

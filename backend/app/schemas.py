@@ -228,8 +228,8 @@ class RutinaSlotOut(RutinaSlotBase):
 class RutinaBase(BaseModel):
     """Campos que el cliente puede enviar al crear o editar una rutina.
 
-    No incluye los huecos (slots): al editar se gestionan aparte, con sus propios
-    endpoints anidados bajo /rutinas/{id}/slots.
+    No incluye los huecos (slots): al editar, cada uno se gestiona con los endpoints
+    anidados bajo /rutinas/{id}/slots, y su orden va en `RutinaUpdate`.
     """
 
     nombre: Nombre
@@ -249,7 +249,20 @@ class RutinaCreate(RutinaBase):
 
 
 class RutinaUpdate(RutinaBase):
-    pass
+    """El *Guardar* de la rutina editando: el nombre y, si llega, el orden de los
+    huecos visibles, de una vez (todos, cada uno una vez, en el orden nuevo). Sin
+    `slot_ids`, el orden no se toca.
+
+    `slot_ids` va aquí y no en `RutinaBase`, como `slots` en `RutinaCreate`.
+    """
+
+    slot_ids: list[int] | None = None
+
+    @model_validator(mode="after")
+    def _validar_sin_repetir(self):
+        if self.slot_ids is not None and len(self.slot_ids) != len(set(self.slot_ids)):
+            raise ValueError("Hay ejercicios repetidos.")
+        return self
 
 
 class RutinaOut(RutinaBase):
@@ -264,20 +277,6 @@ class RutinaOut(RutinaBase):
     created_at: datetime
     updated_at: datetime
     slots: list[RutinaSlotOut]
-
-
-class OrdenDeHuecos(BaseModel):
-    """Body para reordenar los huecos de una rutina: todos los visibles, cada uno
-    una vez, en el orden nuevo.
-    """
-
-    slot_ids: list[int]
-
-    @model_validator(mode="after")
-    def _validar_sin_repetir(self):
-        if len(self.slot_ids) != len(set(self.slot_ids)):
-            raise ValueError("Hay ejercicios repetidos.")
-        return self
 
 
 class AvisoDeBorrarRutinaOut(BaseModel):
@@ -403,8 +402,9 @@ class SesionHistorial(BaseModel):
 class EntrenamientoBase(BaseModel):
     """Campos que el cliente puede enviar al crear o corregir un entrenamiento.
 
-    No incluye las series: se gestionan aparte, con sus propios endpoints
-    anidados bajo /entrenamientos/{id}/series.
+    No incluye las series: al apuntarlas en la sesión, cada una tiene sus endpoints
+    anidados bajo /entrenamientos/{id}/series, y al editar un día van en
+    `EntrenamientoUpdate`.
     """
 
     fecha: date
@@ -424,8 +424,30 @@ class EntrenamientoCreate(EntrenamientoBase):
     intercambiar_con: date | None = None
 
 
+class SerieDelDia(SerieBase):
+    """Una serie del *Guardar* de un día del historial: con `id`, una ya guardada;
+    sin él, una nueva.
+    """
+
+    id: int | None = None
+
+
 class EntrenamientoUpdate(EntrenamientoBase):
-    pass
+    """El *Guardar* de un día del historial: la fecha, la nota y, si llegan, todas sus
+    series como deben quedar (las guardadas que no llegan se borran). Sin `series`, no
+    se tocan: es lo que manda la nota de la sesión en curso.
+
+    `series` va aquí y no en `EntrenamientoBase`, como `slots` en `RutinaCreate`.
+    """
+
+    series: list[SerieDelDia] | None = None
+
+    @model_validator(mode="after")
+    def _validar_sin_repetir(self):
+        ids = [serie.id for serie in self.series or [] if serie.id is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Hay series repetidas.")
+        return self
 
 
 class EntrenamientoOut(EntrenamientoBase):
@@ -520,17 +542,17 @@ class ProgramaDiaCreate(BaseModel):
     rutina_id: int
 
 
-class ProgramaDiaUpdate(BaseModel):
-    """Body para poner una rutina en un día. El día va en la ruta."""
-
-    rutina_id: int
-
-
 class ProgramaDiaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     dia_semana: int
     rutina: RutinaMinima
+
+
+def _validar_dias_sin_repetir(dias: list[ProgramaDiaCreate]) -> None:
+    numeros = [dia.dia_semana for dia in dias]
+    if len(numeros) != len(set(numeros)):
+        raise ValueError("Hay días repetidos, y un día no puede tener dos rutinas.")
 
 
 class ProgramaCreate(BaseModel):
@@ -548,9 +570,7 @@ class ProgramaCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validar_dias_sin_repetir(self):
-        dias = [dia.dia_semana for dia in self.dias]
-        if len(dias) != len(set(dias)):
-            raise ValueError("Hay días repetidos, y un día no puede tener dos rutinas.")
+        _validar_dias_sin_repetir(self.dias)
         return self
 
     @model_validator(mode="after")
@@ -561,9 +581,19 @@ class ProgramaCreate(BaseModel):
 
 
 class ProgramaUpdate(BaseModel):
-    """Solo el nombre: los días se cambian uno a uno, con sus propios endpoints."""
+    """El *Guardar* de la semana editando: el nombre y, si llegan, los días, de una vez.
+    `dias` es la semana entera, como al crearlo (los que no llegan, descanso); sin él,
+    los días no se tocan.
+    """
 
     nombre: Nombre
+    dias: list[ProgramaDiaCreate] | None = None
+
+    @model_validator(mode="after")
+    def _validar_dias_sin_repetir(self):
+        if self.dias is not None:
+            _validar_dias_sin_repetir(self.dias)
+        return self
 
 
 class PeriodoOut(BaseModel):

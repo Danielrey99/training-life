@@ -62,6 +62,32 @@ def fuera_de_plazo(cubre, desde, hasta) -> str:
     )
 
 
+# Al mover la fecha de un día del historial, los avisos son los que la web enseña bajo
+# la fecha: van marcados con `campo` y hablan de la sesión que se mueve.
+
+
+def bajo_la_fecha(mensaje) -> dict:
+    """El `detail` de un fallo al mover la fecha de un día del historial."""
+    return {"mensaje": mensaje, "campo": "fecha"}
+
+
+def solo_puede_ir(rutina, contado, hacia, limite) -> str:
+    """Fuera del plazo del día que cuenta: hasta (o desde) dónde puede ir."""
+    return (
+        f"Este {rutina} cuenta como el del {en_texto(contado)}, así que solo puede ir"
+        f" {hacia} el {en_texto(limite)}."
+    )
+
+
+def no_seguias_el_programa(rutina, contado, nueva) -> str:
+    """Dentro del plazo, pero en un día de otro programa (o sin programa)."""
+    return (
+        f"Este {rutina} cuenta como el del {en_texto(contado)}, y el {en_texto(nueva)} no"
+        " seguías el mismo programa que ese día. Solo se puede mover a un día en que lo"
+        " siguieras."
+    )
+
+
 # --- Crear lo básico por la API -------------------------------------------
 # Siempre crean uno nuevo y fallan si la API no da 201: un test que monta su
 # escenario con ellas no puede seguir con un id que no existe. Dos ejercicios no
@@ -236,6 +262,28 @@ def crear_programa(cliente, nombre="Push Pull Leg", dias=(), activar=False) -> d
     )
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()
+
+
+def cambiar_dias(cliente, programa_id, cambios, nombre=None):
+    """El *Guardar* de la semana, como lo manda la web: `PUT /programas/{id}` con el
+    nombre y la semana entera, que es la de ahora con los `cambios` (de día a rutina;
+    None, descanso). Devuelve la respuesta entera, para mirar el código.
+    """
+    programa = cliente.get(f"/programas/{programa_id}")
+    assert programa.status_code == 200, programa.text
+    programa = programa.json()
+    dias = {dia["dia_semana"]: dia["rutina"]["id"] for dia in programa["dias"]} | cambios
+    return cliente.put(
+        f"/programas/{programa_id}",
+        json={
+            "nombre": programa["nombre"] if nombre is None else nombre,
+            "dias": [
+                {"dia_semana": dia, "rutina_id": rutina}
+                for dia, rutina in sorted(dias.items())
+                if rutina is not None
+            ],
+        },
+    )
 
 
 def importar_rutinas_y_programas(cliente, rutinas=(), programas=()) -> tuple[list, list]:

@@ -16,7 +16,13 @@ import pytest
 
 from app.models import Entrenamiento
 
-from tests.ayudas import en_texto, fuera_de_plazo, todavia_no_ha_llegado
+from tests.ayudas import (
+    bajo_la_fecha,
+    en_texto,
+    fuera_de_plazo,
+    solo_puede_ir,
+    todavia_no_ha_llegado,
+)
 from tests.semana import (
     DOMINGO_13,
     DOMINGO_20,
@@ -319,8 +325,13 @@ def test_no_se_mueve_mas_alla_del_plazo_de_su_dia(cliente, ppl, hoy_es):
     respuesta = corregir(cliente, recuperada, LUNES_21)
 
     assert respuesta.status_code == 422
-    # El texto dice hasta dónde se puede mover.
-    assert respuesta.json()["detail"] == fuera_de_plazo(LUNES_14, LUNES_14, "2026-09-20")
+    # El texto dice hasta dónde se puede mover, con las palabras de la app y literal: el
+    # móvil copia los textos de estos tests.
+    assert respuesta.json()["detail"] == {
+        "mensaje": "Este Push cuenta como el del lunes 14 de septiembre, así que solo puede ir"
+        " hasta el domingo 20 de septiembre.",
+        "campo": "fecha",
+    }
     assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 
@@ -331,7 +342,9 @@ def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl
     assert corregir(cliente, adelantada, LUNES_14).status_code == 200
     al_domingo = corregir(cliente, adelantada, DOMINGO_13)
     assert al_domingo.status_code == 422
-    assert al_domingo.json()["detail"] == fuera_de_plazo(VIERNES_18, LUNES_14, "2026-09-24")
+    assert al_domingo.json()["detail"] == bajo_la_fecha(
+        solo_puede_ir("Leg", VIERNES_18, "desde", LUNES_14)
+    )
     assert cliente.get(f"/entrenamientos/{adelantada}").json()["fecha"] == "2026-09-14"
 
 
@@ -342,7 +355,7 @@ def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):
     respuesta = corregir(cliente, recuperada, JUEVES_17)
 
     assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == todavia_no_ha_llegado(JUEVES_17)
+    assert respuesta.json()["detail"] == bajo_la_fecha(todavia_no_ha_llegado(JUEVES_17))
     assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 
@@ -372,9 +385,9 @@ def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
 # mismo programa. En estos tests el programa viejo (`ppl`) llega hasta el martes 15 y
 # desde hoy, miércoles 16, manda otro.
 
-AVISO_OTRO_PROGRAMA = (
-    "El lunes 14 de septiembre lo planificaba otro programa, y lo que tocaba con un"
-    " programa que ya no está activo no se recupera."
+AVISO_OTRO_PROGRAMA = bajo_la_fecha(
+    "Este Push cuenta como el del lunes 14 de septiembre, y el miércoles 16 de septiembre no"
+    " seguías el mismo programa que ese día. Solo se puede mover a un día en que lo siguieras."
 )
 
 
@@ -466,7 +479,9 @@ def test_fuera_de_plazo_y_de_otro_programa_el_aviso_es_el_del_plazo(cliente, ppl
     respuesta = corregir(cliente, recuperada, LUNES_21)
 
     assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == fuera_de_plazo(LUNES_14, LUNES_14, "2026-09-20")
+    assert respuesta.json()["detail"] == bajo_la_fecha(
+        solo_puede_ir("Push", LUNES_14, "hasta", DOMINGO_20)
+    )
     assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
 
 

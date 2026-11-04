@@ -1,11 +1,12 @@
 from datetime import date, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
+from app.ediciones import dias_que_cambian
 from app.fechas import hoy
 from app.models import ExcepcionDelPlan, Programa, ProgramaDia, ProgramaPeriodo
 from app.nombres import clave_de_nombre
@@ -14,15 +15,12 @@ from app.routers.rutinas import obtener_rutina_visible
 from app.schemas import (
     ActivarPrograma,
     ProgramaCreate,
-    ProgramaDiaUpdate,
     ProgramaOut,
     ProgramaUpdate,
 )
 from app.seguimiento import seguimiento
 
 router = APIRouter(prefix="/programas", tags=["programas"])
-
-DiaDeLaRuta = Path(ge=1, le=7, description="1 = lunes … 7 = domingo")
 
 
 def _obtener_programa_legible(db: Session, programa_id: int) -> Programa:
@@ -190,11 +188,30 @@ def actualizar_programa(
     datos: ProgramaUpdate,
     db: Session = Depends(get_db),
 ):
+    """El *Guardar* de la semana editando: el nombre y, si llegan, los días, en una
+    sola transacción. Todo se valida antes de escribir, así que o se guarda todo o
+    nada. Solo se valida lo que cambia: un día que llega igual vale aunque su rutina
+    esté oculta.
+    """
     programa = _obtener_programa_modificable(db, programa_id)
+    cambian = []
+    if datos.dias is not None:
+        cambian = dias_que_cambian(
+            {fila.dia_semana: fila.rutina_id for fila in programa.dias},
+            {dia.dia_semana: dia.rutina_id for dia in datos.dias},
+        )
+        for _, rutina_id in cambian:
+            if rutina_id is not None:
+                obtener_rutina_visible(db, rutina_id)
     # Solo si cambia de verdad, como en las rutinas.
     if clave_de_nombre(datos.nombre) != clave_de_nombre(programa.nombre):
         _validar_nombre_libre(db, datos.nombre)
     programa.nombre = datos.nombre
+    for dia_semana, rutina_id in cambian:
+        _cambiar_dia(db, programa, dia_semana, rutina_id)
+        # El día siguiente mira el seguimiento (`_desde_cuando_cambia`) y, sin autoflush,
+        # no vería la fila que se acaba de abrir: así queda igual que cambiarlos de uno en uno.
+        db.flush()
     db.commit()
     db.refresh(programa)
     return programa
@@ -328,11 +345,10 @@ def _cambiar_dia(db: Session, programa: Programa, dia_semana: int, rutina_id: in
     Si el programa nunca ha estado activo antes de esa fecha, no hay pasado que
     conservar: se sustituye la fila sin más, y así editar un programa nuevo
     no va dejando filas cerradas que no dicen nada.
+
+    Solo se llama con un día que cambia de verdad (`dias_que_cambian`).
     """
     filas = [fila for fila in programa.filas_dias if fila.dia_semana == dia_semana]
-    vigente = next((fila for fila in filas if fila.hasta is None), None)
-    if vigente is not None and vigente.rutina_id == rutina_id:
-        return
     desde = _desde_cuando_cambia(db, programa, dia_semana)
     gobierna_el_pasado = any(periodo.desde < desde for periodo in programa.periodos)
     for fila in filas:
@@ -352,37 +368,3 @@ def _cambiar_dia(db: Session, programa: Programa, dia_semana: int, rutina_id: in
                 desde=desde if gobierna_el_pasado else None,
             )
         )
-
-
-@router.put("/{programa_id}/dias/{dia_semana}", response_model=ProgramaOut)
-def poner_rutina_en_dia(
-    programa_id: int,
-    datos: ProgramaDiaUpdate,
-    dia_semana: int = DiaDeLaRuta,
-    db: Session = Depends(get_db),
-):
-    """Pone una rutina en un día. Si el día ya tenía una (también si estaba
-    oculta), la nueva la sustituye: un día, una rutina.
-    """
-    programa = _obtener_programa_modificable(db, programa_id)
-    obtener_rutina_visible(db, datos.rutina_id)
-    _cambiar_dia(db, programa, dia_semana, datos.rutina_id)
-    db.commit()
-    db.refresh(programa)
-    return programa
-
-
-@router.delete("/{programa_id}/dias/{dia_semana}", status_code=status.HTTP_204_NO_CONTENT)
-def quitar_rutina_de_dia(
-    programa_id: int,
-    dia_semana: int = DiaDeLaRuta,
-    db: Session = Depends(get_db),
-):
-    """Deja el día en descanso desde hoy; los días pasados no cambian."""
-    programa = _obtener_programa_modificable(db, programa_id)
-    if not any(fila.dia_semana == dia_semana for fila in programa.dias):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Ese día ya es de descanso."
-        )
-    _cambiar_dia(db, programa, dia_semana, None)
-    db.commit()

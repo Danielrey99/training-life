@@ -1059,17 +1059,10 @@ INEXISTENTE = 999_999
         ),
         pytest.param(
             "put",
-            "/programas/{id}/dias/1",
-            "dia",
+            "/programas/{id}",
+            "semana",
             "Programa no encontrado",
-            id="programa-poner-dia",
-        ),
-        pytest.param(
-            "delete",
-            "/programas/{id}/dias/1",
-            None,
-            "Programa no encontrado",
-            id="programa-quitar-dia",
+            id="programa-guardar-semana",
         ),
     ],
 )
@@ -1080,7 +1073,10 @@ def test_modificar_un_ejercicio_o_un_programa_que_no_existe_da_404(
         "ejercicio": lambda: {"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
         "programa": lambda: {"nombre": "PPL"},
         # Una rutina que sí existe: el 404 tiene que ser por el programa.
-        "dia": lambda: {"rutina_id": crear_rutina(cliente)},
+        "semana": lambda: {
+            "nombre": "PPL",
+            "dias": [{"dia_semana": 1, "rutina_id": crear_rutina(cliente)}],
+        },
     }
     argumentos = {} if cuerpo is None else {"json": cuerpos[cuerpo]()}
 
@@ -1106,6 +1102,7 @@ NO_HAY_EJERCICIO = "Ejercicio no encontrado"
 NO_HAY_RUTINA = "Rutina no encontrada"
 NO_HAY_HUECO = "Ese ejercicio no está en esta rutina."
 NO_HAY_SESION = "Sesión no encontrada"
+NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión."
 
 
 @pytest.mark.parametrize(
@@ -1127,7 +1124,7 @@ NO_HAY_SESION = "Sesión no encontrada"
         ("delete", "/rutinas/{X}", None, NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/mostrar", None, NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/duplicar", None, NO_HAY_RUTINA),
-        ("put", "/rutinas/{X}/orden", "orden", NO_HAY_RUTINA),
+        ("put", "/rutinas/{X}", "orden", NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/slots", "hueco", NO_HAY_RUTINA),
         ("put", "/rutinas/{X}/slots/{hueco}", "hueco", NO_HAY_RUTINA),
         ("delete", "/rutinas/{X}/slots/{hueco}", None, NO_HAY_RUTINA),
@@ -1140,6 +1137,10 @@ NO_HAY_SESION = "Sesión no encontrada"
         ("get", "/programas/{X}", None, "Programa no encontrado"),
         ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),
         ("put", "/entrenamientos/{X}", "sesion", NO_HAY_SESION),
+        ("put", "/entrenamientos/{X}", "dia", NO_HAY_SESION),
+        ("put", "/entrenamientos/{sesion}", "serie del dia", "Serie no encontrada"),
+        ("delete", "/entrenamientos/{X}/series?slot_id={hueco}", None, NO_HAY_SESION),
+        ("delete", "/entrenamientos/{sesion}/series?slot_id={X}", None, NO_HAY_HUECO_DE_LA_SESION),
         ("delete", "/entrenamientos/{X}", None, NO_HAY_SESION),
         ("post", "/entrenamientos/{X}/terminar", None, NO_HAY_SESION),
         ("post", "/entrenamientos/{X}/series", "serie", NO_HAY_SESION),
@@ -1158,19 +1159,22 @@ def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
     existe pero es de otro padre, en el test de cada recurso (busca «la ruta de»).
     """
     hay = lo_que_existe
+    serie = {
+        "ejercicio_id": hay["ejercicio"],
+        "slot_id": hay["hueco"],
+        "numero_serie": 1,
+        "peso": 60,
+        "repeticiones": 8,
+    }
     cuerpos = {
         "nota": {"nota": "Agarre cerrado"},
         "rutina": {"nombre": "Empuje"},
-        "orden": {"slot_ids": []},
+        "orden": {"nombre": "Empuje", "slot_ids": []},
         "hueco": _hueco(hay["ejercicio"], orden=2),
         "sesion": {"fecha": FECHA},
-        "serie": {
-            "ejercicio_id": hay["ejercicio"],
-            "slot_id": hay["hueco"],
-            "numero_serie": 1,
-            "peso": 60,
-            "repeticiones": 8,
-        },
+        "dia": {"fecha": FECHA, "series": []},
+        "serie del dia": {"fecha": FECHA, "series": [{"id": INEXISTENTE, **serie}]},
+        "serie": serie,
     }
     argumentos = {} if cuerpo is None else {"json": cuerpos[cuerpo]}
 
@@ -1202,7 +1206,10 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
         tabla, cuantas = Entrenamiento, 1
     elif donde == "dia de programa":
         programa = cliente.post("/programas", json={"nombre": "PPL"}).json()["id"]
-        respuesta = cliente.put(f"/programas/{programa}/dias/1", json={"rutina_id": INEXISTENTE})
+        respuesta = cliente.put(
+            f"/programas/{programa}",
+            json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": INEXISTENTE}]},
+        )
         tabla, cuantas = ProgramaDia, 0
     elif donde == "dia planificado":
         respuesta = cliente.put(

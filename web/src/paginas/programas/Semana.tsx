@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { api, textoDelFallo } from '../../api/cliente'
+import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -207,25 +207,30 @@ export function Semana() {
     setFallo(null)
     setFalloNombre(null)
     try {
-      if (limpio !== programa.nombre) await api.actualizarPrograma(id, limpio)
+      // Todo de golpe: el servidor lo guarda entero o nada.
+      const guardado = await api.actualizarPrograma(
+        id,
+        limpio,
+        DIAS.flatMap((dia) => {
+          const rutina = dias[dia]
+          return rutina ? [{ dia_semana: dia, rutina_id: rutina.id }] : []
+        }),
+      )
+      setDatos({
+        ...datos!,
+        programa: guardado,
+        activo: guardado.activo ? guardado : datos!.activo,
+      })
+      setEditando(false)
     } catch (fallo) {
-      setFalloNombre(textoDelFallo(fallo))
-      setGuardando(false)
-      return
-    }
-    const antes = diasDe(programa)
-    try {
-      for (const dia of DIAS) {
-        const ahora = dias[dia]
-        if (ahora?.id === antes[dia]?.id) continue
-        if (ahora) await api.ponerRutinaEnDia(id, dia, ahora.id)
-        else await api.quitarRutinaDeDia(id, dia)
+      // No se guardó nada: se sigue editando, con lo que había. El nombre repetido
+      // (el único 409) va bajo el nombre.
+      if (fallo instanceof ErrorDeApi && fallo.estado === 409 && limpio !== programa.nombre) {
+        setFalloNombre(fallo.message)
+      } else {
+        setFallo(textoDelFallo(fallo))
       }
-    } catch (fallo) {
-      setFallo(`No se pudo guardar todo. ${textoDelFallo(fallo)}`)
     }
-    await cargar().catch((fallo: Error) => setFallo(textoDelFallo(fallo)))
-    setEditando(false)
     setGuardando(false)
   }
 
