@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi } from '../../api/cliente'
+import { api, AvisoDeLaWeb, ErrorDeApi } from '../../api/cliente'
 import type { Ejercicio, Entrenamiento, HuecoDeRutina, Rutina, Serie } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -215,7 +215,7 @@ export function Sesion() {
       const leida = await api.entrenamiento(activa.id)
       setSesion(leida)
       if (leida.series.some((serie) => serie.slot_id === hueco.id)) {
-        throw new Error('No se pudieron borrar todas las series. Inténtalo otra vez.')
+        throw new AvisoDeLaWeb('No se pudieron borrar todas las series. Inténtalo otra vez.')
       }
     }
     elegirEjercicio(hueco, ejercicio)

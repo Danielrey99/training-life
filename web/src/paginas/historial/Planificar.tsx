@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, AvisoDeLaWeb, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { DiaSeguimiento, Hoy, Programa, RutinaDeHoy } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -167,7 +167,8 @@ export function Planificar() {
           const sinDia = error instanceof ErrorDeApi && error.estado === 409
           const fecha = sinDia ? (error.detalle as { fecha?: string } | null)?.fecha : undefined
           const dia = semana.dias.find((uno) => uno.cubierto_por?.fecha === fecha && uno.rutina)
-          if (dia?.rutina && fecha) throw new Error(porQueNoSeRestablece(dia.rutina.nombre, fecha))
+          if (dia?.rutina && fecha)
+            throw new AvisoDeLaWeb(porQueNoSeRestablece(dia.rutina.nombre, fecha))
           throw error
         }
         await recargar()
