@@ -461,8 +461,9 @@ def test_replanificar_no_lleva_lo_adelantado_a_un_dia_de_la_rutina_oculta(
 ):
     """Caso raro aceptado por el autor: el Leg del viernes se hizo el martes, el
     sábado también toca Leg, y Leg se oculta. Dejar el viernes en descanso pediría
-    llevar la sesión al sábado, pero ese día Leg está oculta: 409 y nada cambia. Con
-    Leg visible, la sesión pasaría al sábado.
+    llevar la sesión al sábado, pero ese día Leg está oculta: 409 y nada cambia. El
+    mensaje dice que es por estar oculta y pide mostrarla, no «deja algún día con esa
+    rutina», que no se puede mientras lo esté.
     """
     adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18)
     assert planificar(cliente, SABADO_19, ppl["Leg"]).status_code == 200
@@ -471,7 +472,72 @@ def test_replanificar_no_lleva_lo_adelantado_a_un_dia_de_la_rutina_oculta(
     respuesta = planificar(cliente, VIERNES_18, None)
 
     assert respuesta.status_code == 409, respuesta.text
-    assert respuesta.json()["detail"] == sin_dia_para_ella(MARTES_15, VIERNES_18, "Leg", adelantada)
+    assert respuesta.json()["detail"] == sin_dia_para_ella(
+        MARTES_15, VIERNES_18, "Leg", adelantada, oculta=True
+    )
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
     sesion_bd.expire_all()
     assert [e.fecha for e in sesion_bd.scalars(select(ExcepcionDelPlan))] == [SABADO_19]
+
+
+def test_tras_mostrar_la_rutina_replanificar_lleva_lo_adelantado_al_otro_dia(
+    cliente, ppl, grupo_muscular_id
+):
+    """Lo que pide el mensaje de oculta: mostrada Leg, la misma petición vale y la
+    sesión del martes pasa a contar el sábado.
+    """
+    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18)
+    assert planificar(cliente, SABADO_19, ppl["Leg"]).status_code == 200
+    ocultar(cliente, ppl["Leg"])
+    assert planificar(cliente, VIERNES_18, None).status_code == 409
+
+    mostrar(cliente, ppl["Leg"])
+    respuesta = planificar(cliente, VIERNES_18, None)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert cubre(cliente, adelantada) == SABADO_19.isoformat()
+
+
+def restablecer_la_semana(cliente):
+    return cliente.delete(
+        "/plan/excepciones", params={"desde": HOY.isoformat(), "hasta": DOMINGO_20.isoformat()}
+    )
+
+
+def test_restablecer_la_semana_con_la_rutina_oculta_da_409_de_oculta_y_no_cambia_nada(
+    cliente, sesion_bd, ppl, grupo_muscular_id
+):
+    """El jueves se cambió a Leg y se adelantó el martes; Leg se oculta. Restablecer
+    la semana deja el jueves sin Leg, y el viernes, su día del programa, es descanso
+    mientras esté oculta: 409 con el texto de oculta, y ni la sesión ni el plan cambian.
+    """
+    assert planificar(cliente, JUEVES_17, ppl["Leg"]).status_code == 200
+    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=JUEVES_17)
+    ocultar(cliente, ppl["Leg"])
+
+    respuesta = restablecer_la_semana(cliente)
+
+    assert respuesta.status_code == 409, respuesta.text
+    assert respuesta.json()["detail"] == sin_dia_para_ella(
+        MARTES_15, JUEVES_17, "Leg", adelantada, oculta=True
+    )
+    assert cubre(cliente, adelantada) == JUEVES_17.isoformat()
+    sesion_bd.expire_all()
+    assert [e.fecha for e in sesion_bd.scalars(select(ExcepcionDelPlan))] == [JUEVES_17]
+
+
+def test_tras_mostrar_la_rutina_restablecer_la_semana_lleva_lo_adelantado_a_su_dia(
+    cliente, sesion_bd, ppl, grupo_muscular_id
+):
+    assert planificar(cliente, JUEVES_17, ppl["Leg"]).status_code == 200
+    adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=JUEVES_17)
+    ocultar(cliente, ppl["Leg"])
+    assert restablecer_la_semana(cliente).status_code == 409
+
+    mostrar(cliente, ppl["Leg"])
+    respuesta = restablecer_la_semana(cliente)
+
+    assert respuesta.status_code == 204, respuesta.text
+    assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
+    sesion_bd.expire_all()
+    assert list(sesion_bd.scalars(select(ExcepcionDelPlan))) == []

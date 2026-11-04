@@ -10,6 +10,7 @@ import {
   conArticulo,
   diaDeLaSemana,
   diaYMesConAnio,
+  fechaEnFrase,
   fechaLarga,
   nombreDelDia,
   sumarDias,
@@ -168,7 +169,9 @@ export function Planificar() {
           const fecha = sinDia ? (error.detalle as { fecha?: string } | null)?.fecha : undefined
           const dia = semana.dias.find((uno) => uno.cubierto_por?.fecha === fecha && uno.rutina)
           if (dia?.rutina && fecha)
-            throw new AvisoDeLaWeb(porQueNoSeRestablece(dia.rutina.nombre, fecha))
+            throw new AvisoDeLaWeb(
+              porQueNoSeRestablece(dia.rutina.nombre, fecha, Boolean(dia.rutina.oculto_desde)),
+            )
           throw error
         }
         await recargar()
@@ -342,10 +345,18 @@ function FilaDelDia({ dia, hoy, ejercicios, alTocar }: PropsFila) {
 }
 
 /** El porqué del 409, con las palabras del boceto. */
-function porQueNoSePuede(rutina: string, fecha: string, hechoEl: string) {
+function porQueNoSePuede(rutina: string, fecha: string, hechoEl: string, oculta: boolean) {
   const suDia = nombreDelDia(fecha)
+  // Con la rutina oculta no se puede poner en otro día: hay que mostrarla o borrar la sesión.
+  const sinOtroDia = `y ${rutina} está oculta, así que no puede ir a otro día. Muestra ${rutina} desde la pestaña Programas o borra la sesión`
   // Hecho ese mismo día: solo puede ser hoy (el pasado no se planifica).
   if (hechoEl === fecha) {
+    if (oculta) {
+      return (
+        `El ${rutina} de hoy ya lo hiciste. Si hoy deja de tener ${rutina}, lo que entrenaste ` +
+        `no contaría para ningún día, ${sinOtroDia} de hoy, y después cambia hoy.`
+      )
+    }
     return (
       `El ${rutina} de hoy ya lo hiciste. Si hoy deja de tener ${rutina} y no lo pones en ` +
       `otro día de esta semana, lo que entrenaste no contaría para ningún día. Pon antes el ` +
@@ -353,6 +364,13 @@ function porQueNoSePuede(rutina: string, fecha: string, hechoEl: string) {
     )
   }
   const hecho = nombreDelDia(hechoEl)
+  if (oculta) {
+    return (
+      `El ${rutina} del ${suDia} ya lo hiciste el ${hecho}. Si el ${suDia} deja de tener ` +
+      `${rutina}, lo que entrenaste el ${hecho} no contaría para ningún día, ${sinOtroDia} ` +
+      `del ${hecho}, y después cambia el ${suDia}.`
+    )
+  }
   return (
     `El ${rutina} del ${suDia} ya lo hiciste el ${hecho}. Si el ${suDia} deja de tener ` +
     `${rutina} y no lo pones en otro día de esta semana, lo que entrenaste el ${hecho} no ` +
@@ -361,7 +379,15 @@ function porQueNoSePuede(rutina: string, fecha: string, hechoEl: string) {
 }
 
 /** El porqué del 409 al restablecer una semana: lo hecho se quedaría sin día. */
-function porQueNoSeRestablece(rutina: string, hechoEl: string) {
+function porQueNoSeRestablece(rutina: string, hechoEl: string, oculta: boolean) {
+  if (oculta) {
+    return (
+      `El ${rutina} que hiciste ${conArticulo(hechoEl)} se quedaría sin ningún día de esta ` +
+      `semana en el que contar, y ${rutina} está oculta, así que no puede ir a otro día. ` +
+      `Muestra ${rutina} desde la pestaña Programas o borra la sesión del ` +
+      `${fechaEnFrase(hechoEl, false)}, y después restablece la semana.`
+    )
+  }
   return (
     `El ${rutina} que hiciste ${conArticulo(hechoEl)} se quedaría sin ningún día de esta ` +
     `semana en el que contar. Restablece los días uno a uno, dejando algún día con ${rutina}.`
@@ -426,7 +452,12 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
       if (error instanceof ErrorDeApi && error.estado === 409 && dia.cubierto_por && dia.rutina) {
         setAviso({
           titulo: `No puedes quitar este ${dia.rutina.nombre}`,
-          cuerpo: porQueNoSePuede(dia.rutina.nombre, dia.fecha, dia.cubierto_por.fecha),
+          cuerpo: porQueNoSePuede(
+            dia.rutina.nombre,
+            dia.fecha,
+            dia.cubierto_por.fecha,
+            Boolean(dia.rutina.oculto_desde),
+          ),
         })
       } else {
         setFallo(textoDelFallo(error))

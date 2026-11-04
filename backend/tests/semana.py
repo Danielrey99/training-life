@@ -94,15 +94,23 @@ def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int
 
 def sin_dia_para_ella(fecha, cubre_fecha, rutina, entrenamiento_id, oculta=False) -> dict:
     """El 409 de replanificar cuando lo hecho por adelantado se queda sin ningún día
-    de esta semana con su rutina: dice qué sesión es, para poder abrirla.
+    de esta semana con su rutina: dice qué sesión es, para poder abrirla. Si la rutina
+    está oculta, lo dice y pide mostrarla: ningún día puede tenerla mientras lo esté.
     """
+    sin_dia = (
+        f"La sesión del {fecha_en_texto(fecha)} cuenta como lo del"
+        f" {fecha_en_texto(cubre_fecha)}, y con este cambio ya no queda ningún día de esta"
+        f" semana con «{rutina}» para ella"
+    )
+    if oculta:
+        mensaje = (
+            f"{sin_dia}, porque «{rutina}» está oculta. Muestra «{rutina}» desde la pestaña"
+            " Programas o borra antes esa sesión."
+        )
+    else:
+        mensaje = f"{sin_dia}. Deja algún día con esa rutina o borra antes esa sesión."
     return {
-        "mensaje": (
-            f"La sesión del {fecha_en_texto(fecha)} cuenta como lo del"
-            f" {fecha_en_texto(cubre_fecha)}, y con este cambio ya no queda ningún día de esta"
-            f" semana con «{rutina}» para ella. Deja algún día con esa rutina o borra antes esa"
-            " sesión."
-        ),
+        "mensaje": mensaje,
         "entrenamiento_id": entrenamiento_id,
         "fecha": fecha.isoformat(),
     }

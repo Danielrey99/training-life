@@ -539,7 +539,8 @@ def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
     contaban un día y con el cambio han dejado de contarlo; cada una va al primer
     día de hoy al domingo que toque su rutina y que nadie cuente. Si no queda
     ninguno, 409 y no se guarda nada (el cambio del plan tampoco): es quien
-    replanifica el que decide qué hacer con esa sesión.
+    replanifica el que decide qué hacer con esa sesión. Si su rutina está oculta, el
+    mensaje lo dice: no se puede poner en otro día hasta mostrarla.
 
     `contaban` es lo que devolvió `coberturas_en_juego` antes del cambio.
     """
@@ -571,14 +572,20 @@ def reubicar_coberturas(db: Session, contaban: list[int]) -> None:
             None,
         )
         if destino is None:
+            rutina = sesion.rutina.nombre
+            sin_dia = (
+                f"La sesión del {fecha_en_texto(sesion.fecha)} cuenta como lo del"
+                f" {fecha_en_texto(sesion.cubre_fecha)}, y con este cambio ya no queda ningún"
+                f" día de esta semana con «{rutina}» para ella"
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
                     "mensaje": (
-                        f"La sesión del {fecha_en_texto(sesion.fecha)} cuenta como lo del"
-                        f" {fecha_en_texto(sesion.cubre_fecha)}, y con este cambio ya no queda"
-                        f" ningún día de esta semana con «{sesion.rutina.nombre}» para ella. Deja"
-                        " algún día con esa rutina o borra antes esa sesión."
+                        f"{sin_dia}, porque «{rutina}» está oculta. Muestra «{rutina}» desde la"
+                        " pestaña Programas o borra antes esa sesión."
+                        if sesion.rutina.oculto
+                        else f"{sin_dia}. Deja algún día con esa rutina o borra antes esa sesión."
                     ),
                     "entrenamiento_id": sesion.id,
                     "fecha": sesion.fecha.isoformat(),
