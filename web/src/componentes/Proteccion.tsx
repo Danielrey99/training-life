@@ -60,9 +60,20 @@ export class Proteccion extends Component<Props, Estado> {
  * del servidor): el motivo y un botón para volver a pedirlos sin recargar la página.
  * Lo que no existe (un 404, o una dirección que no lleva un número donde va) no se
  * reintenta: dice que no existe, con `siNoExiste` si la pantalla tiene su propia frase.
+ * Una hoja pasa `alReintentar` para volver a leer solo lo suyo: volver a montar la
+ * pantalla de detrás perdería lo que se estuviera editando en ella.
  */
-export function FalloAlCargar({ fallo, siNoExiste }: { fallo: unknown; siNoExiste?: string }) {
-  const reintentar = useContext(Reintentar)
+export function FalloAlCargar({
+  fallo,
+  siNoExiste,
+  alReintentar,
+}: {
+  fallo: unknown
+  siNoExiste?: string
+  alReintentar?: () => void
+}) {
+  const reintentarLaPantalla = useContext(Reintentar)
+  const reintentar = alReintentar ?? reintentarLaPantalla
   if (fallo instanceof ErrorDeApi && fallo.estado === 404) {
     return <p className="aviso error">{siNoExiste ?? textoDelFallo(fallo)}</p>
   }

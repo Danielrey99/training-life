@@ -27,9 +27,12 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
   const [mes, setMes] = useState(inicioDeMes(fecha))
   const [cargado, setCargado] = useState<{ mes: string; dias: DiaSeguimiento[] } | null>(null)
   const [programa, setPrograma] = useState<Programa | null>(null)
-  // Con su mes: el fallo de un mes no es el de otro.
-  const [fallido, setFallido] = useState<{ mes: string; fallo: unknown } | null>(null)
-  const error = fallido?.mes === mes ? fallido.fallo : null
+  // Cada vez que cambia, se vuelve a leer el mes (Reintentar).
+  const [intento, setIntento] = useState(0)
+  // Con su mes y su intento: el fallo de un mes no es el de otro, ni el de antes de
+  // reintentar.
+  const [fallido, setFallido] = useState<{ clave: string; fallo: unknown } | null>(null)
+  const error = fallido?.clave === `${mes}·${intento}` ? fallido.fallo : null
 
   useEffect(() => {
     function alPulsarTecla(evento: KeyboardEvent) {
@@ -47,11 +50,11 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
         setCargado({ mes, dias })
         setPrograma(programas.find((uno) => uno.activo) ?? null)
       })
-      .catch((fallo: Error) => vigente && setFallido({ mes, fallo }))
+      .catch((fallo: Error) => vigente && setFallido({ clave: `${mes}·${intento}`, fallo }))
     return () => {
       vigente = false
     }
-  }, [mes])
+  }, [mes, intento])
 
   return (
     <div className="hoja-fondo" onClick={alCerrar}>
@@ -84,7 +87,7 @@ export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
           </button>
         </div>
         {error ? (
-          <FalloAlCargar fallo={error} />
+          <FalloAlCargar fallo={error} alReintentar={() => setIntento((n) => n + 1)} />
         ) : (
           <MesConMarcas
             mes={mes}

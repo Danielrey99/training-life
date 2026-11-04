@@ -51,7 +51,10 @@ function contarEjercicios(cuantos: number) {
 export function HojaRegistrar({ fecha, alCerrar }: Props) {
   const navegar = useNavigate()
   const [resumen, setResumen] = useState<Hoy | null>(null)
-  const [error, setError] = useState<unknown>(null)
+  // Cada vez que cambia, se vuelve a leer el día (Reintentar), sin cerrar la hoja.
+  const [intento, setIntento] = useState(0)
+  const [fallido, setFallido] = useState<{ intento: number; fallo: unknown } | null>(null)
+  const error = fallido?.intento === intento ? fallido.fallo : null
   const [eleccion, setEleccion] = useState<Eleccion | null>(null)
 
   useEffect(() => {
@@ -59,11 +62,11 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
     api
       .hoy(fecha)
       .then((leido) => vigente && setResumen(leido))
-      .catch((fallo: Error) => vigente && setError(fallo))
+      .catch((fallo: Error) => vigente && setFallido({ intento, fallo }))
     return () => {
       vigente = false
     }
-  }, [fecha])
+  }, [fecha, intento])
 
   useEffect(() => {
     function alPulsarTecla(evento: KeyboardEvent) {
@@ -175,7 +178,9 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
           Elige qué rutina hiciste para apuntarlo ahora.
         </p>
 
-        {error ? <FalloAlCargar fallo={error} /> : null}
+        {error ? (
+          <FalloAlCargar fallo={error} alReintentar={() => setIntento((n) => n + 1)} />
+        ) : null}
         {!resumen && !error && <p className="hoja-subtitulo">Cargando…</p>}
 
         {resumen?.situacion === 'primera_vez' && (
