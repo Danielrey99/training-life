@@ -19,29 +19,31 @@ from sqlalchemy import select
 from app.fechas import fecha_en_texto
 from app.models import Entrenamiento, ExcepcionDelPlan, RutinaPeriodoOculto
 from app.plan import dias_del_plan
-from tests.ayudas import planificar
+from tests.ayudas import dejar_planificado, planificar
 from tests.semana import (
+    DOMINGO_20,
+    DOMINGO_27,
     HOY,
-    LUNES_7,
+    JUEVES_17,
     LUNES_14,
+    LUNES_31,
+    LUNES_7,
+    MARTES_1,
     MARTES_15,
+    MIERCOLES_2,
+    MIERCOLES_9,
+    SABADO_12,
     SABADO_19,
+    SABADO_5,
+    VIERNES_11,
     VIERNES_18,
+    VIERNES_25,
     cubre,
     hecha,
+    seguimiento,
     sesion,
     sin_dia_para_ella,
 )
-
-LUNES_31 = date(2026, 8, 31)
-MARTES_1 = date(2026, 9, 1)
-MIERCOLES_2 = date(2026, 9, 2)
-SABADO_5 = date(2026, 9, 5)
-MIERCOLES_9 = date(2026, 9, 9)
-VIERNES_11 = date(2026, 9, 11)
-SABADO_12 = date(2026, 9, 12)
-VIERNES_25 = date(2026, 9, 25)
-DOMINGO_27 = date(2026, 9, 27)
 
 
 # --- Ayudas -------------------------------------------------------------------
@@ -81,16 +83,6 @@ def tramos(sesion_bd, rutina_id=None) -> list[tuple[date, date]]:
 
 def oculto_desde(cliente, rutina_id) -> str | None:
     return cliente.get(f"/rutinas/{rutina_id}").json()["oculto_desde"]
-
-
-def seguimiento(cliente, desde, hasta=None) -> dict:
-    """Los días pedidos del seguimiento, por fecha."""
-    respuesta = cliente.get(
-        "/plan/seguimiento",
-        params={"desde": desde.isoformat(), "hasta": (hasta or desde).isoformat()},
-    )
-    assert respuesta.status_code == 200, respuesta.text
-    return {date.fromisoformat(dia["fecha"]): dia for dia in respuesta.json()}
 
 
 def estado(cliente, fecha) -> tuple[str, bool]:
@@ -222,6 +214,20 @@ def test_ocultar_con_el_reloj_hacia_atras_reabre_el_tramo_que_acaba_despues(
     assert tramos(sesion_bd) == []
 
 
+def test_ocultar_una_rutina_no_reabre_el_tramo_que_otra_cerro_hoy(cliente, sesion_bd, hoy_es, ppl):
+    """Pull se mostró hoy (tramo `[2, 16)`). Ocultar Push hoy solo reabre los tramos de
+    Push: si mirara los de cualquier rutina, se llevaría el de Pull y Push quedaría
+    oculta desde el 2.
+    """
+    oculta_entre(cliente, hoy_es, ppl["Pull"], MIERCOLES_2, HOY)
+
+    ocultar(cliente, ppl["Push"])
+
+    assert oculto_desde(cliente, ppl["Push"]) == HOY.isoformat()
+    assert oculto_desde(cliente, ppl["Pull"]) is None
+    assert tramos(sesion_bd, ppl["Pull"]) == [(MIERCOLES_2, HOY)]
+
+
 # --- Los días del tramo en el plan -------------------------------------------
 
 
@@ -256,6 +262,60 @@ def test_antes_del_tramo_y_desde_que_se_muestra_todo_sigue_igual(cliente, hoy_es
     assert estado(cliente, LUNES_31) == ("sin_hacer", False)
     assert estado(cliente, LUNES_7) == ("descanso", True)
     assert estado(cliente, LUNES_14) == ("sin_hacer", False)
+
+
+def test_el_primer_y_el_ultimo_dia_del_tramo_son_descanso_pedidos_solos(
+    cliente, sesion_bd, hoy_es, ppl
+):
+    """Pedido un solo día, sin el margen del seguimiento: un tramo de un día (oculta
+    el lunes 31, mostrada el martes 1) cuenta ese lunes, que es a la vez su primer y
+    su último día; el de `[7, 14)` cuenta el 7 y no el 14. Es lo que usan recuperar,
+    adelantar e intercambiar.
+    """
+    oculta_entre(cliente, hoy_es, ppl["Push"], LUNES_31, MARTES_1)
+    oculta_entre(cliente, hoy_es, ppl["Push"], LUNES_7, LUNES_14)
+
+    assert del_plan(sesion_bd, LUNES_31) == ("Push", True)
+    assert del_plan(sesion_bd, LUNES_7) == ("Push", True)
+    assert del_plan(sesion_bd, LUNES_14) == ("Push", False)
+
+
+def test_el_tramo_de_una_rutina_no_toca_los_dias_de_las_demas(cliente, sesion_bd, hoy_es, ppl):
+    """Pull oculta del lunes 7 al lunes 14: su miércoles 9 es descanso, pero el lunes 7
+    (Push) y el viernes 11 (Leg) siguen sin hacer.
+    """
+    oculta_entre(cliente, hoy_es, ppl["Pull"], LUNES_7, LUNES_14)
+
+    dias = seguimiento(cliente, LUNES_7, VIERNES_11)
+
+    assert [
+        (dias[d]["estado"], dias[d]["descanso"]) for d in (LUNES_7, MIERCOLES_9, VIERNES_11)
+    ] == [
+        ("sin_hacer", False),
+        ("descanso", True),
+        ("sin_hacer", False),
+    ]
+    assert del_plan(sesion_bd, LUNES_7) == ("Push", False)
+
+
+def test_un_dia_puesto_a_mano_con_la_rutina_es_descanso_si_cae_en_el_tramo(cliente, hoy_es, ppl):
+    """El sábado 12 se planificó Push a mano antes de ocultarla (oculta del 7 al 14):
+    también ese día es descanso y no se ofrece para recuperar; el lunes 14, que ya no
+    es del tramo, sí.
+    """
+    hoy_es(MIERCOLES_2)
+    dejar_planificado(cliente, SABADO_12, ppl["Push"])
+    oculta_entre(cliente, hoy_es, ppl["Push"], LUNES_7, LUNES_14)
+
+    sabado = seguimiento(cliente, SABADO_12)[SABADO_12]
+
+    assert (sabado["origen"], sabado["estado"], sabado["descanso"]) == (
+        "excepcion",
+        "descanso",
+        True,
+    )
+    assert ("2026-09-12", "Push") not in por_recuperar(cliente)
+    assert ("2026-09-14", "Push") in por_recuperar(cliente)
 
 
 def test_entre_dos_tramos_los_dias_son_normales(cliente, sesion_bd, hoy_es, ppl):

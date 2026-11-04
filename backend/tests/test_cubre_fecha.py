@@ -19,12 +19,14 @@ from app.models import Entrenamiento
 from tests.ayudas import en_texto, fuera_de_plazo, todavia_no_ha_llegado
 from tests.semana import (
     DOMINGO_13,
+    DOMINGO_20,
     HOY,
     JUEVES_17,
     LUNES_14,
     LUNES_21,
     LUNES_7,
     MARTES_15,
+    MIERCOLES_23,
     VIERNES_18,
     con_una_serie,
     sesion,
@@ -287,9 +289,6 @@ def test_la_base_de_datos_impide_que_dos_sesiones_cuenten_el_mismo_dia(cliente, 
 # La sesión sigue contando el mismo día aunque cambie su fecha, así que solo se
 # mueve dentro del plazo de ese día. Estos tests pasan una semana, al miércoles
 # 23, para tener días pasados a los dos lados del plazo.
-
-DOMINGO_20 = date(2026, 9, 20)
-MIERCOLES_23 = date(2026, 9, 23)
 
 
 def corregir(cliente, entrenamiento_id, fecha, notas=None):

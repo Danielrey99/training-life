@@ -176,8 +176,10 @@ def test_una_rutina_nueva_con_mas_de_100_huecos_da_422_y_no_crea_nada(
 
     respuesta = cliente.post("/rutinas", json={"nombre": "Push", "slots": [bien] * 101})
 
-    assert respuesta.status_code == 422
-    assert "at most 100" in str(respuesta.json()["detail"])
+    assert respuesta.status_code == 422, respuesta.text
+    assert [(e["loc"], e["type"]) for e in respuesta.json()["detail"]] == [
+        (["body", "slots"], "too_long")
+    ]
     assert filas_guardadas(sesion_bd) == (0, 0, 0)
 
 

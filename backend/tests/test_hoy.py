@@ -8,8 +8,6 @@ Todos parten de la semana de `tests/semana.py`: hoy es el miércoles 16 de
 septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 """
 
-from datetime import date
-
 from tests.ayudas import (
     crear_ejercicio,
     crear_hueco,
@@ -19,23 +17,22 @@ from tests.ayudas import (
 )
 from tests.semana import (
     DOMINGO_13,
+    DOMINGO_20,
     HOY,
-    LUNES_7,
+    JUEVES_10,
     LUNES_14,
     LUNES_21,
+    LUNES_7,
     MARTES_15,
+    MARTES_8,
+    MIERCOLES_9,
+    SABADO_19,
+    VIERNES_11,
     VIERNES_18,
+    VIERNES_4,
     hecha,
     sesion,
 )
-
-VIERNES_4 = date(2026, 9, 4)
-MARTES_8 = date(2026, 9, 8)
-MIERCOLES_9 = date(2026, 9, 9)
-JUEVES_10 = date(2026, 9, 10)
-VIERNES_11 = date(2026, 9, 11)
-SABADO_19 = date(2026, 9, 19)
-DOMINGO_20 = date(2026, 9, 20)
 
 
 def hoy(cliente, fecha=None) -> dict:

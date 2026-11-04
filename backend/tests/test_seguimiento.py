@@ -14,22 +14,20 @@ import pytest
 
 from app.models import Entrenamiento, ExcepcionDelPlan, RutinaPeriodoOculto
 from tests.ayudas import consultas_de, rango_invertido
-from tests.semana import HOY, LUNES_7, LUNES_14, MARTES_15, VIERNES_18, hecha, sesion
-
-MARTES_8 = date(2026, 9, 8)
-MIERCOLES_9 = date(2026, 9, 9)
-JUEVES_10 = date(2026, 9, 10)
-VIERNES_11 = date(2026, 9, 11)
-
-
-def seguimiento(cliente, desde, hasta=None) -> dict:
-    """Los días pedidos, por fecha."""
-    respuesta = cliente.get(
-        "/plan/seguimiento",
-        params={"desde": desde.isoformat(), "hasta": (hasta or desde).isoformat()},
-    )
-    assert respuesta.status_code == 200, respuesta.text
-    return {date.fromisoformat(dia["fecha"]): dia for dia in respuesta.json()}
+from tests.semana import (
+    HOY,
+    JUEVES_10,
+    LUNES_14,
+    LUNES_7,
+    MARTES_15,
+    MARTES_8,
+    MIERCOLES_9,
+    VIERNES_11,
+    VIERNES_18,
+    hecha,
+    seguimiento,
+    sesion,
+)
 
 
 # --- Los estados ---------------------------------------------------------

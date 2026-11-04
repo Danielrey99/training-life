@@ -23,6 +23,7 @@ from tests.semana import (
     MARTES_15,
     SABADO_19,
     VIERNES_18,
+    VIERNES_25,
     cubre,
     hecha,
     sesion,
@@ -145,8 +146,6 @@ def test_no_va_a_un_dia_que_ya_cuenta_otra_sesion(cliente, ppl, grupo_muscular_i
 #
 # Cambiar la rutina de un día de la semana en el programa no mueve lo hecho por
 # adelantado: ese día se queda como estaba, y el cambio empieza al día siguiente.
-
-VIERNES_25 = date(2026, 9, 25)
 
 
 def programa_id(cliente) -> int:

@@ -10,7 +10,18 @@ from datetime import date
 from app.fechas import fecha_en_texto
 from tests.ayudas import ejercicio_de_prueba, serie_en
 
+# Los días de alrededor, con su día de la semana para leer los tests de un vistazo.
+LUNES_31 = date(2026, 8, 31)
+MARTES_1 = date(2026, 9, 1)
+MIERCOLES_2 = date(2026, 9, 2)
+VIERNES_4 = date(2026, 9, 4)
+SABADO_5 = date(2026, 9, 5)
 LUNES_7 = date(2026, 9, 7)
+MARTES_8 = date(2026, 9, 8)
+MIERCOLES_9 = date(2026, 9, 9)
+JUEVES_10 = date(2026, 9, 10)
+VIERNES_11 = date(2026, 9, 11)
+SABADO_12 = date(2026, 9, 12)
 DOMINGO_13 = date(2026, 9, 13)
 LUNES_14 = date(2026, 9, 14)
 MARTES_15 = date(2026, 9, 15)
@@ -18,7 +29,11 @@ HOY = date(2026, 9, 16)  # miércoles
 JUEVES_17 = date(2026, 9, 17)
 VIERNES_18 = date(2026, 9, 18)
 SABADO_19 = date(2026, 9, 19)
+DOMINGO_20 = date(2026, 9, 20)
 LUNES_21 = date(2026, 9, 21)
+MIERCOLES_23 = date(2026, 9, 23)
+VIERNES_25 = date(2026, 9, 25)
+DOMINGO_27 = date(2026, 9, 27)
 
 
 def sesion(cliente, fecha, rutina_id, cubre_fecha=None):
@@ -27,6 +42,16 @@ def sesion(cliente, fecha, rutina_id, cubre_fecha=None):
     if cubre_fecha is not None:
         cuerpo["cubre_fecha"] = cubre_fecha.isoformat()
     return cliente.post("/entrenamientos", json=cuerpo)
+
+
+def seguimiento(cliente, desde, hasta=None) -> dict:
+    """`GET /plan/seguimiento` de los días pedidos (uno solo, sin `hasta`), por fecha."""
+    respuesta = cliente.get(
+        "/plan/seguimiento",
+        params={"desde": desde.isoformat(), "hasta": (hasta or desde).isoformat()},
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    return {date.fromisoformat(dia["fecha"]): dia for dia in respuesta.json()}
 
 
 def cubre(cliente, entrenamiento_id) -> str | None:
@@ -67,7 +92,7 @@ def hecha(cliente, grupo_muscular_id, fecha, rutina_id, cubre_fecha=None) -> int
     return entrenamiento_id
 
 
-def sin_dia_para_ella(fecha, cubre_fecha, rutina, entrenamiento_id) -> dict:
+def sin_dia_para_ella(fecha, cubre_fecha, rutina, entrenamiento_id, oculta=False) -> dict:
     """El 409 de replanificar cuando lo hecho por adelantado se queda sin ningún día
     de esta semana con su rutina: dice qué sesión es, para poder abrirla.
     """

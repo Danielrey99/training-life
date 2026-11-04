@@ -1511,9 +1511,24 @@ MALOS = [
         NO_SE_CAMBIA_NADA,
         "La sesión del jueves 10 de septiembre es de una rutina que no está en el archivo.",
     ),
-    (_serie_de_un_ejercicio_que_no_esta, NO_SE_CAMBIA_NADA, "una serie de un ejercicio"),
-    (_serie_en_un_hueco_de_otra_rutina, NO_SE_CAMBIA_NADA, "fuera de los ejercicios de «Push»."),
-    (_serie_en_un_hueco_que_no_esta, NO_SE_CAMBIA_NADA, "fuera de los ejercicios de «Push»."),
+    (
+        _serie_de_un_ejercicio_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del miércoles 9 de septiembre tiene una serie de un ejercicio que no está"
+        " en el archivo.",
+    ),
+    (
+        _serie_en_un_hueco_de_otra_rutina,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del miércoles 9 de septiembre tiene una serie fuera de los ejercicios de"
+        " «Push».",
+    ),
+    (
+        _serie_en_un_hueco_que_no_esta,
+        NO_SE_CAMBIA_NADA,
+        "La sesión del miércoles 9 de septiembre tiene una serie fuera de los ejercicios de"
+        " «Push».",
+    ),
     # Dos ejercicios en un hueco de una sesión: en sus propios tests, con la frase entera.
     (
         _predefinido_que_no_existe,
@@ -1521,7 +1536,12 @@ MALOS = [
         "El ejercicio predefinido «Press con kettlebell de cristal» no existe en esta versión"
         " de la app.",
     ),
-    (_grupo_que_no_existe, NO_SE_CAMBIA_NADA, "El grupo muscular «Orejas» del ejercicio «"),
+    (
+        _grupo_que_no_existe,
+        NO_SE_CAMBIA_NADA,
+        "El grupo muscular «Orejas» del ejercicio «Press inclinado con mancuernas» no existe en"
+        " esta versión de la app.",
+    ),
     (_sesiones_el_mismo_dia, NO_SE_CAMBIA_NADA, "Hay dos sesiones el jueves 10 de septiembre."),
     (
         _cubre_fecha_repetida,
@@ -1533,8 +1553,16 @@ MALOS = [
         NO_SE_CAMBIA_NADA,
         "El sábado 12 de septiembre está planificado dos veces.",
     ),
-    (_dos_periodos_abiertos_en_dos_programas, NO_SE_CAMBIA_NADA, "más de un programa activo"),
-    (_dos_periodos_abiertos_en_un_programa, NO_SE_CAMBIA_NADA, "más de un programa activo"),
+    (
+        _dos_periodos_abiertos_en_dos_programas,
+        NO_SE_CAMBIA_NADA,
+        "Hay más de un programa activo a la vez.",
+    ),
+    (
+        _dos_periodos_abiertos_en_un_programa,
+        NO_SE_CAMBIA_NADA,
+        "Hay más de un programa activo a la vez.",
+    ),
     (
         _dos_filas_vigentes_el_mismo_dia,
         NO_SE_CAMBIA_NADA,
@@ -1627,6 +1655,14 @@ COMPROBADOS = {
 }
 
 
+# Los que, además de su error, dejan referencias sin su destino.
+IDS_REPETIDOS = {
+    _rutina_con_id_repetido,
+    _ejercicio_con_el_id_de_un_predefinido,
+    _hueco_con_id_repetido,
+}
+
+
 def _casos(malos, comprobados):
     """Cada caso al importar y, los de `comprobados`, también al comprobar."""
     return [
@@ -1652,8 +1688,16 @@ def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
     assert detalle["mensaje"] == mensaje
     if error is None:
         assert "errores" not in detalle
-    else:
+    elif mensaje == DANADO:
+        # Los errores de Pydantic son técnicos (la web no los enseña): basta con que
+        # señalen el sitio.
         assert any(error in e for e in detalle["errores"]), detalle["errores"]
+    elif estropear in IDS_REPETIDOS:
+        # Un id repetido rompe además lo que lo referencia: va el primero.
+        assert detalle["errores"][0] == error, detalle["errores"]
+    else:
+        # Lo que no cuadra se le enseña a quien importa: la frase entera, y sola.
+        assert detalle["errores"] == [error]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
@@ -1722,10 +1766,9 @@ def test_dos_rutinas_a_la_vez_el_mismo_dia_lo_dice_en_plural(cliente, datos, dia
     respuesta = importar(cliente, archivo, comprobar=True)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert (
+    assert respuesta.json()["detail"]["errores"] == [
         f"El programa «PPL» tiene dos rutinas a la vez {los_dias}."
-        in respuesta.json()["detail"]["errores"]
-    )
+    ]
 
 
 def _programa_que_empezo_hoy(a):
@@ -1897,7 +1940,8 @@ MAL_POR_TIPO = [
     (
         _dominadas_por_tiempo,
         MAL_APUNTADA.format("miércoles 2 de septiembre")
-        + "«Dominadas lastradas» se apunta por tiempo. Falta la duración",
+        + "«Dominadas lastradas» se apunta por tiempo. Falta la duración y sobran las"
+        " repeticiones.",
     ),
     (
         _plancha_de_peso_y_repeticiones,
@@ -1923,7 +1967,9 @@ def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
     assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    assert any(error in e for e in detalle["errores"]), detalle["errores"]
+    # Cambiar el tipo de un ejercicio descuadra también sus otras series o su
+    # objetivo: la frase, entera, entre los errores.
+    assert error in detalle["errores"], detalle["errores"]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
@@ -2020,6 +2066,8 @@ def test_un_objetivo_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
     assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
+    # Cambiar el tipo de un ejercicio descuadra también sus otras series o su
+    # objetivo: la frase, entera, entre los errores.
     assert error in detalle["errores"], detalle["errores"]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 

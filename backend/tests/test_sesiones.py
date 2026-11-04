@@ -20,7 +20,7 @@ from tests.ayudas import (
     serie_en,
     todavia_no_ha_llegado,
 )
-from tests.semana import HOY
+from tests.semana import HOY, con_una_serie
 
 AYER = HOY - timedelta(days=1)
 
@@ -85,13 +85,6 @@ def test_una_sesion_terminada_admite_mas_series(cliente, grupo_muscular_id):
 
 
 # --- Una sesión por día --------------------------------------------------
-
-
-def con_una_serie(cliente, grupo_muscular_id, sesion_id) -> None:
-    """Una sesión con algo hecho: sin series contaría como cancelada."""
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
-    respuesta = serie_en(cliente, sesion_id, ejercicio_id)
-    assert respuesta.status_code == 201
 
 
 def test_con_una_sesion_en_curso_no_se_puede_empezar_otra_hoy(cliente):

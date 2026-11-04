@@ -151,12 +151,12 @@ MAL_FORMADOS = [
     ),
     pytest.param(
         {**SIN_PAR, "duracion_min_s": 0, "duracion_max_s": 30},
-        "greater than 0",
+        "Input should be greater than 0",
         id="duracion-0",
     ),
     pytest.param(
         {**SIN_PAR, "duracion_min_s": 30, "duracion_max_s": 86_401},
-        "less than or equal to 86400",
+        "Input should be less than or equal to 86400",
         id="duracion-de-mas-de-un-dia",
     ),
 ]
@@ -190,9 +190,11 @@ def test_un_objetivo_mal_formado_da_422_del_esquema_y_no_crea_nada(
             alternativas=[{"ejercicio_id": e.plancha, **obj}],
         )
 
-    assert respuesta.status_code == 422
-    assert isinstance(respuesta.json()["detail"], list)
-    assert lo_que_dice in str(respuesta.json()["detail"])
+    assert respuesta.status_code == 422, respuesta.text
+    # Un solo error, y entero: los `value_error` son los que la web enseña tal cual.
+    assert [e["msg"].removeprefix("Value error, ") for e in respuesta.json()["detail"]] == [
+        lo_que_dice
+    ]
     assert cuantos(sesion_bd) == (0, 0)
 
 
