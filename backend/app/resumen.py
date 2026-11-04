@@ -24,8 +24,8 @@ Qué cuenta en cada cifra:
   `movido`, en el mes del día que tocaban (lo recuperado y lo adelantado cuentan
   en el mes de su día, no en el de la sesión); **planificados**, los entrenados
   más los `sin_hacer` (hoy sin hacer todavía no es una falta); **por llegar**, los
-  `pendiente` y los `proximo`. Descansos, días con una rutina oculta y sesiones
-  que no cuentan para ningún día no entran en ninguna.
+  `pendiente` y los `proximo`. Descansos, días con una rutina oculta que nadie había
+  entrenado y sesiones que no cuentan para ningún día no entran en ninguna.
 """
 
 from dataclasses import dataclass, field
