@@ -14,7 +14,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { NotaDeSesion } from '../../componentes/NotaDeSesion'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { fechaCompleta, fechaEnFrase, fechaLarga, sumarDias } from '../../utiles/fechas'
+import { fechaCompleta, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
 import { conPesoYReps, kilos, kilosCorporales, serieLarga } from '../../utiles/medidas'
 import {
   distanciaLegible,
@@ -444,12 +444,14 @@ export function Dia() {
   // Con un formulario abierto, el resto se queda en gris: primero se guarda o se cancela.
   const hayAbierta = abierta !== null
 
-  // Lo que pasa con lo que contaba la sesión si se borra el día.
-  const quedaSinHacer =
+  // Lo que pasa con lo que contaba la sesión si se borra el día: uno que aún no ha
+  // pasado (hoy, o uno adelantado) sigue pendiente, no sin hacer.
+  const comoQueda = dia.cubre_fecha && dia.cubre_fecha >= hoy() ? 'pendiente' : 'sin hacer'
+  const queda =
     dia.cubre_fecha === dia.fecha
-      ? ', y este día quedará sin hacer'
+      ? `, y este día quedará ${comoQueda}`
       : dia.cubre_fecha
-        ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará sin hacer`
+        ? `, y el ${fechaEnFrase(dia.cubre_fecha, false)} quedará ${comoQueda}`
         : ''
 
   let cuenta: string | null = null
@@ -805,7 +807,7 @@ export function Dia() {
             (dia.series.length === 0
               ? 'Se borrará la sesión, que no tiene ninguna serie'
               : `Se borrarán la sesión y ${dia.series.length === 1 ? 'su serie' : `sus ${contar(dia.series.length, 'serie', 'series')}`}`) +
-            `${quedaSinHacer}.`
+            `${queda}.`
           }
           confirmar="Borrar"
           peligro
@@ -821,7 +823,7 @@ export function Dia() {
       {guardandoVacio && (
         <Dialogo
           titulo="¿Borrar este día?"
-          cuerpo={`No queda ninguna serie, así que al guardar se borrará la sesión entera${quedaSinHacer}.`}
+          cuerpo={`No queda ninguna serie, así que al guardar se borrará la sesión entera${queda}.`}
           confirmar="Borrar"
           peligro
           alConfirmar={async () => {
