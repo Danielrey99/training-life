@@ -154,6 +154,11 @@
   text-align: left;
 }
 
+/* La raya entra en los 48 px de la fila, no se suma a ellos. */
+.ajustes-dias li + li button {
+  min-height: 47px;
+}
+
 .ajustes-dias .icono {
   margin-left: auto;
   color: var(--texto-tenue);
