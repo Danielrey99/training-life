@@ -325,15 +325,17 @@ def _validar_fecha_nueva(db: Session, entrenamiento: Entrenamiento, fecha: date)
     if cubre is None:
         return
     desde, hasta = plazo(cubre)
-    fechas = (fecha, entrenamiento.fecha, cubre)
-    plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fechas), max(fechas))}
-    en_plazo = desde <= fecha <= hasta
-    cruzaba = plan[entrenamiento.fecha].programa_id != plan[cubre].programa_id
-    if not en_plazo or (not cruzaba and plan[fecha].programa_id != plan[cubre].programa_id):
-        raise _fallo_de_la_fecha(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            motivo_de_la_fecha(entrenamiento.rutina.nombre, cubre, fecha, desde, hasta),
-        )
+    # El plan, solo en plazo: una fecha muy lejana pasaría del tope de `dias_del_plan`.
+    if desde <= fecha <= hasta:
+        fechas = (fecha, entrenamiento.fecha, cubre)
+        plan = {dia.fecha: dia for dia in dias_del_plan(db, min(fechas), max(fechas))}
+        cruzaba = plan[entrenamiento.fecha].programa_id != plan[cubre].programa_id
+        if cruzaba or plan[fecha].programa_id == plan[cubre].programa_id:
+            return
+    raise _fallo_de_la_fecha(
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        motivo_de_la_fecha(entrenamiento.rutina.nombre, cubre, fecha, desde, hasta),
+    )
 
 
 def _validar_series_del_dia(
