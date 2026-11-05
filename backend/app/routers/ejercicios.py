@@ -84,7 +84,9 @@ def _validar_nombre_libre(db: Session, nombre: str) -> None:
             f"Ya tienes un ejercicio oculto que se llama «{otro_nombre}». "
             "Muéstralo desde la pestaña Ejercicios o elige otro nombre."
         )
-    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT, detail={"mensaje": detalle, "campo": "nombre"}
+    )
 
 
 def obtener_ejercicio_legible(db: Session, ejercicio_id: int) -> Ejercicio:

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina, RutinaMinima } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -223,9 +223,9 @@ export function Semana() {
       })
       setEditando(false)
     } catch (fallo) {
-      // No se guardó nada: se sigue editando, con lo que había. El nombre repetido
-      // (el único 409) va bajo el nombre.
-      if (fallo instanceof ErrorDeApi && fallo.estado === 409 && limpio !== programa.nombre) {
+      // No se guardó nada: se sigue editando, con lo que había. El nombre repetido va
+      // bajo el nombre.
+      if (esDelCampo(fallo, 'nombre')) {
         setFalloNombre(fallo.message)
       } else {
         setFallo(textoDelFallo(fallo))

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana, Programa, Rutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -149,8 +149,8 @@ export function ProgramaNuevo() {
       tirarBorrador(PROGRAMA_NUEVO)
       navegar(`/programas/${programa.id}`, { replace: true })
     } catch (fallo) {
-      // El único 409 es el del nombre repetido: va bajo el nombre, como al editarlo.
-      if (fallo instanceof ErrorDeApi && fallo.estado === 409) setFalloNombre(fallo.message)
+      // El nombre repetido va bajo el nombre, como al editarlo.
+      if (esDelCampo(fallo, 'nombre')) setFalloNombre(fallo.message)
       else setFallo(textoDelFallo(fallo))
       setGuardando(false)
     }

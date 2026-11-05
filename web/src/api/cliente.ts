@@ -111,6 +111,13 @@ export function textoDelFallo(fallo: unknown): string {
     : 'Algo ha fallado. Inténtalo de nuevo.'
 }
 
+/** Si el fallo es de ese campo del formulario: el aviso va bajo él, no arriba. */
+export function esDelCampo(fallo: unknown, campo: 'fecha' | 'nombre'): fallo is ErrorDeApi {
+  return (
+    fallo instanceof ErrorDeApi && (fallo.detalle as { campo?: string } | null)?.campo === campo
+  )
+}
+
 /**
  * Falla con un `ErrorDeApi` en vez de dejar que la pantalla se encuentre un
  * JSON inesperado: `fetch` solo lanza si la red se cae, no si la API responde

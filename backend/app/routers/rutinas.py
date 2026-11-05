@@ -225,7 +225,9 @@ def _validar_nombre_libre(db: Session, nombre: str) -> None:
             f"Ya tienes una rutina oculta que se llama «{otro_nombre}». "
             "Muéstrala desde la pestaña Programas o elige otro nombre."
         )
-    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT, detail={"mensaje": detalle, "campo": "nombre"}
+    )
 
 
 @router.post("", response_model=RutinaOut, status_code=status.HTTP_201_CREATED)

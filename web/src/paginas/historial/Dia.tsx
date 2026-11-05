@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type {
   Ejercicio,
   Entrenamiento,
@@ -504,10 +504,7 @@ export function Dia() {
         })),
       })
     } catch (fallo) {
-      const deLaFecha =
-        fallo instanceof ErrorDeApi &&
-        (fallo.detalle as { campo?: string } | null)?.campo === 'fecha'
-      if (deLaFecha) setFalloFecha(fallo.message)
+      if (esDelCampo(fallo, 'fecha')) setFalloFecha(fallo.message)
       else setFalloGuardar(textoDelFallo(fallo))
       setGuardando(false)
       return

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type { AvisoDeBorrarRutina, HuecoDeRutina, Rutina as DatosRutina } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
@@ -169,9 +169,8 @@ export function Rutina() {
       )
       setEditando(false)
     } catch (fallo) {
-      // Se sigue editando, con lo que había. El nombre repetido (el único 409 con el
-      // nombre cambiado) va bajo el nombre.
-      if (fallo instanceof ErrorDeApi && fallo.estado === 409 && limpio !== rutina!.nombre) {
+      // Se sigue editando, con lo que había. El nombre repetido va bajo el nombre.
+      if (esDelCampo(fallo, 'nombre')) {
         setFalloNombre(fallo.message)
       } else {
         setFallo(textoDelFallo(fallo))

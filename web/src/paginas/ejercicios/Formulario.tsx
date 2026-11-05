@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
+import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type { GrupoMuscular, TipoRegistro } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
@@ -95,8 +95,8 @@ export function Formulario() {
         volver(padre)
       }
     } catch (problema) {
-      // El nombre de otro ejercicio (409): bajo su campo, que es lo que hay que cambiar.
-      if (problema instanceof ErrorDeApi && problema.estado === 409) {
+      // El nombre de otro ejercicio: bajo su campo, que es lo que hay que cambiar.
+      if (esDelCampo(problema, 'nombre')) {
         setFalta({ nombre: problema.message })
       } else {
         setFallo(textoDelFallo(problema))
