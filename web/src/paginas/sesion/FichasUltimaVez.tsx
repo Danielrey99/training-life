@@ -51,7 +51,7 @@ export function FichasUltimaVez({
 
   return (
     <div className="fichas" ref={fichas}>
-      {series.map((serie) => {
+      {series.map((serie, indice) => {
         const conVariante = Boolean(serie.variante)
         return (
           <span
@@ -79,7 +79,7 @@ export function FichasUltimaVez({
               }
             }}
           >
-            <span className="ficha-numero">{serie.numero_serie}</span>
+            <span className="ficha-numero">{indice + 1}</span>
             {serieCorta(tipo, serie)}
             {serie.variante && <span className="ficha-punto" aria-label={serie.variante} />}
             {abierta === serie.id && (

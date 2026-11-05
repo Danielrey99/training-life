@@ -66,7 +66,7 @@ export function Sesion() {
 
   const [abierto, setAbierto] = useState<number | null>(null)
   const [elegidos, setElegidos] = useState<Record<number, Ejercicio | null>>({})
-  const [aBorrar, setABorrar] = useState<Serie | null>(null)
+  const [aBorrar, setABorrar] = useState<{ serie: Serie; numero: number } | null>(null)
   // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
   // se hace un solo ejercicio por sesión y cambiar borra las series que había. `de` es el
   // ejercicio de esas series, guardado al preguntar: mientras se borran, el diálogo sigue
@@ -236,7 +236,7 @@ export function Sesion() {
         bloqueado={hayAbierta}
         sesion={activa}
         guardar={(datos, serieId) => guardar(hueco.id, datos, serieId)}
-        pedirBorrar={setABorrar}
+        pedirBorrar={(serie, numero) => setABorrar({ serie, numero })}
       />
     )
   }
@@ -336,13 +336,13 @@ export function Sesion() {
 
       {aBorrar && (
         <Dialogo
-          titulo={`¿Borrar la serie ${aBorrar.numero_serie}?`}
-          cuerpo={`${serieLarga(aBorrar.ejercicio.tipo_registro, aBorrar)}${
-            aBorrar.variante ? ` · ${aBorrar.variante}` : ''
+          titulo={`¿Borrar la serie ${aBorrar.numero}?`}
+          cuerpo={`${serieLarga(aBorrar.serie.ejercicio.tipo_registro, aBorrar.serie)}${
+            aBorrar.serie.variante ? ` · ${aBorrar.serie.variante}` : ''
           }`}
           confirmar="Borrar"
           peligro
-          alConfirmar={() => borrar(aBorrar)}
+          alConfirmar={() => borrar(aBorrar.serie)}
           alCancelar={() => setABorrar(null)}
         />
       )}

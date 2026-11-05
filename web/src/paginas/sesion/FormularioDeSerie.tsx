@@ -43,8 +43,8 @@ const MAXIMO_METROS = 1_000_000
 const MAXIMO_NUMERO_DE_SERIE = 100
 
 /** Qué tope de la API pasa la serie, dicho en la unidad elegida; nulo si ninguno. */
-function topePasado(numero: number, medidas: Omit<DatosDeSerie, 'variante'>): string | null {
-  if (numero > MAXIMO_NUMERO_DE_SERIE) {
+function topePasado(orden: number, medidas: Omit<DatosDeSerie, 'variante'>): string | null {
+  if (orden > MAXIMO_NUMERO_DE_SERIE) {
     return `Un ejercicio no admite más de ${MAXIMO_NUMERO_DE_SERIE} series.`
   }
   if (medidas.peso !== null && Math.abs(medidas.peso) > MAXIMO_PESO) {
@@ -71,7 +71,10 @@ const EJEMPLO_DE_VARIANTE: Record<TipoRegistro, string> = {
 }
 
 type Props = {
+  /** El número que se lee: la posición de la serie en su ejercicio. */
   numero: number
+  /** Lo que se guarda como `numero_serie`: es sobre esto el tope de la API. */
+  orden: number
   // Cómo se apunta el ejercicio: decide qué campos lleva el formulario.
   tipo: TipoRegistro
   // Con qué valores arranca: la serie anterior, la que se edita, o la última vez. Una
@@ -113,6 +116,7 @@ type Props = {
  */
 export function FormularioDeSerie({
   numero,
+  orden,
   tipo,
   semilla,
   editando,
@@ -239,7 +243,7 @@ export function FormularioDeSerie({
       setFallo(medidas)
       return
     }
-    const tope = topePasado(numero, medidas)
+    const tope = topePasado(orden, medidas)
     if (tope) {
       setFallo(tope)
       return

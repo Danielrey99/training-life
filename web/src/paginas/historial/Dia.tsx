@@ -338,7 +338,7 @@ export function Dia() {
   const [notasNuevas, setNotasNuevas] = useState<string | null>(null)
   const [seriesNuevas, setSeriesNuevas] = useState<Serie[]>([])
   const [guardando, setGuardando] = useState(false)
-  const [aBorrar, setABorrar] = useState<Serie | null>(null)
+  const [aBorrar, setABorrar] = useState<{ serie: Serie; numero: number } | null>(null)
   // Elegir otro ejercicio en un hueco que ya tiene series: se pregunta, porque en cada hueco
   // se hace un solo ejercicio por día y cambiar quita las series que había (al guardar).
   const [aCambiar, setACambiar] = useState<{ bloque: Bloque; ejercicio: Ejercicio } | null>(null)
@@ -706,7 +706,7 @@ export function Dia() {
             abierta={abierta}
             alAbrir={setAbierta}
             alCerrar={() => setAbierta(null)}
-            alBorrarSerie={setABorrar}
+            alBorrarSerie={(serie, numero) => setABorrar({ serie, numero })}
             alElegir={(ejercicio) => elegirEjercicio(bloque, ejercicio)}
             alPedirCambiar={(ejercicio) => setACambiar({ bloque, ejercicio })}
             alCambiarSerie={cambiarSerie}
@@ -768,12 +768,12 @@ export function Dia() {
 
       {aBorrar && (
         <Dialogo
-          titulo={`¿Borrar la serie ${aBorrar.numero_serie}?`}
-          cuerpo={carga(aBorrar)}
+          titulo={`¿Borrar la serie ${aBorrar.numero}?`}
+          cuerpo={carga(aBorrar.serie)}
           confirmar="Borrar"
           peligro
           alConfirmar={async () => {
-            setSeriesNuevas((previas) => previas.filter((otra) => otra.id !== aBorrar.id))
+            setSeriesNuevas((previas) => previas.filter((otra) => otra.id !== aBorrar.serie.id))
             setABorrar(null)
           }}
           alCancelar={() => setABorrar(null)}

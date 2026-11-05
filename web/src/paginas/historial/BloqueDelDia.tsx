@@ -41,7 +41,7 @@ type Props = {
   abierta: Abierta | null
   alAbrir: (abierta: Abierta) => void
   alCerrar: () => void
-  alBorrarSerie: (serie: Serie) => void
+  alBorrarSerie: (serie: Serie, numero: number) => void
   // Elegir otro ejercicio en un hueco sin series: no hay nada que confirmar.
   alElegir: (ejercicio: Ejercicio) => void
   // Elegir otro ejercicio en un hueco que ya tiene series: lo confirma el día, que borra esas series.
@@ -95,6 +95,7 @@ export function BloqueDelDia({
   const hayOtro = [principal, ...comodines].some(
     (otro) => otro.id !== ejercicio.id && !otro.oculto_desde,
   )
+  // Para guardar, como en la sesión: en pantalla, una serie se numera por su posición.
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Arranca con la última serie del bloque o, si no tiene, con la última vez, que el día
   // ya da del ejercicio que se va a apuntar.
@@ -158,10 +159,10 @@ export function BloqueDelDia({
 
       {vacio && <p className="rotulo dia-primera">Ese día no se apuntó ninguna serie</p>}
       <ul>
-        {series.map((serie) => (
+        {series.map((serie, indice) => (
           <li key={serie.id}>
             <div className={serie.id === editandoSerie ? 'serie editando' : 'serie'}>
-              <span className="serie-numero num">{serie.numero_serie}</span>
+              <span className="serie-numero num">{indice + 1}</span>
               <span className="serie-texto">
                 <span className="serie-carga num">
                   {serieLarga(serie.ejercicio.tipo_registro, serie)}
@@ -179,7 +180,7 @@ export function BloqueDelDia({
                   <button
                     type="button"
                     className="boton-icono"
-                    aria-label={`Editar la serie ${serie.numero_serie}`}
+                    aria-label={`Editar la serie ${indice + 1}`}
                     onClick={() => alAbrir({ tipo: 'serie', id: serie.id })}
                     disabled={bloqueado}
                   >
@@ -188,8 +189,8 @@ export function BloqueDelDia({
                   <button
                     type="button"
                     className="boton-icono quitar"
-                    aria-label={`Borrar la serie ${serie.numero_serie}`}
-                    onClick={() => alBorrarSerie(serie)}
+                    aria-label={`Borrar la serie ${indice + 1}`}
+                    onClick={() => alBorrarSerie(serie, indice + 1)}
                     disabled={bloqueado}
                   >
                     <Icono nombre="quitar" pequeno />
@@ -199,7 +200,8 @@ export function BloqueDelDia({
             </div>
             {editando && serie.id === editandoSerie && (
               <FormularioDeSerie
-                numero={serie.numero_serie}
+                numero={indice + 1}
+                orden={serie.numero_serie}
                 tipo={ejercicio.tipo_registro}
                 semilla={serie}
                 editando
@@ -216,7 +218,8 @@ export function BloqueDelDia({
         (anadiendo ? (
           <FormularioDeSerie
             key={`${ejercicio.id}-${siguiente}`}
-            numero={siguiente}
+            numero={series.length + 1}
+            orden={siguiente}
             tipo={ejercicio.tipo_registro}
             semilla={semilla}
             editando={false}

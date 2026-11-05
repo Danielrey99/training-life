@@ -329,7 +329,9 @@ class Entrenamiento(Base):
     # que en RutinaSlot.slot_alternativas: el cascade cubre la lista cargada, que
     # passive_deletes solo no cubre.
     series: Mapped[list["Serie"]] = relationship(
-        order_by="Serie.numero_serie", cascade="all, delete-orphan", passive_deletes=True
+        order_by="Serie.numero_serie, Serie.id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     # Solo para leer (el seguimiento la carga de una vez para todas las sesiones):
     # que SQLAlchemy no gestione nada por ella al borrar la rutina, que ya
@@ -376,6 +378,8 @@ class Serie(Base):
     )
     slot_id: Mapped[int] = mapped_column(ForeignKey("rutina_slots.id", ondelete="RESTRICT"))
     ejercicio_id: Mapped[int] = mapped_column(ForeignKey("ejercicios.id", ondelete="RESTRICT"))
+    # El orden dentro del hueco, no lo que se lee: en pantalla, una serie se numera por su
+    # posición (al borrar una, las demás no se renumeran aquí y pueden quedar saltos).
     numero_serie: Mapped[int] = mapped_column()
     # Según el tipo del ejercicio, unas medidas valen y otras van nulas.
     peso: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), default=None)

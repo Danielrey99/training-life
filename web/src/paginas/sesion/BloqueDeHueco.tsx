@@ -30,7 +30,7 @@ type Props = {
   bloqueado: boolean
   sesion: { id: number; fecha: string }
   guardar: (datos: SerieAGuardar, serieId?: number) => Promise<void>
-  pedirBorrar: (serie: Serie) => void
+  pedirBorrar: (serie: Serie, numero: number) => void
 }
 
 /**
@@ -94,8 +94,8 @@ function HuecoAbierto({
   // Sin serie de hoy hay que esperar a la última vez, o el formulario arrancaría
   // vacío y se rellenaría solo un instante después.
   const semillaLista = editando !== null || anteriorDeHoy !== undefined || ultima !== undefined
-  // El número más alto + 1 y no la cuenta: borrando una del medio, contarlas
-  // repetiría un número.
+  // Para guardar: el más alto + 1 y no la cuenta, para que quede la última aunque haya
+  // saltos. En pantalla, una serie se numera por su posición.
   const siguiente = series.reduce((mayor, serie) => Math.max(mayor, serie.numero_serie), 0) + 1
   // Un hueco oculto conserva sus series para poder corregirlas, pero no admite nuevas; un
   // ejercicio oculto a mitad de sesión, tampoco (la API no deja elegir algo oculto).
@@ -173,9 +173,9 @@ function HuecoAbierto({
         <div className="hoy">
           <span className="rotulo hoy-rotulo">Hoy</span>
           <ul>
-            {series.map((serie) => (
+            {series.map((serie, indice) => (
               <li key={serie.id} className={serie.id === editandoId ? 'serie editando' : 'serie'}>
-                <span className="serie-numero num">{serie.numero_serie}</span>
+                <span className="serie-numero num">{indice + 1}</span>
                 <span className="serie-texto">
                   <span className="serie-carga num">
                     {serieLarga(serie.ejercicio.tipo_registro, serie)}
@@ -191,7 +191,7 @@ function HuecoAbierto({
                 <button
                   type="button"
                   className="boton-icono"
-                  aria-label={`Editar la serie ${serie.numero_serie}`}
+                  aria-label={`Editar la serie ${indice + 1}`}
                   onClick={() => alEditar(serie.id)}
                   disabled={bloqueado}
                 >
@@ -200,8 +200,8 @@ function HuecoAbierto({
                 <button
                   type="button"
                   className="boton-icono quitar"
-                  aria-label={`Borrar la serie ${serie.numero_serie}`}
-                  onClick={() => pedirBorrar(serie)}
+                  aria-label={`Borrar la serie ${indice + 1}`}
+                  onClick={() => pedirBorrar(serie, indice + 1)}
                   disabled={bloqueado}
                 >
                   <Icono nombre="quitar" pequeno />
@@ -215,7 +215,8 @@ function HuecoAbierto({
       {(editando || admiteNuevas) && semillaLista && (
         <FormularioDeSerie
           key={`${idElegido}-${editando?.id ?? 'nueva'}`}
-          numero={editando?.numero_serie ?? siguiente}
+          numero={editando ? series.indexOf(editando) + 1 : series.length + 1}
+          orden={editando?.numero_serie ?? siguiente}
           // Al editar, el tipo de la serie: el elegido puede ser otro si la rutina cambió
           // a mitad de la sesión.
           tipo={(editando?.ejercicio ?? elegido ?? hueco.ejercicio_principal).tipo_registro}
