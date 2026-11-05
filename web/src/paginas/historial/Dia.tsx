@@ -471,6 +471,7 @@ export function Dia() {
   /** *Cancelar*: sale del modo editar y descarta el borrador entero. */
   function cancelar() {
     setFalloFecha(null)
+    setEjerciciosNuevos({})
     setEditando(false)
   }
 
@@ -510,6 +511,7 @@ export function Dia() {
       return
     }
     setGuardando(false)
+    setEjerciciosNuevos({})
     setEditando(false)
     if (fechaFinal !== dia.fecha) navegar(`/historial/${fechaFinal}`, { replace: true })
     else recargar()
