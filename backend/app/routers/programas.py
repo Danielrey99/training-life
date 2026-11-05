@@ -209,9 +209,6 @@ def actualizar_programa(
     programa.nombre = datos.nombre
     for dia_semana, rutina_id in cambian:
         _cambiar_dia(db, programa, dia_semana, rutina_id)
-        # El día siguiente mira el seguimiento (`_desde_cuando_cambia`) y, sin autoflush,
-        # no vería la fila que se acaba de abrir: así queda igual que cambiarlos de uno en uno.
-        db.flush()
     db.commit()
     db.refresh(programa)
     return programa
