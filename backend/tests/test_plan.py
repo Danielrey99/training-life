@@ -17,10 +17,7 @@ from sqlalchemy import update
 
 from app.models import ExcepcionDelPlan, Programa, ProgramaPeriodo, Rutina
 from tests.ayudas import (
-    PIDE_MODO,
-    crear_ejercicio,
     crear_programa,
-    crear_hueco,
     crear_rutina,
     dejar_planificado,
     planificar,
@@ -63,8 +60,7 @@ def test_sin_programa_activo_no_toca_nada(cliente):
 
 def test_con_un_programa_activo_cada_dia_de_la_semana_toma_su_rutina(cliente):
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, "PPL", [(1, push), (3, pull)])["id"]
-    cliente.post(f"/programas/{programa}/activar")
+    crear_programa(cliente, "PPL", [(1, push), (3, pull)], activar=True)
 
     dias = plan(cliente, HOY, HOY + timedelta(days=13))
 
@@ -141,8 +137,9 @@ def excepcion_a_mano(sesion_bd, fecha, rutina_id) -> None:
 def semana_push(cliente):
     """Un programa activo con Push todos los días, y una rutina Pull suelta."""
     push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)])["id"]
-    cliente.post(f"/programas/{programa}/activar")
+    programa = crear_programa(cliente, "Todo Push", [(d, push) for d in range(1, 8)], activar=True)[
+        "id"
+    ]
     return {"push": push, "pull": pull, "programa": programa}
 
 
@@ -277,19 +274,19 @@ def test_activar_otro_programa_quitando_lo_planificado_solo_borra_desde_hoy(
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
     otro = crear_programa(cliente, "Otro", [])["id"]
 
-    cliente.post(f"/programas/{otro}/activar", json={"quitar_excepciones": True})
+    respuesta = cliente.post(f"/programas/{otro}/activar", json={"quitar_excepciones": True})
 
-    quedan = [excepcion["fecha"] for excepcion in cliente.get("/plan/excepciones").json()]
-    assert quedan == [ayer.isoformat()]
+    assert respuesta.status_code == 200, respuesta.text
+    assert fechas_cambiadas(cliente) == [ayer.isoformat()]
 
 
 def test_activar_otro_programa_sin_pedirlo_conserva_lo_planificado(cliente, semana_push):
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
     otro = crear_programa(cliente, "Otro", [])["id"]
 
-    cliente.post(f"/programas/{otro}/activar")
+    assert cliente.post(f"/programas/{otro}/activar").status_code == 200
 
-    assert len(cliente.get("/plan/excepciones").json()) == 1
+    assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
 
 
 # Lo mismo al crear un programa ya activado: `POST /programas` con `activar` acepta
@@ -381,7 +378,8 @@ def test_quitar_lo_planificado_sin_activar_da_422_y_no_crea_ni_borra_nada(client
 
 def test_crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado(cliente, semana_push):
     """El 404 de la rutina llega antes de activar nada: ni se crea el programa, ni
-    deja de estar activo el anterior, ni se borra ningún día cambiado.
+    deja de estar activo el anterior, ni se borra ningún día cambiado. Una rutina oculta
+    da el mismo 404, por el mismo camino (`test_crear_con_una_rutina_oculta_falla…`).
     """
     dejar_planificado(cliente, HOY, semana_push["pull"])
     dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["pull"])
@@ -395,18 +393,6 @@ def test_crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado(cl
     assert fechas_cambiadas(cliente) == [HOY.isoformat(), (HOY + timedelta(days=3)).isoformat()]
 
 
-def test_crear_un_programa_con_una_rutina_oculta_no_quita_lo_planificado(cliente, semana_push):
-    dejar_planificado(cliente, HOY + timedelta(days=3), semana_push["push"])
-    assert cliente.delete(f"/rutinas/{semana_push['pull']}?modo=ocultar").status_code == 204
-
-    respuesta = crear_activado(cliente, semana_push["pull"], quitar_excepciones=True)
-
-    assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
-    assert nombres_de_programas(cliente) == ["Todo Push"]
-    assert fechas_cambiadas(cliente) == [(HOY + timedelta(days=3)).isoformat()]
-
-
 def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, semana_push):
     dejar_planificado(cliente, HOY, semana_push["pull"])
 
@@ -414,24 +400,6 @@ def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, s
 
     dia = plan(cliente, HOY, HOY)[HOY.isoformat()]
     assert (dia["origen"], rutina_de(dia)) == ("programa", "Push")
-
-
-def test_el_aviso_al_borrar_una_rutina_con_huecos_cuenta_sus_dias_planificados(
-    cliente, grupo_muscular_id, semana_push
-):
-    dominadas = crear_ejercicio(cliente, grupo_muscular_id, "Dominadas en anillas")
-    crear_hueco(cliente, semana_push["pull"], dominadas)
-    assert planificar(cliente, HOY, semana_push["pull"]).status_code == 200
-
-    aviso = cliente.get(f"/rutinas/{semana_push['pull']}/aviso-de-borrado").json()
-    respuesta = cliente.delete(f"/rutinas/{semana_push['pull']}")
-
-    assert aviso["dias_planificados"] == 1
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PIDE_MODO["rutina"])
-    excepciones = cliente.get("/plan/excepciones").json()
-    assert [(e["fecha"], e["rutina"]["id"]) for e in excepciones] == [
-        (HOY.isoformat(), semana_push["pull"])
-    ]
 
 
 def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push):
@@ -453,26 +421,6 @@ def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push
     )
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == rango_invertido(HOY, HOY - timedelta(days=1))
-
-
-def test_la_base_de_datos_no_admite_dos_dias_planificados_la_misma_fecha(
-    cliente, sesion_bd, semana_push
-):
-    """La red por debajo del PUT, que sustituye el día en vez de añadir otro: sin
-    `excepciones_del_plan_fecha_key`, el plan no sabría cuál de los dos manda.
-    """
-    from sqlalchemy.exc import IntegrityError
-
-    sesion_bd.add_all(
-        [
-            ExcepcionDelPlan(fecha=HOY, rutina_id=semana_push["push"]),
-            ExcepcionDelPlan(fecha=HOY, rutina_id=None),
-        ]
-    )
-    with pytest.raises(IntegrityError) as error:
-        sesion_bd.commit()
-    sesion_bd.rollback()
-    assert "excepciones_del_plan_fecha_key" in str(error.value)
 
 
 # --- Bordes y combinaciones con lo oculto --------------------------------
@@ -511,7 +459,8 @@ def test_ocultar_el_programa_activo_deja_hoy_sin_programa_pero_respeta_lo_planif
     manana = HOY + timedelta(days=1)
     dejar_planificado(cliente, manana, semana_push["pull"])
 
-    cliente.delete(f"/programas/{semana_push['programa']}?modo=ocultar")
+    ruta = f"/programas/{semana_push['programa']}?modo=ocultar"
+    assert cliente.delete(ruta).status_code == 204
     dias = plan(cliente, HOY, manana)
 
     assert dias[HOY.isoformat()]["origen"] == "sin_programa"

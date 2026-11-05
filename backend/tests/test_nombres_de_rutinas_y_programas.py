@@ -11,12 +11,13 @@ Lo de duplicar una rutina (que nunca da 409: busca un nombre libre), en `test_ru
 """
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.models import Programa, Rutina, RutinaSlot
 from tests.ayudas import (
     crear_ejercicio,
     crear_rutina,
+    cuantas_filas,
     ejercicio_oculto,
     importar_rutinas_y_programas,
     nombre_repetido,
@@ -105,16 +106,15 @@ def importar(cliente, tipo, *filas) -> list[int]:
 
 
 @por_tipo
-@pytest.mark.parametrize(
-    "repetido", ["GLÚTEOS Y FEMORAL", "Gluteos y femoral", "  glúteos   y  femoral "]
-)
 def test_no_se_crea_con_el_nombre_de_otro_sin_distinguir_mayusculas_tildes_ni_espacios(
-    cliente, sesion_bd, tipo, repetido
+    cliente, sesion_bd, tipo
 ):
-    """El mensaje nombra el otro tal como está guardado, no como se ha escrito."""
+    """El mensaje nombra el otro tal como está guardado, no como se ha escrito. Cada
+    forma de escribirlo, en `test_la_clave_de_un_nombre_ignora_mayusculas_tildes_y_espacios`.
+    """
     creado(cliente, tipo, "Glúteos y femoral")
 
-    respuesta = crear(cliente, tipo, repetido)
+    respuesta = crear(cliente, tipo, "  GLUTEOS   y  femoral ")
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         409,
@@ -136,14 +136,6 @@ def test_no_se_crea_con_el_nombre_de_uno_oculto_y_el_mensaje_pide_mostrarlo(
         choca_con_oculto(tipo, "Torso"),
     )
     assert nombres(sesion_bd, tipo) == ["Torso"]
-
-
-@por_tipo
-def test_la_enie_no_es_una_tilde_y_ano_y_año_son_nombres_distintos(cliente, sesion_bd, tipo):
-    creado(cliente, tipo, "Año nuevo")
-
-    assert crear(cliente, tipo, "Ano nuevo").status_code == 201
-    assert nombres(sesion_bd, tipo) == ["Año nuevo", "Ano nuevo"]
 
 
 def test_una_rutina_y_un_programa_pueden_llamarse_igual(cliente, sesion_bd):
@@ -172,11 +164,7 @@ def hueco(ejercicio_id, **objetivo_del_hueco) -> dict:
 
 
 def filas_guardadas(sesion_bd) -> tuple[int, int]:
-    sesion_bd.expire_all()
-    return tuple(
-        sesion_bd.scalar(select(func.count()).select_from(modelo))
-        for modelo in (Rutina, RutinaSlot)
-    )
+    return cuantas_filas(sesion_bd, Rutina, RutinaSlot)
 
 
 def test_una_rutina_con_huecos_y_nombre_repetido_da_409_y_no_crea_nada(
@@ -249,31 +237,21 @@ def test_un_programa_con_una_rutina_oculta_y_nombre_repetido_da_el_404_de_la_rut
 
 
 # --- Renombrar -------------------------------------------------------------------
+#
+# Con el nombre de otro visible: `test_un_nombre_repetido_da_409_y_no_cambia_los_dias`
+# (`test_programas.py`) y `test_un_nombre_repetido_al_guardar_da_409_y_el_orden_no_cambia`
+# (`test_rutinas.py`).
 
 
 @por_tipo
-@pytest.mark.parametrize("nuevo", ["GLÚTEOS", "Gluteos", " glúteos "])
-def test_renombrar_cambiando_solo_mayusculas_tildes_o_espacios_vale(
-    cliente, sesion_bd, tipo, nuevo
-):
-    """El nombre no cambia de clave: no choca consigo mismo."""
+def test_renombrar_cambiando_solo_mayusculas_tildes_o_espacios_vale(cliente, sesion_bd, tipo):
+    """El nombre no cambia de clave: no choca consigo mismo, y queda la forma nueva."""
     objeto = creado(cliente, tipo, "Glúteos")
 
-    respuesta = renombrar(cliente, tipo, objeto, nuevo)
+    respuesta = renombrar(cliente, tipo, objeto, " GLUTEOS ")
 
     assert respuesta.status_code == 200, respuesta.text
-    assert nombres(sesion_bd, tipo) == [respuesta.json()["nombre"]]
-
-
-@por_tipo
-def test_renombrar_con_el_nombre_de_otro_da_409_y_no_cambia_nada(cliente, sesion_bd, tipo):
-    creado(cliente, tipo, "Torso")
-    pierna = creado(cliente, tipo, "Pierna")
-
-    respuesta = renombrar(cliente, tipo, pierna, "TORSO")
-
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, choca(tipo, "Torso"))
-    assert nombres(sesion_bd, tipo) == ["Torso", "Pierna"]
+    assert nombres(sesion_bd, tipo) == ["GLUTEOS"]
 
 
 @por_tipo
@@ -313,14 +291,6 @@ def test_renombrar_uno_oculto_con_nombre_repetido_da_el_409_de_que_esta_oculto(
 
 
 @por_tipo
-def test_importar_dos_con_el_mismo_nombre_los_carga(cliente, sesion_bd, tipo):
-    """Importar no mira los nombres: la copia de esta instalación siempre se carga."""
-    importar(cliente, tipo, "Push", ("PÚSH ", "2026-09-01"))
-
-    assert nombres(sesion_bd, tipo) == ["Push", "PÚSH"]
-
-
-@por_tipo
 def test_con_dos_iguales_importados_el_mensaje_nombra_el_visible(cliente, tipo):
     """El oculto va primero en el archivo: aun así, se nombra el visible, que es el que
     se encuentra en la lista.
@@ -334,6 +304,9 @@ def test_con_dos_iguales_importados_el_mensaje_nombra_el_visible(cliente, tipo):
 
 @por_tipo
 def test_dos_iguales_importados_se_pueden_seguir_editando_y_mostrando(cliente, sesion_bd, tipo):
+    """Importar no mira los nombres: la copia de esta instalación siempre se carga, y lo
+    cargado no se queda bloqueado.
+    """
     oculto, visible = importar(cliente, tipo, ("Push", "2026-09-01"), "Push")
 
     renombrado = renombrar(cliente, tipo, visible, "PUSH")

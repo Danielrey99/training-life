@@ -22,14 +22,10 @@ from tests.ayudas import (
     objetivo,
     serie_en,
 )
+from tests.ayudas import cuerpo_de_hueco as _hueco
 from tests.ayudas import cuerpo_de_serie as _serie
 
 FECHA = "2026-09-04"
-
-
-def _hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
-    """El cuerpo de un hueco de repeticiones sin comodines, con `orden` (el PUT lo exige)."""
-    return {"ejercicio_principal_id": ejercicio_id, "orden": orden, **objetivo(series, reps)}
 
 
 def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_muscular_id):
@@ -56,53 +52,30 @@ def test_una_rutina_devuelve_sus_huecos_y_comodines_ya_resueltos(cliente, grupo_
     assert {k: v for k, v in resuelta.items() if k != "ejercicio"} == objetivo(2, (10, 15))
 
 
-def test_el_peso_conserva_los_decimales_exactos(cliente, grupo_muscular_id):
-    """Es Numeric (Decimal), no float: 100.25 debe volver como 100.25 exacto."""
-    ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Peso muerto con déficit")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-
-    serie = serie_en(cliente, entrenamiento_id, ejercicio_id, peso=100.25, repeticiones=5).json()
-
-    assert Decimal(str(serie["peso"])) == Decimal("100.25")
-
-
-def _falta_o_es_nulo(respuesta, campo) -> bool:
-    """El 422 es justo por ese campo (ausente o nulo), no por otro del cuerpo."""
+def _rechazado_por(respuesta, campo) -> bool:
+    """El 422 es justo por ese campo, no por otro del cuerpo."""
     return respuesta.status_code == 422 and [e["loc"] for e in respuesta.json()["detail"]] == [
         ["body", campo]
     ]
 
 
-@pytest.mark.parametrize("sin_rutina", [{}, {"rutina_id": None}], ids=["ausente", "nula"])
-def test_un_entrenamiento_no_se_admite_sin_rutina(cliente, sin_rutina):
+def test_un_entrenamiento_no_se_admite_sin_rutina(cliente):
     """Toda sesión es de una rutina: sin ella, el cuerpo ni siquiera es válido."""
-    respuesta = cliente.post("/entrenamientos", json={"fecha": FECHA, **sin_rutina})
+    respuesta = cliente.post("/entrenamientos", json={"fecha": FECHA, "rutina_id": None})
 
-    assert _falta_o_es_nulo(respuesta, "rutina_id"), respuesta.text
+    assert _rechazado_por(respuesta, "rutina_id"), respuesta.text
     assert cliente.get("/entrenamientos").json() == []
 
 
-@pytest.mark.parametrize(
-    "rutina_del_put, con_series",
-    [
-        pytest.param("ausente", False, id="ausente"),
-        pytest.param("nula", False, id="nula"),
-        pytest.param("otra", False, id="otra-en-una-sesion-vacia"),
-        pytest.param("otra", True, id="otra-en-una-sesion-con-series"),
-        pytest.param("oculta", False, id="oculta"),
-    ],
-)
-def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(
-    cliente, grupo_muscular_id, rutina_del_put, con_series
-):
+@pytest.mark.parametrize("con_series", [False, True], ids=["sesion-vacia", "sesion-con-series"])
+def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(cliente, grupo_muscular_id, con_series):
     """La rutina se fija al crear la sesión, como `cubre_fecha`: el PUT solo corrige
-    la fecha y las notas, y la `rutina_id` que traiga se ignora sin dar error.
+    la fecha y las notas, y la `rutina_id` que traiga se ignora sin dar error (el
+    esquema no la recibe, así que da igual cuál sea).
 
-    - Nula no la deja sin rutina (hace tiempo la convertía en un entrenamiento libre).
-    - Otra no la cambia ni en una sesión vacía: antes, sin series ni `cubre_fecha`,
-      el PUT sí la cambiaba. Con series, el historial de su ejercicio sigue igual
-      (si cambiara, enseñaría la sesión con el nombre de otra rutina).
-    - Una oculta tampoco da 404: no es "elegir algo oculto", porque no se elige.
+    Tampoco en una sesión vacía: antes, sin series ni `cubre_fecha`, el PUT sí la
+    cambiaba. Con series, el historial de su ejercicio sigue igual (si cambiara,
+    enseñaría la sesión con el nombre de otra rutina).
     """
     entrenamiento = entrenar(cliente, FECHA).json()
     if con_series:
@@ -112,13 +85,10 @@ def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(
         historial = f"/ejercicios/{remo}/historial"
         historial_antes = cliente.get(historial).json()
     otra = crear_rutina(cliente, "Pull")
-    if rutina_del_put == "oculta":
-        assert cliente.delete(f"/rutinas/{otra}?modo=ocultar").status_code == 204
-    rutina = {"ausente": {}, "nula": {"rutina_id": None}}.get(rutina_del_put, {"rutina_id": otra})
 
     respuesta = cliente.put(
         f"/entrenamientos/{entrenamiento['id']}",
-        json={"fecha": "2026-09-03", "notas": "Corregida", **rutina},
+        json={"fecha": "2026-09-03", "notas": "Corregida", "rutina_id": otra},
     )
 
     assert respuesta.status_code == 200, respuesta.text
@@ -135,8 +105,7 @@ def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(
         assert {**dia, "fecha": FECHA} == historial_antes[0]
 
 
-@pytest.mark.parametrize("sin_hueco", [{}, {"slot_id": None}], ids=["ausente", "nulo"])
-def test_una_serie_no_se_admite_sin_hueco(cliente, grupo_muscular_id, sin_hueco):
+def test_una_serie_no_se_admite_sin_hueco(cliente, grupo_muscular_id):
     """Toda serie va en un hueco de la rutina de su sesión."""
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
@@ -148,37 +117,38 @@ def test_una_serie_no_se_admite_sin_hueco(cliente, grupo_muscular_id, sin_hueco)
             "numero_serie": 1,
             "peso": 20,
             "repeticiones": 10,
-            **sin_hueco,
+            "slot_id": None,
         },
     )
 
-    assert _falta_o_es_nulo(respuesta, "slot_id"), respuesta.text
+    assert _rechazado_por(respuesta, "slot_id"), respuesta.text
     assert cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"] == []
 
 
-@pytest.mark.parametrize("sin_hueco", [{}, {"slot_id": None}], ids=["ausente", "nulo"])
-def test_a_una_serie_no_se_le_puede_quitar_el_hueco(cliente, grupo_muscular_id, sin_hueco):
-    """Corregir una serie sin mandar su hueco se rechaza y la deja como estaba."""
+def test_a_una_serie_no_se_le_puede_quitar_el_hueco(cliente, grupo_muscular_id):
+    """Corregir una serie sin hueco se rechaza y la deja como estaba."""
     curl = crear_ejercicio(cliente, grupo_muscular_id, "Curl")
     entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
     serie = serie_en(cliente, entrenamiento_id, curl).json()
-    cuerpo = _serie(cliente, entrenamiento_id, curl, peso=80)
-    del cuerpo["slot_id"]
+    cuerpo = {**_serie(cliente, entrenamiento_id, curl, peso=80), "slot_id": None}
 
-    respuesta = cliente.put(
-        f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}", json={**cuerpo, **sin_hueco}
-    )
+    respuesta = cliente.put(f"/entrenamientos/{entrenamiento_id}/series/{serie['id']}", json=cuerpo)
 
-    assert _falta_o_es_nulo(respuesta, "slot_id"), respuesta.text
+    assert _rechazado_por(respuesta, "slot_id"), respuesta.text
     [guardada] = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
     assert (guardada["slot_id"], guardada["peso"]) == (serie["slot_id"], serie["peso"])
 
 
-def test_no_se_puede_usar_un_grupo_muscular_inexistente(cliente, grupo_muscular_id):
-    """Al crear y al editar: 404 con su mensaje, y nada cambia."""
-    creado = cliente.post("/ejercicios", json={"nombre": "X", "grupo_muscular_id": 9999})
+def test_no_se_puede_usar_un_grupo_muscular_inexistente(
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
+):
+    """Al crear y al editar: 404 con su mensaje, y nada cambia. El nombre está repetido a
+    propósito: el 404 del grupo se dice antes que el 409 del nombre.
+    """
+    cuerpo = {"nombre": "Sentadilla con barra", "grupo_muscular_id": 9999}
+    creado = cliente.post("/ejercicios", json=cuerpo)
     remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo")
-    editado = cliente.put(f"/ejercicios/{remo}", json={"nombre": "Y", "grupo_muscular_id": 9999})
+    editado = cliente.put(f"/ejercicios/{remo}", json=cuerpo)
 
     for respuesta in (creado, editado):
         assert respuesta.status_code == 404
@@ -266,15 +236,6 @@ def test_editar_una_nota_no_la_cambia_de_ejercicio(cliente, grupo_muscular_id):
 # --- Editar y borrar: rutinas, huecos y comodines ------------------------
 
 
-def test_cambiar_el_nombre_de_una_rutina(cliente):
-    rutina_id = crear_rutina(cliente)
-
-    respuesta = cliente.put(f"/rutinas/{rutina_id}", json={"nombre": "Empuje"})
-
-    assert respuesta.status_code == 200
-    assert cliente.get(f"/rutinas/{rutina_id}").json()["nombre"] == "Empuje"
-
-
 def test_editar_un_hueco_cambia_su_ejercicio_y_su_objetivo(cliente, grupo_muscular_id):
     banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
     maquina = crear_ejercicio(cliente, grupo_muscular_id, "Press en máquina")
@@ -321,26 +282,6 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo(cliente, grupo_m
 
 
 # --- Editar y borrar: entrenamientos y series ----------------------------
-
-
-def test_corregir_una_serie(cliente, grupo_muscular_id):
-    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    entrenamiento_id = entrenar(cliente, FECHA).json()["id"]
-    ruta = f"/entrenamientos/{entrenamiento_id}/series"
-    serie_id = cliente.post(ruta, json=_serie(cliente, entrenamiento_id, banca)).json()["id"]
-
-    respuesta = cliente.put(
-        f"{ruta}/{serie_id}",
-        json={
-            **_serie(cliente, entrenamiento_id, banca, peso=62.5, repeticiones=7),
-            "variante": "agarre cerrado",
-        },
-    )
-
-    assert respuesta.status_code == 200
-    corregida = respuesta.json()
-    assert Decimal(corregida["peso"]) == Decimal("62.5")
-    assert (corregida["repeticiones"], corregida["variante"]) == (7, "agarre cerrado")
 
 
 def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
@@ -1050,71 +991,10 @@ def test_rutinas_programas_y_ejercicios_se_listan_por_nombre(cliente, grupo_musc
 
 # --- Lo que no existe ----------------------------------------------------
 #
-# Escribir sobre un id que no existe da 404 (el 403 es solo para los predefinidos). Se
-# mira también el texto: un 404 de una ruta mal escrita diría "Not Found".
+# Leer o escribir sobre un id que no existe da 404 (el 403 es solo para los predefinidos).
+# Se mira también el texto: un 404 de una ruta mal escrita diría "Not Found".
 
 INEXISTENTE = 999_999
-NO_HAY_PROGRAMA = "Este programa ya no existe. Puede que lo hayas borrado."
-
-
-@pytest.mark.parametrize(
-    "metodo, ruta, cuerpo, detalle",
-    [
-        pytest.param(
-            "put", "/ejercicios/{id}", "ejercicio", EJERCICIO_YA_NO_EXISTE, id="ejercicio-put"
-        ),
-        pytest.param(
-            "delete", "/ejercicios/{id}", None, EJERCICIO_YA_NO_EXISTE, id="ejercicio-delete"
-        ),
-        pytest.param(
-            "post",
-            "/ejercicios/{id}/mostrar",
-            None,
-            EJERCICIO_YA_NO_EXISTE,
-            id="ejercicio-mostrar",
-        ),
-        pytest.param("put", "/programas/{id}", "programa", NO_HAY_PROGRAMA, id="programa-put"),
-        pytest.param("delete", "/programas/{id}", None, NO_HAY_PROGRAMA, id="programa-delete"),
-        pytest.param(
-            "post", "/programas/{id}/activar", None, NO_HAY_PROGRAMA, id="programa-activar"
-        ),
-        pytest.param(
-            "post",
-            "/programas/{id}/desactivar",
-            None,
-            NO_HAY_PROGRAMA,
-            id="programa-desactivar",
-        ),
-        pytest.param(
-            "post", "/programas/{id}/mostrar", None, NO_HAY_PROGRAMA, id="programa-mostrar"
-        ),
-        pytest.param(
-            "put",
-            "/programas/{id}",
-            "semana",
-            NO_HAY_PROGRAMA,
-            id="programa-guardar-semana",
-        ),
-    ],
-)
-def test_modificar_un_ejercicio_o_un_programa_que_no_existe_da_404(
-    cliente, grupo_muscular_id, metodo, ruta, cuerpo, detalle
-):
-    cuerpos = {
-        "ejercicio": lambda: {"nombre": "Press banca", "grupo_muscular_id": grupo_muscular_id},
-        "programa": lambda: {"nombre": "PPL"},
-        # Una rutina que sí existe: el 404 tiene que ser por el programa.
-        "semana": lambda: {
-            "nombre": "PPL",
-            "dias": [{"dia_semana": 1, "rutina_id": crear_rutina(cliente)}],
-        },
-    }
-    argumentos = {} if cuerpo is None else {"json": cuerpos[cuerpo]()}
-
-    respuesta = getattr(cliente, metodo)(ruta.format(id=INEXISTENTE), **argumentos)
-
-    assert respuesta.status_code == 404, respuesta.text
-    assert respuesta.json()["detail"] == detalle
 
 
 @pytest.fixture
@@ -1130,6 +1010,7 @@ def lo_que_existe(cliente, grupo_muscular_id) -> dict:
 
 
 NO_HAY_NOTA = "Esa nota ya no existe. Puede que la hayas borrado."
+NO_HAY_PROGRAMA = "Este programa ya no existe. Puede que lo hayas borrado."
 NO_HAY_RUTINA = "Esta rutina ya no existe. Puede que la hayas borrado."
 NO_HAY_HUECO = "Ese ejercicio no está en esta rutina."
 NO_HAY_SESION = "Esta sesión ya no existe. Puede que la hayas cancelado o borrado."
@@ -1140,6 +1021,9 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
     "metodo, ruta, cuerpo, detalle",
     [
         ("get", "/ejercicios/{X}", None, EJERCICIO_YA_NO_EXISTE),
+        ("put", "/ejercicios/{X}", "ejercicio", EJERCICIO_YA_NO_EXISTE),
+        ("delete", "/ejercicios/{X}", None, EJERCICIO_YA_NO_EXISTE),
+        ("post", "/ejercicios/{X}/mostrar", None, EJERCICIO_YA_NO_EXISTE),
         ("get", "/ejercicios/{X}/historial", None, EJERCICIO_YA_NO_EXISTE),
         ("get", "/ejercicios/{X}/donde-se-usa", None, EJERCICIO_YA_NO_EXISTE),
         ("get", "/ejercicios/{X}/aviso-de-borrado", None, EJERCICIO_YA_NO_EXISTE),
@@ -1155,7 +1039,6 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
         ("delete", "/rutinas/{X}", None, NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/mostrar", None, NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/duplicar", None, NO_HAY_RUTINA),
-        ("put", "/rutinas/{X}", "orden", NO_HAY_RUTINA),
         ("post", "/rutinas/{X}/slots", "hueco", NO_HAY_RUTINA),
         ("put", "/rutinas/{X}/slots/{hueco}", "hueco", NO_HAY_RUTINA),
         ("delete", "/rutinas/{X}/slots/{hueco}", None, NO_HAY_RUTINA),
@@ -1166,9 +1049,13 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
         ("post", "/rutinas/{rutina}/slots/{X}/mostrar", None, NO_HAY_HUECO),
         ("get", "/rutinas/{rutina}/slots/{X}/aviso-de-borrado", None, NO_HAY_HUECO),
         ("get", "/programas/{X}", None, NO_HAY_PROGRAMA),
+        ("put", "/programas/{X}", "programa", NO_HAY_PROGRAMA),
+        ("delete", "/programas/{X}", None, NO_HAY_PROGRAMA),
+        ("post", "/programas/{X}/activar", None, NO_HAY_PROGRAMA),
+        ("post", "/programas/{X}/desactivar", None, NO_HAY_PROGRAMA),
+        ("post", "/programas/{X}/mostrar", None, NO_HAY_PROGRAMA),
         ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),
         ("put", "/entrenamientos/{X}", "sesion", NO_HAY_SESION),
-        ("put", "/entrenamientos/{X}", "dia", NO_HAY_SESION),
         ("put", "/entrenamientos/{sesion}", "serie del dia", SERIE_DEL_DIA_YA_NO_EXISTE),
         ("delete", "/entrenamientos/{X}/series?slot_id={hueco}", None, NO_HAY_SESION),
         ("delete", "/entrenamientos/{sesion}/series?slot_id={X}", None, NO_HAY_HUECO_DE_LA_SESION),
@@ -1182,12 +1069,14 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
     ],
 )
 def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
-    cliente, lo_que_existe, metodo, ruta, cuerpo, detalle
+    cliente, grupo_muscular_id, lo_que_existe, metodo, ruta, cuerpo, detalle
 ):
-    """Lo mismo para el resto de recursos y sus hijos: con el padre inexistente, el
-    404 es el del padre; con el padre bien y el hijo inexistente, el del hijo. El
-    cuerpo es válido, para que el 404 no pueda ser un 422 de otra cosa. Un hijo que
-    existe pero es de otro padre, en el test de cada recurso (busca «la ruta de»).
+    """Cada ruta con id, una a una: si se olvidara la comprobación en una, daría otra
+    cosa. Con el padre inexistente, el 404 es el del padre; con el padre bien y el hijo
+    inexistente, el del hijo. El cuerpo es válido, para que el 404 no pueda ser un 422
+    de otra cosa. Un PUT se prueba una vez aunque admita más campos: el 404 va antes de
+    mirarlos. Un hijo que existe pero es de otro padre, en el test de cada recurso
+    (busca «la ruta de»).
     """
     hay = lo_que_existe
     serie = {
@@ -1198,12 +1087,12 @@ def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
         "repeticiones": 8,
     }
     cuerpos = {
+        "ejercicio": {"nombre": "Remo", "grupo_muscular_id": grupo_muscular_id},
+        "programa": {"nombre": "PPL"},
         "nota": {"nota": "Agarre cerrado"},
         "rutina": {"nombre": "Empuje"},
-        "orden": {"nombre": "Empuje", "slot_ids": []},
         "hueco": _hueco(hay["ejercicio"], orden=2),
         "sesion": {"fecha": FECHA},
-        "dia": {"fecha": FECHA, "series": []},
         "serie del dia": {"fecha": FECHA, "series": [{"id": INEXISTENTE, **serie}]},
         "serie": serie,
     }

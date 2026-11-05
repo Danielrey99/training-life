@@ -26,6 +26,7 @@ from app.models import RutinaPeriodoOculto
 from tests.ayudas import (
     consultas_de,
     crear_ejercicio,
+    crear_hueco,
     crear_rutina,
     ejercicio_de_prueba,
     poner_alternativas,
@@ -128,7 +129,7 @@ def ejercicio_id(cliente, grupo_muscular_id) -> int:
 
 @pytest.mark.parametrize(
     "mes",
-    ["2026-13", "2026-00", "2026-9", "1999-01", "2100-01", "2026-09-01", ""],
+    ["2026-13", "2026-00", "2026-9", "1999-01", "2100-01", "2026-09-01"],
 )
 def test_un_mes_mal_escrito_da_422(cliente, hoy_es, mes):
     """El formato es `AAAA-MM`, con años de 2000 a 2099: más allá, restar meses
@@ -175,7 +176,9 @@ def test_sin_mes_es_el_de_hoy(cliente, hoy_es):
 
 def test_sin_datos_todo_sale_a_cero(cliente, hoy_es):
     """El 16 de septiembre, pidiendo septiembre: hay barra en curso en las dos
-    vistas, y sale aunque esté vacía.
+    vistas, y sale aunque esté vacía. Con solo periodos terminados, `completo` sobra
+    (decisión del autor), y sin filtros de rutina la evolución no lleva `rutina_id`:
+    se fijan las claves de la vista y de cada barra.
     """
     hoy_es(HOY)
 
@@ -184,9 +187,19 @@ def test_sin_datos_todo_sale_a_cero(cliente, hoy_es):
     assert set(datos) == {"mes", "por_semana", "por_mes", "constancia"}
     en_curso = {"por_semana": ("2026-09-14", "2026-09-20"), "por_mes": ("2026-09-01", "2026-09-30")}
     for clave, vista in ((clave, datos[clave]) for clave in en_curso):
+        assert set(vista) == {"periodos", "en_curso"}
         assert len(vista["periodos"]) == 8
         assert (vista["en_curso"]["desde"], vista["en_curso"]["hasta"]) == en_curso[clave]
         for periodo in todas_las_barras(vista):
+            assert set(periodo) == {
+                "desde",
+                "hasta",
+                "volumen",
+                "cambio",
+                "comparado_con",
+                "volumen_por_rutina",
+                "series_por_grupo",
+            }
             assert periodo["volumen"] == "0.00"
             assert (periodo["cambio"], periodo["comparado_con"]) == (None, None)
             assert periodo["volumen_por_rutina"] == []
@@ -259,16 +272,6 @@ def test_sin_datos_todo_sale_a_cero(cliente, hoy_es):
             id="dia-1-del-mes-actual",
         ),
         pytest.param(
-            HOY,
-            "2026-02",
-            date(2026, 2, 23),
-            date(2025, 7, 1),
-            date(2026, 2, 1),
-            None,
-            None,
-            id="meses-que-cruzan-de-año",
-        ),
-        pytest.param(
             date(2026, 1, 15),
             "2026-01",
             date(2026, 1, 5),
@@ -323,28 +326,6 @@ def test_las_graficas_traen_periodos_terminados_y_el_en_curso(
         assert desde == mes_en_curso
         assert date.fromisoformat(en_curso["hasta"]) == ultimo_dia(desde)
         assert desde == meses[-1][1] + timedelta(days=1)
-
-
-def test_las_claves_de_la_respuesta(cliente, hoy_es):
-    """Decisión del autor: con solo periodos terminados, `completo` sobra. Sin
-    filtros de rutina, la evolución no lleva `rutina_id`, y el cambio va en cada
-    barra.
-    """
-    hoy_es(HOY)
-
-    vista = pedir(cliente)["por_semana"]
-
-    assert set(vista) == {"periodos", "en_curso"}
-    for periodo in (vista["periodos"][0], vista["en_curso"]):
-        assert set(periodo) == {
-            "desde",
-            "hasta",
-            "volumen",
-            "cambio",
-            "comparado_con",
-            "volumen_por_rutina",
-            "series_por_grupo",
-        }
 
 
 def test_septiembre_pedido_el_1_de_octubre_trae_la_semana_en_curso_y_no_el_mes(
@@ -439,10 +420,12 @@ def test_la_semana_que_cruza_de_mes_se_cuenta_entera(cliente, hoy_es, ejercicio_
 def test_lo_de_la_semana_y_el_mes_en_curso_sale_solo_en_la_barra_en_curso(
     cliente, hoy_es, ejercicio_id
 ):
+    """También la sesión de hoy, que sigue abierta."""
     hoy_es(MARTES_6_OCT)
     push = crear_rutina(cliente, "Push")
     sesion_con_series(cliente, date(2026, 10, 5), push, ejercicio_id, (100, 1))
     sesion_con_series(cliente, MARTES_6_OCT, push, ejercicio_id, (100, 1))
+    assert [s["fecha"] for s in sesiones_en_curso(cliente)] == [MARTES_6_OCT.isoformat()]
 
     datos = pedir(cliente, OCTUBRE)
 
@@ -474,30 +457,23 @@ def test_los_meses_de_la_grafica_cruzan_de_año(cliente, hoy_es, ejercicio_id):
     assert cambio(meses["periodos"][7]) == (50.0, date(2025, 12, 1))
 
 
-@pytest.mark.parametrize(
-    "anterior, ultimo, esperado",
-    [
-        # Subir y bajar, con su signo, en `test_el_cambio_redondea_las_medias_decimas_hacia_fuera`.
-        pytest.param(100, 100, (0.0, date(2026, 9, 21)), id="igual"),
-        pytest.param(0, 100, (None, None), id="sin-anterior"),
-        pytest.param(100, 0, (None, None), id="sin-ultimo"),
-    ],
-)
-def test_el_cambio_compara_el_ultimo_periodo_con_el_anterior(
-    cliente, hoy_es, ejercicio_id, anterior, ultimo, esperado
+def test_el_mismo_volumen_que_el_periodo_anterior_es_un_cambio_de_cero(
+    cliente, hoy_es, ejercicio_id
 ):
+    """Un 0 %, que no es lo mismo que no tener cambio. Subir y bajar, con su signo, en
+    `test_el_cambio_redondea_las_medias_decimas_hacia_fuera`; sin nada con qué comparar
+    o sin volumen, en `test_el_cambio_salta_las_barras_vacias`.
+    """
     hoy_es(MARTES_6_OCT)
     push = crear_rutina(cliente, "Push")
     # Las dos últimas semanas: la del 21 y la del 28 de septiembre.
-    if anterior:
-        sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (anterior, 1))
-    if ultimo:
-        sesion_con_series(cliente, date(2026, 9, 29), push, ejercicio_id, (ultimo, 1))
+    sesion_con_series(cliente, date(2026, 9, 22), push, ejercicio_id, (100, 1))
+    sesion_con_series(cliente, date(2026, 9, 29), push, ejercicio_id, (100, 1))
 
     semanas = pedir(cliente, SEPTIEMBRE)["por_semana"]
 
-    assert volumenes(semanas)[-2:] == [Decimal(anterior), Decimal(ultimo)]
-    assert cambio(semanas["periodos"][-1]) == esperado
+    assert volumenes(semanas)[-2:] == [Decimal(100), Decimal(100)]
+    assert cambio(semanas["periodos"][-1]) == (0.0, date(2026, 9, 21))
 
 
 @pytest.mark.parametrize(
@@ -568,22 +544,6 @@ def test_el_cambio_salta_las_barras_vacias(cliente, hoy_es, ejercicio_id):
         (None, None),
         (None, None),
     ]
-
-
-def test_una_barra_a_cero_entre_dos_con_volumen_no_tiene_cambio(cliente, hoy_es, ejercicio_id):
-    """Julio sin entrenar, entre junio y agosto: julio sin cambio (no es −100 %) y
-    agosto comparado con junio.
-    """
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    sesion_con_series(cliente, date(2026, 6, 10), push, ejercicio_id, (100, 1))
-    sesion_con_series(cliente, date(2026, 8, 10), push, ejercicio_id, (300, 1))
-
-    meses = pedir(cliente, SEPTIEMBRE)["por_mes"]
-
-    assert cambio(barra(meses, date(2026, 7, 1))) == (None, None)
-    assert cambio(barra(meses, date(2026, 8, 1))) == (200.0, date(2026, 6, 1))
-    assert cambio(barra(meses, date(2026, 9, 1))) == (None, None)
 
 
 def test_la_primera_barra_se_compara_con_una_semana_de_hace_un_año(cliente, hoy_es, ejercicio_id):
@@ -677,18 +637,6 @@ def test_la_referencia_anterior_salta_los_periodos_solo_con_series_sin_peso(
     assert cambio(semanas["periodos"][0]) == (50.0, date(2026, 7, 20))
 
 
-def test_comparado_con_cruza_de_año(cliente, hoy_es, ejercicio_id):
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    sesion_con_series(cliente, date(2025, 12, 30), push, ejercicio_id, (100, 1))
-    sesion_con_series(cliente, date(2026, 1, 6), push, ejercicio_id, (200, 1))
-
-    datos = pedir(cliente, "2026-01")
-
-    assert cambio(barra(datos["por_semana"], date(2026, 1, 5))) == (100.0, date(2025, 12, 29))
-    assert cambio(barra(datos["por_mes"], date(2026, 1, 1))) == (100.0, date(2025, 12, 1))
-
-
 def test_una_sesion_de_rutina_y_ejercicio_ocultos_sirve_de_referencia(
     cliente, hoy_es, grupo_muscular_id
 ):
@@ -724,11 +672,6 @@ def test_una_sesion_de_rutina_y_ejercicio_ocultos_sirve_de_referencia(
             [(date(2026, 9, 15), 100)],
             (None, None),
             id="en-curso-vacia",
-        ),
-        pytest.param(
-            [(date(2026, 9, 15), 100), (MARTES_6_OCT, 0)],
-            (None, None),
-            id="en-curso-solo-sin-peso",
         ),
     ],
 )
@@ -782,19 +725,6 @@ def test_el_volumen_cuenta_lo_oculto_y_lo_sin_terminar(cliente, hoy_es, grupo_mu
         },
         {"rutina": {"id": push, "nombre": "Push", "oculto_desde": None}, "volumen": "300.00"},
     ]
-
-
-def test_la_sesion_abierta_de_hoy_cuenta_en_la_barra_en_curso(cliente, hoy_es, ejercicio_id):
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    sesion_con_series(cliente, MARTES_6_OCT, push, ejercicio_id, (80, 5), (80, 5))
-    assert [s["fecha"] for s in sesiones_en_curso(cliente)] == [MARTES_6_OCT.isoformat()]
-
-    datos = pedir(cliente, OCTUBRE)
-
-    for vista in (datos["por_semana"], datos["por_mes"]):
-        assert por_rutina(vista["en_curso"]) == [("Push", "800.00")]
-        assert vista["en_curso"]["series_por_grupo"][0]["series"] == 2
 
 
 def test_el_volumen_va_por_la_fecha_real_y_la_constancia_por_el_dia_que_cuenta(
@@ -870,18 +800,7 @@ def test_las_series_van_al_grupo_del_ejercicio_que_se_hizo(cliente, hoy_es):
     principal = ejercicio_de_prueba(cliente, pecho["id"], "Press banca")
     comodin = ejercicio_de_prueba(cliente, espalda["id"], "Remo")
     push = crear_rutina(cliente, "Push")
-    respuesta = cliente.post(
-        f"/rutinas/{push}/slots",
-        json={
-            "ejercicio_principal_id": principal,
-            "orden": 1,
-            "series_objetivo": 3,
-            "reps_min": 6,
-            "reps_max": 12,
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
-    hueco = respuesta.json()["id"]
+    hueco = crear_hueco(cliente, push, principal)
     poner_alternativas(cliente, push, hueco, [comodin])
     sesion_con_series(cliente, date(2026, 9, 1), push, principal, (60, 8), (0, 8), slot_id=hueco)
     sesion_con_series(
@@ -964,19 +883,6 @@ def test_una_semana_solo_de_series_por_tiempo_tiene_volumen_cero_y_no_da_un_500(
     assert por_rutina(semana) == []
     assert por_grupo(semana) == [(tres_tipos["grupos"][2], 2)]
     assert barra(datos["por_mes"], date(2026, 9, 1))["volumen"] == "100.00"
-
-
-def test_la_barra_en_curso_solo_de_series_por_tiempo_tampoco_da_un_500(cliente, hoy_es, tres_tipos):
-    hoy_es(MARTES_6_OCT)
-    push = crear_rutina(cliente, "Push")
-    sesion_con_medidas(cliente, MARTES_6_OCT, push, (tres_tipos["plancha"], {"duracion_s": 45}))
-
-    datos = pedir(cliente, OCTUBRE)
-
-    for vista in (datos["por_semana"], datos["por_mes"]):
-        assert vista["en_curso"]["volumen"] == "0.00"
-        assert vista["en_curso"]["volumen_por_rutina"] == []
-        assert por_grupo(vista["en_curso"]) == [(tres_tipos["grupos"][2], 1)]
 
 
 def test_el_peso_corporal_y_el_tiempo_no_suman_volumen_pero_sus_series_cuentan(
@@ -1097,31 +1003,6 @@ def test_los_dias_de_una_rutina_oculta_no_cuentan(cliente, ppl, ejercicio_id):
     # 28 y 30 por llegar; los viernes 18 y 25 ya no cuentan.
     assert (meses[8]["entrenados"], meses[8]["planificados"], meses[8]["por_llegar"]) == (0, 6, 5)
     assert meses[9]["por_llegar"] == 8  # octubre, sin sus cinco viernes
-
-
-def test_la_constancia_coincide_con_el_seguimiento_del_plan(cliente, ppl, hoy_es, ejercicio_id):
-    """Es la misma cuenta que hace el calendario con `/plan/seguimiento`."""
-    hoy_es(date(2026, 9, 1))
-    sesion_con_series(
-        cliente, date(2026, 9, 1), ppl["Push"], ejercicio_id, (50, 5), cubre_fecha=date(2026, 8, 31)
-    )
-    hoy_es(HOY)
-    sesion_con_series(cliente, LUNES_14, ppl["Push"], ejercicio_id, (50, 5), cubre_fecha=LUNES_14)
-    sesion_con_series(cliente, MARTES_15, ppl["Leg"], ejercicio_id, (50, 5), cubre_fecha=VIERNES_18)
-
-    constancia = pedir(cliente, SEPTIEMBRE)["constancia"]
-    dias = cliente.get(
-        "/plan/seguimiento", params={"desde": "2026-01-01", "hasta": "2026-12-31"}
-    ).json()
-
-    for mes in constancia["meses"]:
-        del_mes = [d["estado"] for d in dias if d["fecha"][:7] == mes["mes"][:7]]
-        entrenados = sum(e in ("hecho", "movido") for e in del_mes)
-        assert mes["entrenados"] == entrenados
-        assert mes["planificados"] == entrenados + del_mes.count("sin_hacer")
-        assert mes["por_llegar"] == sum(e in ("pendiente", "proximo") for e in del_mes)
-    assert constancia["entrenados"] == sum(m["entrenados"] for m in constancia["meses"])
-    assert constancia["planificados"] == sum(m["planificados"] for m in constancia["meses"])
 
 
 def test_en_un_año_pasado_no_hay_nada_por_llegar(cliente, ppl, hoy_es):

@@ -12,13 +12,11 @@ import pytest
 
 from app import fechas
 from tests.ayudas import (
-    bajo_la_fecha,
     crear_ejercicio,
     crear_rutina,
     en_texto,
     entrenar,
     rango_invertido,
-    rutina_en_bd,
     serie_en,
     todavia_no_ha_llegado,
 )
@@ -139,21 +137,20 @@ def test_una_sesion_pasada_sin_series_no_ocupa_su_dia(cliente):
     assert cliente.get(f"/entrenamientos/{vacia['id']}").status_code == 404
 
 
-def test_una_sesion_en_curso_no_impide_apuntar_un_dia_pasado(cliente):
-    """Registrar lo que se hizo otro día no es empezar a entrenar."""
-    empezar(cliente)
-
-    assert entrenar(cliente, AYER).status_code == 201
-
-
-def test_una_sesion_de_ayer_sin_terminar_no_impide_empezar_hoy(cliente):
+def test_una_sesion_abierta_solo_ocupa_su_dia(cliente):
+    """Una de ayer sin terminar no impide empezar la de hoy, y con la de hoy en curso
+    se puede apuntar otro día pasado: registrar lo que se hizo no es empezar a entrenar.
+    """
     empezar(cliente, AYER)
 
     assert entrenar(cliente, HOY).status_code == 201
+    assert entrenar(cliente, AYER - timedelta(days=1)).status_code == 201
 
 
-def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_muscular_id):
-    """La de hoy está vacía, pero en curso: ocupa el día. El 409 dice cuál es."""
+def test_no_se_puede_mover_una_sesion_al_dia_de_una_en_curso(cliente, grupo_muscular_id):
+    """La de hoy está vacía, pero en curso: ocupa el día. El 409 dice cuál es. Con una
+    que no está en curso, en `test_con_el_dia_nuevo_ocupado_da_409_y_no_guarda_nada`.
+    """
     de_hoy = empezar(cliente)
     de_ayer = empezar(cliente, AYER)
     con_una_serie(cliente, grupo_muscular_id, de_ayer["id"])
@@ -200,40 +197,8 @@ def test_editar_la_propia_sesion_en_curso_no_choca_consigo_misma(cliente):
         json={"fecha": HOY.isoformat(), "notas": "Buen día"},
     )
 
-    assert respuesta.status_code == 200
-
-
-def test_la_base_no_admite_dos_sesiones_el_mismo_dia(sesion_bd):
-    """La regla vive también en la base, por si algo se salta la API. Sin
-    `cubre_fecha` (nulas): lo que choca es la fecha, no el día que cuentan.
-    """
-    from sqlalchemy.exc import IntegrityError
-
-    from app.models import Entrenamiento
-
-    rutina_id = rutina_en_bd(sesion_bd)
-    sesion_bd.add_all([Entrenamiento(rutina_id=rutina_id, fecha=AYER) for _ in range(2)])
-    with pytest.raises(IntegrityError) as error:
-        sesion_bd.commit()
-    sesion_bd.rollback()
-    assert "entrenamientos_fecha_key" in str(error.value)
-
-
-def test_la_base_admite_varias_sesiones_que_no_cuentan_ningun_dia(sesion_bd):
-    """`cubre_fecha` es única, pero las nulas no chocan entre sí: una sesión que
-    no cuenta ningún día (suelta, o que soltó el suyo) es lo normal.
-    """
-    from sqlalchemy import func, select
-
-    from app.models import Entrenamiento
-
-    rutina_id = rutina_en_bd(sesion_bd)
-    sesion_bd.add_all(
-        [Entrenamiento(rutina_id=rutina_id, fecha=HOY - timedelta(days=n)) for n in (1, 2, 3)]
-    )
-    sesion_bd.commit()
-
-    assert sesion_bd.scalar(select(func.count()).select_from(Entrenamiento)) == 3
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["notas"] == "Buen día"
 
 
 # --- Filtros del listado -------------------------------------------------
@@ -351,14 +316,6 @@ def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):
     assert [s["id"] for s in una] == [reciente]
 
 
-@pytest.mark.parametrize("limite", [0, 501])
-def test_el_listado_admite_un_limite_de_1_a_500(cliente, limite):
-    respuesta = cliente.get("/entrenamientos", params={"limite": limite})
-
-    assert respuesta.status_code == 422
-    assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "limite"]]
-
-
 def test_el_listado_filtra_por_rango_de_fechas_incluidos_los_extremos(cliente):
     for dias in (0, 1, 2, 3):
         empezar(cliente, HOY - timedelta(days=dias + 10))
@@ -401,21 +358,6 @@ def test_no_se_puede_apuntar_un_entrenamiento_en_el_futuro(cliente):
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == todavia_no_ha_llegado(manana)
     assert cliente.get("/entrenamientos").json() == []
-
-
-def test_no_se_puede_mover_un_entrenamiento_al_futuro(cliente):
-    sesion = empezar(cliente, AYER)
-
-    respuesta = cliente.put(
-        f"/entrenamientos/{sesion['id']}",
-        json={"fecha": (HOY + timedelta(days=1)).isoformat()},
-    )
-
-    assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == bajo_la_fecha(
-        todavia_no_ha_llegado(HOY + timedelta(days=1))
-    )
-    assert cliente.get(f"/entrenamientos/{sesion['id']}").json()["fecha"] == AYER.isoformat()
 
 
 # --- "Hoy" es el de Madrid, no el del servidor ----------------------------

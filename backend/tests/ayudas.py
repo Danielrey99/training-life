@@ -195,6 +195,11 @@ def es_de_tiempo(cliente, ejercicio_id) -> bool:
     )
 
 
+def cuerpo_de_hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
+    """El cuerpo de un hueco de repeticiones sin comodines, con `orden` (el PUT lo exige)."""
+    return {"ejercicio_principal_id": ejercicio_id, "orden": orden, **objetivo(series, reps)}
+
+
 def crear_hueco(
     cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6, 10), duracion=None
 ) -> int:
@@ -492,6 +497,16 @@ def rutina_en_bd(sesion_bd, nombre=NOMBRE_DE_PRUEBA) -> int:
 
 
 # --- Contar consultas -----------------------------------------------------
+
+
+def cuantas_filas(sesion_bd, *modelos) -> tuple[int, ...]:
+    """Cuántas filas tiene cada modelo en toda la base, también las ocultas: para ver
+    que un fallo no ha dejado nada a medias.
+    """
+    from sqlalchemy import func, select
+
+    sesion_bd.expire_all()
+    return tuple(sesion_bd.scalar(select(func.count()).select_from(modelo)) for modelo in modelos)
 
 
 def consultas_de(peticion) -> int:

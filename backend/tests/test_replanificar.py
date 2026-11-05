@@ -17,6 +17,7 @@ from sqlalchemy import select
 from app.models import Entrenamiento, ProgramaDia, ProgramaPeriodo
 from tests.ayudas import cambiar_dias, planificar
 from tests.semana import (
+    DOMINGO_20,
     HOY,
     JUEVES_17,
     LUNES_14,
@@ -26,6 +27,7 @@ from tests.semana import (
     VIERNES_25,
     cubre,
     hecha,
+    seguimiento,
     sesion,
     sin_dia_para_ella,
 )
@@ -48,10 +50,7 @@ def test_al_mover_la_rutina_a_otro_dia_la_sesion_la_sigue(cliente, ppl, grupo_mu
     assert planificar(cliente, VIERNES_18, None).status_code == 200
 
     assert cubre(cliente, adelantada) == SABADO_19.isoformat()
-    sabado = cliente.get(
-        "/plan/seguimiento", params={"desde": "2026-09-19", "hasta": "2026-09-19"}
-    ).json()[0]
-    assert sabado["estado"] == "movido"
+    assert seguimiento(cliente, SABADO_19)[SABADO_19]["estado"] == "movido"
 
 
 def test_si_la_rutina_se_queda_sin_dia_no_se_guarda_nada(cliente, ppl, grupo_muscular_id):
@@ -66,9 +65,10 @@ def test_si_la_rutina_se_queda_sin_dia_no_se_guarda_nada(cliente, ppl, grupo_mus
     assert cliente.get("/plan/excepciones").json() == []
 
 
-def test_cambiar_hoy_despues_de_entrenar_lleva_la_sesion_a_otro_dia(cliente, ppl):
+def test_planificar_hoy_despues_de_entrenar_lleva_la_sesion_a_otro_dia(cliente, ppl):
     """Se empezó el Pull de hoy y después se replanifica hoy como Leg, con otro
-    Pull el sábado: la sesión pasa a contar el sábado.
+    Pull el sábado: la sesión pasa a contar el sábado. Cambiar el programa, en cambio,
+    la deja donde está (`test_cambiar_en_el_programa_el_dia_de_hoy…`).
     """
     empezada = sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY).json()["id"]
     assert planificar(cliente, SABADO_19, ppl["Pull"]).status_code == 200
@@ -130,15 +130,14 @@ def test_no_va_a_un_dia_que_ya_cuenta_otra_sesion(cliente, ppl, grupo_muscular_i
     """Leg el viernes, el sábado y el domingo, y los dos primeros ya adelantados:
     al quitar el del viernes, su sesión pasa al domingo, no al sábado.
     """
-    domingo = date(2026, 9, 20)
-    for dia in (SABADO_19, domingo):
+    for dia in (SABADO_19, DOMINGO_20):
         assert planificar(cliente, dia, ppl["Leg"]).status_code == 200
     viernes = leg_adelantado(cliente, ppl, grupo_muscular_id)
     sabado = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Leg"], cubre_fecha=SABADO_19)
 
     assert planificar(cliente, VIERNES_18, None).status_code == 200
 
-    assert cubre(cliente, viernes) == domingo.isoformat()
+    assert cubre(cliente, viernes) == DOMINGO_20.isoformat()
     assert cubre(cliente, sabado) == SABADO_19.isoformat()
 
 
@@ -150,6 +149,17 @@ def test_no_va_a_un_dia_que_ya_cuenta_otra_sesion(cliente, ppl, grupo_muscular_i
 
 def programa_id(cliente) -> int:
     return cliente.get("/programas").json()[0]["id"]
+
+
+def fila_vigente(sesion_bd, programa, dia_semana) -> ProgramaDia:
+    """La fila de ese día de la semana que vale ahora en el programa."""
+    return sesion_bd.scalar(
+        select(ProgramaDia).where(
+            ProgramaDia.programa_id == programa,
+            ProgramaDia.dia_semana == dia_semana,
+            ProgramaDia.hasta.is_(None),
+        )
+    )
 
 
 def rutinas_del_plan(cliente, desde, hasta) -> dict:
@@ -223,7 +233,7 @@ def test_dejar_en_descanso_un_dia_ya_adelantado_tambien_lo_respeta(cliente, ppl,
     assert plan["2026-09-25"] == (None, "descanso")
 
 
-def test_cambiar_el_dia_de_hoy_despues_de_entrenar_lo_deja_como_estaba(cliente, ppl):
+def test_cambiar_en_el_programa_el_dia_de_hoy_despues_de_entrenar_lo_deja_como_estaba(cliente, ppl):
     """Hoy se empezó el Pull; pasar los miércoles a Leg empieza el miércoles 23."""
     sesion(cliente, HOY, ppl["Pull"], cubre_fecha=HOY)
 
@@ -248,13 +258,7 @@ def test_con_el_dia_cambiado_a_mano_el_programa_cambia_desde_hoy(
     assert cambiar_dias(cliente, id_, {5: ppl["Push"]}).status_code == 200
 
     assert rutinas_del_plan(cliente, VIERNES_18, VIERNES_18)["2026-09-18"] == ("Leg", "movido")
-    vigente = sesion_bd.scalar(
-        select(ProgramaDia).where(
-            ProgramaDia.programa_id == id_,
-            ProgramaDia.dia_semana == 5,
-            ProgramaDia.hasta.is_(None),
-        )
-    )
+    vigente = fila_vigente(sesion_bd, id_, 5)
     assert (vigente.rutina_id, vigente.desde) == (ppl["Push"], HOY)
 
 
@@ -280,13 +284,7 @@ def test_editar_otro_programa_no_mira_lo_adelantado_del_activo(
 
     assert cambiar_dias(cliente, otro, {5: ppl["Push"]}).status_code == 200
 
-    vigente = sesion_bd.scalar(
-        select(ProgramaDia).where(
-            ProgramaDia.programa_id == otro,
-            ProgramaDia.dia_semana == 5,
-            ProgramaDia.hasta.is_(None),
-        )
-    )
+    vigente = fila_vigente(sesion_bd, otro, 5)
     assert (vigente.rutina_id, vigente.desde) == (ppl["Push"], HOY)
 
 

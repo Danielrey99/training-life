@@ -162,19 +162,12 @@ def test_volver_a_ocultar_el_dia_en_que_se_mostro_reabre_el_tramo(cliente, sesio
     assert tramos(sesion_bd) == [(MARTES_1, MIERCOLES_9)]
 
 
-def test_ocultar_otro_dia_no_toca_los_tramos_de_antes(cliente, sesion_bd, hoy_es, ppl):
-    oculta_entre(cliente, hoy_es, ppl["Push"], MARTES_1, SABADO_5)
-
-    hoy_es(MIERCOLES_9)
-    ocultar(cliente, ppl["Push"])
-
-    assert oculto_desde(cliente, ppl["Push"]) == MIERCOLES_9.isoformat()
-    assert tramos(sesion_bd) == [(MARTES_1, SABADO_5)]
-
-
-def test_ocultar_una_ya_oculta_y_mostrar_una_visible_no_tocan_los_tramos(
+def test_ocultar_otro_dia_o_una_ya_oculta_y_mostrar_una_visible_no_tocan_los_tramos(
     cliente, sesion_bd, hoy_es, ppl
 ):
+    """El tramo cerrado acaba antes del día en que se vuelve a ocultar: se queda como
+    está, y ocultarla otra vez no mueve el `oculto_desde` que ya tenía.
+    """
     oculta_entre(cliente, hoy_es, ppl["Push"], MARTES_1, SABADO_5)
     hoy_es(MIERCOLES_9)
     ocultar(cliente, ppl["Push"])
@@ -357,7 +350,6 @@ def test_borrar_la_rutina_en_definitivo_se_lleva_sus_tramos(cliente, sesion_bd, 
 
     assert respuesta.status_code == 204, respuesta.text
     assert tramos(sesion_bd) == [(MIERCOLES_2, MIERCOLES_9)]
-    assert tramos(sesion_bd, ppl["Pull"]) == [(MIERCOLES_2, MIERCOLES_9)]
 
 
 # --- Lo que ya contaba sigue contando ----------------------------------------

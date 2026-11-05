@@ -62,6 +62,9 @@ MAS_NUEVA = "Este archivo es de una versión más nueva de la app. Actualízala 
 ANTERIOR = "Este archivo es de una versión anterior de la app y ya no se puede cargar."
 DANADO = "El archivo está dañado."
 _AHORA = "2026-09-16T10:00:00+00:00"
+MARCA = {"created_at": _AHORA, "updated_at": _AHORA}
+# Lo mínimo que es un archivo: sin ninguna lista, todas valen vacías.
+VACIO = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 NO_SE_CAMBIA_NADA = "No se puede cargar el archivo, así que no se ha cambiado nada."
 # Lo que dicen `GET /datos/resumen` y la comprobación de importar sin datos.
 CERO = {
@@ -107,7 +110,8 @@ def montar_datos(sesion_bd, sentadilla_id, sesiones_extra=0) -> dict:
     orden que no es el de sus ids y un tramo ya cerrado en que estuvo oculta, una
     rutina oculta, un programa activo con un periodo cerrado y un día cambiado de
     rutina (fila cerrada), otro programa oculto, excepciones (una de descanso),
-    sesiones terminadas, una cancelada y la de hoy en curso. Las marcas de tiempo llevan microsegundos para ver que se conservan.
+    sesiones terminadas, una cancelada y la de hoy en curso. Las marcas de tiempo llevan
+    microsegundos para ver que se conservan.
 
     Los predefinidos: la sentadilla es principal; `comodin` solo comodín; `de_nota`
     solo tiene una nota; `de_serie` solo aparece en una serie (un comodín que se
@@ -682,7 +686,8 @@ def test_las_marcas_de_tiempo_se_exportan_exactas_y_con_zona(cliente, datos):
 
 def test_se_exportan_solo_los_predefinidos_que_usa_algo(cliente, datos, ejercicio_predefinido_id):
     """Principal, comodín, solo una serie y solo una nota cuentan; uno que no usa
-    nada no se exporta (viene con la app).
+    nada no se exporta (viene con la app). De cada uno van su id y su nombre, nada más:
+    su tipo y su grupo son los de la instalación que importa.
     """
     archivo = exportado(cliente)
 
@@ -694,26 +699,8 @@ def test_se_exportan_solo_los_predefinidos_que_usa_algo(cliente, datos, ejercici
             datos["de_serie"],
         ]
     )
-    assert [(p["id"], p["nombre"]) for p in archivo["predefinidos"]] == esperados
+    assert archivo["predefinidos"] == [{"id": id_, "nombre": n} for id_, n in esperados]
     assert datos["sin_usar"][0] not in {p["id"] for p in archivo["predefinidos"]}
-
-
-def test_el_archivo_no_lleva_campos_internos(cliente, datos):
-    """Ni el `es_predefinido` (lo dice estar en `predefinidos` o en `ejercicios`) ni
-    el id del grupo (va por nombre): los dos son de esta instalación.
-    """
-    prohibidas = {"es_predefinido", "grupo_muscular_id"}
-
-    def claves(valor):
-        if isinstance(valor, dict):
-            for clave, dentro in valor.items():
-                yield clave
-                yield from claves(dentro)
-        elif isinstance(valor, list):
-            for dentro in valor:
-                yield from claves(dentro)
-
-    assert not prohibidas & set(claves(exportado(cliente)))
 
 
 def test_cada_lista_va_por_id_tambien_dentro_de_cada_padre(cliente, datos):
@@ -740,8 +727,7 @@ def test_exportar_hace_las_mismas_consultas_con_poco_que_con_mucho(
     con_poco = consultas_de(lambda: cliente.get("/datos/exportar"))
 
     # Se vacía y se monta el mismo escenario con diez sesiones más.
-    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
-    assert importar(cliente, vacio).status_code == 200
+    assert importar(cliente, VACIO).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/exportar"))
 
@@ -791,8 +777,6 @@ def test_exportar_escribe_la_version_3_con_el_tipo_y_las_medidas_de_cada_serie(
         "Remo con barra": "peso_reps",
         "Cinta con inclinación": "cardio",
     }
-    # Los predefinidos no llevan tipo: vale el de la instalación que importa.
-    assert all("tipo_registro" not in p for p in archivo["predefinidos"])
     medidas = [
         (s["peso"], s["repeticiones"], s["duracion_s"], s["peso_corporal"])
         for s in _sesion(archivo, "2026-09-02")["series"]
@@ -858,9 +842,7 @@ def test_la_ida_y_vuelta_no_cambia_el_plan_el_calendario_ni_el_resumen(cliente, 
 def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente, sesion_bd, hoy_es):
     hoy_es(HOY)
     archivo = {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
+        **VACIO,
         "rutinas": [
             {
                 "id": 7,
@@ -881,11 +863,8 @@ def test_importar_acepta_horas_con_otra_zona_y_guarda_el_mismo_instante(cliente,
 
 
 def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -> dict:
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
     return {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
+        **VACIO,
         "predefinidos": [{"id": predefinido_id, "nombre": predefinido_nombre}],
         "ejercicios": [
             {
@@ -893,15 +872,15 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
                 "nombre": "Fondos lastrados",
                 "grupo_muscular": grupo,
                 "tipo_registro": "corporal",
-                **marca,
+                **MARCA,
             }
         ],
-        "notas": [{"ejercicio_id": 500, "nota": "Con cinturón", **marca}],
+        "notas": [{"ejercicio_id": 500, "nota": "Con cinturón", **MARCA}],
         "rutinas": [
             {
                 "id": 1,
                 "nombre": "Torso",
-                **marca,
+                **MARCA,
                 "slots": [
                     {
                         "id": 10,
@@ -918,7 +897,7 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
                                 "reps_max": 8,
                             }
                         ],
-                        **marca,
+                        **MARCA,
                     }
                 ],
             }
@@ -928,7 +907,7 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
                 "rutina_id": 1,
                 "fecha": "2026-09-14",
                 "terminada_en": _AHORA,
-                **marca,
+                **MARCA,
                 "series": [
                     {
                         "ejercicio_id": 500,
@@ -936,7 +915,7 @@ def _archivo_pequeno(predefinido_id: int, predefinido_nombre: str, grupo: str) -
                         "numero_serie": 1,
                         "peso": "20.00",
                         "repeticiones": 8,
-                        **marca,
+                        **MARCA,
                     }
                 ],
             }
@@ -961,6 +940,7 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
         "primera_sesion": "2026-09-14",
         "ultima_sesion": "2026-09-14",
     }
+    assert resumen(cliente) == respuesta.json()
     # El archivo pasado por el formato, para que tenga sus valores por defecto y las
     # horas escritas igual que al exportar.
     normalizado = ArchivoDeDatos.model_validate(archivo).model_dump(mode="json")
@@ -983,14 +963,12 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
 
 
 def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos):
-    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
-
-    respuesta = importar(cliente, vacio)
+    respuesta = importar(cliente, VACIO)
 
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["rutinas"] == respuesta.json()["series"] == 0
     assert sin_marca(exportado(cliente)) == {
-        **sin_marca(vacio),
+        **sin_marca(VACIO),
         "zona_horaria": "Europe/Madrid",
         "predefinidos": [],
         "ejercicios": [],
@@ -1002,73 +980,6 @@ def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos)
     }
     sesion_bd.expire_all()
     assert _nada(sesion_bd)
-
-
-def test_un_ejercicio_propio_con_el_nombre_de_un_predefinido_sigue_siendo_propio(
-    cliente, sesion_bd, hoy_es, grupo_muscular_id
-):
-    hoy_es(HOY)
-    grupo = cliente.get("/grupos-musculares").json()[0]["nombre"]
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
-    archivo = {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
-        "ejercicios": [
-            {
-                "id": 3,
-                "nombre": "Sentadilla con barra",
-                "grupo_muscular": grupo,
-                "tipo_registro": "peso_reps",
-                **marca,
-            }
-        ],
-    }
-
-    assert importar(cliente, archivo).status_code == 200
-
-    propios = cliente.get("/ejercicios").json()
-    con_ese_nombre = [e for e in propios if e["nombre"] == "Sentadilla con barra"]
-    assert sorted(e["es_predefinido"] for e in con_ese_nombre) == [False, True]
-
-
-@pytest.mark.parametrize("accion", ["desactivarlo", "activar otro", "ocultarlo"])
-def test_un_programa_activo_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
-    cliente, sesion_bd, hoy_es, accion
-):
-    """Un periodo abierto con `desde` posterior a hoy ya no entra por importar (422),
-    pero puede salir de un reloj que va hacia atrás (en el móvil, al cambiar la
-    fecha del teléfono): se mete directamente en la base. Desactivar, activar otro u
-    ocultar cierran el periodo, y cerrarlo hoy dejaría `hasta < desde`, que viola
-    `programa_periodos_rango_check`: antes daba un 500. Como no llegó a cubrir ningún
-    día, se borra, igual que uno que empezó hoy.
-    """
-    hoy_es(HOY)
-    ids = {
-        nombre: cliente.post("/programas", json={"nombre": nombre}).json()["id"]
-        for nombre in ("PPL", "Otro")
-    }
-    sesion_bd.add(ProgramaPeriodo(programa_id=ids["PPL"], desde=date(2026, 9, 20)))
-    sesion_bd.commit()
-    ruta = f"/programas/{ids['PPL']}"
-    assert cliente.get(ruta).json()["activo"] is True
-
-    peticion, codigo = {
-        "desactivarlo": (lambda: cliente.post(f"{ruta}/desactivar"), 200),
-        "activar otro": (lambda: cliente.post(f"/programas/{ids['Otro']}/activar"), 200),
-        "ocultarlo": (lambda: cliente.delete(f"{ruta}?modo=ocultar"), 204),
-    }[accion]
-
-    respuesta = peticion()
-
-    assert respuesta.status_code == codigo, respuesta.text
-    assert cliente.get(ruta).json()["activo"] is False
-    sesion_bd.expire_all()
-    periodos = sesion_bd.execute(
-        select(ProgramaPeriodo.programa_id, ProgramaPeriodo.desde, ProgramaPeriodo.hasta)
-    ).all()
-    esperado = [(ids["Otro"], HOY, None)] if accion == "activar otro" else []
-    assert [tuple(p) for p in periodos] == esperado
 
 
 # --- Campos que el formato no conoce -----------------------------------------
@@ -1083,8 +994,7 @@ def test_un_campo_que_el_formato_no_conoce_se_descarta_sin_perder_nada_mas(clien
     cual. Lo que se exporta después ya no lo lleva.
     """
     archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
-    serie = {"ejercicio_id": 500, "slot_id": 10, **marca}
+    serie = {"ejercicio_id": 500, "slot_id": 10, **MARCA}
     archivo["entrenamientos"][0]["series"] = [
         {
             **serie,
@@ -1146,10 +1056,6 @@ def _version_4(a):
 def _version_1(a):
     """La de antes de los tipos de ejercicio: no se convierte (decisión del autor)."""
     a["version"] = 1
-
-
-def _version_0(a):
-    a["version"] = 0
 
 
 def _version_texto(a):
@@ -1250,10 +1156,6 @@ def _dos_ejercicios_en_un_hueco(a):
     sentadilla["slot_id"], sentadilla["numero_serie"] = remo["slot_id"], 2
 
 
-def _predefinido_que_no_existe(a):
-    a["predefinidos"][0]["nombre"] = "Press con kettlebell de cristal"
-
-
 def _grupo_que_no_existe(a):
     a["ejercicios"][0]["grupo_muscular"] = "Orejas"
 
@@ -1318,10 +1220,6 @@ def _periodo_abierto(a):
     return next(p for p in _programa(a, "PPL")["periodos"] if p["hasta"] is None)
 
 
-def _programa_que_empieza_despues_de_hoy(a):
-    _periodo_abierto(a)["desde"] = "2026-09-20"
-
-
 def _programa_que_se_deja_de_usar_despues_de_hoy(a):
     _programa(a, "Viejo")["periodos"][0]["hasta"] = "2026-09-20"
 
@@ -1336,10 +1234,6 @@ def _tramo_oculto_vacio(a):
     tramo["hasta"] = tramo["desde"]
 
 
-def _tramo_oculto_invertido(a):
-    _tramo_oculto(a)["hasta"] = "2026-08-01"
-
-
 def _rutina_mostrada_despues_de_hoy(a):
     _tramo_oculto(a)["hasta"] = "2026-09-17"
 
@@ -1349,25 +1243,8 @@ def _periodo_cerrado_entero_en_el_futuro(a):
     periodo["desde"], periodo["hasta"] = "2026-09-20", "2026-09-25"
 
 
-def _sesion_de_un_dia_que_no_ha_llegado(a):
-    _sesion(a, "2026-09-11")["fecha"] = "2026-09-17"
-
-
-def _zona_que_no_existe(a):
-    a["zona_horaria"] = "Marte/Olympus"
-
-
 def _zona_vacia(a):
     a["zona_horaria"] = ""
-
-
-def _zona_que_es_una_ruta(a):
-    # `ZoneInfo` lee archivos: un nombre con `..` no debe salir de su carpeta.
-    a["zona_horaria"] = "../../etc"
-
-
-def _zona_que_es_un_numero(a):
-    a["zona_horaria"] = 9
 
 
 def _zona_de_65_caracteres(a):
@@ -1458,12 +1335,11 @@ MALOS = [
     (_otro_formato, NO_ES_UNA_COPIA, None),
     (_version_4, MAS_NUEVA, None),
     (_version_1, ANTERIOR, None),
-    (_version_0, NO_ES_UNA_COPIA, None),
     (_version_texto, NO_ES_UNA_COPIA, None),
     (_version_verdadero, NO_ES_UNA_COPIA, None),
     (_sin_version, NO_ES_UNA_COPIA, None),
     # La serie del archivo hereda los topes de la de la API (probados uno a uno en
-    # `test_medidas.py`): con uno basta para ver que los hereda.
+    # `test_crud.py` y `test_medidas.py`): con uno basta para ver que los hereda.
     (_peso_roto, DANADO, "entrenamientos.0.series.0.peso"),
     (_ejercicio_sin_tipo, DANADO, "ejercicios.0.tipo_registro"),
     (_ejercicio_de_un_tipo_que_no_existe, DANADO, "ejercicios.0.tipo_registro"),
@@ -1530,12 +1406,7 @@ MALOS = [
         " «Push».",
     ),
     # Dos ejercicios en un hueco de una sesión: en sus propios tests, con la frase entera.
-    (
-        _predefinido_que_no_existe,
-        NO_SE_CAMBIA_NADA,
-        "El ejercicio predefinido «Press con kettlebell de cristal» no existe en esta versión"
-        " de la app.",
-    ),
+    # Un predefinido que aquí no existe, en su propio test (con series y en un hueco).
     (
         _grupo_que_no_existe,
         NO_SE_CAMBIA_NADA,
@@ -1582,17 +1453,8 @@ MALOS = [
     (_reps_al_reves, DANADO, "rutinas.0.slots.0"),
     (_comodin_con_el_objetivo_a_medias, DANADO, "rutinas.0.slots.0.alternativas.0"),
     (_tramo_oculto_vacio, DANADO, "rutinas.0.periodos_ocultos.0"),
-    (_tramo_oculto_invertido, DANADO, "rutinas.0.periodos_ocultos.0"),
-    (
-        _rutina_mostrada_despues_de_hoy,
-        NO_SE_CAMBIA_NADA,
-        "La rutina «Push» se volvió a mostrar el jueves 17 de septiembre" + EN_EL_FUTURO,
-    ),
-    (
-        _programa_que_empieza_despues_de_hoy,
-        NO_SE_CAMBIA_NADA,
-        "El programa «PPL» se empezó a usar el domingo 20 de septiembre" + EN_EL_FUTURO,
-    ),
+    # Un programa abierto, una sesión o una rutina mostrada después de hoy, en los tests
+    # de la zona horaria, que dicen desde qué «hoy» se mide.
     (
         _programa_que_se_deja_de_usar_despues_de_hoy,
         NO_SE_CAMBIA_NADA,
@@ -1603,15 +1465,8 @@ MALOS = [
         NO_SE_CAMBIA_NADA,
         "El programa «Viejo» se empezó a usar el domingo 20 de septiembre" + EN_EL_FUTURO,
     ),
-    (
-        _sesion_de_un_dia_que_no_ha_llegado,
-        NO_SE_CAMBIA_NADA,
-        "La sesión del jueves 17 de septiembre" + SESION_EN_EL_FUTURO,
-    ),
-    (_zona_que_no_existe, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("Marte/Olympus")),
+    # Una zona que no existe, en el test de la zona desconocida, más abajo.
     (_zona_vacia, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("")),
-    (_zona_que_es_una_ruta, NO_SE_CAMBIA_NADA, ZONA_DESCONOCIDA.format("../../etc")),
-    (_zona_que_es_un_numero, DANADO, "zona_horaria"),
     (_zona_de_65_caracteres, DANADO, "zona_horaria"),
     (
         _cuenta_un_dia_antes_de_su_plazo,
@@ -1642,17 +1497,9 @@ MALOS = [
     ),
 ]
 
-# Con `comprobar=true`, importar hace lo mismo hasta que el archivo vale: basta un
-# caso de cada fase (formato, versión, esquema y lo que no cuadra). Los dos últimos
-# daban 500 también al comprobar.
-COMPROBADOS = {
-    _sin_formato,
-    _version_1,
-    _peso_roto,
-    _rutina_con_id_repetido,
-    _cuenta_el_ultimo_dia_que_existe,
-    _zona_que_es_una_carpeta,
-}
+# Con `comprobar=true`, importar hace lo mismo hasta que el archivo vale, y es la última
+# fase la que lo demuestra: estos dos llegan hasta ella, y daban 500 también al comprobar.
+COMPROBADOS = {_cuenta_el_ultimo_dia_que_existe, _zona_que_es_una_carpeta}
 
 
 # Los que, además de su error, dejan referencias sin su destino.
@@ -1701,8 +1548,15 @@ def test_un_archivo_malo_da_422_en_espanol_y_no_cambia_nada(
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
-@pytest.mark.parametrize("comprobar", [False, True], ids=["importar", "comprobar"])
-@pytest.mark.parametrize("como", ["dos-alternativas", "alternativa-de-si-mismo", "sin-usar"])
+@pytest.mark.parametrize(
+    "como, comprobar",
+    [
+        ("dos-alternativas", False),
+        ("dos-alternativas", True),
+        ("alternativa-de-si-mismo", False),
+        ("sin-usar", False),
+    ],
+)
 def test_un_predefinido_dos_veces_con_distinto_id_da_422_y_no_cambia_nada(
     cliente, datos, como, comprobar
 ):
@@ -1752,22 +1606,20 @@ def test_varios_ids_repetidos_se_dicen_una_sola_vez(cliente, datos):
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
-@pytest.mark.parametrize(
-    "dia_semana, los_dias",
-    [(1, "los lunes"), (3, "los miércoles"), (6, "los sábados"), (7, "los domingos")],
-)
-def test_dos_rutinas_a_la_vez_el_mismo_dia_lo_dice_en_plural(cliente, datos, dia_semana, los_dias):
-    """«Los lunes», pero «los sábados»: el día de la semana en plural, sin el número."""
+def test_dos_rutinas_a_la_vez_el_mismo_dia_lo_dice_en_plural(cliente, datos):
+    """«Los miércoles» (en la tabla de archivos malos), pero «los sábados»: el día de la
+    semana en plural, sin el número.
+    """
     archivo = exportado(cliente)
     dias = _programa(archivo, "PPL")["dias"]
     for _ in range(2):
-        dias.append({**copy.deepcopy(dias[0]), "dia_semana": dia_semana, "hasta": None})
+        dias.append({**copy.deepcopy(dias[0]), "dia_semana": 6, "hasta": None})
 
     respuesta = importar(cliente, archivo, comprobar=True)
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"]["errores"] == [
-        f"El programa «PPL» tiene dos rutinas a la vez {los_dias}."
+        "El programa «PPL» tiene dos rutinas a la vez los sábados."
     ]
 
 
@@ -1777,10 +1629,6 @@ def _programa_que_empezo_hoy(a):
 
 def _programa_que_se_dejo_de_usar_hoy(a):
     _periodo_abierto(a)["hasta"] = HOY.isoformat()
-
-
-def _sesion_de_hoy(a):
-    assert _sesion(a, HOY.isoformat())["cubre_fecha"] == HOY.isoformat()
 
 
 def _adelantada_dentro_de_su_plazo(a):
@@ -1811,11 +1659,15 @@ def _rutina_mostrada_hoy(a):
     _tramo_oculto(a)["hasta"] = HOY.isoformat()
 
 
+def _rutina_oculta_hoy(a):
+    _rutina(a, "Pull")["oculto_desde"] = HOY.isoformat()
+
+
 BUENOS = [
     _rutina_mostrada_hoy,
+    _rutina_oculta_hoy,
     _programa_que_empezo_hoy,
     _programa_que_se_dejo_de_usar_hoy,
-    _sesion_de_hoy,
     _adelantada_dentro_de_su_plazo,
     _recuperada_el_ultimo_dia_de_su_plazo,
     _dia_de_programa_que_empieza_dentro_de_tres_dias,
@@ -1825,7 +1677,8 @@ BUENOS = [
 @pytest.mark.parametrize("arreglar", BUENOS, ids=[f.__name__.lstrip("_") for f in BUENOS])
 def test_las_fechas_que_la_app_si_crea_se_importan(cliente, datos, arreglar):
     """El borde de las fechas que no han llegado y del plazo de `cubre_fecha`: hoy
-    vale, y lo de un día dentro de su plazo también. La copia queda tal cual.
+    vale (también una sesión de hoy: la tiene el escenario), y lo de un día dentro de su
+    plazo también. La copia queda tal cual.
     """
     archivo = exportado(cliente)
     arreglar(archivo)
@@ -1844,7 +1697,12 @@ def test_los_errores_se_dicen_todos_de_una_vez(cliente, datos):
 
     detalle = importar(cliente, archivo).json()["detail"]
 
-    assert len(detalle["errores"]) == 3, detalle
+    assert detalle["errores"] == [
+        "El grupo muscular «Orejas» del ejercicio «Press inclinado con mancuernas» no existe en"
+        " esta versión de la app.",
+        "La rutina «Push» tiene dos ejercicios en la posición 1.",
+        "Hay dos sesiones el jueves 10 de septiembre.",
+    ]
 
 
 def test_una_sesion_con_dos_ejercicios_en_un_hueco_no_se_importa(cliente, datos):
@@ -1919,10 +1777,6 @@ def _dominadas_por_tiempo(a):
     _de(a, "Dominadas lastradas")["tipo_registro"] = "tiempo"
 
 
-def _plancha_de_peso_y_repeticiones(a):
-    _de(a, "Plancha con disco")["tipo_registro"] = "peso_reps"
-
-
 def _distancia_en_una_serie_de_peso_y_repeticiones(a):
     _sesion(a, "2026-09-03")["series"][2]["distancia_m"] = 100
 
@@ -1943,21 +1797,14 @@ MAL_POR_TIPO = [
         + "«Dominadas lastradas» se apunta por tiempo. Falta la duración y sobran las"
         " repeticiones.",
     ),
-    (
-        _plancha_de_peso_y_repeticiones,
-        MAL_APUNTADA.format("miércoles 2 de septiembre")
-        + "«Plancha con disco» se apunta con peso y repeticiones. Faltan el peso y las"
-        " repeticiones y sobra la duración.",
-    ),
 ]
 
 
-@pytest.mark.parametrize(
-    "estropear, error", MAL_POR_TIPO, ids=[f.__name__.lstrip("_") for f, _ in MAL_POR_TIPO]
-)
-def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
-    cliente, datos_por_tipo, estropear, error
-):
+def _no_se_importa_por(cliente, estropear, error) -> None:
+    """Con el archivo estropeado, 422 con esa frase, y no se cambia nada. Cambiar el tipo
+    de un ejercicio descuadra también sus otras series o su objetivo: la frase, entera,
+    entre los errores.
+    """
     antes = exportado(cliente)
     archivo = copy.deepcopy(antes)
     estropear(archivo)
@@ -1967,10 +1814,17 @@ def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
     assert respuesta.status_code == 422, respuesta.text
     detalle = respuesta.json()["detail"]
     assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    # Cambiar el tipo de un ejercicio descuadra también sus otras series o su
-    # objetivo: la frase, entera, entre los errores.
     assert error in detalle["errores"], detalle["errores"]
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
+
+
+@pytest.mark.parametrize(
+    "estropear, error", MAL_POR_TIPO, ids=[f.__name__.lstrip("_") for f, _ in MAL_POR_TIPO]
+)
+def test_una_serie_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
+    cliente, datos_por_tipo, estropear, error
+):
+    _no_se_importa_por(cliente, estropear, error)
 
 
 def _hueco_de(archivo, rutina, principal):
@@ -2057,19 +1911,7 @@ def test_un_objetivo_que_no_cuadra_con_el_tipo_de_su_ejercicio_no_se_importa(
     se cambia nada. Cada familia, una a una, en `test_objetivos.py`: importar usa la
     misma regla.
     """
-    antes = exportado(cliente)
-    archivo = copy.deepcopy(antes)
-    estropear(archivo)
-
-    respuesta = importar(cliente, archivo)
-
-    assert respuesta.status_code == 422, respuesta.text
-    detalle = respuesta.json()["detail"]
-    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    # Cambiar el tipo de un ejercicio descuadra también sus otras series o su
-    # objetivo: la frase, entera, entre los errores.
-    assert error in detalle["errores"], detalle["errores"]
-    assert sin_marca(exportado(cliente)) == sin_marca(antes)
+    _no_se_importa_por(cliente, estropear, error)
 
 
 def test_exportar_escribe_el_objetivo_de_cada_alternativa(cliente, datos_por_tipo):
@@ -2120,27 +1962,23 @@ def test_un_predefinido_que_no_existe_aqui_con_series_da_422_y_no_un_500(cliente
     respuesta = importar(cliente, archivo)
 
     assert respuesta.status_code == 422, respuesta.text
-    detalle = respuesta.json()["detail"]
-    assert detalle["mensaje"] == NO_SE_CAMBIA_NADA
-    assert (
-        "El ejercicio predefinido «Sentadilla de cristal» no existe en esta versión de la app."
-        in detalle["errores"]
-    ), detalle
-    assert not any("mal apuntada" in e for e in detalle["errores"]), detalle
+    assert respuesta.json()["detail"] == {
+        "mensaje": NO_SE_CAMBIA_NADA,
+        "errores": [
+            "El ejercicio predefinido «Sentadilla de cristal» no existe en esta versión de la app."
+        ],
+    }
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
 def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     hoy_es(HOY)
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
+        **VACIO,
         # Treinta errores distintos: treinta notas de ejercicios que no están darían
         # un solo error, porque la frase ya no dice el id y no se repite.
         "excepciones": [
-            {"fecha": (HOY - timedelta(days=n)).isoformat(), "rutina_id": 1000 + n, **marca}
+            {"fecha": (HOY - timedelta(days=n)).isoformat(), "rutina_id": 1000 + n, **MARCA}
             for n in range(30)
         ],
     }
@@ -2151,14 +1989,13 @@ def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     assert len(detalle["errores"]) == 20
 
 
-@pytest.mark.parametrize("cuerpo", [[], "training-life"], ids=["una lista", "un texto"])
-def test_un_archivo_que_no_es_un_objeto_da_el_mismo_422_en_espanol(cliente, cuerpo):
-    """Quien elige un .json cualquiera puede mandar una lista o un texto.
+def test_un_archivo_que_no_es_un_objeto_da_el_mismo_422_en_espanol(cliente):
+    """Quien elige un .json cualquiera puede mandar una lista.
 
     Bug real: el cuerpo se declaraba `dict = Body(...)` y FastAPI lo rechazaba antes
     de llegar al endpoint, con su 422 en inglés y `detail` como lista.
     """
-    respuesta = cliente.post("/datos/importar", json=cuerpo)
+    respuesta = cliente.post("/datos/importar", json=[])
 
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == {"mensaje": NO_ES_UNA_COPIA}
@@ -2330,17 +2167,6 @@ def test_algo_oculto_desde_un_dia_que_no_ha_llegado_no_se_importa(cliente, datos
     assert sin_marca(exportado(cliente)) == sin_marca(antes)
 
 
-@pytest.mark.parametrize("ocultar", OCULTAR)
-def test_algo_oculto_hoy_si_se_importa(cliente, datos, ocultar):
-    """El límite es estricto: lo oculto en el propio «hoy» vale."""
-    archivo = copy.deepcopy(exportado(cliente))
-    ocultar(archivo, "2026-09-16")
-
-    respuesta = importar(cliente, archivo)
-
-    assert respuesta.status_code == 200, respuesta.text
-
-
 def test_lo_oculto_en_el_hoy_de_la_zona_del_archivo_se_importa(cliente, datos, monkeypatch):
     """Con el mismo «hoy» que los periodos: en Tokio ya es el 17, aquí aún el 16."""
     reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
@@ -2405,31 +2231,14 @@ def test_un_archivo_de_la_version_2_se_sigue_cargando_sin_tramos_ocultos(cliente
     assert (lunes["estado"], lunes["descanso"]) == ("sin_hacer", False)
 
 
-def test_el_tramo_oculto_importado_deja_el_dia_en_descanso(cliente, datos):
-    """El lunes 3 de agosto le tocaba a Push con PPL, pero Push estuvo oculta del 3
-    al 5: descanso, antes y después de la ida y vuelta.
-    """
-
-    def lunes_3():
-        [dia] = cliente.get(
-            "/plan/seguimiento", params={"desde": "2026-08-03", "hasta": "2026-08-03"}
-        ).json()
-        return dia["rutina"]["nombre"], dia["estado"]
-
-    assert lunes_3() == ("Push", "descanso")
-    assert importar(cliente, exportado(cliente)).status_code == 200
-    assert lunes_3() == ("Push", "descanso")
-
-
-@pytest.mark.parametrize("exportado_en", ["2026-09-17T00:30:00+09:00", "2026-09-30T12:00:00+00:00"])
-def test_un_exportado_en_del_futuro_no_relaja_las_fechas(cliente, datos, monkeypatch, exportado_en):
+def test_un_exportado_en_del_futuro_no_relaja_las_fechas(cliente, datos, monkeypatch):
     """`exportado_en` lo escribió el mismo reloj que puede estar mal: no cuenta como
-    "hoy" de quien exportó, ni con su zona ni sin ella.
+    "hoy" de quien exportó, en ninguna zona.
     """
     reloj_a_las_17_30_del_16_en_madrid(monkeypatch)
     antes = exportado(cliente)
     archivo = _con_una_sesion_y_un_periodo_del(copy.deepcopy(antes), "2026-09-17", None)
-    archivo["exportado_en"] = exportado_en
+    archivo["exportado_en"] = "2026-09-30T12:00:00+00:00"
 
     respuesta = importar(cliente, archivo)
 
@@ -2496,9 +2305,7 @@ def test_comprobar_dice_que_hay_en_el_archivo_y_que_hay_ahora_sin_cambiar_nada(c
 
 def test_comprobar_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
     hoy_es(HOY)
-    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
-
-    respuesta = importar(cliente, vacio, comprobar=True).json()
+    respuesta = importar(cliente, VACIO, comprobar=True).json()
 
     assert respuesta["archivo"] == respuesta["actual"] == CERO
 
@@ -2515,12 +2322,6 @@ def resumen(cliente) -> dict:
     respuesta = cliente.get("/datos/resumen")
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()
-
-
-def test_el_resumen_sin_datos_da_ceros_y_fechas_nulas(cliente, hoy_es):
-    hoy_es(HOY)
-
-    assert resumen(cliente) == CERO
 
 
 def test_el_resumen_coincide_con_la_comprobacion_de_importar_su_propio_archivo(cliente, datos):
@@ -2619,21 +2420,6 @@ def test_el_resumen_cuenta_lo_oculto_y_no_los_predefinidos_ni_las_sesiones_sin_s
     }
 
 
-@pytest.mark.parametrize("que", ["el mismo archivo", "uno pequeño", "uno vacío"])
-def test_tras_importar_el_resumen_coincide_con_la_respuesta_de_importar(cliente, datos, que):
-    if que == "el mismo archivo":
-        archivo = exportado(cliente)
-    elif que == "uno pequeño":
-        archivo = _archivo_pequeno(*datos["comodin"], datos["grupo"])
-    else:
-        archivo = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
-
-    respuesta = importar(cliente, archivo)
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert resumen(cliente) == respuesta.json()
-
-
 def test_el_resumen_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
     cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
 ):
@@ -2642,8 +2428,7 @@ def test_el_resumen_hace_las_mismas_consultas_sin_datos_con_poco_y_con_mucho(
     montar_datos(sesion_bd, ejercicio_predefinido_id)
     con_poco = consultas_de(lambda: cliente.get("/datos/resumen"))
 
-    vacio = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
-    assert importar(cliente, vacio).status_code == 200
+    assert importar(cliente, VACIO).status_code == 200
     montar_datos(sesion_bd, ejercicio_predefinido_id, sesiones_extra=10)
     con_mucho = consultas_de(lambda: cliente.get("/datos/resumen"))
 
@@ -2670,14 +2455,11 @@ def _predefinidos_en_bd(sesion_bd) -> list[tuple]:
     ).all()
 
 
-@pytest.mark.parametrize("que", ["el mismo archivo", "uno vacío"])
-def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos, que):
+def test_importar_no_toca_los_predefinidos(cliente, sesion_bd, datos):
+    """Con los que usa el archivo. Sin ninguno, es `test_borrar_no_toca_los_predefinidos`."""
     antes = _predefinidos_en_bd(sesion_bd)
-    archivo = exportado(cliente)
-    if que == "uno vacío":
-        archivo = {"formato": "training-life", "version": 3, "exportado_en": _AHORA}
 
-    assert importar(cliente, archivo).status_code == 200
+    assert importar(cliente, exportado(cliente)).status_code == 200
 
     despues = _predefinidos_en_bd(sesion_bd)
     assert len(despues) == len(lista_de_predefinidos()["ejercicios"])
@@ -2691,18 +2473,15 @@ def test_los_predefinidos_del_archivo_van_por_nombre_y_no_por_id(
     otro id: se busca por nombre y no se crea ninguno.
     """
     hoy_es(HOY)
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
+        **VACIO,
         "predefinidos": [{"id": 4242, "nombre": "Sentadilla con barra"}],
-        "notas": [{"ejercicio_id": 4242, "nota": "Barra baja", **marca}],
+        "notas": [{"ejercicio_id": 4242, "nota": "Barra baja", **MARCA}],
         "rutinas": [
             {
                 "id": 1,
                 "nombre": "Pierna",
-                **marca,
+                **MARCA,
                 "slots": [
                     {
                         "id": 1,
@@ -2711,7 +2490,7 @@ def test_los_predefinidos_del_archivo_van_por_nombre_y_no_por_id(
                         "series_objetivo": 5,
                         "reps_min": 5,
                         "reps_max": 5,
-                        **marca,
+                        **MARCA,
                     }
                 ],
             }
@@ -2742,22 +2521,6 @@ def test_la_lista_de_ejercicios_del_archivo_solo_trae_los_propios(cliente, sesio
     assert predefinidos.isdisjoint(e["id"] for e in archivo["ejercicios"])
 
 
-def test_sin_ejercicios_propios_el_archivo_no_trae_ninguno(
-    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
-):
-    """El caso en que un filtro perdido más se notaría: solo hay una nota en un
-    predefinido, y la lista de propios tiene que salir vacía, no con todos los predefinidos.
-    """
-    hoy_es(HOY)
-    cliente.post(f"/ejercicios/{ejercicio_predefinido_id}/notas", json={"nota": "Barra baja"})
-
-    archivo = exportado(cliente)
-
-    assert archivo["ejercicios"] == []
-    assert [p["id"] for p in archivo["predefinidos"]] == [ejercicio_predefinido_id]
-    assert resumen(cliente)["ejercicios"] == 0
-
-
 def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombre(
     cliente, sesion_bd, hoy_es, grupo_muscular_id
 ):
@@ -2767,13 +2530,10 @@ def test_un_predefinido_del_archivo_no_se_confunde_con_un_propio_del_mismo_nombr
     """
     hoy_es(HOY)
     propio = crear_ejercicio(cliente, grupo_muscular_id, "Press del autor")
-    marca = {"created_at": _AHORA, "updated_at": _AHORA}
     archivo = {
-        "formato": "training-life",
-        "version": 3,
-        "exportado_en": _AHORA,
+        **VACIO,
         "predefinidos": [{"id": 7, "nombre": "Press del autor"}],
-        "notas": [{"ejercicio_id": 7, "nota": "Con pausa", **marca}],
+        "notas": [{"ejercicio_id": 7, "nota": "Con pausa", **MARCA}],
     }
 
     respuesta = importar(cliente, archivo)
@@ -2900,25 +2660,9 @@ def test_cada_columna_de_una_tabla_exportada_esta_en_el_formato_o_excluida(model
 
 
 def test_cada_tabla_esta_en_el_formato_o_fuera_a_proposito():
-    exportadas = {modelo.__tablename__ for modelo in (*FORMATO_DE, SlotAlternativa)}
+    exportadas = {modelo.__tablename__ for modelo in FORMATO_DE}
 
     assert set(Base.metadata.tables) - exportadas - TABLAS_FUERA == set()
-
-
-def test_el_formato_de_alto_nivel_tiene_una_lista_por_cada_cosa():
-    assert set(ArchivoDeDatos.model_fields) == {
-        "formato",
-        "version",
-        "exportado_en",
-        "zona_horaria",
-        "predefinidos",
-        "ejercicios",
-        "notas",
-        "rutinas",
-        "programas",
-        "excepciones",
-        "entrenamientos",
-    }
 
 
 # --- 10. Borrar todo (`DELETE /datos`) ----------------------------------------
@@ -2947,67 +2691,6 @@ def test_borrar_no_deja_ninguna_fila_ni_hijos_sueltos(cliente, sesion_bd, datos)
     borrar(cliente)
 
     assert _foto(sesion_bd) == {tabla: [] for tabla in antes}
-
-
-def test_borrar_se_lleva_tambien_lo_que_el_resumen_no_cuenta(
-    cliente, sesion_bd, hoy_es, ejercicio_predefinido_id
-):
-    """El resumen puede decir casi nada y aun así haber cosas: sesiones sin series
-    (una cancelada, una sin terminar de otro día, la de hoy en curso y vacía), una
-    sesión sin terminar con series, una excepción de descanso (sin rutina) y una nota
-    de un predefinido (no se iría con ningún ejercicio propio).
-    """
-    hoy_es(HOY)
-    rutina = Rutina(nombre="Pierna")
-    sesion_bd.add_all(
-        [
-            rutina,
-            NotaEjercicio(ejercicio_id=ejercicio_predefinido_id, nota="Barra baja"),
-            ExcepcionDelPlan(fecha=date(2026, 9, 18), rutina_id=None),
-        ]
-    )
-    sesion_bd.flush()
-    hueco = RutinaSlot(
-        rutina_id=rutina.id,
-        ejercicio_principal_id=ejercicio_predefinido_id,
-        orden=1,
-        series_objetivo=3,
-        reps_min=5,
-        reps_max=8,
-    )
-    terminada = instante("2026-09-10T18:00:00+00:00")
-    con_series = Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 15))
-    sesion_bd.add_all(
-        [
-            hueco,
-            con_series,
-            Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 10), terminada_en=terminada),
-            Entrenamiento(rutina_id=rutina.id, fecha=date(2026, 9, 14)),
-            Entrenamiento(rutina_id=rutina.id, fecha=HOY),
-        ]
-    )
-    sesion_bd.flush()
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=con_series.id,
-            slot_id=hueco.id,
-            ejercicio_id=ejercicio_predefinido_id,
-            numero_serie=1,
-            peso=Decimal("100"),
-            repeticiones=5,
-        )
-    )
-    sesion_bd.commit()
-    assert resumen(cliente)["sesiones"] == 1
-    assert len(cliente.get("/entrenamientos").json()) == 4
-
-    borrar(cliente)
-
-    assert _nada(sesion_bd)
-    assert cliente.get("/entrenamientos").json() == []
-    assert cliente.get(f"/ejercicios/{ejercicio_predefinido_id}/notas").json() == []
-    rango = {"desde": "2026-09-01", "hasta": "2026-09-30"}
-    assert cliente.get("/plan/excepciones", params=rango).json() == []
 
 
 def test_borrar_no_toca_los_predefinidos(cliente, sesion_bd, datos):

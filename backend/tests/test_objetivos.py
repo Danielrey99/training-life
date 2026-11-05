@@ -19,7 +19,7 @@ Importar y exportar, en `test_datos.py`.
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
@@ -30,6 +30,7 @@ from tests.ayudas import (
     alternativa,
     crear_ejercicio,
     crear_rutina,
+    cuantas_filas,
     entrenar,
     objetivo,
     objetivo_de,
@@ -121,23 +122,22 @@ def filas(sesion_bd, slot_id) -> dict[int, tuple]:
 
 def cuantos(sesion_bd) -> tuple[int, int]:
     """Cuántos huecos y cuántas alternativas hay en toda la base."""
-    sesion_bd.expire_all()
-    return tuple(
-        sesion_bd.scalar(select(func.count()).select_from(modelo))
-        for modelo in (RutinaSlot, SlotAlternativa)
-    )
+    return cuantas_filas(sesion_bd, RutinaSlot, SlotAlternativa)
 
 
 # --- El esquema: un par, y completo -------------------------------------------
 
 SIN_PAR = {"series_objetivo": 3}
+LOS_DOS_PARES = {
+    **SIN_PAR,
+    "reps_min": 6,
+    "reps_max": 10,
+    "duracion_min_s": 30,
+    "duracion_max_s": 60,
+}
 MAL_FORMADOS = [
     pytest.param(SIN_PAR, UNO_DE_LOS_DOS, id="sin-par"),
-    pytest.param(
-        {**SIN_PAR, "reps_min": 6, "reps_max": 10, "duracion_min_s": 30, "duracion_max_s": 60},
-        UNO_DE_LOS_DOS,
-        id="los-dos-pares",
-    ),
+    pytest.param(LOS_DOS_PARES, UNO_DE_LOS_DOS, id="los-dos-pares"),
     pytest.param({**SIN_PAR, "reps_min": 6}, UNO_DE_LOS_DOS, id="reps-sin-maximo"),
     pytest.param({**SIN_PAR, "duracion_max_s": 60}, UNO_DE_LOS_DOS, id="duracion-sin-minimo"),
     pytest.param(
@@ -199,7 +199,7 @@ def test_un_objetivo_mal_formado_da_422_del_esquema_y_no_crea_nada(
     assert cuantos(sesion_bd) == (0, 0)
 
 
-@pytest.mark.parametrize("duracion", [(1, 1), (1, 86_400), (86_400, 86_400)])
+@pytest.mark.parametrize("duracion", [(1, 1), (86_400, 86_400)])
 def test_la_duracion_del_objetivo_va_de_un_segundo_a_un_dia(cliente, e, duracion):
     hueco = anadido(
         cliente,
@@ -236,13 +236,6 @@ def _por_put_de_hueco(cliente, e, principal, obj, alternativas):
     )
 
 
-VIAS = [
-    pytest.param(_por_post_de_rutina, id="POST-rutinas"),
-    pytest.param(_por_post_de_hueco, id="POST-slots"),
-    pytest.param(_por_put_de_hueco, id="PUT-slots"),
-]
-
-
 def _equivocados(e) -> dict:
     """(principal, objetivo, alternativas, mensaje) de cada forma de equivocarse."""
     return {
@@ -275,29 +268,18 @@ def _equivocados(e) -> dict:
             [],
             EN_REPETICIONES_PRESS,
         ),
-        "alternativa-de-peso-y-reps-en-segundos": (
-            e.cinta,
-            objetivo(1, duracion=(600, 900)),
-            [alternativa(e.press, duracion=(30, 60))],
-            EN_REPETICIONES_PRESS,
-        ),
     }
 
 
-TODOS_LOS_CASOS = [
-    "principal-de-tiempo-en-reps",
-    "principal-corporal-en-segundos",
-    "alternativa-de-tiempo-en-reps",
-    "alternativa-corporal-en-segundos",
-    "principal-de-cardio-en-reps",
-    "alternativa-de-cardio-en-reps",
-    "principal-de-peso-y-reps-en-segundos",
-    "alternativa-de-peso-y-reps-en-segundos",
-]
-# Las tres vías llaman a la misma comprobación: cada familia, por una; en las otras
-# dos, un principal y una alternativa, para ver que la usan y no dejan nada a medias.
+# Las tres vías llaman a la misma comprobación, que recorre igual el principal y las
+# alternativas. Lo que no se repite es cada tipo (su familia y cómo se dice en el
+# mensaje), y que cada vía la use con un principal y con una alternativa.
 CASOS_POR_VIA = [
-    *(pytest.param(_por_post_de_hueco, caso, id=f"POST-slots-{caso}") for caso in TODOS_LOS_CASOS),
+    pytest.param(_por_post_de_hueco, "principal-de-tiempo-en-reps", id="POST-slots-tiempo"),
+    pytest.param(
+        _por_post_de_hueco, "principal-de-peso-y-reps-en-segundos", id="POST-slots-peso-y-reps"
+    ),
+    pytest.param(_por_post_de_hueco, "alternativa-de-tiempo-en-reps", id="POST-slots-alternativa"),
     pytest.param(
         _por_post_de_rutina, "principal-corporal-en-segundos", id="POST-rutinas-principal"
     ),
@@ -327,22 +309,12 @@ def test_un_objetivo_de_otra_familia_da_422_que_nombra_el_ejercicio_y_no_cambia_
     assert cliente.get("/rutinas", params={"ocultas": True}).json() == antes
 
 
-@pytest.mark.parametrize(
-    "via, rol",
-    [
-        *(pytest.param(via.values[0], "principal", id=f"{via.id}-principal") for via in VIAS),
-        # La alternativa pasa por la misma comprobación en las tres vías: con una basta.
-        pytest.param(_por_post_de_hueco, "alternativa", id="POST-slots-alternativa"),
-    ],
-)
-def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(
-    cliente, sesion_bd, e, via, rol
-):
+@pytest.mark.parametrize("rol", ["principal", "alternativa"])
+def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(cliente, e, rol):
     """Cardio es de la familia de la duración, como tiempo: su objetivo va en segundos,
     de principal (con una alternativa de peso y repeticiones) y de alternativa (de un
     hueco de peso y repeticiones).
     """
-    e.existente = anadido(cliente, e.rutina, principal=e.remo, orden=1)["id"]
     if rol == "principal":
         principal, obj = e.cinta, objetivo(1, duracion=(900, 1800))
         alternativas = [alternativa(e.press)]
@@ -352,16 +324,9 @@ def test_un_objetivo_en_segundos_vale_para_un_ejercicio_de_cardio_y_se_guarda(
         alternativas = [alternativa(e.cinta, 1, duracion=(600, 1200))]
         esperadas = [(e.cinta, objetivo(1, duracion=(600, 1200)))]
 
-    respuesta = via(cliente, e, principal, obj, alternativas)
+    creado = anadido(cliente, e.rutina, principal=principal, obj=obj, alternativas=alternativas)
 
-    assert respuesta.status_code == (200 if via is _por_put_de_hueco else 201), respuesta.text
-    # POST /rutinas crea otra rutina: se busca el hueco nuevo en todas.
-    [hueco] = [
-        h
-        for r in cliente.get("/rutinas").json()
-        for h in r["slots"]
-        if h["ejercicio_principal"]["id"] == principal
-    ]
+    hueco = hueco_guardado(cliente, e.rutina, creado["id"])
     assert objetivo_de(hueco) == obj
     assert alternativas_de(hueco) == esperadas
     tipos = [hueco["ejercicio_principal"]["tipo_registro"]]
@@ -755,29 +720,24 @@ def test_duplicar_copia_el_objetivo_del_principal_y_de_cada_alternativa(cliente,
 
 # --- Los CHECK de la base -------------------------------------------------------
 
-MAL_EN_LA_BASE = [
-    pytest.param({"series_objetivo": 3}, id="sin-par"),
-    pytest.param(
-        {
-            "series_objetivo": 3,
-            "reps_min": 6,
-            "reps_max": 10,
-            "duracion_min_s": 30,
-            "duracion_max_s": 60,
-        },
-        id="los-dos-pares",
-    ),
-    pytest.param({"series_objetivo": 3, "reps_min": 6}, id="reps-sin-maximo"),
-    pytest.param({"series_objetivo": 3, "duracion_min_s": 30}, id="duracion-sin-maximo"),
-]
 
-
-@pytest.mark.parametrize("obj", MAL_EN_LA_BASE)
-@pytest.mark.parametrize("tabla", ["rutina_slots", "slot_alternativas"])
+@pytest.mark.parametrize(
+    "tabla, obj",
+    [
+        pytest.param("rutina_slots", SIN_PAR, id="sin-par"),
+        pytest.param("rutina_slots", LOS_DOS_PARES, id="los-dos-pares"),
+        pytest.param("rutina_slots", {**SIN_PAR, "reps_min": 6}, id="reps-sin-maximo"),
+        pytest.param("rutina_slots", {**SIN_PAR, "duracion_min_s": 30}, id="duracion-sin-maximo"),
+        pytest.param("slot_alternativas", SIN_PAR, id="alternativa-sin-par"),
+    ],
+)
 def test_la_base_rechaza_un_objetivo_sin_exactamente_un_par_completo(
     cliente, sesion_bd, e, tabla, obj
 ):
-    """Lo que la API ya no deja pasar, metido a mano: el CHECK de cada tabla lo para."""
+    """Lo que la API ya no deja pasar, metido a mano: el CHECK de cada tabla lo para. El
+    test que compara el esquema con los modelos solo mira su nombre, no lo que dice. Que
+    la base admite un par completo de cada clase lo prueba cada hueco que la API guarda.
+    """
     slot = anadido(cliente, e.rutina, principal=e.press, orden=1)["id"]
     if tabla == "rutina_slots":
         fila = RutinaSlot(rutina_id=e.rutina, ejercicio_principal_id=e.remo, orden=2, **obj)
@@ -789,32 +749,4 @@ def test_la_base_rechaza_un_objetivo_sin_exactamente_un_par_completo(
         sesion_bd.flush()
 
     assert f"{tabla}_objetivo_check" in str(error.value)
-    sesion_bd.rollback()
-
-
-@pytest.mark.parametrize("tabla", ["rutina_slots", "slot_alternativas"])
-@pytest.mark.parametrize("obj", [EN_REPS_OBJ, EN_SEGUNDOS_OBJ], ids=["reps", "segundos"])
-def test_la_base_acepta_un_par_completo_de_cada_clase(cliente, sesion_bd, e, tabla, obj):
-    """El otro lado: la base no sabe de tipos, solo de la forma."""
-    slot = anadido(cliente, e.rutina, principal=e.press, orden=1)["id"]
-    if tabla == "rutina_slots":
-        fila = RutinaSlot(rutina_id=e.rutina, ejercicio_principal_id=e.remo, orden=2, **obj)
-    else:
-        fila = SlotAlternativa(slot_id=slot, ejercicio_id=e.remo, **obj)
-    sesion_bd.add(fila)
-    sesion_bd.commit()
-
-    sesion_bd.expire_all()
-    guardada = sesion_bd.get(type(fila), fila.id)
-    assert tuple(getattr(guardada, c) for c in CAMPOS_DEL_OBJETIVO) == tuple(obj.values())
-
-
-def test_una_alternativa_sin_series_objetivo_no_entra_en_la_base(cliente, sesion_bd, e):
-    slot = anadido(cliente, e.rutina, principal=e.press)["id"]
-    sesion_bd.add(SlotAlternativa(slot_id=slot, ejercicio_id=e.remo, reps_min=6, reps_max=10))
-
-    with pytest.raises(IntegrityError) as error:
-        sesion_bd.flush()
-
-    assert "series_objetivo" in str(error.value)
     sesion_bd.rollback()

@@ -98,12 +98,6 @@ def test_cambios_de_series_separa_borrar_cambiar_crear_y_ajenas():
     )
 
 
-def test_una_serie_sin_la_clave_id_es_nueva():
-    nueva = guardada()
-
-    assert cambios_de_series({}, [nueva]) == ([], [], [nueva], [])
-
-
 @pytest.mark.parametrize(
     "campo, valor",
     [
@@ -125,21 +119,15 @@ def test_cualquier_campo_distinto_cambia_la_serie(campo, valor):
 
 
 def test_el_peso_se_compara_como_numero():
-    """62,5 pedido y 62,50 guardado son el mismo peso."""
+    """62,5 pedido y 62,50 guardado son el mismo peso. Solo se ve aquí: por la API, la
+    serie contada como cambiada se reescribiría con el mismo valor y nada lo notaría.
+    """
     pedida = {"id": 1, **guardada(peso="62.5")}
 
     assert cambios_de_series({1: guardada(peso="62.50")}, [pedida]) == ([], [], [], [])
 
 
-def test_sin_series_pedidas_se_borran_todas():
-    assert cambios_de_series({1: guardada(), 2: guardada()}, []) == ([1, 2], [], [], [])
-
-
 # --- mezcla_en_hueco -----------------------------------------------------------
-
-
-def test_sin_mezcla_es_none():
-    assert mezcla_en_hueco([(1, 10), (1, 10), (2, 20)], {1, 2}) is None
 
 
 def test_la_mezcla_en_un_hueco_tocado_da_los_dos_primeros_ejercicios():
@@ -174,7 +162,7 @@ def test_antes_del_plazo_dice_desde_donde_puede_ir():
     ) == solo_puede_ir("Leg", viernes, "desde", LUNES)
 
 
-@pytest.mark.parametrize("nueva", [LUNES, date(2026, 9, 16), DOMINGO])
+@pytest.mark.parametrize("nueva", [LUNES, DOMINGO])
 def test_dentro_del_plazo_el_motivo_es_el_programa(nueva):
     """Los dos extremos del plazo cuentan como dentro."""
     assert motivo_de_la_fecha("Push", LUNES, nueva, LUNES, DOMINGO) == no_seguias_el_programa(

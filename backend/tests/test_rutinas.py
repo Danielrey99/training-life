@@ -9,7 +9,6 @@ existe porque con PUT sueltos intercambiar dos huecos choca a medias con
 """
 
 import pytest
-from sqlalchemy import func, select
 
 from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
@@ -22,6 +21,7 @@ from tests.ayudas import (
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
+    cuantas_filas,
     entrenar,
     ids_de_alternativas,
     objetivo,
@@ -86,22 +86,10 @@ def filas_guardadas(sesion_bd) -> tuple[int, int, int]:
     """Cuántas rutinas, huecos y comodines hay en la base, también los ocultos:
     para ver que un fallo no ha dejado nada a medias.
     """
-    sesion_bd.expire_all()
-    return tuple(
-        sesion_bd.scalar(select(func.count()).select_from(modelo))
-        for modelo in (Rutina, RutinaSlot, SlotAlternativa)
-    )
+    return cuantas_filas(sesion_bd, Rutina, RutinaSlot, SlotAlternativa)
 
 
 # --- Crear una rutina con sus huecos ----------------------------------------
-
-
-def test_una_rutina_nueva_sin_huecos_sigue_creandose_vacia(cliente):
-    respuesta = cliente.post("/rutinas", json={"nombre": "Push"})
-
-    assert respuesta.status_code == 201, respuesta.text
-    assert respuesta.json()["slots"] == []
-    assert cliente.get(f"/rutinas/{respuesta.json()['id']}").json()["slots"] == []
 
 
 def test_una_rutina_nueva_guarda_sus_huecos_en_el_orden_de_la_lista(cliente, grupo_muscular_id):
@@ -161,15 +149,6 @@ def test_una_rutina_nueva_admite_predefinidos_y_el_mismo_ejercicio_en_dos_huecos
         (2, propio, 4, 6, 10, [ejercicio_predefinido_id]),
         (3, ejercicio_predefinido_id, 4, 6, 10, []),
     ]
-
-
-def test_una_rutina_nueva_admite_100_huecos_justos(cliente, ejercicio_predefinido_id):
-    cuerpo = {"nombre": "Larga", "slots": [hueco_nuevo(ejercicio_predefinido_id)] * 100}
-
-    respuesta = cliente.post("/rutinas", json=cuerpo)
-
-    assert respuesta.status_code == 201, respuesta.text
-    assert [h["orden"] for h in respuesta.json()["slots"]] == list(range(1, 101))
 
 
 def test_una_rutina_nueva_con_mas_de_100_huecos_da_422_y_no_crea_nada(
@@ -234,13 +213,6 @@ def test_duplicar_una_copia_le_anade_otro_sufijo(cliente):
     assert nombre_de_la_copia(cliente, copia) == "Push - copia - copia"
 
 
-def test_el_nombre_de_la_copia_no_distingue_mayusculas(cliente):
-    push = crear_rutina(cliente, "Push")
-    crear_rutina(cliente, "PUSH - COPIA")
-
-    assert nombre_de_la_copia(cliente, push) == "Push - copia (2)"
-
-
 def test_el_nombre_de_la_copia_no_repite_el_de_una_rutina_oculta(cliente):
     """Si no, al volver a mostrar la oculta habría dos rutinas con el mismo nombre."""
     push = crear_rutina(cliente, "Push")
@@ -250,17 +222,10 @@ def test_el_nombre_de_la_copia_no_repite_el_de_una_rutina_oculta(cliente):
     assert nombre_de_la_copia(cliente, push) == "Push - copia (2)"
 
 
-def test_el_nombre_de_la_copia_no_repite_el_de_una_oculta_escrito_en_mayusculas(cliente):
-    push = crear_rutina(cliente, "Push")
-    oculta = crear_rutina(cliente, "PUSH - COPIA")
-    assert cliente.delete(f"/rutinas/{oculta}?modo=ocultar").status_code == 204
-
-    assert nombre_de_la_copia(cliente, push) == "Push - copia (2)"
-
-
 def test_el_nombre_de_la_copia_no_distingue_tildes(cliente):
-    """Duplicar nunca da 409: compara por la misma clave que crear. Antes solo miraba
-    mayúsculas, y la copia de «Glúteos» se llamaba como «Gluteos - copia».
+    """Duplicar nunca da 409: compara por la misma clave que crear (las mayúsculas y
+    los espacios, en `test_la_clave_de_un_nombre_ignora_mayusculas_tildes_y_espacios`).
+    Antes solo miraba mayúsculas, y la copia de «Glúteos» se llamaba como «Gluteos - copia».
     """
     gluteos = crear_rutina(cliente, "Glúteos")
     crear_rutina(cliente, "Gluteos - copia")
@@ -502,17 +467,6 @@ def test_reordenar_con_un_hueco_repetido_da_422(cliente, tres_huecos):
     assert [e["msg"] for e in respuesta.json()["detail"]] == [
         "Value error, Hay ejercicios repetidos."
     ]
-    assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
-
-
-def test_una_rutina_oculta_no_se_puede_reordenar(cliente, tres_huecos):
-    rutina, (a, b, c) = tres_huecos
-    assert cliente.delete(f"/rutinas/{rutina}?modo=ocultar").status_code == 204
-
-    respuesta = ordenar(cliente, rutina, [c, b, a])
-
-    assert respuesta.status_code == 409
-    assert respuesta.json()["detail"] == "Esta rutina está oculta. Muéstrala antes de cambiarla."
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
 
 

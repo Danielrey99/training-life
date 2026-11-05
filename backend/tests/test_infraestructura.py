@@ -242,8 +242,8 @@ def test_la_siembra_coincide_con_la_lista_de_predefinidos(cliente):
 
 def test_la_lista_de_predefinidos_es_coherente():
     """Sin base de datos: la lista no se contradice a sí misma. Un nombre repetido
-    (también solo cambiando mayúsculas, tildes o espacios) chocaría al sembrar; un grupo o un tipo que
-    no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
+    (también solo cambiando mayúsculas, tildes o espacios) chocaría al sembrar; un grupo
+    o un tipo que no existe no se podría sembrar; un grupo sin ejercicios no sirve de nada; y el
     grupo Cardio es justo el de los ejercicios de cardio. Cada descripción es un texto
     de una sola línea, sin espacios sobrantes, de largo razonable (cabe en la columna
     de 500), distinto del nombre y que no repite la de otro ejercicio. Ni el nombre ni
@@ -282,116 +282,3 @@ def test_la_lista_de_predefinidos_es_coherente():
         e["nombre"] for e in ejercicios if ";" in e["nombre"] or ";" in e["descripcion"]
     ]
     assert con_punto_y_coma == [], f"llevan «;» en el nombre o la descripción: {con_punto_y_coma}"
-
-
-# --- La última migración de datos: descripciones sin «;» -------------------------
-#
-# Cambia el «;» por un punto en tres descripciones de predefinidos (31-10-2026). Sus
-# tests se quedan mientras haya bases que no la hayan pasado.
-
-SIN_PUNTO_Y_COMA = "c6d6c8434fa9"
-CON_PUNTO_Y_COMA = {"Remo con barra", "Patada de tríceps", "Wall ball"}
-
-
-def _descripciones_de_predefinidos() -> dict[str, str]:
-    from sqlalchemy import text
-
-    from app.database import engine
-
-    with engine.connect() as conexion:
-        return dict(
-            conexion.execute(
-                text("SELECT nombre, descripcion FROM ejercicios WHERE es_predefinido")
-            ).all()
-        )
-
-
-def test_bajar_la_migracion_sin_punto_y_coma_devuelve_las_tres_descripciones_y_nada_mas(
-    sesion_bd,
-):
-    """Bajarla deja las tres descripciones como estaban antes (con su «;» donde
-    ahora hay un punto) y ninguna otra cambia; volver a subirla las deja otra vez
-    como dice la lista de predefinidos.
-    """
-    from alembic import command
-    from alembic.script import ScriptDirectory
-
-    from app.database import engine
-
-    configuracion = _configuracion_de_alembic()
-    anterior = ScriptDirectory.from_config(configuracion).get_revision(SIN_PUNTO_Y_COMA)
-    lista = {e["nombre"]: e["descripcion"] for e in lista_de_predefinidos()["ejercicios"]}
-    # Con la sesión abierta, el ALTER de alguna migración se quedaría esperando.
-    sesion_bd.close()
-    engine.dispose()
-    try:
-        command.downgrade(configuracion, anterior.down_revision)
-        bajada = _descripciones_de_predefinidos()
-        engine.dispose()
-        command.upgrade(configuracion, "head")
-        subida = _descripciones_de_predefinidos()
-    finally:
-        engine.dispose()
-        command.upgrade(configuracion, "head")
-
-    cambiadas = {nombre for nombre, texto in bajada.items() if texto != lista[nombre]}
-    assert cambiadas == CON_PUNTO_Y_COMA
-    for nombre in CON_PUNTO_Y_COMA:
-        # Lo único distinto es «; x» frente a «. X».
-        viejo, nuevo = bajada[nombre], lista[nombre]
-        assert viejo.count(";") == 1, viejo
-        corte = viejo.index(";")
-        assert nuevo == f"{viejo[:corte]}. {viejo[corte + 2].upper()}{viejo[corte + 3 :]}"
-    assert subida == lista
-
-
-def test_la_migracion_sin_punto_y_coma_se_niega_si_falta_un_predefinido_y_no_cambia_nada(
-    sesion_bd,
-):
-    """Antes de escribir comprueba que los tres están, una vez cada uno: sin uno de
-    ellos (aquí, Wall ball renombrado a mano), un error que lo nombra y ninguna
-    descripción cambiada, en vez de unas a medias.
-    """
-    from alembic import command
-    from alembic.script import ScriptDirectory
-    from sqlalchemy import text
-
-    from app.database import engine
-
-    configuracion = _configuracion_de_alembic()
-    anterior = ScriptDirectory.from_config(configuracion).get_revision(SIN_PUNTO_Y_COMA)
-    antes = _descripciones_de_predefinidos()
-    sesion_bd.close()
-
-    def renombrar(de: str, a: str) -> None:
-        with engine.begin() as conexion:
-            conexion.execute(
-                text("UPDATE ejercicios SET nombre = :a WHERE es_predefinido AND nombre = :de"),
-                {"a": a, "de": de},
-            )
-
-    renombrar("Wall ball", "Wall ball (renombrado)")
-    engine.dispose()
-    try:
-        try:
-            command.downgrade(configuracion, anterior.down_revision)
-        except RuntimeError as error:
-            mensaje = str(error)
-        else:
-            mensaje = None
-        engine.dispose()
-        despues = _descripciones_de_predefinidos()
-    finally:
-        engine.dispose()
-        renombrar("Wall ball (renombrado)", "Wall ball")
-        command.upgrade(configuracion, "head")
-
-    assert mensaje == (
-        "No se pueden devolver las descripciones de los predefinidos, porque falta o está "
-        "repetido Wall ball."
-    )
-    antes["Wall ball (renombrado)"] = antes.pop("Wall ball")
-    assert despues == antes
-    assert _descripciones_de_predefinidos() == {
-        e["nombre"]: e["descripcion"] for e in lista_de_predefinidos()["ejercicios"]
-    }

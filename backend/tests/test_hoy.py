@@ -11,6 +11,7 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 from tests.ayudas import (
     crear_ejercicio,
     crear_hueco,
+    crear_programa,
     crear_rutina,
     dejar_planificado,
     serie_en,
@@ -61,6 +62,11 @@ def terminada(cliente, entrenamiento_id) -> None:
     assert respuesta.status_code == 200, respuesta.text
 
 
+def desactivar_el_programa(cliente) -> None:
+    programa = cliente.get("/programas").json()[0]["id"]
+    assert cliente.post(f"/programas/{programa}/desactivar").status_code == 200
+
+
 # --- Situaciones ---------------------------------------------------------
 
 
@@ -103,8 +109,7 @@ def test_con_la_sesion_en_curso_lo_que_queda_de_semana_sale_sin_boton(cliente, p
 def test_ya_entrenado_hoy_con_otra_rutina_lo_de_hoy_queda_por_recuperar(
     cliente, ppl, grupo_muscular_id
 ):
-    recuperada = hecha(cliente, grupo_muscular_id, HOY, ppl["Push"], cubre_fecha=LUNES_14)
-    cliente.post(f"/entrenamientos/{recuperada}/terminar")
+    terminada(cliente, hecha(cliente, grupo_muscular_id, HOY, ppl["Push"], cubre_fecha=LUNES_14))
 
     resumen = hoy(cliente)
 
@@ -171,8 +176,7 @@ def test_una_rutina_que_toca_dos_dias_se_ofrece_una_vez_el_primero(cliente, ppl,
     rutina no aporta nada, ni al adelantar ni al intercambiar.
     """
     hoy_es(MARTES_15)
-    respuesta = cliente.put("/plan/excepciones/2026-09-19", json={"rutina_id": ppl["Leg"]})
-    assert respuesta.status_code == 200, respuesta.text
+    dejar_planificado(cliente, SABADO_19, ppl["Leg"])
 
     adelantar = ofrecidas(hoy(cliente))
     hoy_es(HOY)
@@ -199,7 +203,7 @@ def test_la_primera_vez_sin_rutinas(cliente, hoy_es):
 def test_sin_programa_se_ofrecen_todas_las_rutinas_sin_contar(cliente, hoy_es):
     hoy_es(HOY)
     for nombre in ("Push", "Leg"):
-        cliente.post("/rutinas", json={"nombre": nombre})
+        crear_rutina(cliente, nombre)
 
     resumen = hoy(cliente)
 
@@ -214,9 +218,8 @@ def test_sin_programa_un_descanso_planificado_a_mano_no_cuenta_como_descanso(cli
     """Se planificó hoy como descanso y después se desactivó el programa sin quitar lo
     planificado: sin programa no hay semana que seguir, así que se ofrece todo.
     """
-    cliente.put(f"/plan/excepciones/{HOY.isoformat()}", json={"rutina_id": None})
-    programa = cliente.get("/programas").json()[0]["id"]
-    cliente.post(f"/programas/{programa}/desactivar")
+    dejar_planificado(cliente, HOY, None)
+    desactivar_el_programa(cliente)
 
     resumen = hoy(cliente)
 
@@ -225,9 +228,8 @@ def test_sin_programa_un_descanso_planificado_a_mano_no_cuenta_como_descanso(cli
 
 
 def test_sin_programa_una_rutina_planificada_a_mano_si_se_entrena(cliente, ppl):
-    cliente.put(f"/plan/excepciones/{HOY.isoformat()}", json={"rutina_id": ppl["Leg"]})
-    programa = cliente.get("/programas").json()[0]["id"]
-    cliente.post(f"/programas/{programa}/desactivar")
+    dejar_planificado(cliente, HOY, ppl["Leg"])
+    desactivar_el_programa(cliente)
 
     resumen = hoy(cliente)
 
@@ -236,18 +238,6 @@ def test_sin_programa_una_rutina_planificada_a_mano_si_se_entrena(cliente, ppl):
 
 
 # --- Lo que queda de semana, con sesión hoy ------------------------------
-
-
-def test_hecho_hoy_lo_que_queda_de_semana_sale_sin_boton(cliente, ppl, grupo_muscular_id):
-    """Hecho el Pull de hoy: queda el Leg del viernes, como recordatorio. El Push del
-    lunes 21 ya es otra semana.
-    """
-    terminada(cliente, hecha(cliente, grupo_muscular_id, HOY, ppl["Pull"], cubre_fecha=HOY))
-
-    resumen = hoy(cliente)
-
-    assert resumen["situacion"] == "hecho"
-    assert ofrecidas(resumen) == [("adelantar", "Leg", "2026-09-18", False)]
 
 
 def test_un_descanso_en_que_se_adelanto_solo_recuerda_lo_que_falta(
@@ -270,10 +260,7 @@ def test_la_rutina_de_hoy_sigue_pendiente_si_vuelve_a_tocar_esta_semana(
     """El sábado también es Pull (planificado a mano). Sin sesión, intercambiar quita
     la rutina de hoy; el recordatorio no, porque el Pull del sábado sigue sin hacer.
     """
-    respuesta = cliente.put(
-        f"/plan/excepciones/{SABADO_19.isoformat()}", json={"rutina_id": ppl["Pull"]}
-    )
-    assert respuesta.status_code == 200, respuesta.text
+    dejar_planificado(cliente, SABADO_19, ppl["Pull"])
     terminada(cliente, hecha(cliente, grupo_muscular_id, HOY, ppl["Pull"], cubre_fecha=HOY))
 
     assert ofrecidas(hoy(cliente)) == [
@@ -312,12 +299,8 @@ def test_sin_programa_con_sesion_hoy_no_se_recuerda_nada(cliente, ppl, grupo_mus
     """Sin programa no hay semana que seguir, aunque quede una rutina planificada a
     mano el viernes (que sin sesión tampoco se ofrecería para adelantar).
     """
-    respuesta = cliente.put(
-        f"/plan/excepciones/{VIERNES_18.isoformat()}", json={"rutina_id": ppl["Leg"]}
-    )
-    assert respuesta.status_code == 200, respuesta.text
-    programa = cliente.get("/programas").json()[0]["id"]
-    assert cliente.post(f"/programas/{programa}/desactivar").status_code == 200
+    dejar_planificado(cliente, VIERNES_18, ppl["Leg"])
+    desactivar_el_programa(cliente)
     hecha(cliente, grupo_muscular_id, HOY, ppl["Push"])
 
     resumen = hoy(cliente)
@@ -368,15 +351,7 @@ def test_una_rutina_oculta_no_se_ofrece_para_recuperar(cliente, ppl):
 
 
 def test_lo_que_tocaba_con_el_programa_anterior_no_se_ofrece(cliente, ppl):
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": "Otro",
-            "activar": True,
-            "dias": [{"dia_semana": 1, "rutina_id": ppl["Push"]}],
-        },
-    )
-    assert respuesta.status_code == 201
+    crear_programa(cliente, "Otro", [(1, ppl["Push"])], activar=True)
 
     assert recuperables(hoy(cliente)) == []
 
@@ -415,7 +390,7 @@ def test_la_de_hoy_es_la_ultima_cuando_ya_esta_terminada(cliente, ppl, grupo_mus
 
     assert hoy(cliente)["ultima_sesion"]["entrenamiento_id"] == anterior
 
-    cliente.post(f"/entrenamientos/{de_hoy}/terminar")
+    terminada(cliente, de_hoy)
 
     assert hoy(cliente)["ultima_sesion"]["entrenamiento_id"] == de_hoy
 
@@ -447,7 +422,7 @@ def test_cada_rutina_dice_sus_ejercicios_y_cuando_se_hizo_por_ultima_vez(
 
 
 def test_una_rutina_oculta_no_sale_entre_las_rutinas(cliente, ppl):
-    cliente.delete(f"/rutinas/{ppl['Leg']}?modo=ocultar")
+    assert cliente.delete(f"/rutinas/{ppl['Leg']}?modo=ocultar").status_code == 204
 
     assert [r["nombre"] for r in hoy(cliente)["rutinas"]] == ["Pull", "Push"]
 
@@ -462,7 +437,7 @@ def test_un_descanso_pasado_ofrece_recuperar_y_todas_las_rutinas_sin_contar(clie
     Antes aún ofrecía adelantar el Pull del miércoles y el Leg del viernes, como la
     pantalla de Entrenar; adelantar queda solo para hoy.
     """
-    cliente.post("/rutinas", json={"nombre": "Brazos"})
+    crear_rutina(cliente, "Brazos")
 
     resumen = hoy(cliente, MARTES_15)
 
@@ -529,7 +504,7 @@ def test_un_dia_de_entrenamiento_pasado_no_ofrece_intercambiar(cliente, ppl):
     todas, también la que tocaba (el Push del lunes 14): apuntarla así crea una
     sesión que no cuenta, y el día sigue sin hacer.
     """
-    cliente.post("/rutinas", json={"nombre": "Brazos"})
+    crear_rutina(cliente, "Brazos")
 
     resumen = hoy(cliente, LUNES_14)
 

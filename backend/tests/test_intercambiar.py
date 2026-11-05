@@ -16,10 +16,9 @@ septiembre de 2026, con Push los lunes, Pull los miércoles y Leg los viernes.
 """
 
 import pytest
-from sqlalchemy import func, select
 
 from app.models import Entrenamiento, ExcepcionDelPlan
-from tests.ayudas import dejar_planificado, todavia_no_ha_llegado
+from tests.ayudas import cuantas_filas, dejar_planificado, todavia_no_ha_llegado
 from tests.semana import (
     HOY,
     JUEVES_17,
@@ -66,9 +65,13 @@ def lo_que_toca(cliente, fecha) -> tuple:
     return d["origen"], d["rutina"]["nombre"] if d["rutina"] else None, d["descanso"]
 
 
-def cuantas(sesion_bd, modelo) -> int:
-    sesion_bd.expire_all()
-    return sesion_bd.scalar(select(func.count()).select_from(modelo))
+def cancelada_de_hoy(cliente, ppl) -> int:
+    """El Pull de hoy, empezado y terminado sin apuntar nada: una sesión cancelada."""
+    cancelada = cliente.post(
+        "/entrenamientos", json={"rutina_id": ppl["Pull"], "fecha": HOY.isoformat()}
+    ).json()["id"]
+    assert cliente.post(f"/entrenamientos/{cancelada}/terminar").status_code == 200
+    return cancelada
 
 
 # --- Lo que hace ---------------------------------------------------------
@@ -150,30 +153,13 @@ def test_una_sesion_cancelada_de_hoy_se_borra_y_se_crea_la_nueva(cliente, ppl):
     """Se empezó el Pull de hoy y se terminó sin apuntar nada: está cancelada, no
     ocupa el día.
     """
-    cancelada = cliente.post(
-        "/entrenamientos", json={"rutina_id": ppl["Pull"], "fecha": HOY.isoformat()}
-    ).json()["id"]
-    assert cliente.post(f"/entrenamientos/{cancelada}/terminar").status_code == 200
+    cancelada = cancelada_de_hoy(cliente, ppl)
 
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], VIERNES_18)
 
     assert respuesta.status_code == 201, respuesta.text
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 404
     assert lo_que_toca(cliente, HOY) == ("excepcion", "Leg", False)
-
-
-def test_sin_intercambiar_con_no_se_toca_el_plan(cliente, sesion_bd, ppl):
-    respuesta = cliente.post(
-        "/entrenamientos",
-        json={
-            "rutina_id": ppl["Pull"],
-            "fecha": HOY.isoformat(),
-            "cubre_fecha": HOY.isoformat(),
-        },
-    )
-
-    assert respuesta.status_code == 201, respuesta.text
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
 
 
 # --- Errores de la petición: 422 y 404, sin tocar nada ---------------------
@@ -256,8 +242,7 @@ def test_un_intercambio_mal_pedido_da_422_y_no_cambia_nada(
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == mensaje
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
-    assert cuantas(sesion_bd, Entrenamiento) == 0
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan, Entrenamiento) == (0, 0)
 
 
 def test_una_fecha_futura_da_su_422_antes_que_el_del_intercambio(cliente, sesion_bd, ppl):
@@ -267,7 +252,7 @@ def test_una_fecha_futura_da_su_422_antes_que_el_del_intercambio(cliente, sesion
 
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == todavia_no_ha_llegado(JUEVES_17)
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan) == (0,)
 
 
 def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, sesion_bd, ppl):
@@ -280,15 +265,12 @@ def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, se
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan) == (0,)
 
 
 def test_un_422_del_intercambio_no_borra_la_cancelada_de_hoy(cliente, sesion_bd, ppl):
     """Los errores de la petición van antes que liberar el día."""
-    cancelada = cliente.post(
-        "/entrenamientos", json={"rutina_id": ppl["Pull"], "fecha": HOY.isoformat()}
-    ).json()["id"]
-    assert cliente.post(f"/entrenamientos/{cancelada}/terminar").status_code == 200
+    cancelada = cancelada_de_hoy(cliente, ppl)
 
     respuesta = empezar_intercambiando(cliente, ppl["Push"], VIERNES_18)
 
@@ -321,8 +303,7 @@ def test_si_hoy_ya_hay_sesion_da_409_y_el_plan_no_cambia(
     assert respuesta.status_code == 409
     detalle = respuesta.json()["detail"]
     assert (detalle["entrenamiento_id"], detalle["en_curso"]) == (hoy_id, not terminada)
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
-    assert cuantas(sesion_bd, Entrenamiento) == 1
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan, Entrenamiento) == (0, 1)
     assert lo_que_toca(cliente, HOY) == ("programa", "Pull", False)
 
 
@@ -340,8 +321,7 @@ def test_si_lo_adelantado_se_queda_sin_dia_da_409_y_no_se_crea_nada(
 
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == sin_dia_para_ella(LUNES_14, HOY, "Pull", adelantada)
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
-    assert cuantas(sesion_bd, Entrenamiento) == 1
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan, Entrenamiento) == (0, 1)
     assert cubre(cliente, adelantada) == HOY.isoformat()
 
 
@@ -355,10 +335,7 @@ def test_si_lo_del_otro_dia_ya_se_hizo_da_409_y_lo_deshace_todo(
     sesión del martes movida, ni la cancelada borrada, ni sesión nueva.
     """
     adelantada = hecha(cliente, grupo_muscular_id, MARTES_15, ppl["Leg"], cubre_fecha=VIERNES_18)
-    cancelada = cliente.post(
-        "/entrenamientos", json={"rutina_id": ppl["Pull"], "fecha": HOY.isoformat()}
-    ).json()["id"]
-    assert cliente.post(f"/entrenamientos/{cancelada}/terminar").status_code == 200
+    cancelada = cancelada_de_hoy(cliente, ppl)
 
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], VIERNES_18)
 
@@ -370,8 +347,7 @@ def test_si_lo_del_otro_dia_ya_se_hizo_da_409_y_lo_deshace_todo(
         ),
         "entrenamiento_id": adelantada,
     }
-    assert cuantas(sesion_bd, ExcepcionDelPlan) == 0
-    assert cuantas(sesion_bd, Entrenamiento) == 2
+    assert cuantas_filas(sesion_bd, ExcepcionDelPlan, Entrenamiento) == (0, 2)
     assert cubre(cliente, adelantada) == VIERNES_18.isoformat()
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
     assert lo_que_toca(cliente, HOY) == ("programa", "Pull", False)

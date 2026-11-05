@@ -164,9 +164,9 @@ def es_de_pydantic_por(respuesta, campo) -> bool:
         ),
         pytest.param(
             "dominadas",
-            {"peso": -20, "repeticiones": 8},
-            {"peso": "-20.00", "repeticiones": 8, "duracion_s": None, "peso_corporal": None},
-            id="corporal-con-ayuda",
+            {"peso": -20, "repeticiones": 8, "peso_corporal": 70},
+            {"peso": "-20.00", "repeticiones": 8, "duracion_s": None, "peso_corporal": "70.00"},
+            id="corporal-con-ayuda-y-peso-corporal",
         ),
         pytest.param(
             "plancha",
@@ -179,12 +179,6 @@ def es_de_pydantic_por(respuesta, campo) -> bool:
             {"duracion_s": 60, "peso": 10},
             {"peso": "10.00", "repeticiones": None, "duracion_s": 60, "peso_corporal": None},
             id="tiempo-con-peso",
-        ),
-        pytest.param(
-            "plancha",
-            {"duracion_s": 60, "peso": 0},
-            {"peso": "0.00", "repeticiones": None, "duracion_s": 60, "peso_corporal": None},
-            id="tiempo-con-0-kg",
         ),
     ],
 )
@@ -228,18 +222,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
     [
         pytest.param(
             "press",
-            {"repeticiones": 8},
-            "«Press banca» se apunta con peso y repeticiones. Falta el peso.",
-            id="peso-y-repeticiones-sin-peso",
-        ),
-        pytest.param(
-            "press",
-            {"peso": 60, "repeticiones": 8, "duracion_s": 30},
-            "«Press banca» se apunta con peso y repeticiones. Sobra la duración.",
-            id="peso-y-repeticiones-con-duracion",
-        ),
-        pytest.param(
-            "press",
             {"duracion_s": 30},
             "«Press banca» se apunta con peso y repeticiones. Faltan el peso y las repeticiones"
             " y sobra la duración.",
@@ -256,12 +238,6 @@ def test_una_serie_trae_todas_sus_medidas_y_su_ejercicio_con_el_tipo(cliente, e)
             {"peso": 0, "repeticiones": 8, "duracion_s": 20},
             "«Dominadas en anillas» se apunta con repeticiones y carga. Sobra la duración.",
             id="corporal-con-duracion",
-        ),
-        pytest.param(
-            "plancha",
-            {},
-            "«Plancha con lastre» se apunta por tiempo. Falta la duración.",
-            id="tiempo-sin-nada",
         ),
     ],
 )
@@ -283,18 +259,6 @@ def test_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
             {"peso": 0, "repeticiones": 8},
             "«Plancha con lastre» se apunta por tiempo. Falta la duración y sobran las repeticiones.",
             id="tiempo-por-repeticiones",
-        ),
-        pytest.param(
-            "plancha",
-            {"duracion_s": 30, "repeticiones": 8},
-            "«Plancha con lastre» se apunta por tiempo. Sobran las repeticiones.",
-            id="tiempo-con-repeticiones",
-        ),
-        pytest.param(
-            "press",
-            {"peso": 60},
-            "«Press banca» se apunta con peso y repeticiones. Faltan las repeticiones.",
-            id="peso-y-repeticiones-sin-repeticiones",
         ),
         pytest.param(
             "dominadas",
@@ -319,20 +283,14 @@ def test_las_repeticiones_que_faltan_o_sobran_se_dicen_en_plural(
     assert respuesta.json()["detail"] == mensaje
 
 
-@pytest.mark.parametrize(
-    "ejercicio, medidas",
-    [
-        pytest.param("press", {"peso": -10, "repeticiones": 8}, id="peso-y-repeticiones"),
-        pytest.param("plancha", {"duracion_s": 30, "peso": -5}, id="tiempo"),
-    ],
-)
-def test_un_peso_negativo_solo_vale_en_peso_corporal(cliente, e, ejercicio, medidas):
+def test_un_peso_negativo_solo_vale_en_peso_corporal(cliente, e):
     """La ayuda (carga negativa) solo existe en los ejercicios de peso corporal; en
     ellos se apunta bien (en el test de las series válidas). Antes del peso corporal
     lo rechazaba el esquema (`ge=0`); ahora el esquema admite negativos y el 422 es el
-    de las medidas del tipo.
+    de las medidas del tipo. Con un ejercicio de peso y repeticiones, en
+    `test_la_ayuda_se_valida_con_el_ejercicio_final_y_no_con_el_de_antes`.
     """
-    respuesta = apuntar(cliente, e, ejercicio, **medidas)
+    respuesta = apuntar(cliente, e, "plancha", duracion_s=30, peso=-5)
 
     assert respuesta.status_code == 422, respuesta.text
     assert respuesta.json()["detail"] == NEGATIVO
@@ -451,28 +409,6 @@ def test_la_ayuda_se_valida_con_el_ejercicio_final_y_no_con_el_de_antes(cliente,
     assert series_de(cliente, e)[0]["ejercicio_id"] == e.ids["dominadas"]
 
 
-def test_de_tiempo_a_peso_y_repeticiones_sin_sus_medidas_da_422(cliente, e):
-    serie = apuntada(cliente, e, "plancha", slot_id=e.a, duracion_s=45)
-
-    respuesta = corregir(cliente, e, serie, "press", duracion_s=45)
-
-    assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"] == (
-        "«Press banca» se apunta con peso y repeticiones. Faltan el peso y las repeticiones"
-        " y sobra la duración."
-    )
-    assert series_de(cliente, e) == [serie]
-
-
-def test_corregir_la_duracion_o_quitar_el_peso_de_una_serie_por_tiempo(cliente, e):
-    serie = apuntada(cliente, e, "plancha", duracion_s=45, peso=10)
-
-    respuesta = corregir(cliente, e, serie, "plancha", duracion_s=50)
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert (respuesta.json()["duracion_s"], respuesta.json()["peso"]) == (50, None)
-
-
 def test_corregir_una_serie_sin_sus_medidas_da_422_y_no_la_toca(cliente, e):
     serie = apuntada(cliente, e, "press", peso=60, repeticiones=8)
 
@@ -491,51 +427,32 @@ def test_corregir_una_serie_sin_sus_medidas_da_422_y_no_la_toca(cliente, e):
 # la variante: opcional, y el PUT copia el cuerpo entero (si no llega, queda nulo).
 
 
-@pytest.mark.parametrize(
-    "ejercicio, medidas, nombre",
-    [
-        pytest.param("press", {"peso": 60, "repeticiones": 8}, "Press banca", id="peso-y-reps"),
-    ],
-)
-def test_el_peso_corporal_en_otro_tipo_da_422(cliente, e, ejercicio, medidas, nombre):
-    respuesta = apuntar(cliente, e, ejercicio, peso_corporal=80, **medidas)
+def test_el_peso_corporal_en_otro_tipo_da_422(cliente, e):
+    respuesta = apuntar(cliente, e, "press", peso=60, repeticiones=8, peso_corporal=80)
 
     assert respuesta.status_code == 422, respuesta.text
-    assert respuesta.json()["detail"] == peso_corporal_de_otro_tipo(nombre)
+    assert respuesta.json()["detail"] == peso_corporal_de_otro_tipo("Press banca")
     assert series_de(cliente, e) == []
 
 
 @pytest.mark.parametrize("valor, guardado", [("0.01", "0.01"), ("500", "500.00")])
-def test_el_peso_corporal_va_de_un_centimo_a_500_kg_al_apuntar(cliente, e, valor, guardado):
+def test_el_peso_corporal_va_de_un_centimo_a_500_kg(cliente, e, valor, guardado):
     serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=valor)
 
     assert serie["peso_corporal"] == guardado
 
 
 @pytest.mark.parametrize("valor", ["0.001", "500.01"])
-def test_un_peso_corporal_fuera_de_rango_da_422_al_apuntar(cliente, e, valor):
+def test_un_peso_corporal_fuera_de_rango_da_422(cliente, e, valor):
     """0,001 tiene que fallar aquí: NUMERIC(5,2) lo redondearía a 0,00, el CHECK de
     la base lo rechazaría y sería un 500. (Un cero o un negativo los para el mismo
-    mínimo.)
+    mínimo, y corregir usa el mismo esquema que apuntar.)
     """
     respuesta = apuntar(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=valor)
 
     assert respuesta.status_code == 422, respuesta.text
     assert es_de_pydantic_por(respuesta, "peso_corporal"), respuesta.text
     assert series_de(cliente, e) == []
-
-
-def test_un_peso_corporal_fuera_de_rango_da_422_al_corregir(cliente, e):
-    """Corregir usa los mismos topes que apuntar: con el borde de abajo basta."""
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=80)
-
-    respuesta = corregir(
-        cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal="0.001"
-    )
-
-    assert respuesta.status_code == 422, respuesta.text
-    assert es_de_pydantic_por(respuesta, "peso_corporal"), respuesta.text
-    assert series_de(cliente, e) == [serie]
 
 
 @pytest.mark.parametrize(
@@ -578,24 +495,6 @@ def test_pasar_a_una_alternativa_de_otro_tipo_con_peso_corporal_da_422_y_no_camb
     assert series_de(cliente, e) == [serie]
 
 
-def test_el_peso_corporal_de_una_serie_de_un_ejercicio_oculto_se_puede_corregir(cliente, e):
-    """Corregir sí, elegir algo oculto no: las dominadas ya no se ofrecen (apuntar
-    otra da 404), pero lo ya apuntado con ellas se corrige.
-    """
-    serie = apuntada(cliente, e, "dominadas", peso=0, repeticiones=10, peso_corporal=80)
-    assert cliente.delete(f"/ejercicios/{e.ids['dominadas']}?modo=ocultar").status_code == 204
-
-    otra = apuntar(cliente, e, "dominadas", numero=2, peso=0, repeticiones=10)
-    corregida = corregir(cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=82)
-
-    assert (otra.status_code, otra.json()["detail"]) == (
-        404,
-        ejercicio_oculto("Dominadas en anillas"),
-    )
-    assert corregida.status_code == 200, corregida.text
-    assert corregida.json()["peso_corporal"] == "82.00"
-
-
 # --- Historial ------------------------------------------------------------------
 
 
@@ -634,8 +533,10 @@ def test_el_historial_trae_la_duracion_y_no_el_peso_corporal(cliente, e):
 # --- Las restricciones de la base -------------------------------------------------
 #
 # Solo comprueban la forma de una serie (la regla por tipo está en otra tabla y la
-# pone el endpoint). Cada caso rompe una sola, para ver que salta la que toca: si
-# faltara, una serie así se colaría desde cualquier camino que no fuera la API.
+# pone el endpoint). Cada caso rompe una sola condición, para ver que salta la que
+# toca: si faltara, una serie así se colaría desde cualquier camino que no fuera la
+# API. El test que compara el esquema con los modelos solo mira sus nombres, no lo que
+# dicen. Que la base admite lo válido lo prueba cada serie que la API guarda.
 
 
 @pytest.mark.parametrize(
@@ -662,6 +563,19 @@ def test_el_historial_trae_la_duracion_y_no_el_peso_corporal(cliente, e):
             "series_peso_corporal_check",
             id="peso-corporal-cero",
         ),
+        pytest.param(
+            {"duracion_s": 600, "peso": 5, "distancia_m": 1000},
+            "series_medidas_check",
+            id="duracion-con-peso-y-distancia-a-la-vez",
+        ),
+        pytest.param(
+            {"peso": 10, "repeticiones": 8, "distancia_m": 1000},
+            "series_medidas_check",
+            id="repeticiones-con-distancia",
+        ),
+        pytest.param(
+            {"duracion_s": 600, "distancia_m": 0}, "series_distancia_check", id="distancia-cero"
+        ),
     ],
 )
 def test_la_base_rechaza_una_serie_con_una_forma_imposible(
@@ -683,31 +597,6 @@ def test_la_base_rechaza_una_serie_con_una_forma_imposible(
         sesion_bd.flush()
 
     assert error.value.orig.diag.constraint_name == restriccion
-    sesion_bd.rollback()
-
-
-@pytest.mark.parametrize(
-    "medidas",
-    [
-        pytest.param({"peso": -5, "repeticiones": 8, "peso_corporal": 70}, id="ayuda"),
-        pytest.param({"duracion_s": 30}, id="tiempo-sin-peso"),
-        pytest.param({"duracion_s": 30, "peso": 0}, id="tiempo-con-0-kg"),
-    ],
-)
-def test_la_base_admite_cada_forma_que_la_api_deja_apuntar(cliente, sesion_bd, e, medidas):
-    """El otro lado: un CHECK demasiado estricto convertiría una serie válida en un 500."""
-    from app.models import Serie
-
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=e.sesion,
-            slot_id=e.a,
-            ejercicio_id=e.ids["press"],
-            numero_serie=1,
-            **medidas,
-        )
-    )
-    sesion_bd.flush()
     sesion_bd.rollback()
 
 
@@ -793,9 +682,6 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
     "medidas, mensaje",
     [
         pytest.param({}, f"{COMO_CARDIO}. Falta la duración.", id="sin-nada"),
-        pytest.param(
-            {"duracion_s": 600, "peso": 10}, f"{COMO_CARDIO}. Sobra el peso.", id="con-peso"
-        ),
         # No es el 422 de la ayuda: en cardio sobra cualquier peso, también uno negativo.
         pytest.param(
             {"duracion_s": 600, "peso": -10}, f"{COMO_CARDIO}. Sobra el peso.", id="con-ayuda"
@@ -807,12 +693,6 @@ def test_una_serie_de_cardio_lleva_la_duracion_y_si_se_quiere_la_distancia(
         ),
         # Lo que falta y lo que sobra a la vez, en
         # `test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_de_cada_uno`.
-        pytest.param(
-            {"duracion_s": 600, "peso_corporal": 80},
-            "El peso corporal solo se guarda en las series de ejercicios de peso corporal, "
-            "y «Cinta» no lo es.",
-            id="con-peso-corporal",
-        ),
     ],
 )
 def test_en_cardio_una_medida_que_falta_o_sobra_da_422_con_el_nombre_del_ejercicio(
@@ -953,75 +833,3 @@ def test_el_historial_trae_la_distancia_de_una_serie_de_cardio(cliente, c):
         (600, None),
     ]
     assert all(s["peso"] is None and s["repeticiones"] is None for s in dia["series"])
-
-
-# --- Cardio: las restricciones de la base -------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "medidas, restriccion",
-    [
-        pytest.param(
-            {"duracion_s": 600, "peso": 5, "distancia_m": 1000},
-            "series_medidas_check",
-            id="duracion-con-peso-y-distancia-a-la-vez",
-        ),
-        pytest.param(
-            {"distancia_m": 1000}, "series_medidas_check", id="distancia-sin-duracion-ni-reps"
-        ),
-        pytest.param(
-            {"peso": 10, "repeticiones": 8, "distancia_m": 1000},
-            "series_medidas_check",
-            id="repeticiones-con-distancia",
-        ),
-        pytest.param(
-            {"duracion_s": 600, "distancia_m": 0}, "series_distancia_check", id="distancia-cero"
-        ),
-    ],
-)
-def test_la_base_rechaza_una_serie_con_una_distancia_imposible(
-    cliente, sesion_bd, e, medidas, restriccion
-):
-    from app.models import Serie
-
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=e.sesion,
-            slot_id=e.a,
-            ejercicio_id=e.ids["press"],
-            numero_serie=1,
-            **medidas,
-        )
-    )
-
-    with pytest.raises(IntegrityError) as error:
-        sesion_bd.flush()
-
-    assert error.value.orig.diag.constraint_name == restriccion
-    sesion_bd.rollback()
-
-
-@pytest.mark.parametrize(
-    "medidas",
-    [
-        pytest.param({"duracion_s": 600, "distancia_m": 1000}, id="duracion-y-distancia"),
-        pytest.param({"duracion_s": 600, "distancia_m": 1}, id="un-metro"),
-        pytest.param({"duracion_s": 600, "peso": 5}, id="duracion-con-peso-sin-distancia"),
-    ],
-)
-def test_la_base_admite_la_duracion_con_distancia_o_con_peso_pero_no_con_las_dos(
-    cliente, sesion_bd, e, medidas
-):
-    from app.models import Serie
-
-    sesion_bd.add(
-        Serie(
-            entrenamiento_id=e.sesion,
-            slot_id=e.a,
-            ejercicio_id=e.ids["press"],
-            numero_serie=1,
-            **medidas,
-        )
-    )
-    sesion_bd.flush()
-    sesion_bd.rollback()

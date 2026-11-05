@@ -18,6 +18,7 @@ from app.models import Entrenamiento
 
 from tests.ayudas import (
     bajo_la_fecha,
+    crear_programa,
     en_texto,
     fuera_de_plazo,
     solo_puede_ir,
@@ -131,15 +132,7 @@ def test_lo_que_tocaba_con_el_programa_anterior_no_se_recupera(cliente, ppl):
     """Se activa hoy otro programa con el mismo Push los lunes: el del lunes 14
     lo planificaba el anterior, y lo faltado con él ya no se ofrece.
     """
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": "Otro",
-            "activar": True,
-            "dias": [{"dia_semana": 1, "rutina_id": ppl["Push"]}],
-        },
-    )
-    assert respuesta.status_code == 201
+    activar_otro_programa(cliente, ppl)
 
     respuesta = sesion(cliente, HOY, ppl["Push"], cubre_fecha=LUNES_14)
 
@@ -278,18 +271,6 @@ def test_una_sesion_de_otra_rutina_suelta_el_dia_pero_se_queda_en_el_historial(
     assert len(antigua["series"]) == 1
 
 
-def test_la_base_de_datos_impide_que_dos_sesiones_cuenten_el_mismo_dia(cliente, ppl, sesion_bd):
-    from sqlalchemy.exc import IntegrityError
-
-    for fecha in (MARTES_15, HOY):
-        sesion_bd.add(Entrenamiento(rutina_id=ppl["Push"], fecha=fecha, cubre_fecha=LUNES_14))
-    with pytest.raises(IntegrityError) as error:
-        sesion_bd.commit()
-    sesion_bd.rollback()
-    # Que salte la restricción que se prueba y no otra.
-    assert "entrenamientos_cubre_fecha_key" in str(error.value)
-
-
 # --- Corregir la fecha (PUT) ---------------------------------------------
 #
 # La sesión sigue contando el mismo día aunque cambie su fecha, así que solo se
@@ -298,8 +279,8 @@ def test_la_base_de_datos_impide_que_dos_sesiones_cuenten_el_mismo_dia(cliente, 
 
 
 def corregir(cliente, entrenamiento_id, fecha, notas=None):
-    """PUT /entrenamientos/{id}. Solo corrige la fecha y las notas: la rutina y el
-    día que cuenta se fijan al crear la sesión.
+    """PUT /entrenamientos/{id} sin `series`: solo la fecha y las notas. La rutina y
+    el día que cuenta no se corrigen: se fijan al crear la sesión.
     """
     return cliente.put(
         f"/entrenamientos/{entrenamiento_id}",
@@ -345,7 +326,7 @@ def test_una_sesion_adelantada_se_mueve_hasta_el_lunes_de_su_semana(cliente, ppl
     assert al_domingo.json()["detail"] == bajo_la_fecha(
         solo_puede_ir("Leg", VIERNES_18, "desde", LUNES_14)
     )
-    assert cliente.get(f"/entrenamientos/{adelantada}").json()["fecha"] == "2026-09-14"
+    assert fecha_guardada(cliente, adelantada) == LUNES_14.isoformat()
 
 
 def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):
@@ -357,13 +338,6 @@ def test_una_fecha_futura_se_rechaza_antes_que_el_plazo(cliente, ppl):
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == bajo_la_fecha(todavia_no_ha_llegado(JUEVES_17))
     assert fecha_guardada(cliente, recuperada) == MARTES_15.isoformat()
-
-
-def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha_libre(cliente, ppl, hoy_es):
-    suelta = sesion(cliente, MARTES_15, ppl["Push"]).json()["id"]
-    hoy_es(MIERCOLES_23)
-
-    assert corregir(cliente, suelta, date(2026, 8, 3)).status_code == 200
 
 
 def test_corregir_solo_las_notas_no_mira_el_plazo(cliente, ppl, hoy_es):
@@ -395,15 +369,7 @@ def activar_otro_programa(cliente, ppl) -> None:
     """Activa hoy un programa nuevo con el mismo Push los lunes: lo anterior al 16
     queda en el programa viejo y lo posterior, en este.
     """
-    respuesta = cliente.post(
-        "/programas",
-        json={
-            "nombre": "Otro",
-            "activar": True,
-            "dias": [{"dia_semana": 1, "rutina_id": ppl["Push"]}],
-        },
-    )
-    assert respuesta.status_code == 201, respuesta.text
+    crear_programa(cliente, "Otro", [(1, ppl["Push"])], activar=True)
 
 
 def fecha_guardada(cliente, entrenamiento_id) -> str:

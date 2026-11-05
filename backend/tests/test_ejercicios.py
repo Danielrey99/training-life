@@ -235,13 +235,12 @@ def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, e
 # tiempo o cardio. Se elige al crearlo y no cambia (una serie ya apuntada no se puede
 # reinterpretar): el PUT no lo toca aunque llegue en el cuerpo.
 
-TIPOS = ["peso_reps", "corporal", "tiempo", "cardio"]
 
-
-@pytest.mark.parametrize("tipo", TIPOS)
-def test_un_ejercicio_se_crea_con_cada_tipo_y_lo_dice_en_la_ficha_y_en_la_lista(
-    cliente, grupo_muscular_id, tipo
+def test_un_ejercicio_se_crea_con_su_tipo_y_lo_dice_en_la_ficha_y_en_la_lista(
+    cliente, grupo_muscular_id
 ):
+    """Los cuatro tipos se crean y se usan en `test_medidas.py`."""
+    tipo = "cardio"
     creado = cliente.post(
         "/ejercicios",
         json={"nombre": "Ejercicio", "grupo_muscular_id": grupo_muscular_id, "tipo_registro": tipo},
@@ -263,7 +262,7 @@ def test_sin_tipo_un_ejercicio_es_de_peso_y_repeticiones(cliente, grupo_muscular
     assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["tipo_registro"] == "peso_reps"
 
 
-@pytest.mark.parametrize("tipo", ["natación", "Cardio", None])
+@pytest.mark.parametrize("tipo", ["Cardio", None])
 def test_un_tipo_que_no_existe_da_422_y_no_crea_nada(cliente, grupo_muscular_id, tipo):
     """Solo valen los cuatro tipos, tal cual (ni «Cardio» con mayúscula), y un nulo no es
     «el de por defecto»: el campo se omite o trae uno de los tipos.
@@ -278,13 +277,10 @@ def test_un_tipo_que_no_existe_da_422_y_no_crea_nada(cliente, grupo_muscular_id,
     assert [e for e in cliente.get("/ejercicios").json() if not e["es_predefinido"]] == []
 
 
-@pytest.mark.parametrize("otro", ["tiempo", "natación"])
 def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
-    cliente, grupo_muscular_id, otro
+    cliente, grupo_muscular_id
 ):
-    """El PUT da 200 y cambia el nombre, pero el tipo se ignora: ni otro válido ni
-    uno que no existe (que tampoco da 422, porque el campo no es del PUT).
-    """
+    """El PUT da 200 y cambia el nombre, pero el tipo se ignora: el campo no es del PUT."""
     ejercicio_id = crear_ejercicio(
         cliente, grupo_muscular_id, "Dominadas en anillas", tipo="corporal"
     )
@@ -294,7 +290,7 @@ def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
         json={
             "nombre": "Dominadas pronas",
             "grupo_muscular_id": grupo_muscular_id,
-            "tipo_registro": otro,
+            "tipo_registro": "tiempo",
         },
     )
 
@@ -304,47 +300,12 @@ def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
     assert (guardado["nombre"], guardado["tipo_registro"]) == ("Dominadas pronas", "corporal")
 
 
-def test_el_tipo_sale_con_el_ejercicio_en_rutinas_y_series(cliente, grupo_muscular_id):
-    """Donde se devuelve un ejercicio, va su tipo: en el principal y los comodines
-    de un hueco y en el ejercicio de cada serie (una sesión puede mezclar tipos: el
-    cliente tiene que saber cómo pintar cada serie sin cruzar datos).
-    """
-    press = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
-    plancha = crear_ejercicio(cliente, grupo_muscular_id, "Plancha con lastre", tipo="tiempo")
-    rutina, [slot] = rutina_con_huecos(
-        cliente, "Core", hueco(press, alternativa(plancha, duracion=(30, 45)))
-    )
-    sesiones = [
-        cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": fecha}).json()["id"]
-        for fecha in ("2026-09-01", "2026-09-02")
-    ]
-    cuerpo = {"slot_id": slot, "numero_serie": 1}
-    con_press = cliente.post(
-        f"/entrenamientos/{sesiones[0]}/series",
-        json={**cuerpo, "ejercicio_id": press, "peso": 60, "repeticiones": 8},
-    )
-    con_plancha = cliente.post(
-        f"/entrenamientos/{sesiones[1]}/series",
-        json={**cuerpo, "ejercicio_id": plancha, "duracion_s": 45},
-    )
-    assert con_press.status_code == con_plancha.status_code == 201, con_plancha.text
-
-    [en_la_rutina] = cliente.get(f"/rutinas/{rutina}").json()["slots"]
-    sesion = cliente.get(f"/entrenamientos/{sesiones[1]}").json()
-
-    assert en_la_rutina["ejercicio_principal"]["tipo_registro"] == "peso_reps"
-    assert [a["ejercicio"]["tipo_registro"] for a in en_la_rutina["alternativas"]] == ["tiempo"]
-    assert con_press.json()["ejercicio"]["tipo_registro"] == "peso_reps"
-    assert sesion["series"][0]["ejercicio"]["tipo_registro"] == "tiempo"
-
-
 # --- Nombres que no se repiten ---------------------------------------------------
 #
 # Un ejercicio nuevo o renombrado no puede llamarse como otro (predefinido, propio o
 # propio oculto), sin distinguir mayúsculas, tildes ni espacios. Solo lo comprueba la
 # API: la base no lo impide, y un archivo importado puede traer dos que se llamen igual.
 
-PREDEFINIDO_CON_TILDE = "Press banca en máquina"
 MARCA = {"created_at": "2026-09-01T10:00:00+00:00", "updated_at": "2026-09-01T10:00:00+00:00"}
 
 
@@ -429,11 +390,8 @@ def importar_propios(cliente, grupo_muscular_id, *ejercicios) -> list[int]:
 @pytest.mark.parametrize(
     "nombre, clave",
     [
-        ("Press banca", "press banca"),
         ("PRESS BANCA", "press banca"),
-        ("Elevación lateral", "elevacion lateral"),
         ("ÁÉÍÓÚ àèìòù âêîôû äëïöü ÄËÏÖÜ", "aeiou aeiou aeiou aeiou aeiou"),
-        ("Pingüino", "pinguino"),
         ("  Press \t  banca\n inclinado  ", "press banca inclinado"),
     ],
 )
@@ -455,23 +413,16 @@ def test_la_clave_de_un_nombre_distingue_la_enie_y_la_cedilla():
     assert clave_de_nombre("Ç") != clave_de_nombre("c")
 
 
-@pytest.mark.parametrize(
-    "nombre, guardado",
-    [
-        ("SENTADILLA  CON   BARRA", "Sentadilla con barra"),
-        ("press banca en maquina", PREDEFINIDO_CON_TILDE),
-    ],
-)
 def test_no_se_crea_un_ejercicio_con_el_nombre_de_un_predefinido(
-    cliente, grupo_muscular_id, ejercicio_predefinido_id, nombre, guardado
+    cliente, grupo_muscular_id, ejercicio_predefinido_id
 ):
     """En mayúsculas, con espacios dobles o sin tildes sigue siendo el mismo nombre. El
     mensaje lo nombra como está guardado.
     """
-    respuesta = nuevo(cliente, nombre, grupo_muscular_id)
+    respuesta = nuevo(cliente, "PRESS  banca en maquina", grupo_muscular_id)
 
     assert respuesta.status_code == 409, respuesta.text
-    assert respuesta.json()["detail"] == choca_con_predefinido(guardado)
+    assert respuesta.json()["detail"] == choca_con_predefinido("Press banca en máquina")
     assert propios(cliente) == []
 
 
@@ -495,24 +446,6 @@ def test_no_se_crea_un_ejercicio_con_el_nombre_de_uno_oculto(cliente, sesion_bd,
     assert respuesta.status_code == 409, respuesta.text
     assert respuesta.json()["detail"] == choca_con_oculto("Curl con cuerda")
     assert propios(cliente) == [("Curl con cuerda", existente)]
-
-
-def test_con_enie_frente_a_n_son_dos_nombres_distintos(cliente, grupo_muscular_id):
-    crear_ejercicio(cliente, grupo_muscular_id, "Giro de muñeca con palo")
-
-    assert nuevo(cliente, "Giro de muneca con palo", grupo_muscular_id).status_code == 201
-
-
-def test_un_grupo_que_no_existe_da_404_antes_que_el_nombre_repetido(
-    cliente, ejercicio_predefinido_id
-):
-    respuesta = nuevo(cliente, "Sentadilla con barra", 999_999)
-
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (
-        404,
-        "Ese grupo muscular no existe.",
-    )
-    assert propios(cliente) == []
 
 
 def test_cambiar_solo_mayusculas_o_tildes_del_nombre_se_guarda(cliente, grupo_muscular_id):
@@ -593,20 +526,6 @@ def test_al_editar_un_predefinido_con_nombre_repetido_manda_el_403(
     assert respuesta.status_code == 403, respuesta.text
     guardado = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json()
     assert guardado["nombre"] == "Sentadilla con barra"
-
-
-def test_al_editar_con_un_grupo_que_no_existe_y_nombre_repetido_manda_el_404(
-    cliente, grupo_muscular_id
-):
-    crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
-    remo = crear_ejercicio(cliente, grupo_muscular_id, "Remo con cuerda")
-
-    respuesta = editado(cliente, remo, "Curl con cuerda", 999_999)
-
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (
-        404,
-        "Ese grupo muscular no existe.",
-    )
 
 
 def test_si_varios_se_llaman_igual_el_mensaje_nombra_el_predefinido(

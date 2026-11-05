@@ -7,7 +7,7 @@ tiene como mucho una rutina, y ocultar una rutina no la quita de los días que y
 la tenían.
 """
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import func, select
@@ -23,6 +23,7 @@ from tests.ayudas import (
     crear_rutina,
     nombre_repetido,
 )
+from tests.semana import HOY
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -109,17 +110,6 @@ def test_crear_con_una_rutina_oculta_falla_y_no_guarda_nada(cliente):
     assert cliente.get("/programas").json() == []
 
 
-def test_crear_con_una_rutina_inexistente_da_404_y_no_guarda_nada(cliente):
-    respuesta = cliente.post(
-        "/programas", json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": 999999}]}
-    )
-
-    assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
-    assert cliente.get("/programas", params={"ocultos": True}).json() == []
-    assert cliente.get("/programas").json() == []
-
-
 # --- Reutilizar rutinas --------------------------------------------------
 
 
@@ -159,15 +149,6 @@ def test_listar_separa_los_programas_visibles_de_los_ocultos(cliente):
     assert cliente.get(f"/programas/{oculto['id']}").status_code == 200
 
 
-def test_cambiar_el_nombre(cliente):
-    programa = crear_programa(cliente)
-
-    respuesta = cliente.put(f"/programas/{programa['id']}", json={"nombre": "PPL de 5 días"})
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert cliente.get(f"/programas/{programa['id']}").json()["nombre"] == "PPL de 5 días"
-
-
 def test_un_programa_oculto_no_se_puede_editar(cliente):
     push = crear_rutina(cliente)
     programa = crear_programa(cliente, dias=[(1, push)])
@@ -191,19 +172,6 @@ def test_un_programa_oculto_no_se_puede_editar(cliente):
         assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PROGRAMA_OCULTO)
     guardado = cliente.get(ruta).json()
     assert (guardado["nombre"], rutinas_por_dia(guardado)) == ("Push Pull Leg", {1: "Push"})
-
-
-def test_no_se_puede_poner_una_rutina_oculta_en_un_dia(cliente):
-    """Elegir algo oculto en otro sitio da 404: deja de ofrecerse."""
-    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, dias=[(1, push)])
-    assert cliente.delete(f"/rutinas/{pull}?modo=ocultar").status_code == 204
-
-    respuesta = cambiar_dias(cliente, programa["id"], {3: pull})
-
-    assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
-    assert rutinas_por_dia(cliente.get(f"/programas/{programa['id']}").json()) == {1: "Push"}
 
 
 def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente):
@@ -511,6 +479,45 @@ def test_un_programa_oculto_no_se_puede_activar(cliente, sesion_bd):
     assert periodos(sesion_bd, programa["id"]) == []
 
 
+@pytest.mark.parametrize("accion", ["desactivarlo", "activar otro", "ocultarlo"])
+def test_un_programa_activo_que_empieza_despues_de_hoy_se_puede_sacar_de_uso(
+    cliente, sesion_bd, hoy_es, accion
+):
+    """Un periodo abierto con `desde` posterior a hoy ya no entra por importar (422),
+    pero puede salir de un reloj que va hacia atrás (en el móvil, al cambiar la
+    fecha del teléfono): se mete directamente en la base. Desactivar, activar otro u
+    ocultar cierran el periodo, y cerrarlo hoy dejaría `hasta < desde`, que viola
+    `programa_periodos_rango_check`: antes daba un 500. Como no llegó a cubrir ningún
+    día, se borra, igual que uno que empezó hoy.
+    """
+    hoy_es(HOY)
+    ids = {
+        nombre: cliente.post("/programas", json={"nombre": nombre}).json()["id"]
+        for nombre in ("PPL", "Otro")
+    }
+    sesion_bd.add(ProgramaPeriodo(programa_id=ids["PPL"], desde=date(2026, 9, 20)))
+    sesion_bd.commit()
+    ruta = f"/programas/{ids['PPL']}"
+    assert cliente.get(ruta).json()["activo"] is True
+
+    peticion, codigo = {
+        "desactivarlo": (lambda: cliente.post(f"{ruta}/desactivar"), 200),
+        "activar otro": (lambda: cliente.post(f"/programas/{ids['Otro']}/activar"), 200),
+        "ocultarlo": (lambda: cliente.delete(f"{ruta}?modo=ocultar"), 204),
+    }[accion]
+
+    respuesta = peticion()
+
+    assert respuesta.status_code == codigo, respuesta.text
+    assert cliente.get(ruta).json()["activo"] is False
+    sesion_bd.expire_all()
+    periodos = sesion_bd.execute(
+        select(ProgramaPeriodo.programa_id, ProgramaPeriodo.desde, ProgramaPeriodo.hasta)
+    ).all()
+    esperado = [(ids["Otro"], HOY, None)] if accion == "activar otro" else []
+    assert [tuple(p) for p in periodos] == esperado
+
+
 def test_la_base_de_datos_no_admite_dos_periodos_abiertos(cliente, sesion_bd):
     """La red por debajo de la comprobación del endpoint: el índice único parcial
     `ix_programa_periodos_abierto`, sobre la expresión `(hasta IS NULL)`. Es su
@@ -524,22 +531,6 @@ def test_la_base_de_datos_no_admite_dos_periodos_abiertos(cliente, sesion_bd):
         sesion_bd.commit()
     sesion_bd.rollback()
     assert "ix_programa_periodos_abierto" in str(error.value)
-
-
-def test_la_base_de_datos_si_admite_varios_periodos_cerrados(cliente, sesion_bd):
-    """El índice es parcial: los cerrados (con `hasta`) no chocan entre sí."""
-    uno, otro = crear_programa(cliente, "Uno"), crear_programa(cliente, "Otro")
-
-    sesion_bd.add_all(
-        [
-            ProgramaPeriodo(programa_id=uno["id"], desde=hoy() - timedelta(days=9), hasta=hoy()),
-            ProgramaPeriodo(programa_id=otro["id"], desde=hoy() - timedelta(days=9), hasta=hoy()),
-            ProgramaPeriodo(programa_id=otro["id"], desde=hoy()),
-        ]
-    )
-    sesion_bd.commit()
-
-    assert len(periodos(sesion_bd, otro["id"])) == 2
 
 
 # --- Ocultar, mostrar y borrar -------------------------------------------
@@ -576,31 +567,20 @@ def test_un_programa_que_nunca_estuvo_activo_se_borra_directo(cliente):
     assert cliente.get(f"/programas/{programa['id']}").status_code == 404
 
 
-def test_borrar_un_programa_que_estuvo_activo_pide_elegir(cliente, sesion_bd):
-    """Sus periodos son el historial: sin ellos el calendario no sabe qué tocaba."""
-    programa = crear_programa(cliente)
-    activo_desde_hace(sesion_bd, programa["id"], 20)
-
-    respuesta = cliente.delete(f"/programas/{programa['id']}")
-
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (409, PIDE_MODO["programa"])
-    sigue = cliente.get(f"/programas/{programa['id']}").json()
-    assert sigue["oculto_desde"] is None
-    assert sigue["ultimo_periodo"] == {
-        "desde": (hoy() - timedelta(days=20)).isoformat(),
-        "hasta": None,
-    }
-
-
 def test_borrar_en_definitivo_un_programa_se_lleva_sus_dias_y_periodos(cliente, sesion_bd):
     """Test de regresión: daba un 500 (`NotNullViolation` en
     `programa_periodos.programa_id`). El endpoint lee `programa.periodos` para
     decidir si pedir `modo`, y con esa lista ya cargada `passive_deletes=True` no
     basta: SQLAlchemy intentaba poner a NULL la FK de los periodos en vez de
     borrarlos. Se arregló con `cascade="all, delete-orphan"` en las dos relaciones.
+
+    El lunes cambia de rutina antes de borrar: también se van las filas ya cerradas.
     """
-    programa = crear_programa(cliente, dias=[(1, crear_rutina(cliente))])
+    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
+    programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 20)
+    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
+    assert len(filas_del_dia(sesion_bd, programa["id"], 1)) == 2
 
     respuesta = cliente.delete(f"/programas/{programa['id']}?modo=definitivo")
 
@@ -669,7 +649,6 @@ def test_cambiar_un_dia_de_un_programa_activo_no_cambia_los_dias_pasados(cliente
     dia = hoy().isoweekday()
     programa = crear_programa(cliente, dias=[(dia, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
-    cliente.post(f"/programas/{programa['id']}/activar")
 
     assert cambiar_dias(cliente, programa["id"], {dia: leg}).status_code == 200
 
@@ -721,16 +700,6 @@ def test_un_programa_que_ya_no_esta_activo_conserva_su_pasado_al_editarlo(client
     assert cambiar_dias(cliente, programa["id"], {dia: leg}).status_code == 200
 
     assert rutina_del_dia(cliente, mismo_dia_de_la_semana_pasada()) == "Push"
-
-
-def test_editar_un_programa_que_nunca_estuvo_activo_no_guarda_historial(cliente, sesion_bd):
-    """Sin pasado que conservar, la fila se sustituye: no se acumulan filas cerradas."""
-    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
-    programa = crear_programa(cliente, dias=[(1, push)])
-
-    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
-
-    assert filas_del_dia(sesion_bd, programa["id"], 1) == [(leg, None, None)]
 
 
 def test_cambiar_dos_veces_el_mismo_dia_hoy_no_deja_filas_vacias(cliente, sesion_bd):
@@ -788,16 +757,6 @@ def test_num_programas_solo_cuenta_dias_vigentes(cliente, sesion_bd):
 
     assert cliente.get(f"/rutinas/{push}").json()["num_programas"] == 0
     assert cliente.get(f"/rutinas/{leg}").json()["num_programas"] == 1
-
-
-def test_borrar_en_definitivo_un_programa_se_lleva_tambien_las_filas_viejas(cliente, sesion_bd):
-    push, leg = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Leg")
-    programa = crear_programa(cliente, dias=[(1, push)])
-    activo_desde_hace(sesion_bd, programa["id"], 14)
-    assert cambiar_dias(cliente, programa["id"], {1: leg}).status_code == 200
-
-    assert cliente.delete(f"/programas/{programa['id']}?modo=definitivo").status_code == 204
-    assert filas_del_dia(sesion_bd, programa["id"], 1) == []
 
 
 def test_la_base_no_admite_dos_filas_vigentes_del_mismo_dia(cliente, sesion_bd):

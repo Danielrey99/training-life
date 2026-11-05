@@ -21,7 +21,6 @@ import pytest
 
 from app.models import Serie
 from tests.ayudas import (
-    ELEGIDO_YA_NO_EXISTE,
     SERIE_DEL_DIA_YA_NO_EXISTE,
     ejercicio_oculto,
     bajo_la_fecha,
@@ -334,15 +333,19 @@ def test_mover_al_dia_de_una_cancelada_con_series_nuevas_la_borra(cliente, push)
 
 
 def test_la_fecha_se_valida_antes_que_las_series(cliente, push):
-    """Una fecha futura y una serie de otra sesión: el aviso es el de la fecha."""
+    """Una fecha futura y una serie de otra sesión: el aviso es el de la fecha, y la
+    sesión no se mueve al futuro.
+    """
     otra = dia_con(cliente, push, LUNES_14)
     dia = dia_con(cliente, push)
+    antes = foto(cliente, dia)
     ajena = {**como_van(cliente, otra)[0]}
 
     respuesta = guardar(cliente, dia, [ajena], fecha=JUEVES_17)
 
     assert respuesta.status_code == 422
     assert respuesta.json()["detail"] == bajo_la_fecha(todavia_no_ha_llegado(JUEVES_17))
+    assert foto(cliente, dia) == antes
 
 
 # --- Mover la fecha muy lejos ------------------------------------------------------
@@ -390,21 +393,14 @@ def test_una_sesion_antigua_que_cuenta_un_dia_no_se_mueve_a_hoy(cliente, push, h
     assert foto(cliente, dia) == antes
 
 
-@pytest.mark.parametrize(
-    "desde, hasta",
-    [(HOY, HACE_MAS_DE_400_DIAS), (HACE_MAS_DE_400_DIAS, HOY)],
-    ids=["hacia atrás", "hacia delante"],
-)
-def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha(
-    cliente, push, desde, hasta
-):
+def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha(cliente, push):
     """Sin día que contar no hay plazo: la fecha solo choca con el futuro o con otra."""
-    dia = dia_con(cliente, push, desde)
+    dia = dia_con(cliente, push, HOY)
 
-    respuesta = guardar(cliente, dia, como_van(cliente, dia), fecha=hasta)
+    respuesta = guardar(cliente, dia, como_van(cliente, dia), fecha=HACE_MAS_DE_400_DIAS)
 
     assert respuesta.status_code == 200, respuesta.text
-    assert leer(cliente, dia)["fecha"] == hasta.isoformat()
+    assert leer(cliente, dia)["fecha"] == HACE_MAS_DE_400_DIAS.isoformat()
 
 
 # --- Ids de series que no son de este día ----------------------------------------
@@ -496,6 +492,11 @@ def test_cambiar_el_ejercicio_de_todas_las_series_de_un_hueco_vale(cliente, push
     )
 
     assert respuesta.status_code == 200, respuesta.text
+    assert [(s["id"], s["ejercicio_id"]) for s in como_van(cliente, dia)] == [
+        (primera["id"], push["inclinado"]),
+        (segunda["id"], push["inclinado"]),
+        (fondos["id"], push["fondos"]),
+    ]
 
 
 @pytest.mark.parametrize("como", ["serie nueva", "serie cambiada"])
@@ -568,13 +569,10 @@ def test_mover_una_serie_a_un_hueco_con_otro_ejercicio_da_422_y_no_guarda_nada(c
 
 
 @pytest.mark.parametrize("que", ["ejercicio oculto", "hueco oculto", "ya no es alternativa"])
-@pytest.mark.parametrize("corregida", [False, True], ids=["igual", "con otro peso"])
-def test_una_serie_guardada_se_sigue_guardando_aunque_ya_no_se_pudiera_elegir(
-    cliente, push, que, corregida
-):
+def test_una_serie_guardada_se_sigue_guardando_aunque_ya_no_se_pudiera_elegir(cliente, push, que):
     """Las series de Press inclinado en `a`, y después el ejercicio se oculta, el hueco
-    se oculta o deja de ser alternativa. Guardar el día con ellas (igual o con otro
-    peso) vale: no se elige nada nuevo.
+    se oculta o deja de ser alternativa. Guardar el día con ellas (una con otro peso y
+    otra igual) vale: no se elige nada nuevo.
     """
     dia = dia_con(
         cliente,
@@ -589,44 +587,38 @@ def test_una_serie_guardada_se_sigue_guardando_aunque_ya_no_se_pudiera_elegir(
     else:
         poner_alternativas(cliente, push["rutina"], push["a"], [])
     series = como_van(cliente, dia)
-    if corregida:
-        series[0]["peso"] = 55
+    series[0]["peso"] = 55
 
     respuesta = guardar(cliente, dia, series, notas="Corregido")
 
     assert respuesta.status_code == 200, respuesta.text
-    assert como_van(cliente, dia)[0]["peso"] == ("55.00" if corregida else "50.00")
+    assert [s["peso"] for s in como_van(cliente, dia)[:2]] == ["55.00", "50.00"]
 
 
 @pytest.mark.parametrize(
     "que, esperado",
     [
         ("ejercicio oculto", (404, ejercicio_oculto("Press inclinado"))),
-        ("ejercicio inexistente", (404, ELEGIDO_YA_NO_EXISTE)),
         ("hueco oculto", (404, NO_ESTA_EN_LA_RUTINA)),
         ("hueco de otra rutina", (404, NO_ESTA_EN_LA_RUTINA)),
-        ("hueco inexistente", (404, NO_ESTA_EN_LA_RUTINA)),
         ("ejercicio que no es del hueco", (422, NO_ES_DEL_HUECO)),
     ],
 )
-def test_una_serie_nueva_valida_como_al_apuntarla_suelta(
-    cliente, push, grupo_muscular_id, que, esperado
-):
+def test_una_serie_nueva_valida_como_al_apuntarla_suelta(cliente, push, que, esperado):
+    """Usa las mismas comprobaciones: un ejercicio o un hueco que no existen, en
+    `test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada`.
+    """
     dia = dia_con(cliente, push)
     antes = foto(cliente, dia)
     nueva = serie(push["inclinado"], push["a"], 3, 50)
     if que == "ejercicio oculto":
         ocultar_ejercicio(cliente, push["inclinado"])
-    elif que == "ejercicio inexistente":
-        nueva["ejercicio_id"] = 999_999
     elif que == "hueco oculto":
         ocultar_hueco(cliente, push["rutina"], push["b"])
         nueva = serie(push["fondos"], push["b"], 2, 10, 10)
     elif que == "hueco de otra rutina":
         otra = crear_rutina(cliente, "Pull")
         nueva = serie(push["fondos"], crear_hueco(cliente, otra, push["fondos"]), 2, 10, 10)
-    elif que == "hueco inexistente":
-        nueva["slot_id"] = 999_999
     else:
         nueva = serie(push["fondos"], push["a"], 3, 10, 10)
     # Sin las series que ya había en ese hueco: el fallo no puede ser el de mezclar.

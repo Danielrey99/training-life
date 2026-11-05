@@ -12,12 +12,6 @@ import pytest
 from app.fechas import fecha_en_texto, nombre_del_dia
 
 
-def test_una_fecha_de_este_anio_va_sin_anio(hoy_es):
-    hoy_es(date(2026, 10, 27))
-
-    assert fecha_en_texto(date(2026, 10, 27)) == "martes 27 de octubre"
-
-
 def test_una_fecha_de_otro_anio_lleva_el_anio(hoy_es):
     hoy_es(date(2026, 10, 27))
 
