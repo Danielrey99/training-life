@@ -14,7 +14,14 @@ import pytest
 from sqlalchemy import func, select
 
 from app.models import Programa, Rutina, RutinaSlot
-from tests.ayudas import crear_ejercicio, crear_rutina, importar_rutinas_y_programas, objetivo
+from tests.ayudas import (
+    crear_ejercicio,
+    crear_rutina,
+    ejercicio_oculto,
+    importar_rutinas_y_programas,
+    nombre_repetido,
+    objetivo,
+)
 
 # Lo que cambia entre rutinas y programas: la ruta, el parámetro de la lista de ocultos,
 # el modelo y los textos (rutina es femenino y programa masculino).
@@ -79,12 +86,12 @@ def nombres(sesion_bd, tipo) -> list[str]:
     return list(sesion_bd.scalars(select(modelo.nombre).order_by(modelo.id)))
 
 
-def choca(tipo, nombre) -> str:
-    return TIPOS[tipo]["visible"].format(nombre)
+def choca(tipo, nombre) -> dict:
+    return nombre_repetido(TIPOS[tipo]["visible"].format(nombre))
 
 
-def choca_con_oculto(tipo, nombre) -> str:
-    return TIPOS[tipo]["oculto"].format(nombre)
+def choca_con_oculto(tipo, nombre) -> dict:
+    return nombre_repetido(TIPOS[tipo]["oculto"].format(nombre))
 
 
 def importar(cliente, tipo, *filas) -> list[int]:
@@ -146,7 +153,8 @@ def test_una_rutina_y_un_programa_pueden_llamarse_igual(cliente, sesion_bd):
     assert crear(cliente, "rutina", "Full body").status_code == 201
     assert crear(cliente, "programa", "FULL BODY").status_code == 201
     programa = creado(cliente, "programa", "Otro")
-    assert renombrar(cliente, "programa", programa, "full body ").status_code == 409
+    choque = renombrar(cliente, "programa", programa, "full body ")
+    assert (choque.status_code, choque.json()["detail"]) == (409, choca("programa", "FULL BODY"))
     assert renombrar(cliente, "programa", programa, "Otro programa").status_code == 200
     assert nombres(sesion_bd, "rutina") == ["Full body"]
     assert nombres(sesion_bd, "programa") == ["FULL BODY", "Otro programa"]
@@ -196,7 +204,10 @@ def test_con_un_ejercicio_oculto_y_nombre_repetido_gana_el_404_del_ejercicio(
 
     respuesta = cliente.post("/rutinas", json={"nombre": "Pierna", "slots": [hueco(oculto)]})
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        404,
+        ejercicio_oculto("Ejercicio oculto de prueba"),
+    )
     assert filas_guardadas(sesion_bd) == (1, 0)
 
 
@@ -205,13 +216,16 @@ def test_con_un_objetivo_mal_puesto_y_nombre_repetido_gana_el_422_del_objetivo(
 ):
     crear_rutina(cliente, "Pierna")
     # De peso y repeticiones, con el objetivo en segundos.
-    sentadilla = crear_ejercicio(cliente, grupo_muscular_id, "Ejercicio de prueba")
-    mal = hueco(sentadilla, **objetivo(duracion=(30, 60)))
+    ejercicio = crear_ejercicio(cliente, grupo_muscular_id, "Ejercicio de prueba")
+    mal = hueco(ejercicio, **objetivo(duracion=(30, 60)))
 
     respuesta = cliente.post("/rutinas", json={"nombre": "Pierna", "slots": [mal]})
 
-    assert respuesta.status_code == 422, respuesta.text
-    assert "Elige otro nombre" not in respuesta.text
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        "El objetivo de «Ejercicio de prueba» va en repeticiones y no en tiempo, porque"
+        " «Ejercicio de prueba» se apunta con peso y repeticiones.",
+    )
     assert filas_guardadas(sesion_bd) == (1, 0)
 
 
@@ -280,7 +294,9 @@ def test_renombrar_con_el_nombre_de_uno_oculto_da_el_409_de_oculto(cliente, sesi
 def test_renombrar_uno_oculto_con_nombre_repetido_da_el_409_de_que_esta_oculto(
     cliente, sesion_bd, tipo
 ):
-    """Primero se mira que se pueda editar: el nombre, después."""
+    """Primero se mira que se pueda editar: el nombre, después. Por eso es un texto sin
+    más, sin `campo`: no es un fallo del nombre.
+    """
     creado(cliente, tipo, "Torso")
     pierna = creado(cliente, tipo, "Pierna")
     ocultar(cliente, tipo, pierna)

@@ -35,6 +35,32 @@ PIDE_MODO = {
 }
 
 
+# Los 404 con las palabras de la app. Lo que falta por la ruta dice «ya no existe»; lo
+# elegido en el cuerpo se nombra si existe (oculto), y si no, no se puede: solo hay id.
+
+EJERCICIO_YA_NO_EXISTE = "Este ejercicio ya no existe. Puede que lo hayas borrado."
+ELEGIDO_YA_NO_EXISTE = "Uno de los ejercicios que has elegido ya no existe. Elige otro en su lugar."
+SERIE_YA_NO_EXISTE = "Esa serie ya no existe. Puede que la hayas borrado."
+SERIE_DEL_DIA_YA_NO_EXISTE = (
+    "Una de las series de este día ya no existe. Pulsa Cancelar y vuelve a editar el día."
+)
+
+
+def ejercicio_oculto(nombre) -> str:
+    """El 404 de elegir un ejercicio oculto."""
+    return (
+        f"«{nombre}» está oculto, así que no se puede elegir. Muéstralo desde la pestaña"
+        " Ejercicios o elige otro."
+    )
+
+
+def nombre_repetido(mensaje) -> dict:
+    """El `detail` del 409 de un nombre repetido: marcado con `campo` para enseñarlo bajo
+    el nombre. El de editar algo oculto, en cambio, es un texto sin más.
+    """
+    return {"mensaje": mensaje, "campo": "nombre"}
+
+
 # Los 422 de fechas que salen en más de un endpoint, con el texto exacto: comparar
 # solo un trozo dejaría pasar una frase rota. Las fechas van como las escribe la web
 # («martes 15 de septiembre»), con `fecha_en_texto`, que tiene sus propios tests con
@@ -242,6 +268,12 @@ def ids_de_alternativas(hueco: dict) -> list[int]:
 def ocultar_hueco(cliente, rutina_id, slot_id) -> None:
     """Oculta el hueco (`?modo=ocultar`); falla si la API no da 204."""
     respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{slot_id}?modo=ocultar")
+    assert respuesta.status_code == 204, respuesta.text
+
+
+def ocultar_ejercicio(cliente, ejercicio_id) -> None:
+    """Oculta el ejercicio (`?modo=ocultar`); falla si la API no da 204."""
+    respuesta = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar")
     assert respuesta.status_code == 204, respuesta.text
 
 

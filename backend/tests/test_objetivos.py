@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError
 from app.fechas import hoy
 from app.models import RutinaSlot, SlotAlternativa
 from tests.ayudas import (
+    ELEGIDO_YA_NO_EXISTE,
     CAMPOS_DEL_OBJETIVO,
     alternativa,
     crear_ejercicio,
@@ -450,7 +451,7 @@ def test_un_ejercicio_que_no_existe_da_404_antes_que_un_objetivo_equivocado(
     else:
         respuesta = editar(cliente, e.rutina, slot, principal=e.press, alternativas=malas)
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, ELEGIDO_YA_NO_EXISTE)
     assert cuantos(sesion_bd) == antes
 
 

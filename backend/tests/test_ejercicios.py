@@ -13,6 +13,7 @@ import pytest
 
 from app.models import ProgramaDia
 from tests.ayudas import (
+    nombre_repetido,
     alternativa,
     consultas_de,
     crear_ejercicio,
@@ -220,7 +221,10 @@ def test_una_nota_de_otro_ejercicio_no_se_alcanza_por_la_ruta_de_este(cliente, e
     borrada = cliente.delete(f"/ejercicios/{remo}/notas/{nota['id']}")
 
     for respuesta in (editada, borrada):
-        assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Nota no encontrada")
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (
+            404,
+            "Esa nota ya no existe. Puede que la hayas borrado.",
+        )
     assert cliente.get(f"/ejercicios/{press}/notas").json() == [nota]
     assert cliente.get(f"/ejercicios/{remo}/notas").json() == []
 
@@ -344,19 +348,19 @@ PREDEFINIDO_CON_TILDE = "Press banca en máquina"
 MARCA = {"created_at": "2026-09-01T10:00:00+00:00", "updated_at": "2026-09-01T10:00:00+00:00"}
 
 
-def choca_con_predefinido(nombre) -> str:
-    return (
+def choca_con_predefinido(nombre) -> dict:
+    return nombre_repetido(
         f"Ya hay un ejercicio predefinido que se llama «{nombre}». Búscalo en la pestaña"
         " Ejercicios o elige otro nombre."
     )
 
 
-def choca_con_propio(nombre) -> str:
-    return f"Ya tienes un ejercicio que se llama «{nombre}». Elige otro nombre."
+def choca_con_propio(nombre) -> dict:
+    return nombre_repetido(f"Ya tienes un ejercicio que se llama «{nombre}». Elige otro nombre.")
 
 
-def choca_con_oculto(nombre) -> str:
-    return (
+def choca_con_oculto(nombre) -> dict:
+    return nombre_repetido(
         f"Ya tienes un ejercicio oculto que se llama «{nombre}». Muéstralo desde la pestaña"
         " Ejercicios o elige otro nombre."
     )
@@ -566,6 +570,7 @@ def test_un_propio_que_ya_se_llama_como_un_predefinido_se_sigue_pudiendo_editar(
 def test_al_editar_un_oculto_con_nombre_repetido_manda_el_409_de_oculto(
     cliente, sesion_bd, grupo_muscular_id
 ):
+    """Un texto sin más, sin `campo`: no es un fallo del nombre."""
     crear_ejercicio(cliente, grupo_muscular_id, "Curl con cuerda")
     oculto = crear_ejercicio(cliente, grupo_muscular_id, "Remo con cuerda")
     ocultar_en_la_base(sesion_bd, oculto)

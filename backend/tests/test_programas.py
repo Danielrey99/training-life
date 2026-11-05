@@ -15,7 +15,14 @@ from sqlalchemy.exc import IntegrityError
 
 from app.fechas import hoy
 from app.models import ProgramaDia, ProgramaPeriodo
-from tests.ayudas import PIDE_MODO, cambiar_dias, consultas_de, crear_programa, crear_rutina
+from tests.ayudas import (
+    PIDE_MODO,
+    cambiar_dias,
+    consultas_de,
+    crear_programa,
+    crear_rutina,
+    nombre_repetido,
+)
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -161,28 +168,6 @@ def test_cambiar_el_nombre(cliente):
     assert cliente.get(f"/programas/{programa['id']}").json()["nombre"] == "PPL de 5 días"
 
 
-def test_poner_una_rutina_en_un_dia_de_descanso_y_sustituir_otra(cliente):
-    push, pull = crear_rutina(cliente, "Push"), crear_rutina(cliente, "Pull")
-    programa = crear_programa(cliente, dias=[(1, push)])
-
-    respuesta = cambiar_dias(cliente, programa["id"], {1: pull, 3: pull})
-
-    assert respuesta.status_code == 200
-    assert rutinas_por_dia(respuesta.json()) == {1: "Pull", 3: "Pull"}
-
-
-def test_quitar_la_rutina_de_un_dia_lo_deja_en_descanso(cliente):
-    push = crear_rutina(cliente)
-    programa = crear_programa(cliente, dias=[(1, push)])
-
-    assert cambiar_dias(cliente, programa["id"], {1: None}).status_code == 200
-    assert cliente.get(f"/programas/{programa['id']}").json()["dias"] == []
-    # Ya era descanso: la semana llega igual y no cambia nada (antes, quitarlo otra vez
-    # con su ruta daba 404).
-    otra_vez = cambiar_dias(cliente, programa["id"], {1: None})
-    assert (otra_vez.status_code, otra_vez.json()["dias"]) == (200, [])
-
-
 def test_un_programa_oculto_no_se_puede_editar(cliente):
     push = crear_rutina(cliente)
     programa = crear_programa(cliente, dias=[(1, push)])
@@ -302,7 +287,7 @@ def test_un_nombre_repetido_da_409_y_no_cambia_los_dias(cliente):
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         409,
-        "Ya tienes un programa que se llama «Torso pierna». Elige otro nombre.",
+        nombre_repetido("Ya tienes un programa que se llama «Torso pierna». Elige otro nombre."),
     )
     assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
 
@@ -765,14 +750,22 @@ def test_cambiar_dos_veces_el_mismo_dia_hoy_no_deja_filas_vacias(cliente, sesion
     ]
 
 
-def test_poner_la_misma_rutina_no_parte_el_dia(cliente, sesion_bd):
+@pytest.mark.parametrize("dia", [1, 3], ids=["la misma rutina", "otra vez descanso"])
+def test_un_dia_que_llega_igual_no_parte_el_dia(cliente, sesion_bd, dia):
+    """El lunes con Push y el miércoles de descanso llegan como estaban: no se abre ni
+    se cierra ninguna fila (antes, quitar otra vez un día de descanso daba 404).
+    """
     push = crear_rutina(cliente, "Push")
     programa = crear_programa(cliente, dias=[(1, push)])
     activo_desde_hace(sesion_bd, programa["id"], 14)
 
-    assert cambiar_dias(cliente, programa["id"], {1: push}).status_code == 200
+    respuesta = cambiar_dias(cliente, programa["id"], {dia: push if dia == 1 else None})
 
-    assert filas_del_dia(sesion_bd, programa["id"], 1) == [(push, None, None)]
+    assert respuesta.status_code == 200, respuesta.text
+    assert {d: filas_del_dia(sesion_bd, programa["id"], d) for d in (1, 3)} == {
+        1: [(push, None, None)],
+        3: [],
+    }
 
 
 def test_el_programa_solo_ensena_sus_dias_vigentes(cliente, sesion_bd):

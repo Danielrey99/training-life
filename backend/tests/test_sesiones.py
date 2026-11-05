@@ -175,27 +175,6 @@ def test_no_se_puede_mover_una_sesion_a_un_dia_que_ya_tiene_otra(cliente, grupo_
     assert cliente.get(f"/entrenamientos/{de_ayer['id']}").json()["fecha"] == AYER.isoformat()
 
 
-def test_mover_una_sesion_al_dia_de_otra_ya_hecha_da_409_bajo_la_fecha(cliente, grupo_muscular_id):
-    anteayer = AYER - timedelta(days=1)
-    hecha = empezar(cliente, AYER)
-    con_una_serie(cliente, grupo_muscular_id, hecha["id"])
-    otra = empezar(cliente, anteayer)
-    con_una_serie(cliente, grupo_muscular_id, otra["id"])
-
-    respuesta = cliente.put(f"/entrenamientos/{otra['id']}", json={"fecha": AYER.isoformat()})
-
-    assert respuesta.status_code == 409
-    assert respuesta.json()["detail"] == {
-        "mensaje": f"El {en_texto(AYER)} ya tiene una sesión, y solo se hace una por día. Para"
-        " usar ese día, cambia antes la fecha de esa sesión desde su día en la pestaña"
-        " Historial.",
-        "campo": "fecha",
-        "entrenamiento_id": hecha["id"],
-        "en_curso": False,
-    }
-    assert cliente.get(f"/entrenamientos/{otra['id']}").json()["fecha"] == anteayer.isoformat()
-
-
 def test_mover_una_sesion_al_dia_de_una_cancelada_borra_la_cancelada(cliente, grupo_muscular_id):
     """Una sesión sin series de un día pasado está cancelada y no ocupa su fecha,
     tampoco al corregir la fecha de otra: se borra para dejar sitio, como al crear

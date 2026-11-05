@@ -22,7 +22,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from tests.ayudas import crear_ejercicio, crear_rutina, objetivo
+from tests.ayudas import crear_ejercicio, crear_rutina, ejercicio_oculto, objetivo
 
 FECHA = "2026-09-04"
 NEGATIVO = "El peso no puede ser negativo. Solo los ejercicios de peso corporal admiten ayuda."
@@ -411,7 +411,7 @@ def test_un_ejercicio_oculto_da_404_antes_que_sus_medidas(cliente, e):
     respuesta = apuntar(cliente, e, "plancha", peso=60, repeticiones=8)
 
     assert respuesta.status_code == 404, respuesta.text
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == ejercicio_oculto("Plancha con lastre")
 
 
 # --- Corregir una serie ---------------------------------------------------------
@@ -588,7 +588,10 @@ def test_el_peso_corporal_de_una_serie_de_un_ejercicio_oculto_se_puede_corregir(
     otra = apuntar(cliente, e, "dominadas", numero=2, peso=0, repeticiones=10)
     corregida = corregir(cliente, e, serie, "dominadas", peso=0, repeticiones=10, peso_corporal=82)
 
-    assert (otra.status_code, otra.json()["detail"]) == (404, "Ejercicio no encontrado")
+    assert (otra.status_code, otra.json()["detail"]) == (
+        404,
+        ejercicio_oculto("Dominadas en anillas"),
+    )
     assert corregida.status_code == 200, corregida.text
     assert corregida.json()["peso_corporal"] == "82.00"
 

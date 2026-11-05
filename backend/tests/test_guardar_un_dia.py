@@ -10,19 +10,27 @@ Cambiar de ejercicio en la sesión en curso borra de una vez las series de ese h
 `DELETE /entrenamientos/{id}/series?slot_id=N`.
 
 El reloj está congelado en el miércoles 16 de septiembre de 2026 (`tests/semana.py`)
-y la rutina no está en ningún programa, así que las sesiones no cuentan ningún día y
-la fecha solo choca con el futuro o con otra sesión.
+y la rutina no está en ningún programa, así que las sesiones no cuentan ningún día
+(salvo las que lo piden al moverse muy lejos) y la fecha solo choca con el futuro o
+con otra sesión.
 """
+
+from datetime import date
 
 import pytest
 
 from app.models import Serie
 from tests.ayudas import (
+    ELEGIDO_YA_NO_EXISTE,
+    SERIE_DEL_DIA_YA_NO_EXISTE,
+    ejercicio_oculto,
     bajo_la_fecha,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
+    dejar_planificado,
     en_texto,
+    ocultar_ejercicio,
     ocultar_hueco,
     poner_alternativas,
     todavia_no_ha_llegado,
@@ -85,11 +93,11 @@ def serie(ejercicio_id, slot_id, numero=1, peso=60, repeticiones=8, **campos) ->
     }
 
 
-def dia_con(cliente, push, fecha=MARTES_15, series=None) -> int:
+def dia_con(cliente, push, fecha=MARTES_15, series=None, cubre_fecha=None) -> int:
     """Una sesión de Push en esa fecha con sus series (por defecto, dos de Press banca
     en `a` y una de Fondos en `b`), apuntadas una a una. Devuelve su id.
     """
-    respuesta = sesion(cliente, fecha, push["rutina"])
+    respuesta = sesion(cliente, fecha, push["rutina"], cubre_fecha)
     assert respuesta.status_code == 201, respuesta.text
     sesion_id = respuesta.json()["id"]
     if series is None:
@@ -223,22 +231,21 @@ def test_sin_series_no_se_tocan_y_con_la_lista_vacia_se_borran_todas(cliente, pu
 # --- Todo o nada -------------------------------------------------------------------
 
 
-def test_una_serie_nueva_con_medidas_malas_da_422_y_no_guarda_nada(cliente, push):
+@pytest.mark.parametrize("cual", ["nueva", "cambiada"])
+def test_una_serie_con_medidas_malas_da_422_y_no_guarda_nada(cliente, push, cual):
     """La serie mala va la última: la fecha, la nota, la borrada y la cambiada que van
-    antes tampoco se guardan.
+    antes tampoco se guardan. Una guardada que se corrige se valida igual que una nueva.
     """
     dia = dia_con(cliente, push)
     antes = foto(cliente, dia)
     primera, segunda, _ = como_van(cliente, dia)
-    segunda["peso"] = 70
+    primera["peso"] = 70
+    if cual == "nueva":
+        mala = serie(push["press"], push["a"], 3, peso=-5)
+    else:
+        mala = {**segunda, "peso": -5}
 
-    respuesta = guardar(
-        cliente,
-        dia,
-        [primera, segunda, serie(push["press"], push["a"], 3, peso=-5)],
-        fecha=LUNES_14,
-        notas="Hombro cargado",
-    )
+    respuesta = guardar(cliente, dia, [primera, mala], fecha=LUNES_14, notas="Hombro cargado")
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (422, PESO_NEGATIVO)
     assert foto(cliente, dia) == antes
@@ -286,7 +293,7 @@ def test_un_422_de_una_serie_no_borra_la_cancelada_del_dia_nuevo(cliente, push):
         fecha=LUNES_14,
     )
 
-    assert respuesta.status_code == 422
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (422, PESO_NEGATIVO)
     assert cliente.get(f"/entrenamientos/{cancelada}").status_code == 200
     assert foto(cliente, dia) == antes
 
@@ -338,6 +345,68 @@ def test_la_fecha_se_valida_antes_que_las_series(cliente, push):
     assert respuesta.json()["detail"] == bajo_la_fecha(todavia_no_ha_llegado(JUEVES_17))
 
 
+# --- Mover la fecha muy lejos ------------------------------------------------------
+#
+# El plan se pide como mucho de 400 días. Una fecha fuera del plazo ya no lo necesita:
+# antes se pedía igual, y mover una sesión tan lejos daba el 422 del tope del plan, que
+# hablaba de otra cosa, en vez de decir hasta dónde puede ir.
+
+HACE_MAS_DE_400_DIAS = date(2025, 3, 3)  # lunes
+
+
+def test_una_sesion_que_cuenta_un_dia_no_se_mueve_a_mas_de_400_dias_atras(cliente, push):
+    """Cuenta el miércoles 16 porque ese día se planificó Push a mano."""
+    dejar_planificado(cliente, HOY, push["rutina"])
+    dia = dia_con(cliente, push, HOY, cubre_fecha=HOY)
+    antes = foto(cliente, dia)
+
+    respuesta = guardar(cliente, dia, como_van(cliente, dia), fecha=HACE_MAS_DE_400_DIAS)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == {
+        "mensaje": "Este Push cuenta como el del miércoles 16 de septiembre, así que solo puede"
+        " ir desde el lunes 14 de septiembre.",
+        "campo": "fecha",
+    }
+    assert foto(cliente, dia) == antes
+
+
+def test_una_sesion_antigua_que_cuenta_un_dia_no_se_mueve_a_hoy(cliente, push, hoy_es):
+    """Más de 400 días hacia delante, y el texto lleva el año del día que cuenta."""
+    hoy_es(HACE_MAS_DE_400_DIAS)
+    dejar_planificado(cliente, HACE_MAS_DE_400_DIAS, push["rutina"])
+    dia = dia_con(cliente, push, HACE_MAS_DE_400_DIAS, cubre_fecha=HACE_MAS_DE_400_DIAS)
+    hoy_es(HOY)
+    antes = foto(cliente, dia)
+
+    respuesta = guardar(cliente, dia, como_van(cliente, dia), fecha=HOY)
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert respuesta.json()["detail"] == {
+        "mensaje": "Este Push cuenta como el del lunes 3 de marzo de 2025, así que solo puede"
+        " ir hasta el domingo 9 de marzo de 2025.",
+        "campo": "fecha",
+    }
+    assert foto(cliente, dia) == antes
+
+
+@pytest.mark.parametrize(
+    "desde, hasta",
+    [(HOY, HACE_MAS_DE_400_DIAS), (HACE_MAS_DE_400_DIAS, HOY)],
+    ids=["hacia atrás", "hacia delante"],
+)
+def test_una_sesion_que_no_cuenta_ningun_dia_se_mueve_a_cualquier_fecha(
+    cliente, push, desde, hasta
+):
+    """Sin día que contar no hay plazo: la fecha solo choca con el futuro o con otra."""
+    dia = dia_con(cliente, push, desde)
+
+    respuesta = guardar(cliente, dia, como_van(cliente, dia), fecha=hasta)
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert leer(cliente, dia)["fecha"] == hasta.isoformat()
+
+
 # --- Ids de series que no son de este día ----------------------------------------
 
 
@@ -353,7 +422,7 @@ def test_una_serie_de_otra_sesion_da_404_y_no_toca_ninguna_de_las_dos(cliente, p
 
     respuesta = guardar(cliente, dia, [*como_van(cliente, dia), ajena])
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Serie no encontrada")
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, SERIE_DEL_DIA_YA_NO_EXISTE)
     assert (foto(cliente, dia), foto(cliente, otra)) == antes
 
 
@@ -476,12 +545,26 @@ def test_una_sesion_ya_mezclada_se_corrige_si_no_se_toca_el_hueco(cliente, push,
     assert con_otra.json()["detail"] == MEZCLA.format("Press banca", "Press inclinado")
 
 
+def test_mover_una_serie_a_un_hueco_con_otro_ejercicio_da_422_y_no_guarda_nada(cliente, push):
+    """Press banca es también alternativa de `b`, así que la serie puede ir allí; pero
+    `b` ya tiene la de Fondos. El hueco al que llega cuenta como tocado, no solo el
+    que deja.
+    """
+    poner_alternativas(cliente, push["rutina"], push["b"], [push["press"]])
+    dia = dia_con(cliente, push)
+    antes = foto(cliente, dia)
+    primera, segunda, fondos = como_van(cliente, dia)
+
+    respuesta = guardar(cliente, dia, [primera, {**segunda, "slot_id": push["b"]}, fondos])
+
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        422,
+        MEZCLA.format("Fondos", "Press banca"),
+    )
+    assert foto(cliente, dia) == antes
+
+
 # --- Corregir sí, elegir algo oculto no --------------------------------------------
-
-
-def ocultar_ejercicio(cliente, ejercicio_id) -> None:
-    respuesta = cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar")
-    assert respuesta.status_code == 204, respuesta.text
 
 
 @pytest.mark.parametrize("que", ["ejercicio oculto", "hueco oculto", "ya no es alternativa"])
@@ -518,8 +601,8 @@ def test_una_serie_guardada_se_sigue_guardando_aunque_ya_no_se_pudiera_elegir(
 @pytest.mark.parametrize(
     "que, esperado",
     [
-        ("ejercicio oculto", (404, "Ejercicio no encontrado")),
-        ("ejercicio inexistente", (404, "Ejercicio no encontrado")),
+        ("ejercicio oculto", (404, ejercicio_oculto("Press inclinado"))),
+        ("ejercicio inexistente", (404, ELEGIDO_YA_NO_EXISTE)),
         ("hueco oculto", (404, NO_ESTA_EN_LA_RUTINA)),
         ("hueco de otra rutina", (404, NO_ESTA_EN_LA_RUTINA)),
         ("hueco inexistente", (404, NO_ESTA_EN_LA_RUTINA)),
@@ -555,6 +638,22 @@ def test_una_serie_nueva_valida_como_al_apuntarla_suelta(
     assert foto(cliente, dia) == antes
 
 
+def test_el_dia_de_una_rutina_oculta_se_sigue_guardando_con_series_nuevas(cliente, push):
+    """Corregir sí: la sesión ya era de esa rutina, y sus huecos siguen a la vista. Es
+    lo que hace la edición de un día pasado de una rutina que después se ocultó.
+    """
+    dia = dia_con(cliente, push)
+    respuesta = cliente.delete(f"/rutinas/{push['rutina']}", params={"modo": "ocultar"})
+    assert respuesta.status_code == 204, respuesta.text
+
+    respuesta = guardar(
+        cliente, dia, [*como_van(cliente, dia), serie(push["press"], push["a"], 3, 65)]
+    )
+
+    assert respuesta.status_code == 200, respuesta.text
+    assert len(leer(cliente, dia)["series"]) == 4
+
+
 def test_una_serie_cambiada_a_otro_ejercicio_oculto_da_404(cliente, push):
     """Cambiar el ejercicio de una serie sí es elegir: el nuevo tiene que estar a la vista."""
     dia = dia_con(cliente, push)
@@ -572,7 +671,10 @@ def test_una_serie_cambiada_a_otro_ejercicio_oculto_da_404(cliente, push):
         ],
     )
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        404,
+        ejercicio_oculto("Press inclinado"),
+    )
     assert foto(cliente, dia) == antes
 
 
@@ -603,27 +705,24 @@ def test_borrar_las_de_un_hueco_no_toca_las_de_otra_sesion_en_ese_hueco(cliente,
     assert foto(cliente, otra) == antes
 
 
-@pytest.mark.parametrize("cual", ["de otra rutina", "inexistente"])
-def test_borrar_las_de_un_hueco_que_no_es_de_la_rutina_de_la_sesion_da_404(cliente, push, cual):
+def test_borrar_las_de_un_hueco_de_otra_rutina_da_404_y_no_borra_nada(cliente, push):
+    """El hueco existe, pero no es de la rutina de esta sesión: por la ruta de otro
+    padre, 404. Tiene una serie en otra sesión, que tampoco se toca. Un hueco que no
+    existe, en `test_crud.py`.
+    """
     dia = dia_con(cliente, push)
     antes = foto(cliente, dia)
-    if cual == "de otra rutina":
-        otra = crear_rutina(cliente, "Pull")
-        hueco = crear_hueco(cliente, otra, push["press"])
-        # Con una serie suya en otra sesión: no se borra nada de ningún sitio.
-        otra_sesion = dia_con(
-            cliente, {**push, "rutina": otra}, DOMINGO_13, [serie(push["press"], hueco)]
-        )
-        antes_otra = foto(cliente, otra_sesion)
-    else:
-        hueco = 999_999
+    otra = crear_rutina(cliente, "Pull")
+    hueco = crear_hueco(cliente, otra, push["press"])
+    otra_sesion = dia_con(
+        cliente, {**push, "rutina": otra}, DOMINGO_13, [serie(push["press"], hueco)]
+    )
+    antes_otra = foto(cliente, otra_sesion)
 
     respuesta = borrar_del_hueco(cliente, dia, hueco)
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (404, NO_ESTA_EN_LA_RUTINA)
-    assert foto(cliente, dia) == antes
-    if cual == "de otra rutina":
-        assert foto(cliente, otra_sesion) == antes_otra
+    assert (foto(cliente, dia), foto(cliente, otra_sesion)) == (antes, antes_otra)
 
 
 def test_borrar_las_de_un_hueco_sin_decir_cual_da_422_y_no_borra_nada(cliente, push):

@@ -14,6 +14,9 @@ from sqlalchemy import func, select
 from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
 from tests.ayudas import (
+    ELEGIDO_YA_NO_EXISTE,
+    ejercicio_oculto,
+    nombre_repetido,
     alternativa,
     consultas_de,
     crear_ejercicio,
@@ -199,18 +202,17 @@ def test_una_rutina_nueva_con_un_ejercicio_que_no_vale_da_404_y_no_crea_nada(
     oculto = crear_ejercicio(cliente, grupo_muscular_id, "Hack")
     assert cliente.delete(f"/ejercicios/{oculto}?modo=ocultar").status_code == 204
     bien = hueco_nuevo(ejercicio_predefinido_id, comodines=[propio])
-    huecos = {
-        "principal inexistente": [hueco_nuevo(999_999), bien],
-        "comodín oculto en el último hueco": [
-            bien,
-            bien,
-            hueco_nuevo(propio, comodines=[ejercicio_predefinido_id, oculto]),
-        ],
+    huecos, detalle = {
+        "principal inexistente": ([hueco_nuevo(999_999), bien], ELEGIDO_YA_NO_EXISTE),
+        "comodín oculto en el último hueco": (
+            [bien, bien, hueco_nuevo(propio, comodines=[ejercicio_predefinido_id, oculto])],
+            ejercicio_oculto("Hack"),
+        ),
     }[caso]
 
     respuesta = cliente.post("/rutinas", json={"nombre": "Leg", "slots": huecos})
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Ejercicio no encontrado")
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, detalle)
     assert filas_guardadas(sesion_bd) == (0, 0, 0)
     assert cliente.get("/rutinas").json() == []
 
@@ -419,17 +421,6 @@ def tres_huecos(cliente, grupo_muscular_id) -> tuple[int, list[int]]:
     return rutina, huecos
 
 
-def test_intercambiar_dos_huecos_seguidos(cliente, tres_huecos):
-    """Con dos PUT sueltos daría 409: el primero choca con el orden del otro."""
-    rutina, (a, b, c) = tres_huecos
-
-    respuesta = ordenar(cliente, rutina, [b, a, c])
-
-    assert respuesta.status_code == 200, respuesta.text
-    assert [(h["id"], h["orden"]) for h in respuesta.json()["slots"]] == [(b, 1), (a, 2), (c, 3)]
-    assert ordenes(cliente, rutina) == {b: 1, a: 2, c: 3}
-
-
 def test_reordenar_con_huecos_ocultos_los_deja_en_su_sitio(cliente, grupo_muscular_id):
     """Los visibles se reparten los `orden` que ya tenían; el oculto conserva el
     suyo, así que al mostrarlo no choca con nadie.
@@ -527,7 +518,9 @@ def test_una_rutina_oculta_no_se_puede_reordenar(cliente, tres_huecos):
 
 def test_guardar_el_nombre_y_el_orden_de_una_vez(cliente, tres_huecos):
     """El *Guardar* de la rutina: una sola petición, y la respuesta ya viene en el
-    orden nuevo (la web la pinta tal cual, sin volver a pedirla).
+    orden nuevo (la web la pinta tal cual, sin volver a pedirla). Cada hueco toma un
+    `orden` que otro tenía: con PUT sueltos, el primero chocaría con
+    `UNIQUE(rutina_id, orden)`.
     """
     rutina, (a, b, c) = tres_huecos
 
@@ -557,7 +550,7 @@ def test_un_nombre_repetido_al_guardar_da_409_y_el_orden_no_cambia(cliente, tres
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         409,
-        "Ya tienes una rutina que se llama «Pull». Elige otro nombre.",
+        nombre_repetido("Ya tienes una rutina que se llama «Pull». Elige otro nombre."),
     )
     assert ordenes(cliente, rutina) == {a: 1, b: 2, c: 3}
     assert cliente.get(f"/rutinas/{rutina}").json()["nombre"] == "Push"

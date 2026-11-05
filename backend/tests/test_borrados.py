@@ -21,6 +21,7 @@ from app.models import (
     SlotAlternativa,
 )
 from tests.ayudas import (
+    ejercicio_oculto,
     cambiar_dias,
     PIDE_MODO,
     alternativa,
@@ -880,7 +881,7 @@ def test_una_serie_no_se_puede_cambiar_a_otro_ejercicio_oculto(cliente, grupo_mu
     )
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == ejercicio_oculto("Press en máquina")
     assert series_de(cliente, entrenamiento_id) == [serie]
 
 
@@ -1063,7 +1064,7 @@ def test_un_hueco_no_puede_cambiar_su_principal_a_un_ejercicio_oculto(cliente, g
     respuesta = cliente.put(f"/rutinas/{rutina_id}/slots/{slot_id}", json=hueco)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == ejercicio_oculto("Press en máquina")
     [guardado] = cliente.get(f"/rutinas/{rutina_id}").json()["slots"]
     assert (guardado["ejercicio_principal"]["id"], guardado["series_objetivo"]) == (banca, 4)
 
@@ -1958,7 +1959,9 @@ def test_el_aviso_de_un_ejercicio_predefinido_da_404(cliente, ejercicio_predefin
     respuesta = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}/aviso-de-borrado")
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == (
+        "Los ejercicios predefinidos no se pueden ocultar ni borrar."
+    )
 
 
 def test_el_aviso_de_un_ejercicio_hace_las_mismas_consultas_con_poco_que_con_mucho(

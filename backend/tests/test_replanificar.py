@@ -180,9 +180,7 @@ def test_guardar_dos_dias_a_la_vez_respeta_el_adelantado_solo_en_el_suyo(
 ):
     """El *Guardar* de la semana cambia el miércoles y el viernes en una sola petición.
     El viernes ya está hecho (adelantado el martes): cambia desde el sábado 19, el día
-    siguiente al contado. El miércoles no tiene nada hecho: cambia desde hoy. Cada día
-    que cambia mira el seguimiento, y sin `flush()` entre uno y otro no vería la fila
-    que el anterior acaba de abrir.
+    siguiente al contado. El miércoles no tiene nada hecho: cambia desde hoy.
     """
     leg_adelantado(cliente, ppl, grupo_muscular_id)
     id_ = programa_id(cliente)

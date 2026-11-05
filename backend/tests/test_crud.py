@@ -9,7 +9,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from tests.ayudas import alternativa, crear_ejercicio, crear_rutina, entrenar, objetivo, serie_en
+from tests.ayudas import (
+    EJERCICIO_YA_NO_EXISTE,
+    ELEGIDO_YA_NO_EXISTE,
+    SERIE_DEL_DIA_YA_NO_EXISTE,
+    SERIE_YA_NO_EXISTE,
+    alternativa,
+    crear_ejercicio,
+    crear_rutina,
+    ejercicio_oculto,
+    entrenar,
+    objetivo,
+    serie_en,
+)
 from tests.ayudas import cuerpo_de_serie as _serie
 
 FECHA = "2026-09-04"
@@ -304,7 +316,7 @@ def test_un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo(cliente, grupo_m
     respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json=_hueco(banca))
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == ejercicio_oculto("Press banca")
     assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
 
 
@@ -345,7 +357,29 @@ def test_borrar_una_serie_deja_las_demas(cliente, grupo_muscular_id):
     series = cliente.get(f"/entrenamientos/{entrenamiento_id}").json()["series"]
     assert [serie["numero_serie"] for serie in series] == [2]
     otra_vez = cliente.delete(f"{ruta}/{primera}")
-    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, "Serie no encontrada")
+    assert (otra_vez.status_code, otra_vez.json()["detail"]) == (404, SERIE_YA_NO_EXISTE)
+
+
+def test_dos_series_con_el_mismo_numero_salen_por_orden_de_id(cliente, grupo_muscular_id):
+    """`numero_serie` no es único: al borrar una serie y apuntar otra, o al importar, dos
+    de un hueco pueden tener el mismo. Sale antes la primera que se apuntó, aunque se
+    haya corregido después (Postgres la deja detrás en la tabla y, sin desempate, la
+    daría la última).
+    """
+    banca = crear_ejercicio(cliente, grupo_muscular_id, "Press banca")
+    sesion = entrenar(cliente, FECHA).json()["id"]
+    ruta = f"/entrenamientos/{sesion}/series"
+    primera = cliente.post(ruta, json=_serie(cliente, sesion, banca)).json()
+    segunda = cliente.post(ruta, json=_serie(cliente, sesion, banca)).json()
+    corregida = _serie(cliente, sesion, banca, peso=70)
+    assert cliente.put(f"{ruta}/{primera['id']}", json=corregida).status_code == 200
+
+    series = cliente.get(f"/entrenamientos/{sesion}").json()["series"]
+
+    assert [(s["id"], s["numero_serie"]) for s in series] == [
+        (primera["id"], 1),
+        (segunda["id"], 1),
+    ]
 
 
 def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grupo_muscular_id):
@@ -363,7 +397,7 @@ def test_una_serie_no_se_alcanza_por_la_ruta_de_otro_entrenamiento(cliente, grup
     borrada = cliente.delete(f"/entrenamientos/{otro}/series/{serie['id']}")
 
     for respuesta in (editada, borrada):
-        assert (respuesta.status_code, respuesta.json()["detail"]) == (404, "Serie no encontrada")
+        assert (respuesta.status_code, respuesta.json()["detail"]) == (404, SERIE_YA_NO_EXISTE)
     assert cliente.get(f"/entrenamientos/{uno}").json()["series"] == [serie]
     assert cliente.get(f"/entrenamientos/{otro}").json()["series"] == []
 
@@ -738,7 +772,7 @@ def test_un_ejercicio_oculto_o_un_hueco_de_otra_rutina_dan_404_y_no_409(
     assert de_otra_rutina.status_code == 404, de_otra_rutina.text
     assert de_otra_rutina.json()["detail"] == ("Ese ejercicio no está en la rutina de esta sesión.")
     assert oculto.status_code == 404, oculto.text
-    assert oculto.json()["detail"] == "Ejercicio no encontrado"
+    assert oculto.json()["detail"] == ejercicio_oculto("Plancha con lastre")
     assert _series_de(cliente, sesion) == [crunch]
 
 
@@ -1020,48 +1054,45 @@ def test_rutinas_programas_y_ejercicios_se_listan_por_nombre(cliente, grupo_musc
 # mira también el texto: un 404 de una ruta mal escrita diría "Not Found".
 
 INEXISTENTE = 999_999
+NO_HAY_PROGRAMA = "Este programa ya no existe. Puede que lo hayas borrado."
 
 
 @pytest.mark.parametrize(
     "metodo, ruta, cuerpo, detalle",
     [
         pytest.param(
-            "put", "/ejercicios/{id}", "ejercicio", "Ejercicio no encontrado", id="ejercicio-put"
+            "put", "/ejercicios/{id}", "ejercicio", EJERCICIO_YA_NO_EXISTE, id="ejercicio-put"
         ),
         pytest.param(
-            "delete", "/ejercicios/{id}", None, "Ejercicio no encontrado", id="ejercicio-delete"
+            "delete", "/ejercicios/{id}", None, EJERCICIO_YA_NO_EXISTE, id="ejercicio-delete"
         ),
         pytest.param(
             "post",
             "/ejercicios/{id}/mostrar",
             None,
-            "Ejercicio no encontrado",
+            EJERCICIO_YA_NO_EXISTE,
             id="ejercicio-mostrar",
         ),
+        pytest.param("put", "/programas/{id}", "programa", NO_HAY_PROGRAMA, id="programa-put"),
+        pytest.param("delete", "/programas/{id}", None, NO_HAY_PROGRAMA, id="programa-delete"),
         pytest.param(
-            "put", "/programas/{id}", "programa", "Programa no encontrado", id="programa-put"
-        ),
-        pytest.param(
-            "delete", "/programas/{id}", None, "Programa no encontrado", id="programa-delete"
-        ),
-        pytest.param(
-            "post", "/programas/{id}/activar", None, "Programa no encontrado", id="programa-activar"
+            "post", "/programas/{id}/activar", None, NO_HAY_PROGRAMA, id="programa-activar"
         ),
         pytest.param(
             "post",
             "/programas/{id}/desactivar",
             None,
-            "Programa no encontrado",
+            NO_HAY_PROGRAMA,
             id="programa-desactivar",
         ),
         pytest.param(
-            "post", "/programas/{id}/mostrar", None, "Programa no encontrado", id="programa-mostrar"
+            "post", "/programas/{id}/mostrar", None, NO_HAY_PROGRAMA, id="programa-mostrar"
         ),
         pytest.param(
             "put",
             "/programas/{id}",
             "semana",
-            "Programa no encontrado",
+            NO_HAY_PROGRAMA,
             id="programa-guardar-semana",
         ),
     ],
@@ -1098,26 +1129,26 @@ def lo_que_existe(cliente, grupo_muscular_id) -> dict:
     return {"ejercicio": ejercicio, "rutina": rutina, "hueco": hueco, "sesion": sesion["id"]}
 
 
-NO_HAY_EJERCICIO = "Ejercicio no encontrado"
-NO_HAY_RUTINA = "Rutina no encontrada"
+NO_HAY_NOTA = "Esa nota ya no existe. Puede que la hayas borrado."
+NO_HAY_RUTINA = "Esta rutina ya no existe. Puede que la hayas borrado."
 NO_HAY_HUECO = "Ese ejercicio no está en esta rutina."
-NO_HAY_SESION = "Sesión no encontrada"
+NO_HAY_SESION = "Esta sesión ya no existe. Puede que la hayas cancelado o borrado."
 NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión."
 
 
 @pytest.mark.parametrize(
     "metodo, ruta, cuerpo, detalle",
     [
-        ("get", "/ejercicios/{X}", None, NO_HAY_EJERCICIO),
-        ("get", "/ejercicios/{X}/historial", None, NO_HAY_EJERCICIO),
-        ("get", "/ejercicios/{X}/donde-se-usa", None, NO_HAY_EJERCICIO),
-        ("get", "/ejercicios/{X}/aviso-de-borrado", None, NO_HAY_EJERCICIO),
-        ("get", "/ejercicios/{X}/notas", None, NO_HAY_EJERCICIO),
-        ("post", "/ejercicios/{X}/notas", "nota", NO_HAY_EJERCICIO),
-        ("put", "/ejercicios/{X}/notas/1", "nota", NO_HAY_EJERCICIO),
-        ("delete", "/ejercicios/{X}/notas/1", None, NO_HAY_EJERCICIO),
-        ("put", "/ejercicios/{ejercicio}/notas/{X}", "nota", "Nota no encontrada"),
-        ("delete", "/ejercicios/{ejercicio}/notas/{X}", None, "Nota no encontrada"),
+        ("get", "/ejercicios/{X}", None, EJERCICIO_YA_NO_EXISTE),
+        ("get", "/ejercicios/{X}/historial", None, EJERCICIO_YA_NO_EXISTE),
+        ("get", "/ejercicios/{X}/donde-se-usa", None, EJERCICIO_YA_NO_EXISTE),
+        ("get", "/ejercicios/{X}/aviso-de-borrado", None, EJERCICIO_YA_NO_EXISTE),
+        ("get", "/ejercicios/{X}/notas", None, EJERCICIO_YA_NO_EXISTE),
+        ("post", "/ejercicios/{X}/notas", "nota", EJERCICIO_YA_NO_EXISTE),
+        ("put", "/ejercicios/{X}/notas/1", "nota", EJERCICIO_YA_NO_EXISTE),
+        ("delete", "/ejercicios/{X}/notas/1", None, EJERCICIO_YA_NO_EXISTE),
+        ("put", "/ejercicios/{ejercicio}/notas/{X}", "nota", NO_HAY_NOTA),
+        ("delete", "/ejercicios/{ejercicio}/notas/{X}", None, NO_HAY_NOTA),
         ("get", "/rutinas/{X}", None, NO_HAY_RUTINA),
         ("get", "/rutinas/{X}/aviso-de-borrado", None, NO_HAY_RUTINA),
         ("put", "/rutinas/{X}", "rutina", NO_HAY_RUTINA),
@@ -1134,11 +1165,11 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
         ("delete", "/rutinas/{rutina}/slots/{X}", None, NO_HAY_HUECO),
         ("post", "/rutinas/{rutina}/slots/{X}/mostrar", None, NO_HAY_HUECO),
         ("get", "/rutinas/{rutina}/slots/{X}/aviso-de-borrado", None, NO_HAY_HUECO),
-        ("get", "/programas/{X}", None, "Programa no encontrado"),
+        ("get", "/programas/{X}", None, NO_HAY_PROGRAMA),
         ("get", "/entrenamientos/{X}", None, NO_HAY_SESION),
         ("put", "/entrenamientos/{X}", "sesion", NO_HAY_SESION),
         ("put", "/entrenamientos/{X}", "dia", NO_HAY_SESION),
-        ("put", "/entrenamientos/{sesion}", "serie del dia", "Serie no encontrada"),
+        ("put", "/entrenamientos/{sesion}", "serie del dia", SERIE_DEL_DIA_YA_NO_EXISTE),
         ("delete", "/entrenamientos/{X}/series?slot_id={hueco}", None, NO_HAY_SESION),
         ("delete", "/entrenamientos/{sesion}/series?slot_id={X}", None, NO_HAY_HUECO_DE_LA_SESION),
         ("delete", "/entrenamientos/{X}", None, NO_HAY_SESION),
@@ -1146,8 +1177,8 @@ NO_HAY_HUECO_DE_LA_SESION = "Ese ejercicio no está en la rutina de esta sesión
         ("post", "/entrenamientos/{X}/series", "serie", NO_HAY_SESION),
         ("put", "/entrenamientos/{X}/series/1", "serie", NO_HAY_SESION),
         ("delete", "/entrenamientos/{X}/series/1", None, NO_HAY_SESION),
-        ("put", "/entrenamientos/{sesion}/series/{X}", "serie", "Serie no encontrada"),
-        ("delete", "/entrenamientos/{sesion}/series/{X}", None, "Serie no encontrada"),
+        ("put", "/entrenamientos/{sesion}/series/{X}", "serie", SERIE_YA_NO_EXISTE),
+        ("delete", "/entrenamientos/{sesion}/series/{X}", None, SERIE_YA_NO_EXISTE),
     ],
 )
 def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
@@ -1184,19 +1215,18 @@ def test_leer_o_modificar_algo_que_no_existe_da_404_con_su_mensaje(
     assert respuesta.json()["detail"] == detalle
 
 
-@pytest.mark.parametrize(
-    "donde", ["sesion", "dia de programa", "dia planificado", "serie", "hueco de la serie"]
-)
+@pytest.mark.parametrize("donde", ["sesion", "dia planificado", "serie", "hueco de la serie"])
 def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
     cliente, sesion_bd, lo_que_existe, donde
 ):
     """Un id que llega en el cuerpo y no existe se trata como uno oculto: 404, porque
-    no se puede elegir, y nada se queda a medias.
+    no se puede elegir, y nada se queda a medias. El de un día del programa, en
+    `test_programas.py` (con el todo o nada de la semana entera).
     """
     from sqlalchemy import func, select
 
     from app.fechas import hoy
-    from app.models import Entrenamiento, ExcepcionDelPlan, ProgramaDia, Serie
+    from app.models import Entrenamiento, ExcepcionDelPlan, Serie
 
     hay = lo_que_existe
     if donde == "sesion":
@@ -1204,13 +1234,6 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
             "/entrenamientos", json={"rutina_id": INEXISTENTE, "fecha": "2026-09-05"}
         )
         tabla, cuantas = Entrenamiento, 1
-    elif donde == "dia de programa":
-        programa = cliente.post("/programas", json={"nombre": "PPL"}).json()["id"]
-        respuesta = cliente.put(
-            f"/programas/{programa}",
-            json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": INEXISTENTE}]},
-        )
-        tabla, cuantas = ProgramaDia, 0
     elif donde == "dia planificado":
         respuesta = cliente.put(
             f"/plan/excepciones/{hoy().isoformat()}", json={"rutina_id": INEXISTENTE}
@@ -1231,7 +1254,7 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
 
     assert respuesta.status_code == 404, respuesta.text
     esperado = {
-        "serie": NO_HAY_EJERCICIO,
+        "serie": ELEGIDO_YA_NO_EXISTE,
         "hueco de la serie": ("Ese ejercicio no está en la rutina de esta sesión."),
     }.get(donde, "Esa rutina no existe o está oculta.")
     assert respuesta.json()["detail"] == esperado

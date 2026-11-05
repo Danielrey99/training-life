@@ -17,19 +17,18 @@ from sqlalchemy import func, select
 from app.fechas import hoy
 from app.models import RutinaSlot, Serie, SlotAlternativa
 from tests.ayudas import (
+    ELEGIDO_YA_NO_EXISTE,
+    ejercicio_oculto,
     alternativa,
     crear_ejercicio,
     crear_rutina,
     entrenar,
     ids_de_alternativas,
     objetivo,
+    ocultar_ejercicio,
 )
 
 # --- Ayudantes -----------------------------------------------------------
-
-
-def ocultar_ejercicio(cliente, ejercicio_id) -> None:
-    assert cliente.delete(f"/ejercicios/{ejercicio_id}?modo=ocultar").status_code == 204
 
 
 def cuerpo_de_hueco(principal, series=4, reps=(6, 10), **campos) -> dict:
@@ -281,9 +280,9 @@ def test_un_hueco_nuevo_con_un_comodin_que_no_vale_da_404_y_no_se_crea(
     cliente, sesion_bd, ejercicios, caso
 ):
     rutina = crear_rutina(cliente)
-    malo = 999_999
+    malo, detalle = 999_999, ELEGIDO_YA_NO_EXISTE
     if caso == "oculto":
-        malo = ejercicios["Cruces"]
+        malo, detalle = ejercicios["Cruces"], ejercicio_oculto("Cruces")
         ocultar_ejercicio(cliente, malo)
 
     respuesta = anadir_hueco(
@@ -291,7 +290,7 @@ def test_un_hueco_nuevo_con_un_comodin_que_no_vale_da_404_y_no_se_crea(
     )
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == detalle
     assert huecos_guardados(sesion_bd) == (0, 0)
 
 
@@ -444,7 +443,7 @@ def test_un_comodin_ya_oculto_se_conserva_pero_no_se_puede_volver_a_poner(
 
     repuesto = editar_hueco(cliente, rutina, slot, press, alternativas=[cruces, fondos])
     assert repuesto.status_code == 404
-    assert repuesto.json()["detail"] == "Ejercicio no encontrado"
+    assert repuesto.json()["detail"] == ejercicio_oculto("Fondos")
     assert comodines(cliente, rutina, slot) == [cruces]
 
 
@@ -544,6 +543,6 @@ def test_un_comodin_que_no_vale_en_la_lista_no_cambia_nada_del_hueco(
     )
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Ejercicio no encontrado"
+    assert respuesta.json()["detail"] == ELEGIDO_YA_NO_EXISTE
     assert filas_de_comodines(sesion_bd, slot) == filas
     assert cliente.get(f"/rutinas/{rutina}").json()["slots"][0]["series_objetivo"] == 4
