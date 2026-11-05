@@ -93,8 +93,9 @@
 <text x="355" y="463" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#04342C">ejercicios</text>
 <text x="355" y="484" font-family="Arial, sans-serif" font-size="11" fill="#085041">id (PK)</text>
 <text x="355" y="501" font-family="Arial, sans-serif" font-size="11" fill="#085041">grupo_muscular_id → grupos_musculares</text>
-<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion, tipo, es_predefinido</text>
-<text x="355" y="540" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
+<text x="355" y="518" font-family="Arial, sans-serif" font-size="11" fill="#085041">nombre, descripcion,</text>
+<text x="355" y="535" font-family="Arial, sans-serif" font-size="11" fill="#085041">tipo_registro, es_predefinido</text>
+<text x="355" y="557" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#04342C">oculto_desde (se puede ocultar)</text>
 
 <!-- slot_alternativas -->
 <rect x="700" y="450" width="240" height="120" rx="10" fill="#D3F1E5" stroke="#0F6E56" stroke-width="1.5"/>

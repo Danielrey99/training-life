@@ -60,8 +60,7 @@ def _validar_dia_libre(
 ) -> None:
     """Una sesión por día como mucho, sea de la rutina que sea: se entrena una rutina al
     día. Lo garantiza también la base de datos; esto es para dar un 409 que diga
-    cuál es la otra sesión (la pantalla de hoy lo usa para ofrecer *Continuar*) y
-    si está en curso.
+    cuál es la otra sesión y si está en curso.
 
     Una sesión sin ninguna serie que ya no está en curso cuenta como cancelada:
     no se hizo nada. Si es la que ocupa el día, se borra y el día queda libre.

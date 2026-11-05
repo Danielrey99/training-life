@@ -18,22 +18,21 @@
 <!-- Carpeta local -->
 <rect x="90" y="165" width="190" height="496" rx="12" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
 <text x="185" y="196" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#04342C">Proyecto en tu PC</text>
-<text x="185" y="256" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#085041">web/</text>
+<text x="185" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#085041">web/</text>
 <text x="185" y="413" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#085041">backend/</text>
 
 <!-- Docker wrapper -->
-<rect x="370" y="165" width="390" height="496" rx="12" fill="#F5C4B3" stroke="#993C1D" stroke-width="1"/>
-<text x="390" y="196" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#4A1B0C">Docker</text>
-<text x="390" y="212" font-family="Arial, sans-serif" font-size="11" fill="#712B13">docker-compose organiza los contenedores</text>
-<text x="390" y="226" font-family="Arial, sans-serif" font-size="11" fill="#712B13">cada uno con su propio Dockerfile</text>
+<rect x="370" y="262" width="390" height="399" rx="12" fill="#F5C4B3" stroke="#993C1D" stroke-width="1"/>
+<text x="390" y="285" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#4A1B0C">Docker</text>
+<text x="450" y="285" font-family="Arial, sans-serif" font-size="11" fill="#712B13">docker-compose levanta el backend y PostgreSQL</text>
 
-<!-- Web container -->
-<rect x="390" y="238" width="350" height="45" rx="8" fill="#5DCAA5" stroke="#085041" stroke-width="1"/>
-<text x="565" y="257" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#04342C">Web</text>
-<text x="565" y="274" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#04342C">React (Vite)</text>
+<!-- Web: fuera de Docker, con el servidor de desarrollo de Vite -->
+<rect x="390" y="186" width="350" height="50" rx="8" fill="#5DCAA5" stroke="#085041" stroke-width="1"/>
+<text x="565" y="207" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#04342C">Web</text>
+<text x="565" y="224" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#04342C">React (Vite)</text>
 
-<line x1="565" y1="283" x2="565" y2="300" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
-<text x="580" y="295" font-family="Arial, sans-serif" font-size="11" fill="#444441">2. fetch a la API</text>
+<line x1="725" y1="236" x2="725" y2="300" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="717" y="254" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#444441">2. fetch a la API</text>
 
 <!-- Backend outer -->
 <rect x="390" y="300" width="350" height="226" rx="10" fill="#ffffff" stroke="#0F6E56" stroke-width="1"/>
@@ -76,9 +75,9 @@
 <rect x="390" y="617" width="350" height="30" rx="6" fill="#ffffff" stroke="#993C1D" stroke-width="1"/>
 <text x="565" y="636" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#712B13">Alembic aplica las migraciones sobre la base de datos</text>
 
-<!-- Bind mounts (en el hueco entre la carpeta y Docker) -->
-<line x1="280" y1="256" x2="388" y2="256" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
-<text x="334" y="243" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">bind mount</text>
+<!-- La web se arranca desde su carpeta; el backend entra en Docker con un bind mount -->
+<line x1="280" y1="226" x2="388" y2="226" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="334" y="213" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">npm run dev</text>
 
 <line x1="280" y1="413" x2="388" y2="413" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
 <text x="334" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">bind mount</text>
@@ -88,9 +87,9 @@
 <text x="1020" y="206" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#2C2C2A">Navegador</text>
 <text x="1020" y="224" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#5F5E5A">(en tu PC)</text>
 
-<path d="M1020 240 L1020 260 L742 260" fill="none" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
-<text x="840" y="239" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">1. Petición</text>
-<text x="840" y="253" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">HTTP</text>
+<path d="M890 210 L742 210" fill="none" stroke="#5F5E5A" stroke-width="1" marker-end="url(#arrow)"/>
+<text x="840" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">1. Petición</text>
+<text x="840" y="202" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#444441">HTTP</text>
 
 <!-- Móvil -->
 <rect x="890" y="300" width="260" height="330" rx="16" fill="#EEEDFE" stroke="#534AB7" stroke-width="1"/>

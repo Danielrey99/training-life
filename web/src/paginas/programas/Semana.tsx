@@ -192,9 +192,8 @@ export function Semana() {
   }
 
   /**
-   * *Guardar*: el nombre primero, que es lo único que puede no valer; después, cada día
-   * que cambió. No es atómico (no hay un endpoint para todo a la vez): si algo falla a
-   * medias, lo dice y vuelve a leer el programa para enseñar lo que quedó guardado.
+   * *Guardar*: el nombre y la semana entera en una sola petición, que el servidor guarda
+   * toda o nada. Si falla, sigue editando con el aviso (el del nombre, bajo el nombre).
    */
   async function guardar() {
     if (!dias) return

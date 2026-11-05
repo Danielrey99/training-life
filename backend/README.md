@@ -271,6 +271,8 @@ No hay usuarios, login ni JWT, y no se prevén: la app es de una sola persona y 
 
 ## Endpoints disponibles
 
+Los errores dicen qué ha pasado con frases para quien usa la app, en `detail`. Cuando el fallo es de un campo del formulario, `detail` es un objeto que lo indica, para enseñarlo junto a ese campo: `{"mensaje": "Ya tienes una rutina que se llama «Push». Elige otro nombre.", "campo": "nombre"}` en un nombre repetido, y `"campo": "fecha"` al mover un día del historial a una fecha que no vale.
+
 ### General
 
 | Método | Ruta | Descripción |
@@ -352,7 +354,6 @@ Borrar una rutina que está en un programa deja sus días en descanso. Si alguno
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/plan?desde=&hasta=` | Qué toca cada día del rango (incluidos los extremos, como mucho 400 días): la rutina, de dónde sale (`origen`: `excepcion` si se cambió a mano, `programa` o `sin_programa`) y si es `descanso`. Cada día se resuelve con el programa que estaba activo **ese día**, así que sirve igual para el calendario (un mes pasado se compara con el plan de entonces) que para los próximos días. Un día con una rutina que ya estaba oculta esa fecha es descanso, pero trae la rutina igual, para enseñarla en gris. |
 | `GET` | `/plan/excepciones` | Los días cambiados a mano, con `?desde=` y `?hasta=` opcionales. Con `desde` = hoy, los que se perderían al activar otro programa quitándolos. |
 | `PUT` | `/plan/excepciones/{fecha}` | Cambia lo que toca un día: otra rutina, o descanso con `rutina_id` nulo. Sustituye si ya estaba cambiado, y se guarda aunque coincida con el programa (queda marcado como cambiado). Solo de hoy en adelante (422 si la fecha ya pasó); 404 si la rutina no es tuya o está oculta. |
 | `DELETE` | `/plan/excepciones/{fecha}` | *Restablecer este día*: vuelve a lo que diga el programa (404 si no estaba cambiado). |
@@ -374,11 +375,13 @@ El volumen va por la fecha real de cada sesión y cuenta también las abiertas, 
 
 ### Entrenamientos y series
 
+`numero_serie` da el orden de una serie dentro de su hueco, y no se reescribe al borrar otra: la pantalla la numera por su posición.
+
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/entrenamientos` | Lista los entrenamientos, más recientes primero. Acepta `?desde=` y `?hasta=` (fechas incluidas) para pedir una semana o un mes; `?sin_terminar=true` para las de días pasados que se dejaron sin terminar, con series (cuentan como hechas, pero quizá se dejaron a medias sin querer) o sin ellas (canceladas: quizá se abrieron para apuntar ese día y se olvidaron); y `?rutina_id=` junto con `?limite=` (de 1 a 500) para las últimas sesiones de una rutina. |
 | `GET` | `/entrenamientos/{id}` | Obtiene un entrenamiento con sus series anidadas (cada una con su ejercicio ya resuelto). |
-| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía): siempre es de una rutina, así que `rutina_id` es obligatorio. `cubre_fecha` (opcional) es el día del plan que cuenta: hoy, uno pasado que se recupera o uno de esta semana que se adelanta. Ese día tiene que tocar esa rutina, estar en plazo y caer en el mismo programa (422 si no), y no puede contarlo ya otra sesión (409 con su `entrenamiento_id`); si lo retenía una que no lo contaba, se lo quita. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión (la pantalla de hoy lo usa para ofrecer *Continuar*); si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. `intercambiar_con` (opcional, solo al empezar hoy) intercambia antes lo que toca hoy con lo que toca ese día y crea la sesión, todo en una sola transacción: si algo falla, no queda ningún día cambiado (422 si el día no toca esa rutina, ya pasó o no es el de hoy; 409 si hoy ya hay sesión). |
+| `POST` | `/entrenamientos` | Crea un entrenamiento (sin series todavía): siempre es de una rutina, así que `rutina_id` es obligatorio. `cubre_fecha` (opcional) es el día del plan que cuenta: hoy, uno pasado que se recupera o uno de esta semana que se adelanta. Ese día tiene que tocar esa rutina, estar en plazo y caer en el mismo programa (422 si no), y no puede contarlo ya otra sesión (409 con su `entrenamiento_id`); si lo retenía una que no lo contaba, se lo quita. Si ese día ya tiene una sesión, devuelve 409 con `entrenamiento_id` y `en_curso` de esa sesión; si la otra no tiene series y ya no está en curso, se borra y el día queda libre. Un día futuro da 422, porque se registra lo entrenado y el futuro se planifica. `intercambiar_con` (opcional, solo al empezar hoy) intercambia antes lo que toca hoy con lo que toca ese día y crea la sesión, todo en una sola transacción: si algo falla, no queda ningún día cambiado (422 si el día no toca esa rutina, ya pasó o no es el de hoy; 409 si hoy ya hay sesión). |
 | `POST` | `/entrenamientos/{id}/terminar` | Da la sesión por terminada. Terminarla otra vez no cambia nada: se conserva la hora de la primera. Una sesión terminada admite todavía series nuevas o corregidas, para poder editar un día ya pasado. |
 | `PUT` | `/entrenamientos/{id}` | El *Guardar* de un día del historial: la fecha, las notas y, con `series`, todas sus series como deben quedar (las guardadas que no van se borran, las que llevan `id` se corrigen y las que no, se crean), de una vez y todo o nada. Cada serie nueva o cambiada se valida como al apuntarla suelta, y la que llega igual no; si en un ejercicio de la rutina quedarían series de dos ejercicios, 422. La rutina y el día que cuenta se fijan al crearlo: la fecha solo se mueve dentro de su plazo y a un día del mismo programa que él (422), y a un día libre (409); esos avisos llevan `campo: "fecha"` para enseñarlos bajo la fecha. Una sesión que ya cruzaba programas se puede seguir corrigiendo. Sin `series`, solo la fecha y las notas. |
 | `DELETE` | `/entrenamientos/{id}` | Borra un entrenamiento propio, con todas sus series. Sin `?modo`: nada más depende de un entrenamiento concreto. |

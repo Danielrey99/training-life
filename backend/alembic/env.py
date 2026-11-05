@@ -37,7 +37,8 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """Modo 'offline': genera el SQL de la migración sin conectarse a la
     base de datos (solo necesita la URL). No se usa en este proyecto —
-    las migraciones siempre se aplican en modo 'online', ver más abajo."""
+    las migraciones siempre se aplican en modo 'online', ver más abajo.
+    """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -52,7 +53,8 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Modo 'online': se conecta de verdad a la base de datos y aplica la
-    migración — el modo real que usa este proyecto (`alembic upgrade head`)."""
+    migración — el modo real que usa este proyecto (`alembic upgrade head`).
+    """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

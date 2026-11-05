@@ -228,7 +228,6 @@ export const api = {
   mostrarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/mostrar`, conCuerpo('POST')),
   /** La copia se llama como en Windows («Push - copia») y nace sin estar en ningún programa. */
   duplicarRutina: (id: number) => peticion<Rutina>(`/rutinas/${id}/duplicar`, conCuerpo('POST')),
-  /** Todos los huecos visibles, cada uno una vez, en el orden nuevo. */
   /** Lo que se perdería al borrarla, para enseñarlo antes de preguntar. */
   avisoDeBorrarRutina: (id: number) =>
     peticion<AvisoDeBorrarRutina>(`/rutinas/${id}/aviso-de-borrado`),
