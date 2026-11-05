@@ -119,7 +119,7 @@ async function leer(rutinaId: number | null, clave: string): Promise<Datos | 'si
   const rutina = await api.rutina(rutinaId)
   if (clave === 'nuevo') return { origen: { tipo: 'nuevo', rutina }, ejercicios, grupos }
   const hueco = rutina.slots.find((uno) => uno.id === Number(clave))
-  if (!hueco) throw new ErrorDeApi('Ese ejercicio no existe en esta rutina.', 404, null)
+  if (!hueco) throw new ErrorDeApi('Ese ejercicio no está en esta rutina.', 404, null)
   const visibles = rutina.slots
     .filter((uno) => uno.oculto_desde === null)
     .sort((uno, otro) => uno.orden - otro.orden)
@@ -187,7 +187,7 @@ export function Ejercicio() {
 
   const cerrarHoja = useCallback(() => setHoja(null), [])
 
-  if (error) return <FalloAlCargar fallo={error} siNoExiste="Ese ejercicio no existe." />
+  if (error) return <FalloAlCargar fallo={error} siLaDireccionNoVale="Ese ejercicio no existe." />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { origen, ejercicios, grupos } = datos

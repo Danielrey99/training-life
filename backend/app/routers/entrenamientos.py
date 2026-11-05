@@ -33,7 +33,10 @@ def _obtener_entrenamiento(db: Session, entrenamiento_id: int) -> Entrenamiento:
     """404 si no existe."""
     entrenamiento = db.get(Entrenamiento, entrenamiento_id)
     if entrenamiento is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esta sesión ya no existe. Puede que la hayas cancelado o borrado.",
+        )
     return entrenamiento
 
 
@@ -365,7 +368,11 @@ def _validar_series_del_dia(
     # En el orden en que llegan: el primer fallo es el de la primera serie que no vale.
     for serie in pedidas:
         if serie.id in ajenas:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serie no encontrada")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Una de las series de este día ya no existe. Pulsa Cancelar y vuelve a"
+                " editar el día.",
+            )
         if serie.id is None:
             ejercicio = obtener_ejercicio_visible(db, serie.ejercicio_id)
             _validar_slot(db, serie.slot_id, entrenamiento.rutina_id, serie.ejercicio_id)
@@ -489,7 +496,10 @@ def _obtener_serie(db: Session, entrenamiento_id: int, serie_id: int) -> Serie:
     _obtener_entrenamiento(db, entrenamiento_id)  # valida el entrenamiento
     serie = db.get(Serie, serie_id)
     if serie is None or serie.entrenamiento_id != entrenamiento_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Serie no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esa serie ya no existe. Puede que la hayas borrado.",
+        )
     return serie
 
 

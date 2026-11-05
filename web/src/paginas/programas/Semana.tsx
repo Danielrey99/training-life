@@ -155,7 +155,7 @@ export function Semana() {
 
   const cerrarHoja = useCallback(() => setHojaDe(null), [])
 
-  if (error) return <FalloAlCargar fallo={error} siNoExiste="Ese programa no existe." />
+  if (error) return <FalloAlCargar fallo={error} siLaDireccionNoVale="Ese programa no existe." />
   if (!datos) return <p className="aviso">Cargando…</p>
 
   const { programa, activo, rutinas } = datos

@@ -122,7 +122,7 @@ export function Rutina() {
     setRutina(await api.rutina(id))
   }
 
-  if (error) return <FalloAlCargar fallo={error} siNoExiste="Esa rutina no existe." />
+  if (error) return <FalloAlCargar fallo={error} siLaDireccionNoVale="Esa rutina no existe." />
   if (!rutina) return <p className="aviso">Cargando…</p>
 
   const oculta = rutina.oculto_desde !== null

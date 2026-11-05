@@ -58,28 +58,28 @@ export class Proteccion extends Component<Props, Estado> {
 /**
  * Lo que sale cuando una pantalla no ha podido leer sus datos (sin conexión, un fallo
  * del servidor): el motivo y un botón para volver a pedirlos sin recargar la página.
- * Lo que no existe (un 404, o una dirección que no lleva un número donde va) no se
- * reintenta: dice que no existe, con `siNoExiste` si la pantalla tiene su propia frase.
+ * Lo que no existe no se reintenta: un 404 enseña la frase del servidor, y una dirección
+ * que no lleva un número donde va, `siLaDireccionNoVale` si la pantalla tiene la suya.
  * Una hoja pasa `alReintentar` para volver a leer solo lo suyo: volver a montar la
  * pantalla de detrás perdería lo que se estuviera editando en ella.
  */
 export function FalloAlCargar({
   fallo,
-  siNoExiste,
+  siLaDireccionNoVale,
   alReintentar,
 }: {
   fallo: unknown
-  siNoExiste?: string
+  siLaDireccionNoVale?: string
   alReintentar?: () => void
 }) {
   const reintentarLaPantalla = useContext(Reintentar)
   const reintentar = alReintentar ?? reintentarLaPantalla
   if (fallo instanceof ErrorDeApi && fallo.estado === 404) {
-    return <p className="aviso error">{siNoExiste ?? textoDelFallo(fallo)}</p>
+    return <p className="aviso error">{textoDelFallo(fallo)}</p>
   }
   // Al leer, un dato que no vale solo puede venir de la dirección («/sesion/abc»).
   if (fallo instanceof ErrorDeApi && fallo.estado === 422) {
-    return <p className="aviso error">{siNoExiste ?? 'Esa página no existe.'}</p>
+    return <p className="aviso error">{siLaDireccionNoVale ?? 'Esa página no existe.'}</p>
   }
   return (
     <div className="aviso-y-salida">

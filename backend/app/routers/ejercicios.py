@@ -96,7 +96,10 @@ def obtener_ejercicio_legible(db: Session, ejercicio_id: int) -> Ejercicio:
     """
     ejercicio = db.get(Ejercicio, ejercicio_id)
     if ejercicio is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Este ejercicio ya no existe. Puede que lo hayas borrado.",
+        )
     return ejercicio
 
 
@@ -107,9 +110,20 @@ def obtener_ejercicio_visible(db: Session, ejercicio_id: int) -> Ejercicio:
     Pública (sin `_`) porque la usan también los otros routers para validar
     cualquier ejercicio_id que llegue en una petición.
     """
-    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
+    ejercicio = db.get(Ejercicio, ejercicio_id)
+    if ejercicio is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Uno de los ejercicios que has elegido ya no existe. Elige otro en su lugar.",
+        )
     if ejercicio.oculto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"«{ejercicio.nombre}» está oculto, así que no se puede elegir. "
+                "Muéstralo desde la pestaña Ejercicios o elige otro."
+            ),
+        )
     return ejercicio
 
 
@@ -291,7 +305,10 @@ def aviso_de_borrar_ejercicio(
     """
     ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Los ejercicios predefinidos no se pueden ocultar ni borrar.",
+        )
     series, sesiones, desde = db.execute(
         select(
             func.count(Serie.id),
@@ -342,9 +359,7 @@ def actualizar_ejercicio(
     db: Session = Depends(get_db),
 ):
     """Edita un ejercicio propio. Los predefinidos no se pueden editar."""
-    ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -379,9 +394,7 @@ def borrar_ejercicio(
       lo cuenta el aviso de borrado.
     """
     # Admite lo oculto: la ficha de un ejercicio oculto ofrece borrarlo.
-    ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -441,9 +454,7 @@ def mostrar_ejercicio(
     db: Session = Depends(get_db),
 ):
     """Deshace un `modo=ocultar`: el ejercicio vuelve a ofrecerse para usarlo."""
-    ejercicio = db.get(Ejercicio, ejercicio_id)
-    if ejercicio is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
+    ejercicio = obtener_ejercicio_legible(db, ejercicio_id)
     if ejercicio.es_predefinido:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -485,7 +496,10 @@ def _obtener_nota(db: Session, ejercicio_id: int, nota_id: int) -> NotaEjercicio
     obtener_ejercicio_legible(db, ejercicio_id)
     nota = db.get(NotaEjercicio, nota_id)
     if nota is None or nota.ejercicio_id != ejercicio_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nota no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esa nota ya no existe. Puede que la hayas borrado.",
+        )
     return nota
 
 

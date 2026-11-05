@@ -27,7 +27,10 @@ def _obtener_programa_legible(db: Session, programa_id: int) -> Programa:
     """Para leer: 404 si no existe. Admite los ocultos."""
     programa = db.get(Programa, programa_id)
     if programa is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Este programa ya no existe. Puede que lo hayas borrado.",
+        )
     return programa
 
 
@@ -35,9 +38,7 @@ def _obtener_programa_modificable(
     db: Session, programa_id: int, admitir_oculto: bool = False
 ) -> Programa:
     """Para modificar: 404 si no existe y 409 si está oculto, salvo con `admitir_oculto`, que es para borrarlo o volver a mostrarlo."""
-    programa = db.get(Programa, programa_id)
-    if programa is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
+    programa = _obtener_programa_legible(db, programa_id)
     if not admitir_oculto:
         exigir_visible(programa, "Este programa está oculto. Muéstralo antes de cambiarlo.")
     return programa

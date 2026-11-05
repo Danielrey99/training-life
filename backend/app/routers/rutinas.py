@@ -51,7 +51,10 @@ def _obtener_rutina_legible(db: Session, rutina_id: int) -> Rutina:
     """Para leer: 404 si no existe. Admite las ocultas, que tienen su propia vista."""
     rutina = db.get(Rutina, rutina_id)
     if rutina is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Esta rutina ya no existe. Puede que la hayas borrado.",
+        )
     return rutina
 
 
@@ -77,9 +80,7 @@ def _obtener_rutina_modificable(
     """Para modificar: 404 si no existe y 409 si está oculta, salvo con
     `admitir_oculta`, que es para borrarla o volver a mostrarla.
     """
-    rutina = db.get(Rutina, rutina_id)
-    if rutina is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rutina no encontrada")
+    rutina = _obtener_rutina_legible(db, rutina_id)
     if not admitir_oculta:
         exigir_visible(rutina, "Esta rutina está oculta. Muéstrala antes de cambiarla.")
     return rutina
