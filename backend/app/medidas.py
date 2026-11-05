@@ -38,34 +38,31 @@ FAMILIA = {
 }
 
 # Qué campos son obligatorios (True), opcionales (None) o no valen (False) en cada tipo.
+# El peso corporal no va aquí: siempre es opcional, y tiene su propio aviso.
 REGLA: dict[str, dict[str, bool | None]] = {
     "peso_reps": {
         "peso": True,
         "repeticiones": True,
         "duracion_s": False,
         "distancia_m": False,
-        "peso_corporal": False,
     },
     "corporal": {
         "peso": True,
         "repeticiones": True,
         "duracion_s": False,
         "distancia_m": False,
-        "peso_corporal": None,
     },
     "tiempo": {
         "peso": None,
         "repeticiones": False,
         "duracion_s": True,
         "distancia_m": False,
-        "peso_corporal": False,
     },
     "cardio": {
         "peso": False,
         "repeticiones": False,
         "duracion_s": True,
         "distancia_m": None,
-        "peso_corporal": False,
     },
 }
 
@@ -78,7 +75,6 @@ NOMBRE_DEL_CAMPO = {
     "repeticiones": "las repeticiones",
     "duracion_s": "la duración",
     "distancia_m": "la distancia",
-    "peso_corporal": "el peso corporal",
 }
 
 
@@ -102,9 +98,7 @@ def validar_medidas(nombre: str, tipo: str, datos: Mapping[str, Any]) -> str | N
     regla = REGLA[tipo]
     faltan = [campo for campo, pide in regla.items() if pide is True and datos.get(campo) is None]
     sobran = [
-        campo
-        for campo, pide in regla.items()
-        if pide is False and datos.get(campo) is not None and campo != "peso_corporal"
+        campo for campo, pide in regla.items() if pide is False and datos.get(campo) is not None
     ]
     if faltan or sobran:
         detalle = []

@@ -55,9 +55,7 @@ def _validar_fecha_no_futura(fecha: date) -> None:
         )
 
 
-def _validar_dia_libre(
-    db: Session, fecha: date, excepto_id: int | None = None, moviendo: bool = False
-) -> None:
+def _validar_dia_libre(db: Session, fecha: date, moviendo: bool = False) -> None:
     """Una sesión por día como mucho, sea de la rutina que sea: se entrena una rutina al
     día. Lo garantiza también la base de datos; esto es para dar un 409 que diga
     cuál es la otra sesión y si está en curso.
@@ -68,10 +66,7 @@ def _validar_dia_libre(
     `moviendo`: se está cambiando la fecha de un día del historial. El aviso habla de
     ese día y va marcado como de la fecha (`campo`), para enseñarlo bajo ella.
     """
-    stmt = select(Entrenamiento).where(Entrenamiento.fecha == fecha)
-    if excepto_id is not None:
-        stmt = stmt.where(Entrenamiento.id != excepto_id)
-    otra = db.scalar(stmt)
+    otra = db.scalar(select(Entrenamiento).where(Entrenamiento.fecha == fecha))
     if otra is None:
         return
     if esta_cancelada(otra):
@@ -437,7 +432,7 @@ def actualizar_entrenamiento(
         a_borrar, cambiadas, nuevas = _validar_series_del_dia(db, entrenamiento, datos.series)
     if mueve:
         # Lo último: puede borrar una sesión cancelada que ocupe el día nuevo.
-        _validar_dia_libre(db, datos.fecha, excepto_id=entrenamiento_id, moviendo=True)
+        _validar_dia_libre(db, datos.fecha, moviendo=True)
     entrenamiento.fecha = datos.fecha
     entrenamiento.notas = datos.notas
     if datos.series is not None:
