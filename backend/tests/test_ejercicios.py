@@ -288,7 +288,7 @@ def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
     respuesta = cliente.put(
         f"/ejercicios/{ejercicio_id}",
         json={
-            "nombre": "Dominadas pronas",
+            "nombre": "Dominadas en anillas lastradas",
             "grupo_muscular_id": grupo_muscular_id,
             "tipo_registro": "tiempo",
         },
@@ -297,7 +297,10 @@ def test_editar_un_ejercicio_no_cambia_su_tipo_aunque_lo_traiga_el_cuerpo(
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["tipo_registro"] == "corporal"
     guardado = cliente.get(f"/ejercicios/{ejercicio_id}").json()
-    assert (guardado["nombre"], guardado["tipo_registro"]) == ("Dominadas pronas", "corporal")
+    assert (guardado["nombre"], guardado["tipo_registro"]) == (
+        "Dominadas en anillas lastradas",
+        "corporal",
+    )
 
 
 # --- Nombres que no se repiten ---------------------------------------------------
