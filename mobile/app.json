@@ -7,7 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "traininglife",
     "userInterfaceStyle": "automatic",
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "android": {
       "package": "com.danielrey.traininglife",
       "versionCode": 1,
@@ -29,7 +31,8 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

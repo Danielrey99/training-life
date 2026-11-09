@@ -1,15 +1,27 @@
 import Constants from 'expo-constants'
+import { Link } from 'expo-router'
+import { useMemo } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 
-import predefinidos from '../../../shared/predefinidos.json'
+import { baseDelTelefono } from '../plataforma/arranque'
 
-// Pantalla provisional: comprueba que el APK se instala, abre y lleva dentro shared/.
+// Pantalla provisional hasta que esté Entrenar: comprueba que la base del teléfono abre,
+// con su esquema y sus predefinidos.
 export default function Inicio() {
+  const predefinidos = useMemo(
+    () =>
+      baseDelTelefono().una<{ n: number }>(
+        'SELECT count(*) AS n FROM ejercicios WHERE es_predefinido = 1',
+      )?.n ?? 0,
+    [],
+  )
   return (
     <View style={estilos.fondo}>
       <Text style={estilos.titulo}>Training Life</Text>
-      <Text style={estilos.texto}>{predefinidos.ejercicios.length} ejercicios predefinidos</Text>
-      <Text style={estilos.version}>Versión {Constants.expoConfig?.version}</Text>
+      <Text style={estilos.texto}>{predefinidos} ejercicios predefinidos</Text>
+      <Link href="/autocomprobacion" style={estilos.version}>
+        Versión {Constants.expoConfig?.version}
+      </Link>
     </View>
   )
 }
@@ -24,5 +36,5 @@ const estilos = StyleSheet.create({
   },
   titulo: { color: '#e8eaed', fontSize: 28, fontWeight: '700' },
   texto: { color: '#4ade80', fontSize: 18 },
-  version: { color: '#9aa1ac', fontSize: 14 },
+  version: { color: '#9aa1ac', fontSize: 14, padding: 12 },
 })
