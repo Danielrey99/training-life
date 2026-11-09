@@ -60,7 +60,7 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
-Con el proyecto ya repasado, **lo siguiente** es la **app móvil para Android**, que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
+Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya empezada), que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -87,6 +87,7 @@ Con el proyecto ya repasado, **lo siguiente** es la **app móvil para Android**,
 - [x] Repaso final del diseño, pantalla a pantalla
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [x] Repaso completo: código, tests, documentación y diseño
+- [x] Móvil: el proyecto Expo y el APK firmado, construido en local e instalado en el teléfono (también actualizando encima sin perder nada)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 
