@@ -88,6 +88,7 @@ Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya e
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [x] Repaso completo: código, tests, documentación y diseño
 - [x] Móvil: el proyecto Expo y el APK firmado, construido en local e instalado en el teléfono (también actualizando encima sin perder nada)
+- [x] Móvil: la base de datos del teléfono (SQLite) con su esquema, sus versiones y los ejercicios predefinidos, y las reglas del backend en TypeScript, con sus tests
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 
