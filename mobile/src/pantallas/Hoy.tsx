@@ -17,6 +17,7 @@ import { Dialogo } from '../componentes/Dialogo'
 import { FalloAlCargar } from '../componentes/FalloAlCargar'
 import { Icono } from '../componentes/Icono'
 import { MarcaDelDia } from '../componentes/MarcaDelDia'
+import { TextoCentrado } from '../componentes/TextoCentrado'
 import { enMicrosegundos } from '../logica/reglas/instantes'
 import type {
   Entrenamiento,
@@ -445,12 +446,16 @@ function Tarjeta({
   const sesion = resumen.sesion
   const chip = programa && <Text style={e.chip}>Programa · {programa.nombre}</Text>
   const antes = (texto: string, conChip = true) => (
-    <Text style={[e.tarjetaAntes, conChip && programa && e.conChip]}>{texto}</Text>
+    <TextoCentrado style={[e.tarjetaAntes, conChip && programa && e.conChip]}>
+      {texto}
+    </TextoCentrado>
   )
   const hecho = (texto: string) => (
     <View style={e.tarjetaHecho}>
       <Icono nombre="hecho" color={c.acento} pequeno />
-      <Text style={[e.tarjetaDespues, { color: c.acento }]}>{texto}</Text>
+      <TextoCentrado style={[e.tarjetaDespues, { color: c.acento, flexShrink: 1 }]}>
+        {texto}
+      </TextoCentrado>
     </View>
   )
 
@@ -484,9 +489,9 @@ function Tarjeta({
         <View style={e.tarjeta}>
           {antes('Hoy', false)}
           <Text style={e.tarjetaGrande}>Sin programa</Text>
-          <Text style={e.tarjetaDespues}>
+          <TextoCentrado style={e.tarjetaDespues}>
             Activa un programa para que te diga qué rutina toca cada día.
-          </Text>
+          </TextoCentrado>
           <View style={e.tarjetaBotonNormal}>
             <Boton texto="Elegir un programa" alPulsar={() => router.navigate('/programas')} />
           </View>
@@ -502,14 +507,14 @@ function Tarjeta({
           {chip}
           {antes(loDeHoy ? 'Hoy toca' : 'Hoy')}
           <Text style={e.tarjetaGrande}>{nombre}</Text>
-          <Text style={e.tarjetaDespues}>
+          <TextoCentrado style={e.tarjetaDespues}>
             {enCurso ? `En curso desde las ${hora(enCurso.created_at)}${series}` : 'En curso'}
-          </Text>
+          </TextoCentrado>
           {sesion?.cubre_fecha && sesion.cubre_fecha !== resumen.fecha && (
-            <Text style={e.tarjetaDespues}>
+            <TextoCentrado style={e.tarjetaDespues}>
               {sesion.cubre_fecha < resumen.fecha ? 'Recuperado' : 'Adelantado'} del{' '}
               {fechaEnFrase(sesion.cubre_fecha, false)}
-            </Text>
+            </TextoCentrado>
           )}
           <View style={e.tarjetaBoton}>
             <Boton
@@ -563,10 +568,10 @@ function Tarjeta({
           {antes('Hoy')}
           <Text style={e.tarjetaGrande}>Descanso</Text>
           {proximo?.rutina && (
-            <Text style={e.tarjetaDespues}>
+            <TextoCentrado style={e.tarjetaDespues}>
               {mayuscula(cuandoToca(proximo.fecha, resumen.fecha))} toca {proximo.rutina.nombre} ·{' '}
               {ejercicios(proximo.rutina)}
-            </Text>
+            </TextoCentrado>
           )}
         </View>
       )
@@ -578,7 +583,7 @@ function Tarjeta({
           {chip}
           {antes('Hoy toca')}
           <Text style={e.tarjetaGrande}>{rutina!.nombre}</Text>
-          <Text style={e.tarjetaDespues}>{detalle(rutina!)}</Text>
+          <TextoCentrado style={e.tarjetaDespues}>{detalle(rutina!)}</TextoCentrado>
           <View style={e.tarjetaBoton}>
             <Boton texto={`Empezar ${rutina!.nombre}`} variante="principal" alPulsar={alEmpezar} />
           </View>

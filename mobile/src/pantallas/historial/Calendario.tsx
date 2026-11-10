@@ -32,6 +32,7 @@ import {
   tituloDeMes,
 } from '../../utiles/fechas'
 import { HojaRegistrar } from './HojaRegistrar'
+import { TextoCentrado } from '../../componentes/TextoCentrado'
 
 const NOMBRES_DIA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
@@ -197,10 +198,10 @@ export function Calendario() {
                 <Text style={e.cifraTexto}>no hecho{resumen.noHechos === 1 ? '' : 's'}</Text>
               </View>
             </View>
-            <Text style={e.cifrasPie}>
+            <TextoCentrado style={e.cifrasPie}>
               {esteMes ? `Hasta hoy, ${diaYMes(hoy)} · ` : ''}
               {series === 1 ? '1 serie registrada' : `${series} series registradas`}
-            </Text>
+            </TextoCentrado>
           </>
         )}
 

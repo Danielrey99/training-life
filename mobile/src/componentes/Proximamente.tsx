@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { useColores } from '../tema'
+import { TextoCentrado } from './TextoCentrado'
 
 export function Proximamente({ titulo, texto }: { titulo: string; texto: string }) {
   const c = useColores()
@@ -12,7 +13,7 @@ export function Proximamente({ titulo, texto }: { titulo: string; texto: string 
         <Text style={[estilos.titulo, { color: c.texto }]} accessibilityRole="header">
           {titulo}
         </Text>
-        <Text style={[estilos.texto, { color: c.textoTenue }]}>{texto}</Text>
+        <TextoCentrado style={[estilos.texto, { color: c.textoTenue }]}>{texto}</TextoCentrado>
       </View>
     </SafeAreaView>
   )

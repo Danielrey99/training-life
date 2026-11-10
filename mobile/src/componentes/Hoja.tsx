@@ -8,6 +8,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { useColores } from '../tema'
+import { TextoCentrado } from './TextoCentrado'
 
 interface Props {
   titulo: string
@@ -38,7 +39,9 @@ export function Hoja({ titulo, subtitulo, alCerrar, children }: Props) {
             {titulo}
           </Text>
           {subtitulo && (
-            <Text style={[estilos.subtitulo, { color: c.textoTenue }]}>{subtitulo}</Text>
+            <TextoCentrado style={[estilos.subtitulo, { color: c.textoTenue }]}>
+              {subtitulo}
+            </TextoCentrado>
           )}
           <ScrollView>{children}</ScrollView>
         </Pressable>
