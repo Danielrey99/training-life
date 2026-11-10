@@ -2,7 +2,7 @@
 
 App móvil del proyecto, construida con **React Native** usando **Expo** (SDK 58, Expo Router y TypeScript).
 
-> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, e importar y exportar tus datos. Lo siguiente son las pantallas de entrenar y del historial.
+> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, importar y exportar tus datos, y las pantallas de entrenar: qué toca hoy y la sesión. Lo siguiente es el historial.
 
 Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repartida como APK, sin pasar por la tienda.
 
