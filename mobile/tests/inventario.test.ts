@@ -11,6 +11,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
+import { nombresDeTests } from './apoyo/reconocedor'
 import { noAplica } from './no_aplica'
 import { pendientes } from './pendientes'
 
@@ -52,14 +53,6 @@ function archivosDeTestDelMovil(carpeta: string): string[] {
   })
 }
 
-/**
- * `test(` o `it(` con el nombre como primer argumento, también con `.each(...)`,
- * `.failing`, `.skip` u `.only`. Del nombre se queda la parte que es un identificador: en
- * un `test.each` el nombre puede seguir con « (%i)».
- */
-const LLAMADA_A_TEST =
-  /\b(?:test|it)(?:\.(?:failing|skip|only|concurrent))*(?:\.each\s*(?:\(\s*[\w.]+\s*\)|\([\s\S]*?\]\s*\)|`[\s\S]*?`))?\s*\(\s*['"`]([\p{Ll}\p{N}_]+)/gu
-
 /** De cada nombre de test del móvil, en qué archivos está (por su nombre: «sesiones.test.ts»). */
 function testsDelMovil(): Map<string, Set<string>> {
   const donde = new Map<string, Set<string>>()
@@ -69,9 +62,9 @@ function testsDelMovil(): Map<string, Set<string>> {
       .split('\n')
       .filter((linea) => !/^\s*\/\//.test(linea))
       .join('\n')
-    for (const m of texto.matchAll(LLAMADA_A_TEST)) {
-      if (!donde.has(m[1])) donde.set(m[1], new Set())
-      donde.get(m[1])!.add(basename(ruta))
+    for (const nombre of nombresDeTests(texto)) {
+      if (!donde.has(nombre)) donde.set(nombre, new Set())
+      donde.get(nombre)!.add(basename(ruta))
     }
   }
   return donde
@@ -128,4 +121,53 @@ test('ninguno_esta_a_la_vez_en_no_aplica_y_en_pendientes', () => {
 
 test('cada_uno_de_no_aplica_dice_su_motivo', () => {
   expect(Object.keys(noAplica).filter((clave) => noAplica[clave].trim() === '')).toEqual([])
+})
+
+describe('el_reconocedor_de_tests_del_movil', () => {
+  test('reconoce_test_each_con_as_const_y_los_test_que_le_siguen', () => {
+    const texto = [
+      "test.each([['a', 1], ['b', 2]] as const)('primero_con_tabla (%s)', () => {})",
+      "test('segundo_normal', () => {})",
+      "it('tercero_con_it', () => {})",
+    ].join('\n')
+
+    expect(nombresDeTests(texto)).toEqual(['primero_con_tabla', 'segundo_normal', 'tercero_con_it'])
+  })
+
+  test('no_se_come_tests_por_un_cierre_dentro_de_una_cadena', () => {
+    const texto = [
+      "test.each(['a])', \"b)(\", `c])`])('con_cierres_en_cadenas (%s)', () => {})",
+      "test('despues_del_each', () => {})",
+    ].join('\n')
+
+    expect(nombresDeTests(texto)).toEqual(['con_cierres_en_cadenas', 'despues_del_each'])
+  })
+
+  test('reconoce_modificadores_variables_y_plantillas', () => {
+    const texto = [
+      "test.skip('saltado', () => {})",
+      "test.failing('fallo_conocido', () => {})",
+      "test.only.each(CASOS)('con_variable (%s)', () => {})",
+      "test.each`\n a | b\n ${1} | ${2}\n`('con_plantilla', () => {})",
+      "test.each(lista.map((x) => [x]))('con_llamadas_dentro', () => {})",
+    ].join('\n')
+
+    expect(nombresDeTests(texto)).toEqual([
+      'saltado',
+      'fallo_conocido',
+      'con_variable',
+      'con_plantilla',
+      'con_llamadas_dentro',
+    ])
+  })
+
+  test('ignora_lo_que_no_es_una_declaracion_de_test', () => {
+    const texto = [
+      "const x = latest('no_es_test')",
+      "test.each([1])",
+      "expect(it).toBe('tampoco')",
+    ].join('\n')
+
+    expect(nombresDeTests(texto)).toEqual([])
+  })
 })
