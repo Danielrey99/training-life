@@ -33,7 +33,20 @@ export function hoy(): string {
 function aIso(fecha: Date): string {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0')
   const dia = String(fecha.getDate()).padStart(2, '0')
-  return `${fecha.getFullYear()}-${mes}-${dia}`
+  // El año con cuatro cifras, también antes del 1000: «0001-01-01».
+  return `${String(fecha.getFullYear()).padStart(4, '0')}-${mes}-${dia}`
+}
+
+/**
+ * Una fecha local a mediodía, lejos de cualquier cambio de hora. Con `setFullYear` y no con
+ * `new Date(año, mes, día)`, que lee los años 0 a 99 como 1900 a 1999: el 1 de enero del
+ * año 1 saldría de 1901. Como `new Date`, un mes o un día fuera de rango pasan al siguiente
+ * o al anterior (el día 0 es el último del mes de antes).
+ */
+function aMediodia(anio: number, mes: number, dia: number): Date {
+  const fecha = new Date(2000, 0, 1, 12)
+  fecha.setFullYear(anio, mes, dia)
+  return fecha
 }
 
 /**
@@ -48,7 +61,7 @@ export function diaDe(instante: string): string {
 /** El texto ISO como fecha local a mediodía, lejos de cualquier cambio de hora. */
 function aFecha(iso: string): Date {
   const [anio, mes, dia] = iso.split('-').map(Number)
-  return new Date(anio, mes - 1, dia, 12)
+  return aMediodia(anio, mes - 1, dia)
 }
 
 /** Los días que van de `desde` a `hasta` (negativo si `hasta` es anterior). */
@@ -182,13 +195,13 @@ export function mesDeLaUrl(valor: string | null, hoy: string): string {
 /** El último día del mes de esa fecha. */
 export function finDeMes(iso: string): string {
   const fecha = aFecha(inicioDeMes(iso))
-  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0, 12))
+  return aIso(aMediodia(fecha.getFullYear(), fecha.getMonth() + 1, 0))
 }
 
 /** El primer día del mes `meses` meses después (o antes, si es negativo). */
 export function sumarMeses(iso: string, meses: number): string {
   const fecha = aFecha(inicioDeMes(iso))
-  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + meses, 1, 12))
+  return aIso(aMediodia(fecha.getFullYear(), fecha.getMonth() + meses, 1))
 }
 
 /** "Septiembre 2026". */
