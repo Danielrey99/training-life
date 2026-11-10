@@ -7,13 +7,15 @@
  * **sustituye todo**: antes, el diálogo dice qué se sustituye por qué, con lo que cuenta la
  * lógica sin escribir nada.
  */
-import { router } from 'expo-router'
+import Constants from 'expo-constants'
+import { Link, router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../componentes/Boton'
 import { Dialogo } from '../componentes/Dialogo'
+import { Icono } from '../componentes/Icono'
 import type { ComprobacionDeImportar, ResumenDeDatos } from '../logica/tipos'
 import { api, ErrorDeApi, textoDelFallo } from '../plataforma/api'
 import { compartirArchivo, elegirArchivo } from '../plataforma/archivos'
@@ -134,7 +136,7 @@ export function TusDatos() {
   const tarjeta = [estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]
   const parrafo = [estilos.parrafo, { color: c.textoTenue }]
   return (
-    <SafeAreaView style={[estilos.pantalla, { backgroundColor: c.fondo }]}>
+    <SafeAreaView edges={['top']} style={[estilos.pantalla, { backgroundColor: c.fondo }]}>
       <View style={estilos.cabecera}>
         <Pressable
           accessibilityRole="button"
@@ -142,15 +144,19 @@ export function TusDatos() {
           onPress={() => router.back()}
           style={estilos.volver}
         >
-          <Text style={[estilos.flecha, { color: c.texto }]}>‹</Text>
+          <Icono nombre="volver" color={c.texto} />
         </Pressable>
         <Text style={[estilos.titulo, { color: c.texto }]} accessibilityRole="header">
-          Tus datos
+          Ajustes
         </Text>
         <View style={estilos.volver} />
       </View>
 
       <ScrollView contentContainerStyle={estilos.contenido}>
+        {/* Centrado y a 15 px, como los apartados de Ajustes en la web (decisión del autor). */}
+        <Text style={[estilos.rotulo, { color: c.texto }]} accessibilityRole="header">
+          Tus datos
+        </Text>
         <View style={tarjeta}>
           <Text style={parrafo}>
             Guarda en un archivo todo lo que has apuntado, con tus rutinas, programas, sesiones y
@@ -198,6 +204,12 @@ export function TusDatos() {
             ))}
           </View>
         )}
+
+        {/* Tocar la versión lleva a la comprobación de la base del teléfono (oculta a
+            propósito: es para diagnosticar, no para el día a día). */}
+        <Link href="/autocomprobacion" style={[estilos.version, { color: c.textoTenue }]}>
+          Versión {Constants.expoConfig?.version}
+        </Link>
       </ScrollView>
 
       {porExportar && (
@@ -264,7 +276,8 @@ const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
   cabecera: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, height: 56 },
   volver: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  flecha: { fontSize: 32, lineHeight: 34 },
+  rotulo: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  version: { fontSize: 13, textAlign: 'center', padding: 12 },
   titulo: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700' },
   contenido: { padding: 16, gap: 12 },
   tarjeta: { padding: 16, gap: 12, borderWidth: 1, borderRadius: RADIO },

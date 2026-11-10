@@ -1,8 +1,10 @@
 /**
- * Los colores de la app: las variables de `web/src/index.css`, en oscuro y en claro. Por
- * ahora manda el tema del sistema; elegirlo en Ajustes llega con el resto de Ajustes.
+ * Los colores de la app: las variables de `web/src/index.css`, en oscuro y en claro, según
+ * el tema de Ajustes (por defecto, el del sistema).
  */
 import { useColorScheme } from 'react-native'
+
+import { useAjustes } from './utiles/ajustes'
 
 export interface Colores {
   fondo: string
@@ -13,6 +15,8 @@ export interface Colores {
   acento: string
   error: string
   sobreAcento: string
+  /** Lo que caduca hoy (el último día para recuperar). */
+  ambar: string
 }
 
 const OSCURO: Colores = {
@@ -24,6 +28,7 @@ const OSCURO: Colores = {
   acento: '#4ade80',
   error: '#f87171',
   sobreAcento: '#14161a',
+  ambar: '#ecb432',
 }
 
 const CLARO: Colores = {
@@ -35,11 +40,15 @@ const CLARO: Colores = {
   acento: '#16a34a',
   error: '#dc2626',
   sobreAcento: '#ffffff',
+  ambar: '#b45309',
 }
 
 export const RADIO = 8
 export const RADIO_PEQUENO = 6
 
 export function useColores(): Colores {
-  return useColorScheme() === 'light' ? CLARO : OSCURO
+  const { tema } = useAjustes()
+  const sistema = useColorScheme()
+  const claro = tema === 'claro' || (tema === 'sistema' && sistema === 'light')
+  return claro ? CLARO : OSCURO
 }
