@@ -1,0 +1,246 @@
+// Copia de `web/src/utiles/fechas.ts`. Única diferencia: `diaDe` lee el instante con
+// `enMicrosegundos` y no con `new Date(texto)`: los seis decimales de segundo que escribe el
+// backend no están en el formato que JavaScript garantiza leer, y Hermes no es Chrome. Si
+// cambia allí, se cambia aquí.
+import { enMicrosegundos } from '../logica/reglas/instantes'
+
+/**
+ * Fechas en el formato en que viajan por la API (`"2026-09-14"`) y en el que se
+ * leen en pantalla ("Lunes 14", "martes 8", "26 de agosto").
+ *
+ * Se trabaja con el texto ISO y no con `Date` en todo lo posible: una fecha sin
+ * hora convertida a `Date` se interpreta en UTC, y de noche en España eso la
+ * mueve al día anterior.
+ */
+
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+]
+
+/** Hoy, en ISO y en la hora del dispositivo. */
+export function hoy(): string {
+  return aIso(new Date())
+}
+
+// A mano y no con toISOString(), que pasa antes por UTC: entrenando de noche
+// eso devolvería el día anterior.
+function aIso(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  return `${fecha.getFullYear()}-${mes}-${dia}`
+}
+
+/**
+ * El día, en ISO y en la hora del dispositivo, de un instante con hora como el
+ * `created_at` de una nota. Cortar sus diez primeros caracteres daría el día en UTC:
+ * una nota escrita a las doce y media de la noche saldría del día anterior.
+ */
+export function diaDe(instante: string): string {
+  return aIso(new Date(Number(enMicrosegundos(instante) / 1000n)))
+}
+
+/** El texto ISO como fecha local a mediodía, lejos de cualquier cambio de hora. */
+function aFecha(iso: string): Date {
+  const [anio, mes, dia] = iso.split('-').map(Number)
+  return new Date(anio, mes - 1, dia, 12)
+}
+
+/** Los días que van de `desde` a `hasta` (negativo si `hasta` es anterior). */
+export function diasEntre(desde: string, hasta: string): number {
+  return Math.round((aFecha(hasta).getTime() - aFecha(desde).getTime()) / 86_400_000)
+}
+
+function mayuscula(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+/**
+ * Para una cabecera: "Lunes 14" si es de este mes, "Jueves 10 de septiembre" si
+ * no, y con el año si tampoco es de este año.
+ */
+export function fechaTitulo(iso: string): string {
+  const fecha = aFecha(iso)
+  const ahora = aFecha(hoy())
+  let texto = `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()}`
+  if (fecha.getMonth() !== ahora.getMonth() || fecha.getFullYear() !== ahora.getFullYear()) {
+    texto += ` de ${MESES[fecha.getMonth()]}`
+  }
+  if (fecha.getFullYear() !== ahora.getFullYear()) texto += ` de ${fecha.getFullYear()}`
+  return texto
+}
+
+/**
+ * Para una referencia dentro de una frase ("Última vez · martes 8"): el día de la
+ * semana si fue en los últimos seis días, que es como se piensa en una semana de
+ * gimnasio; si no, el día y el mes ("26 de agosto"). Nunca "hoy" ni "ayer"
+ * (decisión del autor): el día con su número se entiende igual y no cambia de un
+ * día para otro.
+ */
+export function fechaCorta(iso: string): string {
+  const fecha = aFecha(iso)
+  const dias = diasEntre(iso, hoy())
+  if (dias >= 0 && dias < 7) return `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
+  let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+  if (fecha.getFullYear() !== aFecha(hoy()).getFullYear()) texto += ` de ${fecha.getFullYear()}`
+  return texto
+}
+
+/** La fecha `dias` días después (o antes, si es negativo). */
+export function sumarDias(iso: string, dias: number): string {
+  const fecha = aFecha(iso)
+  fecha.setDate(fecha.getDate() + dias)
+  return aIso(fecha)
+}
+
+/** 1 = lunes … 7 = domingo, como `dia_semana` en la API. */
+export function diaDeLaSemana(iso: string): number {
+  return ((aFecha(iso).getDay() + 6) % 7) + 1
+}
+
+/** "lunes", "miércoles"… */
+export function nombreDelDia(iso: string): string {
+  return DIAS[aFecha(iso).getDay()]
+}
+
+/**
+ * Para una cabecera: "Lunes 14 de septiembre", siempre con el mes, y con el año si no
+ * es el actual ("Jueves 1 de octubre de 2025"): un día de otro año no se confunde.
+ */
+export function fechaLarga(iso: string): string {
+  return mayuscula(fechaCompleta(iso))
+}
+
+/**
+ * Dentro de una frase, la fecha entera: "martes 8 de septiembre", con el año si no es
+ * el actual. En el día del historial (decisión del autor): ahí se mira el pasado, y
+ * "martes 8" a secas no dice de qué mes.
+ */
+export function fechaCompleta(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${DIAS[fecha.getDay()]} ${fecha.getDate()} de ${MESES[fecha.getMonth()]}${deOtroAnio(fecha)}`
+}
+
+/** " de 2025" si la fecha no es de este año; nada si lo es. */
+function deOtroAnio(fecha: Date): string {
+  return fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
+}
+
+/**
+ * Dentro de una frase ("del miércoles 9", "hasta el domingo 20", "Leg · hoy"):
+ * hoy, ayer o mañana si lo es; el día de la semana y el número si está a menos de
+ * dos semanas (con el mes si es de otro y está a más de una semana); y si no, el día y el mes.
+ */
+export function fechaEnFrase(iso: string, relativa = true): string {
+  const dias = diasEntre(hoy(), iso)
+  // Sin `relativa`, nunca "hoy" ni "ayer": donde el día que se mira no es hoy (la
+  // hoja de registrar un día pasado), confundirían.
+  if (relativa && dias === 0) return 'hoy'
+  if (relativa && dias === -1) return 'ayer'
+  if (relativa && dias === 1) return 'mañana'
+  const fecha = aFecha(iso)
+  const ahora = aFecha(hoy())
+  if (Math.abs(dias) < 14) {
+    let texto = `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
+    // A menos de una semana, el día de la semana ya dice cuál es: el mes sobra.
+    if (Math.abs(dias) >= 7 && fecha.getMonth() !== ahora.getMonth()) {
+      texto += ` de ${MESES[fecha.getMonth()]}`
+    }
+    return texto
+  }
+  let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+  if (fecha.getFullYear() !== ahora.getFullYear()) texto += ` de ${fecha.getFullYear()}`
+  return texto
+}
+
+/**
+ * "el miércoles 2", "el 26 de junio": nunca "hoy", "ayer" ni "mañana" (decisión del
+ * autor). La única excepción, «Mañana toca…» en Hoy, no pasa por aquí.
+ */
+export function conArticulo(iso: string): string {
+  return `el ${fechaEnFrase(iso, false)}`
+}
+
+/** El primer día del mes de esa fecha. */
+export function inicioDeMes(iso: string): string {
+  return `${iso.slice(0, 7)}-01`
+}
+
+/**
+ * El mes de `?mes=2026-09`, como su primer día; si falta o no es un mes, el de `hoy`.
+ * Un enlace mal copiado abre el mes actual en vez de un error de la API.
+ */
+export function mesDeLaUrl(valor: string | null, hoy: string): string {
+  return valor && /^\d{4}-(0[1-9]|1[0-2])$/.test(valor) ? `${valor}-01` : inicioDeMes(hoy)
+}
+
+/** El último día del mes de esa fecha. */
+export function finDeMes(iso: string): string {
+  const fecha = aFecha(inicioDeMes(iso))
+  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0, 12))
+}
+
+/** El primer día del mes `meses` meses después (o antes, si es negativo). */
+export function sumarMeses(iso: string, meses: number): string {
+  const fecha = aFecha(inicioDeMes(iso))
+  return aIso(new Date(fecha.getFullYear(), fecha.getMonth() + meses, 1, 12))
+}
+
+/** "Septiembre 2026". */
+export function tituloDeMes(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${mayuscula(MESES[fecha.getMonth()])} ${fecha.getFullYear()}`
+}
+
+/** "15 de septiembre", sin día de la semana. */
+export function diaYMes(iso: string): string {
+  const fecha = aFecha(iso)
+  return `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
+}
+
+/** "6 de julio", y con el año si no es el actual: "6 de julio de 2025". */
+export function diaYMesConAnio(iso: string): string {
+  const fecha = aFecha(iso)
+  const anio =
+    fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
+  return `${diaYMes(iso)}${anio}`
+}
+
+/** "enero", y con el año si no es el actual: "enero de 2025". */
+export function mesConAnio(iso: string): string {
+  const fecha = aFecha(iso)
+  const anio =
+    fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` de ${fecha.getFullYear()}`
+  return `${MESES[fecha.getMonth()]}${anio}`
+}
+
+/** "sep": el mes en tres letras, para el eje de una gráfica. */
+export function mesCorto(iso: string): string {
+  return MESES[aFecha(iso).getMonth()].slice(0, 3)
+}
+
+/** "14 sep": el día y el mes abreviado. */
+export function diaYMesCorto(iso: string): string {
+  return `${aFecha(iso).getDate()} ${mesCorto(iso)}`
+}
+
+/**
+ * "Lun 14 sep": para una fila o un globo de la gráfica, donde el espacio es poco. Con el
+ * año si no es el actual ("Lun 14 sep 2025"): con el rango de un año o todo, se mezclan.
+ */
+export function fechaAbreviada(iso: string): string {
+  const fecha = aFecha(iso)
+  const anio = fecha.getFullYear() === aFecha(hoy()).getFullYear() ? '' : ` ${fecha.getFullYear()}`
+  return `${mayuscula(DIAS[fecha.getDay()].slice(0, 3))} ${diaYMesCorto(iso)}${anio}`
+}

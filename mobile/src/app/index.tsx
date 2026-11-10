@@ -19,6 +19,9 @@ export default function Inicio() {
     <View style={estilos.fondo}>
       <Text style={estilos.titulo}>Training Life</Text>
       <Text style={estilos.texto}>{predefinidos} ejercicios predefinidos</Text>
+      <Link href="/datos" style={estilos.enlace}>
+        Tus datos
+      </Link>
       <Link href="/autocomprobacion" style={estilos.version}>
         Versión {Constants.expoConfig?.version}
       </Link>
@@ -36,5 +39,15 @@ const estilos = StyleSheet.create({
   },
   titulo: { color: '#e8eaed', fontSize: 28, fontWeight: '700' },
   texto: { color: '#4ade80', fontSize: 18 },
+  enlace: {
+    color: '#e8eaed',
+    fontSize: 16,
+    fontWeight: '600',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#2c313b',
+    borderRadius: 6,
+  },
   version: { color: '#9aa1ac', fontSize: 14, padding: 12 },
 })
