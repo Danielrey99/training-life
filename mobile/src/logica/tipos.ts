@@ -1,0 +1,504 @@
+/**
+ * Copia de `web/src/api/tipos.ts`: lo que devuelve la api del móvil, con los mismos nombres
+ * y formas que la API del backend, para que las pantallas de la web se porten sin tocarlas.
+ * Si cambia allí, se cambia aquí.
+ *
+ * Las fechas van como texto (`"2026-09-05"`) y los pesos también (`"80.00"`), como los
+ * serializa el backend.
+ */
+
+// --- Catálogo y ejercicios -----------------------------------------------
+
+export type GrupoMuscular = {
+  id: number
+  nombre: string
+}
+
+/**
+ * Cómo se apunta un ejercicio: lo decide quien lo crea y no cambia. Decide qué medidas
+ * lleva cada una de sus series (`utiles/medidas.ts`).
+ */
+export type TipoRegistro = 'peso_reps' | 'corporal' | 'tiempo' | 'cardio'
+
+export type Ejercicio = {
+  id: number
+  nombre: string
+  grupo_muscular_id: number
+  descripcion: string | null
+  es_predefinido: boolean
+  tipo_registro: TipoRegistro
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type Nota = {
+  id: number
+  ejercicio_id: number
+  nota: string
+  created_at: string
+  updated_at: string
+}
+
+// --- Rutinas y huecos ----------------------------------------------------
+
+export type HuecoDeRutina = {
+  id: number
+  rutina_id: number
+  ejercicio_principal_id: number
+  orden: number
+  // El objetivo es de repeticiones o de duración (en segundos), según el ejercicio: un
+  // par completo y el otro nulo.
+  series_objetivo: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s: number | null
+  duracion_max_s: number | null
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
+  created_at: string
+  updated_at: string
+  ejercicio_principal: Ejercicio
+  // Los comodines del hueco, cada uno con su objetivo en él.
+  alternativas: AlternativaDeHueco[]
+}
+
+export type Objetivo = {
+  series_objetivo: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s: number | null
+  duracion_max_s: number | null
+}
+
+/** Una alternativa de un hueco: el ejercicio y lo que se hace con él en ese hueco. */
+export type AlternativaDeHueco = Objetivo & { ejercicio: Ejercicio }
+
+export type Rutina = {
+  id: number
+  nombre: string
+  // Desde cuándo está oculto; nulo si está visible.
+  oculto_desde: string | null
+  // En cuántos programas visibles aparece.
+  num_programas: number
+  created_at: string
+  updated_at: string
+  slots: HuecoDeRutina[]
+}
+
+/** Lo justo de una rutina para pintarla en un día; si está oculta, va en gris. */
+export type RutinaMinima = {
+  id: number
+  nombre: string
+  oculto_desde: string | null
+}
+
+/** Un programa donde está la rutina de un uso. */
+export type ProgramaDeUnUso = {
+  id: number
+  nombre: string
+  // Si es el programa en uso ahora.
+  activo: boolean
+}
+
+/** Un ejercicio (hueco) de una rutina donde aparece un ejercicio de la biblioteca. */
+export type UsoEnRutina = {
+  rutina: RutinaMinima
+  slot_id: number
+  rol: 'principal' | 'comodin'
+  // Su número entre los ejercicios visibles de la rutina; nulo si está oculto.
+  posicion: number | null
+  // El hueco o su rutina están ocultos: va plegado en «Ver N ocultos».
+  oculto: boolean
+  // Los visibles donde la rutina tiene algún día.
+  programas: ProgramaDeUnUso[]
+}
+
+/** Lo que se perdería al borrar un ejercicio, para el diálogo de confirmar. */
+export type AvisoDeBorrarEjercicio = {
+  // Si el DELETE sin modo daría 409. Las notas no cuentan.
+  con_historial: boolean
+  // Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
+  series: number
+  // Sesiones con alguna de esas series.
+  sesiones: number
+  desde: string | null
+  notas: number
+  // Principal: ese ejercicio de la rutina se borra. Comodín: deja de ser alternativa.
+  huecos: UsoEnRutina[]
+  // Se quedan sin ninguna serie y se borran con él; no incluye la de hoy en curso.
+  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
+}
+
+/** Cuánto hay, en el archivo o en la app, para el diálogo de importar. */
+export type ResumenDeDatos = {
+  ejercicios: number
+  notas: number
+  rutinas: number
+  programas: number
+  // Las que tienen alguna serie.
+  sesiones: number
+  series: number
+  primera_sesion: string | null
+  ultima_sesion: string | null
+}
+
+/** Lo que dice `POST /datos/importar?comprobar=true`: el archivo vale y esto cambiaría. */
+export type ComprobacionDeImportar = {
+  exportado_en: string
+  archivo: ResumenDeDatos
+  actual: ResumenDeDatos
+}
+
+// --- Entrenamientos y series ---------------------------------------------
+
+export type Serie = {
+  id: number
+  entrenamiento_id: number
+  ejercicio_id: number
+  slot_id: number
+  numero_serie: number
+  // Las medidas que lleva dependen del tipo de su ejercicio: el resto, nulo. El peso
+  // llega como texto (DECIMAL) y siempre en kg; el tiempo, en segundos.
+  peso: string | null
+  repeticiones: number | null
+  duracion_s: number | null
+  // En metros: la distancia de una serie de cardio, si se apuntó.
+  distancia_m: number | null
+  // Cuánto pesaba la persona al hacerla (solo en las de peso corporal), en kg.
+  peso_corporal: string | null
+  variante: string | null
+  created_at: string
+  updated_at: string
+  ejercicio: Ejercicio
+}
+
+export type Entrenamiento = {
+  id: number
+  rutina_id: number
+  fecha: string
+  // El día del plan que cuenta: el de hoy, uno que se recupera o uno que se
+  // adelanta. Nulo si no cuenta para ninguno.
+  cubre_fecha: string | null
+  notas: string | null
+  // Nula mientras la sesión sigue abierta.
+  terminada_en: string | null
+  // Abierta y de hoy: la que se puede continuar. La calcula el backend.
+  en_curso: boolean
+  created_at: string
+  updated_at: string
+  series: Serie[]
+}
+
+// --- Historial -----------------------------------------------------------
+
+/**
+ * Una serie del historial. No repite fecha ni ejercicio (los trae la sesión que
+ * la agrupa), pero sí el hueco: el mismo ejercicio puede ocupar dos huecos de
+ * una rutina, y un mismo día traería dos tandas que numeran desde 1.
+ */
+export type SerieHistorial = {
+  id: number
+  slot_id: number
+  numero_serie: number
+  peso: string | null
+  repeticiones: number | null
+  duracion_s: number | null
+  distancia_m: number | null
+  variante: string | null
+}
+
+/** Un día con las series que tocaron ese ejercicio. */
+export type SesionHistorial = {
+  entrenamiento_id: number
+  fecha: string
+  // Nombre de la rutina que se siguió.
+  rutina: string
+  series: SerieHistorial[]
+}
+
+// --- Programas y plan ----------------------------------------------------
+
+/** 1 = lunes … 7 = domingo. */
+export type DiaSemana = 1 | 2 | 3 | 4 | 5 | 6 | 7
+
+export type ProgramaDia = {
+  dia_semana: DiaSemana
+  rutina: RutinaMinima
+}
+
+export type Programa = {
+  id: number
+  nombre: string
+  oculto_desde: string | null
+  // El que usan Hoy y el calendario. Solo puede haber uno.
+  activo: boolean
+  // El abierto si está activo; si no, el último que se cerró. Nulo si nunca se usó.
+  ultimo_periodo: Periodo | null
+  created_at: string
+  updated_at: string
+  // Solo los días con rutina: los que faltan son descanso.
+  dias: ProgramaDia[]
+}
+
+/** Un tramo en que un programa estuvo en uso: de `desde` a `hasta` sin incluirlo. */
+export type Periodo = {
+  desde: string
+  // Nulo si sigue activo. El último día en uso es el anterior.
+  hasta: string | null
+}
+
+/** Qué toca un día. */
+export type DiaPlan = {
+  fecha: string
+  // De dónde sale: un cambio hecho a mano, la semana del programa, o nada.
+  origen: 'excepcion' | 'programa' | 'sin_programa'
+  // Viene aunque esté oculta (para pintarla en gris); entonces `descanso` es verdadero.
+  rutina: RutinaMinima | null
+  descanso: boolean
+}
+
+/** Lo que se hizo un día, cuente o no para alguno. */
+export type SesionDelDia = {
+  entrenamiento_id: number
+  rutina: RutinaMinima
+  en_curso: boolean
+  cubre_fecha: string | null
+  // Si cuenta de verdad para `cubre_fecha`.
+  cuenta: boolean
+}
+
+export type EstadoDelDia = 'descanso' | 'hecho' | 'movido' | 'sin_hacer' | 'pendiente' | 'proximo'
+
+/**
+ * Un día del plan con lo que pasó: `estado` es de lo que tocaba; `sesion`, de lo
+ * que se hizo ese día, que puede ser otra cosa (las marcas combinadas).
+ */
+export type DiaSeguimiento = DiaPlan & {
+  estado: EstadoDelDia
+  // La sesión que cuenta este día, y en qué fecha se hizo.
+  cubierto_por: { entrenamiento_id: number; fecha: string } | null
+  sesion: SesionDelDia | null
+}
+
+export type SituacionDeHoy =
+  'en_curso' | 'hecho' | 'primera_vez' | 'sin_programa' | 'movido' | 'descanso' | 'entrenamiento'
+
+export type Recuperable = {
+  fecha: string
+  rutina: RutinaMinima
+  // El último día en que se puede recuperar.
+  plazo: string
+  // Falso si hoy ya hay sesión: se enseña, pero sin botón.
+  se_puede_hoy: boolean
+}
+
+/** Una rutina de la lista de abajo. Sin fecha, se entrena sin contar para ningún día. */
+export type Ofrecida = {
+  accion: 'intercambiar' | 'adelantar' | 'sin_contar'
+  rutina: RutinaMinima
+  fecha: string | null
+  /** Falso si hoy ya hay sesión: la lista se enseña como recordatorio, pero sin botón. */
+  se_puede_hoy: boolean
+}
+
+/** La última sesión con algo apuntado, sin contar la que está a medias. */
+export type UltimaSesion = {
+  entrenamiento_id: number
+  fecha: string
+  rutina: RutinaMinima
+  // Si recuperaba o adelantaba otro día.
+  cubre_fecha: string | null
+  series: number
+  ejercicios: number
+}
+
+/** Lo que la pantalla de hoy dice de cada rutina: "5 ejercicios · última vez el miércoles 2". */
+export type RutinaDeHoy = {
+  id: number
+  nombre: string
+  ejercicios: number
+  ultima_vez: string | null
+}
+
+/** Todo lo que necesita la pantalla de hoy, en una sola respuesta. */
+export type Hoy = {
+  fecha: string
+  situacion: SituacionDeHoy
+  // De lunes a domingo.
+  semana: DiaSeguimiento[]
+  sesion: SesionDelDia | null
+  proximo: DiaSeguimiento | null
+  por_recuperar: Recuperable[]
+  ofrecidas: Ofrecida[]
+  ultima_sesion: UltimaSesion | null
+  rutinas: RutinaDeHoy[]
+}
+
+// --- Resumen -------------------------------------------------------------
+
+/** Una barra de volumen: una semana de lunes a domingo o un mes, con su desglose. */
+export type PeriodoDeVolumen = {
+  desde: string
+  hasta: string
+  // kg, Σ peso × repeticiones; llega como texto.
+  volumen: string
+  // % sobre `comparado_con`, el último periodo anterior con volumen (puede quedar
+  // fuera de la gráfica). Los dos nulos si esta barra no tiene volumen o no hay anterior.
+  cambio: number | null
+  comparado_con: string | null
+  volumen_por_rutina: { rutina: RutinaMinima; volumen: string }[]
+  series_por_grupo: { grupo_muscular: GrupoMuscular; series: number }[]
+}
+
+/** Las ocho barras terminadas, de la más antigua a la última, y la en curso si la hay. */
+export type EvolucionDeVolumen = {
+  periodos: PeriodoDeVolumen[]
+  en_curso: PeriodoDeVolumen | null
+}
+
+export type MesDeConstancia = {
+  mes: string
+  entrenados: number
+  // Hasta hoy: entrenados más faltados.
+  planificados: number
+  // Los días con rutina que aún no han llegado.
+  por_llegar: number
+}
+
+/** Todo lo de la pantalla de resumen de un mes, en una sola respuesta. */
+export type Resumen = {
+  mes: string
+  por_semana: EvolucionDeVolumen
+  por_mes: EvolucionDeVolumen
+  constancia: { meses: MesDeConstancia[]; entrenados: number; planificados: number }
+}
+
+// --- Avisos de borrado ---------------------------------------------------
+
+/** Lo que se perdería al borrar una rutina, para el diálogo de confirmar. */
+export type AvisoDeBorrarRutina = {
+  // Si el borrado directo se negaría (huecos, sesiones o días pasados del plan).
+  con_historial: boolean
+  // Todos, también los ocultos.
+  huecos: number
+  // Las que tienen alguna serie.
+  sesiones: number
+  // Días vigentes de programa, que pasarían a descanso.
+  dias_de_programa: number
+  // Días planificados a mano, que volverían a lo que diga el programa.
+  dias_planificados: number
+  toco_dias_pasados: boolean
+  // Si hay una sesión de esta rutina abierta hoy (se borraría con ella). Si es
+  // verdadero, `con_historial` también.
+  sesion_en_curso: boolean
+}
+
+/** Lo que se perdería al borrar un hueco, para el diálogo de confirmar. */
+export type AvisoDeBorrarHueco = {
+  series: number
+  // La primera fecha con series; nula si no tiene.
+  desde: string | null
+  // Se quedan sin ninguna serie y se borran con el hueco; si contaban un día, vuelve a
+  // quedar sin hacer. No incluye la sesión en curso de hoy, que sigue abierta.
+  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
+}
+
+/** Un día al que se le cambió a mano lo que toca. Sin rutina, es descanso. */
+export type Excepcion = {
+  fecha: string
+  rutina: RutinaMinima | null
+}
+
+/**
+ * Lo que la web envía, que no es lo mismo que lo que recibe: son los esquemas
+ * `...Create`/`...Update` del backend, sin id, sin fechas técnicas y sin los
+ * campos que decide el servidor. Los números van como números, aunque vuelvan
+ * como texto.
+ */
+
+export type NuevoEjercicio = {
+  nombre: string
+  grupo_muscular_id: number
+  descripcion: string | null
+  // Sin él, de peso y repeticiones. Solo al crear: no se puede cambiar después.
+  tipo_registro?: TipoRegistro
+}
+
+/** Un ejercicio (hueco) de una rutina nueva: su orden es su posición en la lista. */
+export type HuecoDeRutinaNueva = {
+  ejercicio_principal_id: number
+  // Los comodines, cada uno con su objetivo; ni el principal ni repetidos (422).
+  alternativas: (Objetivo & { ejercicio_id: number })[]
+  series_objetivo: number
+  reps_min: number | null
+  reps_max: number | null
+  duracion_min_s?: number | null
+  duracion_max_s?: number | null
+}
+
+/** Una rutina nueva, vacía o con sus ejercicios: se crea todo de una vez o nada. */
+export type NuevaRutina = {
+  nombre: string
+  slots?: HuecoDeRutinaNueva[]
+}
+
+/** Sin `orden`, el hueco va al final de la rutina. */
+export type NuevoHueco = HuecoDeRutinaNueva & { orden?: number }
+
+/** Con `alternativas`, la lista sustituye a los comodines actuales; sin ella, no se tocan. */
+export type CambiosDeHueco = Omit<HuecoDeRutinaNueva, 'alternativas'> & {
+  orden: number
+  alternativas?: HuecoDeRutinaNueva['alternativas']
+}
+
+// La rutina y el día que cuenta solo van al crear: los decide el botón pulsado
+// (Empezar, Recuperar, Adelantar) y no cambian después.
+export type NuevoEntrenamiento = {
+  rutina_id: number
+  fecha: string
+  notas: string | null
+  cubre_fecha?: string | null
+  /** Solo al empezar hoy lo que toca otro día: se intercambian los dos días y se crea la sesión, de una vez. */
+  intercambiar_con?: string | null
+}
+
+/** Lo que se corrige de una sesión ya creada. */
+export type EntrenamientoCorregido = {
+  fecha: string
+  notas: string | null
+  // El *Guardar* de un día: todas sus series como deben quedar (las que no van se
+  // borran). Sin él, no se tocan.
+  series?: SerieDelDia[]
+}
+
+/** Una serie del *Guardar* de un día: con `id`, una ya guardada; con `null`, una nueva. */
+export type SerieDelDia = NuevaSerie & { id: number | null }
+
+export type NuevaSerie = {
+  ejercicio_id: number
+  slot_id: number
+  numero_serie: number
+  // Solo las medidas de su tipo; el resto, nulo. En kg y en segundos.
+  peso: number | null
+  repeticiones: number | null
+  duracion_s: number | null
+  // En metros: solo en las de cardio, y si se apunta.
+  distancia_m: number | null
+  // En las de peso corporal, siempre (el valor o nulo); en las demás, nulo.
+  peso_corporal: number | null
+  variante: string | null
+}
+
+export type NuevoPrograma = {
+  nombre: string
+  dias: { dia_semana: DiaSemana; rutina_id: number }[]
+  // "Activarlo al crearlo": deja de estar activo el que lo fuera.
+  activar: boolean
+  // Con `activar`: quita también los días cambiados a mano de hoy en adelante.
+  quitar_excepciones?: boolean
+}
+
+/** Al borrar algo con historial: ocultarlo o llevarse el historial con ello. */
+export type ModoBorrado = 'ocultar' | 'definitivo'

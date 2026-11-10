@@ -53,6 +53,21 @@ export function objeto(v: Validador, valor: unknown, loc: Loc): Record<string, u
   return null
 }
 
+/**
+ * Un objeto dentro del cuerpo (un hueco de la lista, una alternativa): Pydantic da otro
+ * error que con el cuerpo entero, con el nombre del modelo.
+ */
+export function submodelo(
+  v: Validador,
+  valor: unknown,
+  loc: Loc,
+  modelo: string,
+): Record<string, unknown> | null {
+  if (esObjeto(valor)) return valor
+  v.error('model_type', loc, `Input should be a valid dictionary or instance of ${modelo}`)
+  return null
+}
+
 function leer(datos: Record<string, unknown>, campo: string): unknown {
   return Object.prototype.hasOwnProperty.call(datos, campo) ? datos[campo] : AUSENTE
 }
@@ -245,6 +260,33 @@ export function textoObligatorio(
     // `strip_whitespace` de Pydantic, que no recorta lo mismo que `str.strip()`.
     const recortado = recortarComoPydantic(texto)
     return aplicarLongitud(v, recortado, aqui, 1, max) ? recortado : undefined
+  })
+}
+
+/** Un `str` sin más: ni se recorta ni se mide. */
+export function texto(
+  v: Validador,
+  datos: Record<string, unknown>,
+  nombre: string,
+  loc: Loc,
+  opciones: Opciones<string | null> = {},
+): string | null | undefined {
+  return campo(v, datos, nombre, loc, opciones, (valor, aqui) => aTexto(v, valor, aqui))
+}
+
+/** Un `str | None` con un tope de caracteres (`Field(max_length=…)`), sin recortar. */
+export function textoConTope(
+  v: Validador,
+  datos: Record<string, unknown>,
+  nombre: string,
+  loc: Loc,
+  max: number,
+  opciones: Opciones<string | null> = {},
+): string | null | undefined {
+  return campo(v, datos, nombre, loc, opciones, (valor, aqui) => {
+    const t = aTexto(v, valor, aqui)
+    if (t === undefined) return undefined
+    return aplicarLongitud(v, t, aqui, 0, max) ? t : undefined
   })
 }
 

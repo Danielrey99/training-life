@@ -71,6 +71,22 @@ export function comparar(a: number | string, b: number | string): number {
   return izquierda < derecha ? -1 : izquierda > derecha ? 1 : 0
 }
 
+/**
+ * El valor exacto como texto canónico, para saber si dos pesos son el mismo número como lo
+ * sabe `Decimal` en Python: «80», 80 y «80.00» dan lo mismo; 22,505 y 22,51, no. Las
+ * centésimas guardadas se comparan pasándolas antes por `aTexto`.
+ */
+export function claveExacta(valor: number | string): string {
+  const exacto = valorExacto(valor)
+  if (exacto === null) throw new Error('No es un número')
+  let { cifras, escala } = exacto
+  while (escala > 0 && cifras % 10n === 0n) {
+    cifras /= 10n
+    escala -= 1
+  }
+  return `${cifras}e-${escala}`
+}
+
 /** El número exacto, sin redondear: cifras × 10^−escala. */
 export function valorExacto(valor: number | string): { cifras: bigint; escala: number } | null {
   const texto = typeof valor === 'number' ? numeroATexto(valor) : valor.trim()
