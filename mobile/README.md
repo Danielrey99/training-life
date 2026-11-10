@@ -2,13 +2,13 @@
 
 App móvil del proyecto, construida con **React Native** usando **Expo** (SDK 58, Expo Router y TypeScript).
 
-> 🚧 En construcción. Hechos los cimientos: el APK firmado e instalado en el teléfono, la base de datos del teléfono con su esquema, sus versiones y los ejercicios predefinidos, las reglas puras del backend pasadas a TypeScript y sus tests. Lo siguiente es la lógica de entrenar y del historial, y después sus pantallas.
+> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, e importar y exportar tus datos. Lo siguiente son las pantallas de entrenar y del historial.
 
 Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repartida como APK, sin pasar por la tienda.
 
 - **Cada teléfono, sus datos.** Sin servidor, sin conexión y sin cuentas: los datos se guardan en el propio móvil (SQLite), así que funciona sin cobertura y cada persona que la instala tiene los suyos.
 - **La misma lógica que el backend, dentro de la app.** Qué toca cada día, recuperar y adelantar, el seguimiento del plan y el resumen se escriben en TypeScript, y los tests del backend sirven de especificación para no perder ningún caso.
-- **El archivo de exportación hace de puente**: lo que se prepara en la [web](../web) (por ejemplo, las rutinas) se exporta y se importa en el móvil, y sirve también de copia de seguridad o para cambiar de teléfono.
+- **El archivo de exportación hace de puente**: lo que se prepara en la [web](../web) (por ejemplo, las rutinas) se exporta y se importa en el móvil, y sirve también de copia de seguridad o para cambiar de teléfono. En el móvil, exportar abre el menú de compartir de Android (Drive, correo, WhatsApp…), e importar, el selector de archivos; antes de sustituir nada, dice qué hay en el archivo y qué hay ahora.
 - **Las mismas pantallas que la web**: la app se diseñó en móvil primero, y los [bocetos](../docs/bocetos-movil-training-life.png) son la referencia.
 - **Los ejercicios predefinidos salen de [`shared/predefinidos.json`](../shared/predefinidos.json)**, la misma lista que usa el backend. Metro la ve gracias a `watchFolders` en `metro.config.js`.
 
