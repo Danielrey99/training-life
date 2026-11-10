@@ -22,11 +22,16 @@ mobile/
       bd/           la base: interfaz, esquema SQLite, migraciones y siembra
       reglas/       fechas, zonas, pesos, textos, nombres, medidas, ediciones, orden
       validacion/   lo que valida Pydantic en el backend, con sus mismos mensajes
+      servicios/    un archivo por router del backend: ejercicios, rutinas, sesiones, plan…
+      rutas.ts      las rutas de la API, dentro del teléfono
+      api.ts        los mismos métodos que el cliente de la web
     plataforma/     lo único que toca el teléfono: SQLite de Expo, el reloj, el arranque
   tests/            Jest en Node
 ```
 
 **La lógica no depende del teléfono.** `src/logica/` no importa nada de React, React Native, Expo ni Node (lo impide una regla de ESLint): recibe la base y el reloj desde fuera. Así la misma lógica corre en el teléfono con expo-sqlite y en los tests con el SQLite de Node.
+
+**La API, sin servidor.** No hay backend en el teléfono, pero la lógica se llama igual que si lo hubiera: `rutas.ts` recibe un método, una URL y un cuerpo (`POST /entrenamientos`) y contesta con el mismo código y el mismo JSON que la API, incluidos los errores de validación. Cada llamada es una transacción, así que un *Guardar* que falla no deja nada a medias. `api.ts` tiene los mismos métodos que el cliente de la web, para que sus pantallas se porten sin tocar sus llamadas, y los tests mandan las mismas peticiones que los del backend: lo que se prueba es lo que usa la app.
 
 **La base de datos copia la del backend** con las adaptaciones de SQLite: las 13 tablas con las mismas restricciones y los mismos nombres; tablas `STRICT`, para que un decimal no se cuele en una columna de enteros; los pesos en centésimas enteras (80,5 kg es 8050), para que no haya errores de coma flotante; y `updated_at` lo pone un disparador. Las versiones del esquema van en `PRAGMA user_version`, como las migraciones de Alembic, y los ejercicios predefinidos se ponen al día al arrancar si la lista de `shared/` cambió.
 
