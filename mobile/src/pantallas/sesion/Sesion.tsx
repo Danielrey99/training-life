@@ -6,8 +6,8 @@
  * dura más de una hora, y cerrar la app sin querer no puede llevarse el entrenamiento. Se
  * puede salir a otras pantallas o cerrar la app, y todo sigue ahí hasta Terminar o Cancelar.
  *
- * Diferencia con la web, hasta que llegue el historial al móvil: al terminar, cancelar o con
- * la flecha se vuelve a Entrenar (en la web, al día en el historial).
+ * Como en la web: terminar lleva al día en el historial; cancelar, a Entrenar o, si la sesión
+ * es de un día pasado, a su mes del calendario; y la flecha, a la pantalla de la que cuelga.
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
@@ -33,10 +33,20 @@ function contarSeries(cuantas: number) {
   return cuantas === 1 ? '1 serie' : `${cuantas} series`
 }
 
-/** Vuelve a la pantalla de antes (Entrenar), o a Entrenar si no hay ninguna. */
-function salir() {
+/** Vuelve a Entrenar: la pantalla de la que cuelga la sesión de hoy. */
+function aEntrenar() {
   if (router.canGoBack()) router.back()
   else router.replace('/')
+}
+
+/** Al calendario, en el mes de esa fecha. */
+function alMes(fecha: string) {
+  router.navigate({ pathname: '/historial', params: { mes: fecha.slice(0, 7) } })
+}
+
+/** Al día del historial de esa fecha. */
+function alDia(fecha: string) {
+  router.navigate({ pathname: '/historial/[fecha]', params: { fecha } })
 }
 
 export function Sesion() {
@@ -144,7 +154,13 @@ export function Sesion() {
     (hueco) => deHueco(hueco).length >= seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
   ).length
 
+  // La pantalla de la que cuelga, para la flecha y para cancelar. Una sesión de un día pasado
+  // se apunta desde el calendario: la flecha va a su día (o al mes, si aún no tiene series y
+  // no hay día que ver), y cancelarla, al mes.
   const deOtroDia = activa.fecha < hoy()
+  const volver = () =>
+    !deOtroDia ? aEntrenar() : activa.series.length > 0 ? alDia(activa.fecha) : alMes(activa.fecha)
+  const alCancelar = () => (deOtroDia ? alMes(activa.fecha) : aEntrenar())
   const cifras = `${contarSeries(activa.series.length)} · ${completos} de ${visibles.length} ejercicios`
 
   async function guardar(huecoId: number, datos: SerieAGuardar, serieId?: number) {
@@ -231,7 +247,7 @@ export function Sesion() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Volver"
-          onPress={salir}
+          onPress={volver}
           style={estilos.volver}
         >
           <Icono nombre="volver" color={c.texto} />
@@ -358,7 +374,7 @@ export function Sesion() {
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)
             setConfirmando(null)
-            salir()
+            alCancelar()
           }}
           alCancelar={() => setConfirmando(null)}
         />
@@ -372,7 +388,7 @@ export function Sesion() {
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
             setConfirmando(null)
-            salir()
+            alDia(activa.fecha)
           }}
           alCancelar={() => setConfirmando(null)}
         />
@@ -397,7 +413,7 @@ export function Sesion() {
           alConfirmar={async () => {
             await api.borrarEntrenamiento(activa.id)
             setConfirmando(null)
-            salir()
+            alCancelar()
           }}
           alCancelar={() => setConfirmando(null)}
         />

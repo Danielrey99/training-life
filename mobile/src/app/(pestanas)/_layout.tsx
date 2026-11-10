@@ -10,7 +10,7 @@ import { useColores } from '../../tema'
 
 const PESTANAS: { ruta: string; nombre: string; icono: NombreIcono }[] = [
   { ruta: '(entrenar)', nombre: 'Entrenar', icono: 'entrenar' },
-  { ruta: 'historial/index', nombre: 'Historial', icono: 'historial' },
+  { ruta: 'historial', nombre: 'Historial', icono: 'historial' },
   { ruta: 'programas/index', nombre: 'Programas', icono: 'programas' },
   { ruta: 'ejercicios/index', nombre: 'Ejercicios', icono: 'ejercicios' },
 ]

@@ -1,10 +1,3 @@
-import { Proximamente } from '../../../componentes/Proximamente'
+import { Calendario } from '../../../pantallas/historial/Calendario'
 
-export default function Historial() {
-  return (
-    <Proximamente
-      titulo="Historial"
-      texto="Aquí verás el calendario con todo lo que has entrenado. Llega en una próxima versión."
-    />
-  )
-}
+export default Calendario

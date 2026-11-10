@@ -1,0 +1,90 @@
+/**
+ * La hoja de cambiar la fecha de una sesión (H2 editando): el mismo mes del calendario, con
+ * sus marcas, para ver de un vistazo qué días ya tienen sesión. Puerto de
+ * `web/src/paginas/historial/HojaDeFecha.tsx`. Tocar un día lo elige y cierra la hoja; si la
+ * fecha no vale, lo dice el campo al guardar.
+ */
+import { useEffect, useState } from 'react'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+
+import { FalloAlCargar } from '../../componentes/FalloAlCargar'
+import { Hoja } from '../../componentes/Hoja'
+import { Icono } from '../../componentes/Icono'
+import { MesConMarcas } from '../../componentes/MesConMarcas'
+import type { DiaSeguimiento, Programa } from '../../logica/tipos'
+import { api } from '../../plataforma/api'
+import { useColores } from '../../tema'
+import { finDeMes, hoy, inicioDeMes, sumarMeses, tituloDeMes } from '../../utiles/fechas'
+
+interface Props {
+  /** La fecha que tiene ahora el campo: abre en su mes y sale marcada. */
+  fecha: string
+  alElegir: (fecha: string) => void
+  alCerrar: () => void
+}
+
+export function HojaDeFecha({ fecha, alElegir, alCerrar }: Props) {
+  const c = useColores()
+  const hoyIso = hoy()
+  const [mes, setMes] = useState(inicioDeMes(fecha))
+  const [cargado, setCargado] = useState<{ mes: string; dias: DiaSeguimiento[] } | null>(null)
+  const [programa, setPrograma] = useState<Programa | null>(null)
+  // Cada vez que cambia, se vuelve a leer el mes (Reintentar).
+  const [intento, setIntento] = useState(0)
+  // Con su mes y su intento: el fallo de un mes no es el de otro.
+  const [fallido, setFallido] = useState<{ clave: string; fallo: unknown } | null>(null)
+  const error = fallido?.clave === `${mes}·${intento}` ? fallido.fallo : null
+
+  useEffect(() => {
+    let vigente = true
+    Promise.all([api.seguimiento(mes, finDeMes(mes)), api.programas()])
+      .then(([dias, programas]) => {
+        if (!vigente) return
+        setCargado({ mes, dias })
+        setPrograma(programas.find((uno) => uno.activo) ?? null)
+      })
+      .catch((fallo: Error) => vigente && setFallido({ clave: `${mes}·${intento}`, fallo }))
+    return () => {
+      vigente = false
+    }
+  }, [mes, intento])
+
+  const flecha = (icono: 'volver' | 'abrir', etiqueta: string, meses: number) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={etiqueta}
+      onPress={() => setMes(sumarMeses(mes, meses))}
+      style={estilos.flecha}
+    >
+      <Icono nombre={icono} color={c.texto} />
+    </Pressable>
+  )
+
+  return (
+    <Hoja titulo="Fecha de la sesión" alCerrar={alCerrar}>
+      <View style={estilos.mes}>
+        {flecha('volver', 'Mes anterior', -1)}
+        <Text style={[estilos.mesTitulo, { color: c.texto }]}>{tituloDeMes(mes)}</Text>
+        {flecha('abrir', 'Mes siguiente', 1)}
+      </View>
+      {error ? (
+        <FalloAlCargar fallo={error} alReintentar={() => setIntento((n) => n + 1)} />
+      ) : (
+        <MesConMarcas
+          mes={mes}
+          dias={cargado?.mes === mes ? cargado.dias : null}
+          hoy={hoyIso}
+          programa={programa}
+          elegida={fecha}
+          alTocar={(dia) => alElegir(dia.fecha)}
+        />
+      )}
+    </Hoja>
+  )
+}
+
+const estilos = StyleSheet.create({
+  mes: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  flecha: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  mesTitulo: { fontSize: 17, fontWeight: '600' },
+})

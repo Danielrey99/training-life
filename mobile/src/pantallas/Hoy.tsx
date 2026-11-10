@@ -629,10 +629,7 @@ function FilaRecuperable({ recuperable, hoy, primera, ejercicios, alRecuperar }:
   )
 }
 
-/**
- * La última sesión hecha. En la web lleva a su día en el historial; aquí, hasta que llegue
- * el historial, se enseña sin flecha.
- */
+/** La última sesión hecha, que lleva a su día en el historial. */
 function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_sesion']> }) {
   const c = useColores()
   const e = useEstilos(c)
@@ -643,7 +640,11 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
     cifras = `${como} del ${fechaEnFrase(ultima.cubre_fecha, false)} · ${contar(ultima.series, 'serie', 'series')}`
   }
   return (
-    <Fila>
+    <Fila
+      alPulsar={() =>
+        router.navigate({ pathname: '/historial/[fecha]', params: { fecha: ultima.fecha } })
+      }
+    >
       <View style={e.filaTitulo}>
         <Text style={e.filaFuerte}>
           {nombre} · {fechaEnFrase(ultima.fecha, false)}
