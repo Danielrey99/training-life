@@ -465,11 +465,21 @@
 }
 
 /* Cómo se decide si un ejercicio mejoró: al final, porque se consulta, no se lee antes. */
+/* Una lista, un tipo de ejercicio por línea: a la izquierda, en un bloque estrecho y
+   centrado, como un texto explicativo que no cabe en una línea. */
 .dia-leyenda {
-  margin: 6px 0 0;
+  max-width: 320px;
+  margin: 6px auto 0;
   font-size: 12.5px;
   color: var(--texto-tenue);
-  text-align: center;
+}
+
+.dia-leyenda p {
+  margin: 0;
+}
+
+.dia-leyenda p + p {
+  margin-top: 8px;
 }
 
 .dia-vez {

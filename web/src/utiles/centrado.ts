@@ -12,7 +12,6 @@
 // Los textos explicativos centrados de la app (pies, leyendas, vacíos, avisos). No los
 // títulos: «Te damos la bienvenida» en dos líneas sigue centrado, como en el boceto.
 const TEXTOS = [
-  '.dia-leyenda',
   '.cifras-pie',
   '.hoja-subtitulo',
   '.planificar-ayuda',

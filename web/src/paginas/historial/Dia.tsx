@@ -756,18 +756,22 @@ export function Dia() {
       )}
 
       {series.length > 0 && (
-        <p className="dia-leyenda">
-          La mejora, frente a la última vez con ese ejercicio: en peso y repeticiones, el 1RM; en
-          peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración; en
-          cardio, la distancia y luego el ritmo.
+        // Una lista, un tipo de ejercicio por línea: va siempre a la izquierda.
+        <div className="dia-leyenda">
+          <p>
+            La mejora, frente a la última vez con ese ejercicio:
+            <br />- Peso y repeticiones, el 1RM.
+            <br />- Peso corporal, la carga y luego las reps.
+            <br />- Tiempo, el peso y luego la duración.
+            <br />- Cardio, la distancia y luego el ritmo.
+          </p>
           {anterior && hayVolumen && (
-            <>
-              <br />
+            <p>
               El volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta
               rutina.
-            </>
+            </p>
           )}
-        </p>
+        </div>
       )}
 
       {aBorrar && (

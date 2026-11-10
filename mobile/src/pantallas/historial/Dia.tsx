@@ -538,14 +538,24 @@ export function Dia() {
         )}
 
         {series.length > 0 && (
-          <Text style={e.leyenda}>
-            La mejora, frente a la última vez con ese ejercicio: en peso y repeticiones, el 1RM; en
-            peso corporal, la carga y luego las reps; en tiempo, el peso y luego la duración; en
-            cardio, la distancia y luego el ritmo.
-            {anterior && hayVolumen
-              ? '\nEl volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta rutina.'
-              : ''}
-          </Text>
+          // Una lista, un tipo de ejercicio por línea: va siempre a la izquierda.
+          <View style={e.leyenda}>
+            <Text style={e.leyendaTexto}>
+              {[
+                'La mejora, frente a la última vez con ese ejercicio:',
+                '- Peso y repeticiones, el 1RM.',
+                '- Peso corporal, la carga y luego las reps.',
+                '- Tiempo, el peso y luego la duración.',
+                '- Cardio, la distancia y luego el ritmo.',
+              ].join('\n')}
+            </Text>
+            {anterior && hayVolumen && (
+              <Text style={e.leyendaTexto}>
+                El volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta
+                rutina.
+              </Text>
+            )}
+          </View>
         )}
       </ScrollView>
 
@@ -670,12 +680,9 @@ function useEstilos(c: Colores) {
     cifraTexto: { fontSize: 12.5, color: c.textoTenue, textAlign: 'center' },
     cifraCambio: { marginTop: 2 },
     borrar: { marginTop: 2 },
-    leyenda: {
-      marginTop: 6,
-      fontSize: 12.5,
-      lineHeight: 18,
-      color: c.textoTenue,
-      textAlign: 'center',
-    },
+    // A la izquierda, en un bloque estrecho y centrado, como un texto explicativo que no
+    // cabe en una línea.
+    leyenda: { marginTop: 6, gap: 8, width: '100%', maxWidth: 320, alignSelf: 'center' },
+    leyendaTexto: { fontSize: 12.5, lineHeight: 18, color: c.textoTenue },
   })
 }
