@@ -17,7 +17,6 @@ export const pendientes: Record<string, Hito> = {
   // test_crud.py
   // test_cubre_fecha.py
   // test_datos.py
-  un_archivo_que_no_es_json_da_el_mismo_422_en_espanol: 'H1.3',
   // test_ejercicios.py
   // test_guardar_un_dia.py
   // test_historial.py
