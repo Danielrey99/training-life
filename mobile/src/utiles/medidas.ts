@@ -59,7 +59,7 @@ export function ritmoDeLaSerie(serie: Medidas): string | null {
 }
 
 /**
- * Una serie en una línea: «40 kg × 12 reps», «8 reps con 10 kg de lastre», «45 s»,
+ * Una serie en una línea: «40 kg × 12 reps», «10 kg de lastre × 8 reps», «45 s»,
  * «40 s con 5 kg».
  */
 export function serieLarga(tipo: TipoRegistro, serie: Medidas): string {
@@ -73,14 +73,14 @@ export function serieLarga(tipo: TipoRegistro, serie: Medidas): string {
   if (tipo === 'corporal') {
     const cuantas = `${reps} reps`
     if (!carga) return cuantas
-    return `${cuantas} con ${cargaLegible(carga)} de ${carga > 0 ? 'lastre' : 'ayuda'}`
+    return `${cargaLegible(carga)} de ${carga > 0 ? 'lastre' : 'ayuda'} × ${cuantas}`
   }
   return `${pesoLegible(carga ?? 0)} ${unidad()} × ${reps} reps`
 }
 
 /**
- * Una serie en una ficha, sin unidades: «40 × 12», «12», «+10 × 8», «−20 × 8», «45 s»,
- * «38 s con 5 kg».
+ * Una serie en una ficha, sin unidades: «40 × 12», «12», «10 × 8» (lastre), «−20 × 8»
+ * (ayuda), «45 s», «38 s con 5 kg».
  */
 export function serieCorta(tipo: TipoRegistro, serie: Medidas): string {
   const carga = kilos(serie)
@@ -92,7 +92,8 @@ export function serieCorta(tipo: TipoRegistro, serie: Medidas): string {
   }
   if (tipo === 'corporal') {
     if (!carga) return `${reps}`
-    return `${carga > 0 ? '+' : '−'}${pesoLegible(Math.abs(carga))} × ${reps}`
+    // El lastre va sin signo, como el peso de los demás; la ayuda, con el menos.
+    return `${carga < 0 ? '−' : ''}${pesoLegible(Math.abs(carga))} × ${reps}`
   }
   return `${pesoLegible(carga ?? 0)} × ${reps}`
 }

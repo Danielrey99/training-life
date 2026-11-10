@@ -81,9 +81,9 @@ describe('serieLarga', () => {
   test.each([
     [serie({ repeticiones: 8 }), '8 reps'],
     [serie({ repeticiones: 8, peso: '0.00' }), '8 reps'], // 0 es «sin carga»
-    [serie({ repeticiones: 8, peso: '10.00' }), '8 reps con 10 kg de lastre'],
-    [serie({ repeticiones: 8, peso: '-20.00' }), '8 reps con 20 kg de ayuda'],
-    [serie({ repeticiones: 8, peso: '2.50' }), '8 reps con 2,5 kg de lastre'],
+    [serie({ repeticiones: 8, peso: '10.00' }), '10 kg de lastre × 8 reps'],
+    [serie({ repeticiones: 8, peso: '-20.00' }), '20 kg de ayuda × 8 reps'],
+    [serie({ repeticiones: 8, peso: '2.50' }), '2,5 kg de lastre × 8 reps'],
   ])('corporal_%#', (s, texto) => {
     expect(serieLarga('corporal', s)).toBe(texto)
   })
@@ -114,10 +114,10 @@ describe('serieLarga', () => {
       '88,2 lb × 12 reps',
     )
     expect(serieLarga('corporal', serie({ repeticiones: 8, peso: '-20.00' }))).toBe(
-      '8 reps con 44,1 lb de ayuda',
+      '44,1 lb de ayuda × 8 reps',
     )
     expect(serieLarga('corporal', serie({ repeticiones: 8, peso: '10.00' }))).toBe(
-      '8 reps con 22 lb de lastre',
+      '22 lb de lastre × 8 reps',
     )
     expect(serieLarga('tiempo', serie({ duracion_s: 40, peso: '5.00' }))).toBe('40 s con 11 lb')
     expect(serieLarga('cardio', serie({ duracion_s: 1695, distancia_m: 5200 }))).toBe(
@@ -139,9 +139,9 @@ describe('serieCorta', () => {
   test.each([
     [serie({ repeticiones: 12 }), '12'],
     [serie({ repeticiones: 12, peso: '0.00' }), '12'],
-    [serie({ repeticiones: 8, peso: '10.00' }), '+10 × 8'],
+    [serie({ repeticiones: 8, peso: '10.00' }), '10 × 8'],
     [serie({ repeticiones: 8, peso: '-20.00' }), '−20 × 8'], // con el signo menos de verdad
-    [serie({ repeticiones: 8, peso: '2.50' }), '+2,5 × 8'],
+    [serie({ repeticiones: 8, peso: '2.50' }), '2,5 × 8'],
   ])('corporal_%#', (s, texto) => {
     expect(serieCorta('corporal', s)).toBe(texto)
   })
@@ -161,11 +161,11 @@ describe('serieCorta', () => {
     expect(serieCorta('cardio', s)).toBe(texto)
   })
 
-  test('en_libras_convierte_el_peso_y_la_ayuda_sigue_con_signo_menos', () => {
+  test('en_libras_convierte_el_peso_el_lastre_va_sin_signo_y_la_ayuda_con_signo_menos', () => {
     cambiarAjustes({ unidad: 'lb' })
     expect(serieCorta('peso_reps', serie({ peso: '40.00', repeticiones: 12 }))).toBe('88,2 × 12')
     expect(serieCorta('corporal', serie({ repeticiones: 8, peso: '-20.00' }))).toBe('−44,1 × 8')
-    expect(serieCorta('corporal', serie({ repeticiones: 8, peso: '10.00' }))).toBe('+22 × 8')
+    expect(serieCorta('corporal', serie({ repeticiones: 8, peso: '10.00' }))).toBe('22 × 8')
     expect(serieCorta('tiempo', serie({ duracion_s: 38, peso: '5.00' }))).toBe('38 s con 11 lb')
   })
 })
