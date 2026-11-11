@@ -2,13 +2,13 @@
 
 App móvil del proyecto, construida con **React Native** usando **Expo** (SDK 58, Expo Router y TypeScript).
 
-> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, importar y exportar tus datos, las pantallas de entrenar (qué toca hoy y la sesión) y el historial: el calendario, apuntar un día pasado y ver o corregir cada día. Lo siguiente es editar rutinas y programas en el propio teléfono.
+> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, importar y exportar tus datos, las pantallas de entrenar (qué toca hoy y la sesión) el historial (el calendario, apuntar un día pasado y ver o corregir cada día) y las rutinas y programas, que ya se crean y se editan en el propio teléfono. Lo siguiente es la biblioteca de ejercicios.
 
 Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repartida como APK, sin pasar por la tienda.
 
 - **Cada teléfono, sus datos.** Sin servidor, sin conexión y sin cuentas: los datos se guardan en el propio móvil (SQLite), así que funciona sin cobertura y cada persona que la instala tiene los suyos.
 - **La misma lógica que el backend, dentro de la app.** Qué toca cada día, recuperar y adelantar, el seguimiento del plan y el resumen se escriben en TypeScript, y los tests del backend sirven de especificación para no perder ningún caso.
-- **El archivo de exportación hace de puente**: lo que se prepara en la [web](../web) (por ejemplo, las rutinas) se exporta y se importa en el móvil, y sirve también de copia de seguridad o para cambiar de teléfono. En el móvil, exportar abre el menú de compartir de Android (Drive, correo, WhatsApp…), e importar, el selector de archivos; antes de sustituir nada, dice qué hay en el archivo y qué hay ahora.
+- **El archivo de exportación hace de puente**: lo que se apunta en la [web](../web) se exporta y se importa en el móvil, y sirve también de copia de seguridad o para cambiar de teléfono. En el móvil, exportar abre el menú de compartir de Android (Drive, correo, WhatsApp…), e importar, el selector de archivos; antes de sustituir nada, dice qué hay en el archivo y qué hay ahora.
 - **Las mismas pantallas que la web**: la app se diseñó en móvil primero, y los [bocetos](../docs/bocetos-movil-training-life.png) son la referencia.
 - **Los ejercicios predefinidos salen de [`shared/predefinidos.json`](../shared/predefinidos.json)**, la misma lista que usa el backend. Metro la ve gracias a `watchFolders` en `metro.config.js`.
 
@@ -49,7 +49,7 @@ npm run tipos    # TypeScript, la app y los tests por separado
 npm run lint     # ESLint
 ```
 
-**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra, las cuentas de fechas en los bordes del calendario y lo que calculan las pantallas (la mejora de cada ejercicio, los textos de las series, los números en kilos y en libras).
+**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra, las cuentas de fechas en los bordes del calendario y lo que calculan las pantallas (la mejora de cada ejercicio, los textos de las series, los números en kilos y en libras, los objetivos de cada ejercicio de una rutina y lo que avisa que se pierde al borrar).
 
 ## Construir el APK
 

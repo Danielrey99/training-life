@@ -91,6 +91,7 @@ Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya e
 - [x] Móvil: la base de datos del teléfono (SQLite) con su esquema, sus versiones y los ejercicios predefinidos, y las reglas del backend en TypeScript, con sus tests
 - [x] Móvil: toda la lógica del backend dentro del teléfono (salvo el resumen), probada con las mismas pruebas que el backend
 - [x] Móvil: importar y exportar los datos, entrenar (qué toca hoy y la sesión) y el historial (el calendario, apuntar un día pasado y ver o corregir cada día)
+- [x] Móvil: las rutinas y los programas, creados y editados en el teléfono (con los ejercicios de cada rutina, sus alternativas y su orden, que se cambia arrastrando)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 
