@@ -241,11 +241,12 @@ describe('leerNumero', () => {
     ['.5', 0.5],
     ['-20', -20],
     ['-2,5', -2.5],
-    // Tres decimales con punto tras una o dos cifras: decimales, no miles.
+    // Tres decimales con punto tras una sola cifra (o un 0): decimales, no miles.
     ['2.500', 2.5],
     ['0.800', 0.8],
     ['22.5', 22.5],
-    // Con tres cifras tras el punto y dos o tres delante: separador de miles de `numeroLegible`.
+    // Con tres cifras tras el punto y dos o tres delante (sin empezar por 0): separador de
+    // miles de `numeroLegible`.
     ['22.045', 22045],
     ['12.345,5', 12345.5],
     ['-22.045', -22045],

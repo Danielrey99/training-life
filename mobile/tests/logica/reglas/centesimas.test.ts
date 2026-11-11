@@ -4,7 +4,7 @@
  * la mitad. Aquí se comprueba que nunca se pasa por una multiplicación de coma flotante
  * (22,505 × 100 = 2250,4999… redondearía a 2250).
  */
-import { aCentesimas, aTexto, comparar } from '../../../src/logica/reglas/centesimas'
+import { aCentesimas, aTexto, claveExacta, comparar } from '../../../src/logica/reglas/centesimas'
 
 test.each<[number | string, number]>([
   ['80.00', 8000],
@@ -52,4 +52,14 @@ test('comparar_es_exacto_entre_texto_y_numero', () => {
   expect(comparar(-0.001, 0)).toBe(-1)
   expect(comparar('500.001', 500)).toBe(1)
   expect(comparar('62.5', '62.50')).toBe(0)
+})
+
+test('comparar_y_la_clave_exacta_entienden_los_exponentes', () => {
+  // Un peso enorme llega de un JSON como 1e21, que `String` escribe «1e+21»: tiene que
+  // compararse por encima del tope y no como 1 (ni lanzar).
+  expect(comparar(1e21, '9999.99')).toBe(1)
+  expect(comparar('-1e21', '-9999.99')).toBe(-1)
+  expect(comparar('1e2', 100)).toBe(0)
+  expect(claveExacta('1e2')).toBe(claveExacta(100))
+  expect(claveExacta('1.5e1')).toBe(claveExacta('15.00'))
 })

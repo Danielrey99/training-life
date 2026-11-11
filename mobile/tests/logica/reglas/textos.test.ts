@@ -12,13 +12,13 @@ import {
 test('recortar_quita_los_separadores_que_quita_python', () => {
   // '\x1c a \x85'.strip() == 'a' en Python; `trim()` de JavaScript dejaría los dos.
   expect(recortar('\x1c a \x85')).toBe('a')
-  expect(recortar('　\xa0a\t\n')).toBe('a')
+  expect(recortar('\u3000\xa0a\t\n')).toBe('a')
   expect(recortar('   ')).toBe('')
 })
 
 test('recortar_no_quita_el_bom_como_python', () => {
-  // '﻿a﻿'.strip() lo deja igual; `trim()` de JavaScript lo quitaría.
-  expect(recortar('﻿a﻿')).toBe('﻿a﻿')
+  // '\ufeffa\ufeff'.strip() (el BOM) lo deja igual; `trim()` de JavaScript lo quitaría.
+  expect(recortar('\ufeffa\ufeff')).toBe('\ufeffa\ufeff')
 })
 
 test('la_longitud_cuenta_un_emoji_como_uno', () => {
@@ -28,8 +28,8 @@ test('la_longitud_cuenta_un_emoji_como_uno', () => {
 })
 
 test('palabras_parte_como_split_de_python', () => {
-  // 'a\x1cb  c\x85d　e﻿f'.split() == ['a', 'b', 'c', 'd', 'e﻿f']
-  expect(palabras('a\x1cb  c\x85d　e﻿f')).toEqual(['a', 'b', 'c', 'd', 'e﻿f'])
+  // 'a\x1cb  c\x85d\u3000e\u{feff}f'.split() == ['a', 'b', 'c', 'd', 'e\u{feff}f']
+  expect(palabras('a\x1cb  c\x85d\u3000e\u{feff}f')).toEqual(['a', 'b', 'c', 'd', 'e\u{feff}f'])
   expect(palabras('')).toEqual([])
   expect(palabras(' \t ')).toEqual([])
   expect(palabras('  Press \t  banca\n ')).toEqual(['Press', 'banca'])
@@ -44,22 +44,36 @@ const QUITA_PYDANTIC = [
 ]
 const DEJA_PYDANTIC = [0x1c, 0x1d, 0x1e, 0x1f, 0x180e, 0x200b, 0xfeff]
 
-test.each(QUITA_PYDANTIC)('recortar_como_pydantic_quita_el_%s', (punto) => {
-  const c = String.fromCodePoint(punto)
-  expect(recortarComoPydantic(`${c}a${c}`)).toBe('a')
+/** Cada carácter rodeando una «a», recortado: lo que da para cada uno. */
+const conCadaUno = (puntos: number[]) =>
+  puntos.map((punto) => {
+    const c = String.fromCodePoint(punto)
+    return {
+      punto: `U+${punto.toString(16).padStart(4, '0')}`,
+      c,
+      recortado: recortarComoPydantic(`${c}a${c}`),
+    }
+  })
+
+// Un test por lista y no uno por carácter: si falla, la lista dice cuáles.
+test('recortar_como_pydantic_quita_todos_los_espacios_que_quita_pydantic', () => {
+  const noQuitados = conCadaUno(QUITA_PYDANTIC).filter((x) => x.recortado !== 'a')
+
+  expect(noQuitados.map((x) => x.punto)).toEqual([])
 })
 
-test.each(DEJA_PYDANTIC)('recortar_como_pydantic_deja_el_%s', (punto) => {
-  const c = String.fromCodePoint(punto)
-  expect(recortarComoPydantic(`${c}a${c}`)).toBe(`${c}a${c}`)
+test('recortar_como_pydantic_deja_los_que_pydantic_no_quita', () => {
+  const quitados = conCadaUno(DEJA_PYDANTIC).filter((x) => x.recortado !== `${x.c}a${x.c}`)
+
+  expect(quitados.map((x) => x.punto)).toEqual([])
 })
 
 test('recortar_y_recortar_como_pydantic_solo_difieren_en_los_separadores', () => {
-  // str.strip() quita -; strip_whitespace de Pydantic, no. En lo demás, igual.
-  expect(recortar(' a ')).toBe('a')
-  expect(recortarComoPydantic(' a ')).toBe(' a ')
-  expect(recortarComoPydantic('  ')).toBe('')
-  expect(recortar('　a ')).toBe('a')
-  expect(recortarComoPydantic('　a ')).toBe('a')
+  // str.strip() quita \x1c-\x1f; strip_whitespace de Pydantic, no. En lo demás, igual.
+  expect(recortar('\x1c a \x1f')).toBe('a')
+  expect(recortarComoPydantic('\x1c a \x1f')).toBe('\x1c a \x1f')
+  expect(recortarComoPydantic(' \x1c ')).toBe('\x1c')
+  expect(recortar('\x85\u3000a\u2028')).toBe('a')
+  expect(recortarComoPydantic('\x85\u3000a\u2028')).toBe('a')
   expect(recortarComoPydantic('   ')).toBe('')
 })

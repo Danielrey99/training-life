@@ -164,7 +164,7 @@ describe('el_reconocedor_de_tests_del_movil', () => {
   test('ignora_lo_que_no_es_una_declaracion_de_test', () => {
     const texto = [
       "const x = latest('no_es_test')",
-      "test.each([1])",
+      'test.each([1])',
       "expect(it).toBe('tampoco')",
     ].join('\n')
 

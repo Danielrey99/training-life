@@ -7,7 +7,7 @@
  * lo que queda debajo: que la propia base, con SQL directo, borra o se niega igual.
  */
 import type { Bd } from '../../src/logica/bd/bd'
-import { AHORA, baseNueva } from '../apoyo/baseNueva'
+import { AHORA, baseNueva, predefinidos } from '../apoyo/baseNueva'
 import {
   contar,
   filaAlternativa,
@@ -200,7 +200,7 @@ test('borrar_una_rutina_con_historial_en_orden_dentro_de_una_transaccion_no_choc
 
   const tablas = ['rutinas', 'rutina_slots', 'slot_alternativas', 'entrenamientos', 'series']
   expect(tablas.map((t) => contar(bd, t))).toEqual([0, 0, 0, 0, 0])
-  expect(contar(bd, 'ejercicios')).toBe(151 + 2)
+  expect(contar(bd, 'ejercicios')).toBe(predefinidos().ejercicios.length + 2)
 })
 
 test('un_borrado_que_choca_a_mitad_de_una_transaccion_no_deja_nada_a_medias', () => {

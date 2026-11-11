@@ -174,7 +174,8 @@ describe('peso y repeticiones', () => {
     )
     expect(resultado?.clase).toBe('peor')
     expect(resultado?.insignias[0]).toEqual({ texto: '−10 kg', clase: 'peor' })
-    expect(resultado?.insignias[1].texto).toMatch(/^↓ 1RM /)
+    // 70 × (1 + 8/30) = 88,67 frente a 80 × (1 + 8/30) = 101,33.
+    expect(resultado?.insignias[1]).toEqual({ texto: '↓ 1RM 88,7 kg (−12,7)', clase: 'peor' })
   })
 
   test('lo_mismo_sale_igual', () => {
@@ -238,7 +239,11 @@ describe('peso y repeticiones', () => {
       [{ peso: '80.00', repeticiones: 8 }],
     )
     expect(resultado?.clase).toBe('igual')
-    expect(resultado?.insignias.at(-1)?.texto).toMatch(/\(igual\)$/)
+    // El peso sí sube (verde siempre que algo sube), pero el veredicto es el 1RM.
+    expect(resultado?.insignias).toEqual([
+      { texto: '+0,01 kg', clase: 'mejor' },
+      { texto: '1RM 101,3 kg (igual)', clase: 'igual' },
+    ])
   })
 
   test('las_series_sin_peso_no_rompen_la_comparacion', () => {
@@ -251,8 +256,11 @@ describe('peso y repeticiones', () => {
       ],
       [{ peso: '80.00', repeticiones: 8 }],
     )
-    expect(resultado?.insignias[0]).toEqual({ texto: '+8 reps', clase: 'mejor' })
-    expect(resultado?.insignias.every((i) => !i.texto.includes('Infinity'))).toBe(true)
+    // Ni «Infinity» ni «NaN»: el peso y el 1RM salen solo de la serie con peso.
+    expect(resultado?.insignias).toEqual([
+      { texto: '+8 reps', clase: 'mejor' },
+      { texto: '1RM 101,3 kg (igual)', clase: 'igual' },
+    ])
   })
 })
 

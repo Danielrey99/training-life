@@ -267,6 +267,8 @@ test('los_parametros_de_httpx_true_va_como_texto_y_null_se_omite', () => {
 test.each([
   ['POST', '/ejercicios'],
   ['POST', '/rutinas'],
+  // Importar acepta cualquier JSON sin validarlo (`Any = Body(...)`), pero tiene que llegar.
+  ['POST', '/datos/importar'],
 ])('sin_cuerpo_da_422_field_required_en_body (%s %s)', (_metodo, url) => {
   const { cliente } = crearCliente()
 
@@ -345,10 +347,11 @@ test('los_errores_de_ruta_consulta_y_cuerpo_salen_en_ese_orden', () => {
     ['path', 'ejercicio_id'],
     ['query', 'modo'],
   ])
-  const locs = poner.json().detail.map((e: any) => e.loc)
-  expect(locs[0]).toEqual(['path', 'ejercicio_id'])
-  expect(locs.slice(1).every((loc: any[]) => loc[0] === 'body')).toBe(true)
-  expect(locs.length).toBeGreaterThan(1)
+  expect(poner.json().detail.map((e: any) => e.loc)).toEqual([
+    ['path', 'ejercicio_id'],
+    ['body', 'nombre'],
+    ['body', 'grupo_muscular_id'],
+  ])
 })
 
 test('un_fallo_de_validacion_no_toca_la_base_ni_llega_al_servicio', () => {
@@ -467,7 +470,7 @@ describe('api', () => {
     expect(fallo).toBeInstanceOf(ErrorDeApi)
     expect(fallo.estado).toBe(409)
     expect(fallo.detalle).toEqual({ mensaje: fallo.message, campo: 'nombre' })
-    expect(fallo.message).not.toBe('')
+    expect(fallo.message).toBe('Ya tienes un ejercicio que se llama «Remo». Elige otro nombre.')
     expect(esDelCampo(fallo, 'nombre')).toBe(true)
     expect(esDelCampo(fallo, 'fecha')).toBe(false)
     expect(textoDelFallo(fallo)).toBe(fallo.message)

@@ -14,7 +14,7 @@ export const noAplica: Record<string, string> = {
   cada_texto_que_llega_por_la_api_o_en_un_archivo_cabe_en_su_columna:
     'Compara los esquemas de Pydantic con las columnas de SQLAlchemy. En el móvil no hay esquemas aparte: lo cubren ningun_texto_mas_largo_que_su_columna_llega_a_la_base (crud.test.ts) y los CHECK de longitud del esquema.',
   el_nombre_del_archivo_lleva_el_dia_de_madrid_y_no_el_de_utc:
-    'Comprueba la cabecera HTTP content-disposition. En el móvil el nombre del archivo lo pone la pantalla de exportar (H1.3), que tendrá que usar el día del teléfono.',
+    'Comprueba la cabecera HTTP content-disposition. En el móvil no hay cabeceras: el nombre del archivo lo pone src/pantallas/TusDatos.tsx con `hoy()` de src/utiles/fechas.ts, el día del teléfono (no el de UTC).',
   exportar_hace_las_mismas_consultas_con_poco_que_con_mucho:
     'Cuenta las consultas SQL (consultas_de) para cazar el N+1 de SQLAlchemy. En el móvil no hay ORM que cargue relaciones a escondidas y SQLite corre en el mismo proceso.',
   un_archivo_que_no_es_json_da_el_mismo_422_en_espanol:

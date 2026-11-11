@@ -93,7 +93,7 @@ describe('hoy y diaDe', () => {
   })
 
   test('diaDe_rechaza_lo_que_no_es_un_instante', () => {
-    expect(() => diaDe('ayer')).toThrow()
+    expect(() => diaDe('ayer')).toThrow('No es un instante: ayer')
   })
 })
 

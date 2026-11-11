@@ -25,5 +25,5 @@ test('la_clave_de_un_nombre_distingue_la_enie_y_la_cedilla', () => {
 test('la_clave_parte_por_los_mismos_espacios_que_python', () => {
   // Propio del móvil: `str.split()` parte por \x1c y \x85, y no por el BOM (U+FEFF).
   expect(claveDeNombre('Press\x1cBanca\x85 Plano')).toBe('press banca plano')
-  expect(claveDeNombre('Press﻿Banca')).toBe('press﻿banca')
+  expect(claveDeNombre('Press\ufeffBanca')).toBe('press\ufeffbanca')
 })

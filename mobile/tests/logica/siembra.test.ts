@@ -64,10 +64,8 @@ test('la_siembra_coincide_con_la_lista_de_predefinidos', () => {
   const grupos = bd
     .todas<{ nombre: string }>('SELECT nombre FROM grupos_musculares ORDER BY id')
     .map((g) => g.nombre)
-  expect(grupos).toHaveLength(19)
   expect(grupos).toEqual(lista.grupos)
   const enLaBase = ejercicios(bd)
-  expect(enLaBase).toHaveLength(151)
   expect(enLaBase.map((e) => [e.nombre, e.grupo, e.tipo_registro, e.descripcion])).toEqual(
     lista.ejercicios.map((e) => [e.nombre, e.grupo, e.tipo_registro, e.descripcion ?? null]),
   )
@@ -198,7 +196,7 @@ test('un_nombre_que_solo_cambia_en_mayusculas_o_tildes_se_actualiza_en_el_mismo'
   sincronizarPredefinidos(bd, lista, LUEGO)
 
   expect(porNombre(bd, cambiado.nombre).id).toBe(id)
-  expect(ejercicios(bd)).toHaveLength(151)
+  expect(ejercicios(bd)).toHaveLength(predefinidos().ejercicios.length)
 })
 
 test('un_ejercicio_nuevo_en_la_lista_se_inserta_como_predefinido', () => {
@@ -324,7 +322,7 @@ test('un_predefinido_que_desaparece_de_la_lista_se_queda_como_estaba', () => {
   expect(sincronizarPredefinidos(bd, lista, LUEGO)).toBe(true)
 
   expect(porNombre(bd, quitado.nombre)).toEqual(antes)
-  expect(ejercicios(bd)).toHaveLength(151)
+  expect(ejercicios(bd)).toHaveLength(predefinidos().ejercicios.length)
 })
 
 test('un_grupo_que_desaparece_de_la_lista_se_queda', () => {

@@ -114,9 +114,14 @@ test('ordenar_una_lista_mezclada_de_zonas_da_el_orden_real', () => {
   ])
 })
 
-test.each(['', 'ayer', '2026-09-01', '10:00:00', '2026-09-01T25:00:00X', '2026-13-01T10:00:00Z'])(
-  'lo_que_no_es_un_instante_lanza_error (%j)',
-  (texto) => {
-    expect(() => enMicrosegundos(texto)).toThrow()
-  },
-)
+test.each([
+  ['', 'No es un instante: '],
+  ['ayer', 'No es un instante: ayer'],
+  ['2026-09-01', 'No es un instante: 2026-09-01'],
+  ['10:00:00', 'No es un instante: 10:00:00'],
+  ['2026-09-01T25:00:00X', 'No es un instante: 2026-09-01T25:00:00X'],
+  // Con la forma de un instante pero un mes 13: lo rechaza la fecha.
+  ['2026-13-01T10:00:00Z', 'No es una fecha: 2026-13-01'],
+])('lo_que_no_es_un_instante_lanza_error (%j)', (texto, mensaje) => {
+  expect(() => enMicrosegundos(texto)).toThrow(mensaje)
+})
