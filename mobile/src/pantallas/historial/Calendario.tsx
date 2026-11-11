@@ -74,6 +74,8 @@ export function Calendario() {
   const [lectura, setLectura] = useState(0)
 
   useEffect(() => {
+    // La primera lectura la pide `useFocusEffect` al montarse; sin esto se leería dos veces.
+    if (lectura === 0) return
     let vigente = true
     async function cargar() {
       try {
