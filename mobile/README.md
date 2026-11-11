@@ -2,7 +2,7 @@
 
 App móvil del proyecto, construida con **React Native** usando **Expo** (SDK 58, Expo Router y TypeScript).
 
-> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, importar y exportar tus datos, las pantallas de entrenar (qué toca hoy y la sesión) el historial (el calendario, apuntar un día pasado y ver o corregir cada día) y las rutinas y programas, que ya se crean y se editan en el propio teléfono. Lo siguiente es la biblioteca de ejercicios.
+> 🚧 En construcción. Hecho: el APK firmado e instalado en el teléfono, la base de datos del teléfono, toda la lógica del backend en TypeScript (salvo el resumen) con sus tests portados, importar y exportar tus datos, las pantallas de entrenar (qué toca hoy y la sesión), el historial (el calendario, apuntar un día pasado y ver o corregir cada día) las rutinas y programas, que ya se crean y se editan en el propio teléfono, y la biblioteca de ejercicios (buscar, la ficha de cada uno con sus notas y dónde se usa, y crear, editar, ocultar o borrar los tuyos). Lo siguiente es la progresión de cada ejercicio, planificar los días y el resumen.
 
 Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repartida como APK, sin pasar por la tienda.
 
