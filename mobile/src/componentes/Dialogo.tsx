@@ -1,8 +1,7 @@
 /**
  * La confirmación antes de todo lo que empieza, termina o borra algo: título, qué pasará y
  * dos botones, el de confirmar con lo que hace («Exportar», «Sustituir»), nunca «Sí». Puerto
- * de `web/src/componentes/Dialogo.tsx` (sin la variante de tres botones, que llegará con la
- * pantalla que la use).
+ * de `web/src/componentes/Dialogo.tsx`, con su variante de tres botones (`otra`).
  *
  * Espera a que termine la acción antes de cerrarse, y si falla enseña el motivo dentro del
  * propio diálogo: cerrarlo sin más haría creer que se hizo.
@@ -23,6 +22,11 @@ interface Props {
   /** En rojo lo que no se puede deshacer; en verde lo demás. */
   peligro?: boolean
   alConfirmar: () => Promise<void>
+  /**
+   * Una segunda forma de seguir (con recuadro, entre las otras dos): los tres botones van
+   * apilados. «Activar y quitarlos», junto a «Activar y dejarlos».
+   */
+  otra?: { texto: string; alElegir: () => Promise<void> }
   alCancelar: () => void
 }
 
@@ -33,6 +37,7 @@ export function Dialogo({
   cancelar = 'Cancelar',
   peligro = false,
   alConfirmar,
+  otra,
   alCancelar,
 }: Props) {
   const c = useColores()
@@ -42,11 +47,11 @@ export function Dialogo({
   const [unaLinea, setUnaLinea] = useState(true)
   const parrafos = cuerpo ? cuerpo.split('\n\n') : []
 
-  async function aceptar() {
+  async function aceptar(accion: () => Promise<void>) {
     setEnCurso(true)
     setFallo(null)
     try {
-      await alConfirmar()
+      await accion()
     } catch (error) {
       setFallo(textoDelFallo(error))
       setEnCurso(false)
@@ -84,16 +89,33 @@ export function Dialogo({
               </Text>
             ))}
             {fallo && <Text style={[estilos.cuerpo, { color: c.error }]}>{fallo}</Text>}
-            <View style={estilos.botones}>
-              <Boton texto={cancelar} alPulsar={alCancelar} desactivado={enCurso} estirar />
-              <Boton
-                texto={confirmar}
-                alPulsar={() => void aceptar()}
-                variante={peligro ? 'peligroRelleno' : 'principal'}
-                desactivado={enCurso}
-                estirar
-              />
-            </View>
+            {otra ? (
+              <View style={estilos.apilados}>
+                <Boton
+                  texto={confirmar}
+                  alPulsar={() => void aceptar(alConfirmar)}
+                  variante={peligro ? 'peligroRelleno' : 'principal'}
+                  desactivado={enCurso}
+                />
+                <Boton
+                  texto={otra.texto}
+                  alPulsar={() => void aceptar(otra.alElegir)}
+                  desactivado={enCurso}
+                />
+                <Boton texto={cancelar} alPulsar={alCancelar} desactivado={enCurso} />
+              </View>
+            ) : (
+              <View style={estilos.botones}>
+                <Boton texto={cancelar} alPulsar={alCancelar} desactivado={enCurso} estirar />
+                <Boton
+                  texto={confirmar}
+                  alPulsar={() => void aceptar(alConfirmar)}
+                  variante={peligro ? 'peligroRelleno' : 'principal'}
+                  desactivado={enCurso}
+                  estirar
+                />
+              </View>
+            )}
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -122,4 +144,5 @@ const estilos = StyleSheet.create({
   centrado: { textAlign: 'center' },
   // 12 px entre los dos botones, como en la web.
   botones: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  apilados: { gap: 12, marginTop: 6 },
 })

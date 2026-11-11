@@ -14,10 +14,15 @@ interface Props {
   titulo: string
   subtitulo?: ReactNode
   alCerrar: () => void
+  /**
+   * Siempre a su alto máximo, aunque tenga poco dentro: en la de elegir ejercicio, así al
+   * buscar o filtrar no se encoge y el campo del grupo no cambia de sitio.
+   */
+  llena?: boolean
   children: ReactNode
 }
 
-export function Hoja({ titulo, subtitulo, alCerrar, children }: Props) {
+export function Hoja({ titulo, subtitulo, alCerrar, llena = false, children }: Props) {
   const c = useColores()
   const margenes = useSafeAreaInsets()
   return (
@@ -32,6 +37,7 @@ export function Hoja({ titulo, subtitulo, alCerrar, children }: Props) {
               borderTopColor: c.borde,
               paddingBottom: 20 + margenes.bottom,
             },
+            llena && estilos.llena,
           ]}
         >
           <View style={[estilos.asa, { backgroundColor: c.borde }]} />
@@ -43,7 +49,9 @@ export function Hoja({ titulo, subtitulo, alCerrar, children }: Props) {
               {subtitulo}
             </TextoCentrado>
           )}
-          <ScrollView>{children}</ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled" style={estilos.contenido}>
+            {children}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -60,6 +68,8 @@ const estilos = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  llena: { height: '85%' },
+  contenido: { flexGrow: 0, flexShrink: 1 },
   asa: { width: 40, height: 4, marginBottom: 12, alignSelf: 'center', borderRadius: 999 },
   titulo: { fontSize: 17, fontWeight: '700', textAlign: 'center' },
   subtitulo: { fontSize: 13, lineHeight: 19, textAlign: 'center', marginBottom: 10 },

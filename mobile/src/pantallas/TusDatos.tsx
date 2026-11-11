@@ -19,6 +19,7 @@ import { Icono } from '../componentes/Icono'
 import type { ComprobacionDeImportar, ResumenDeDatos } from '../logica/tipos'
 import { api, ErrorDeApi, textoDelFallo } from '../plataforma/api'
 import { compartirArchivo, elegirArchivo } from '../plataforma/archivos'
+import { tirarTodosLosBorradores } from './programas/borradores'
 import { RADIO, useColores } from '../tema'
 import { diaDe, diaYMesConAnio, hoy } from '../utiles/fechas'
 import { enumerar } from '../utiles/textos'
@@ -240,6 +241,8 @@ export function TusDatos() {
           peligro
           alConfirmar={async () => {
             await api.borrarDatos()
+            // Los ids que guardan los borradores ya no existen.
+            tirarTodosLosBorradores()
             setPorBorrar(null)
             setHecho('Se han borrado todos tus datos. Puedes empezar de cero.')
           }}
@@ -262,6 +265,7 @@ export function TusDatos() {
           peligro
           alConfirmar={async () => {
             const cargado = await api.importarDatos(pendiente.archivo)
+            tirarTodosLosBorradores()
             setPendiente(null)
             setHecho(
               describir(cargado) === 'nada'
