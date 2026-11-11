@@ -139,6 +139,8 @@ export function Hoy() {
     // crea nada con la fecha vieja; se lee de nuevo y se avisa.
     if ((await api.hoy()).fecha !== hoy) {
       setAviso('Ha empezado otro día. Esto es lo que toca ahora.')
+      // Se cierra el diálogo: si no, se queda abierto con los botones desactivados.
+      setConfirmando(null)
       setLectura((n) => n + 1)
       return
     }

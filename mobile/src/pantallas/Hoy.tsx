@@ -110,9 +110,12 @@ export function Hoy() {
 
   // Al volver a esta pantalla (de la sesión, de otra pestaña) se lee de nuevo: en la web la
   // pantalla se vuelve a montar; aquí se queda montada debajo.
+  // Al salir, el aviso se quita, como en la web al desmontarse: si no, se quedaría hasta
+  // empezar una sesión, incluso al día siguiente.
   useFocusEffect(
     useCallback(() => {
       setLectura((n) => n + 1)
+      return () => setAviso(null)
     }, []),
   )
 
@@ -671,7 +674,18 @@ function useEstilos(c: Colores) {
     pantalla: { flex: 1, backgroundColor: c.fondo },
     contenido: { padding: 16, gap: 20 },
     aviso: { color: c.textoTenue, fontSize: 14, padding: 16 },
-    avisoEnLinea: { color: c.texto, fontSize: 14, lineHeight: 20 },
+    // El recuadro de los avisos de la web (`.aviso`).
+    avisoEnLinea: {
+      color: c.textoTenue,
+      fontSize: 14,
+      lineHeight: 20,
+      backgroundColor: c.superficie,
+      borderWidth: 1,
+      borderColor: c.borde,
+      borderRadius: RADIO,
+      padding: 16,
+      overflow: 'hidden',
+    },
     cabecera: { alignItems: 'center', marginBottom: -4 },
     cabeceraFecha: { fontSize: 13, color: c.textoTenue },
     cabeceraTitulo: { fontSize: 22, fontWeight: '700', color: c.texto },
