@@ -12,12 +12,13 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text } from 'react-native'
+import { StyleSheet, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
 import { Cabecera } from '../../componentes/Cabecera'
 import { CampoDeNombre } from '../../componentes/CampoDeNombre'
+import { Desplazable } from '../../componentes/Desplazable'
 import { IconoEnTexto } from '../../componentes/IconoEnTexto'
 import { TextoCentrado } from '../../componentes/TextoCentrado'
 import { esDelCampo, textoDelFallo } from '../../logica/api'
@@ -158,12 +159,7 @@ export function RutinaNueva() {
         derecha={{ texto: 'Guardar', alPulsar: () => void guardar(), desactivado: guardando }}
       />
 
-      <ScrollView
-        contentContainerStyle={e.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        scrollEnabled={!arrastrando}
-      >
+      <Desplazable contentContainerStyle={e.contenido} scrollEnabled={!arrastrando}>
         {fallo && <Text style={e.fallo}>{fallo}</Text>}
 
         <CampoDeNombre
@@ -209,7 +205,7 @@ export function RutinaNueva() {
             Pulsa un ejercicio para cambiarlo o quitarlo.
           </TextoCentrado>
         )}
-      </ScrollView>
+      </Desplazable>
     </SafeAreaView>
   )
 }

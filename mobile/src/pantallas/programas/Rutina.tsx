@@ -16,12 +16,13 @@
  */
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
 import { Cabecera } from '../../componentes/Cabecera'
 import { CampoDeNombre } from '../../componentes/CampoDeNombre'
+import { Desplazable } from '../../componentes/Desplazable'
 import { Dialogo } from '../../componentes/Dialogo'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { IconoEnTexto } from '../../componentes/IconoEnTexto'
@@ -253,12 +254,7 @@ export function Rutina() {
         }
       />
 
-      <ScrollView
-        contentContainerStyle={e.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        scrollEnabled={!arrastrando}
-      >
+      <Desplazable contentContainerStyle={e.contenido} scrollEnabled={!arrastrando}>
         {fallo && <Text style={e.fallo}>{fallo}</Text>}
 
         {editando && (
@@ -381,7 +377,7 @@ export function Rutina() {
             </TextoCentrado>
           </>
         )}
-      </ScrollView>
+      </Desplazable>
 
       {descartando && (
         <Dialogo

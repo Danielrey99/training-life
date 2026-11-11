@@ -11,10 +11,11 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
+import { Desplazable } from '../../componentes/Desplazable'
 import { Dialogo } from '../../componentes/Dialogo'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { Icono } from '../../componentes/Icono'
@@ -302,11 +303,7 @@ export function Sesion() {
         <View style={estilos.volver} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={estilos.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
+      <Desplazable contentContainerStyle={estilos.contenido}>
         <View style={estilos.huecos}>{visibles.map((hueco) => bloque(hueco))}</View>
 
         {/* Los ocultos en la rutina con series de hoy, al final y plegados. */}
@@ -354,7 +351,7 @@ export function Sesion() {
             />
           </View>
         )}
-      </ScrollView>
+      </Desplazable>
 
       {aBorrar && (
         <Dialogo

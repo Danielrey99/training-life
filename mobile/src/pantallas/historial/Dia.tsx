@@ -10,10 +10,11 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
+import { Desplazable } from '../../componentes/Desplazable'
 import { Dialogo } from '../../componentes/Dialogo'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { Icono } from '../../componentes/Icono'
@@ -439,11 +440,7 @@ export function Dia() {
         )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={e.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
+      <Desplazable contentContainerStyle={e.contenido}>
         {editando && (
           <View style={e.campo}>
             <Text style={e.campoEtiqueta}>Fecha</Text>
@@ -589,7 +586,7 @@ export function Dia() {
             )}
           </View>
         )}
-      </ScrollView>
+      </Desplazable>
 
       {eligiendoFecha && (
         <HojaDeFecha

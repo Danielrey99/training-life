@@ -9,11 +9,12 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
 import { Cabecera } from '../../componentes/Cabecera'
+import { Desplazable } from '../../componentes/Desplazable'
 import { Dialogo } from '../../componentes/Dialogo'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { Icono } from '../../componentes/Icono'
@@ -349,11 +350,7 @@ export function Ejercicio() {
         }
       />
 
-      <ScrollView
-        contentContainerStyle={e.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
+      <Desplazable contentContainerStyle={e.contenido}>
         {huecoOculto && origen.tipo === 'existente' && (
           <View style={e.oculto}>
             <Text style={e.ocultoTitulo}>
@@ -533,7 +530,7 @@ export function Ejercicio() {
             </>
           )}
         </View>
-      </ScrollView>
+      </Desplazable>
 
       {hoja && (
         <HojaDeEjercicios

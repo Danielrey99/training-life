@@ -9,11 +9,12 @@
  */
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { ScrollView, StyleSheet, Text } from 'react-native'
+import { StyleSheet, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Cabecera } from '../../componentes/Cabecera'
 import { CampoDeNombre } from '../../componentes/CampoDeNombre'
+import { Desplazable } from '../../componentes/Desplazable'
 import { Dialogo } from '../../componentes/Dialogo'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { IconoEnTexto } from '../../componentes/IconoEnTexto'
@@ -166,11 +167,7 @@ export function ProgramaNuevo() {
         derecha={{ texto: 'Crear', alPulsar: () => void pedirCrear(), desactivado: guardando }}
       />
 
-      <ScrollView
-        contentContainerStyle={e.contenido}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-      >
+      <Desplazable contentContainerStyle={e.contenido}>
         {fallo && <Text style={e.fallo}>{fallo}</Text>}
 
         <CampoDeNombre
@@ -206,7 +203,7 @@ export function ProgramaNuevo() {
           Pulsa <IconoEnTexto nombre="mas" /> en un día para asignarle una rutina, nueva o de las
           que ya tienes. Los días vacíos son descanso.
         </Text>
-      </ScrollView>
+      </Desplazable>
 
       {hojaDe !== null && (
         <HojaDeRutinas
