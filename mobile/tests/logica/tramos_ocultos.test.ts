@@ -12,10 +12,6 @@
  * Todos parten de la semana de `apoyo/semana.ts`: hoy es el miércoles 16 de septiembre de
  * 2026, con Push los lunes, Pull los miércoles y Leg los viernes, desde el lunes 31 de
  * agosto. Los saltos de reloj, con `hoy_es`.
- *
- * No se portan (siguen en `pendientes.ts`, porque `GET /resumen` aún no existe en el móvil)
- * `la_constancia_no_cuenta_los_dias_del_tramo` y
- * `la_constancia_cuenta_lo_entrenado_antes_de_ocultar`.
  */
 import { diasDelPlan } from '../../src/logica/servicios/plan'
 import { dejar_planificado, en_texto, planificar } from '../apoyo/ayudas'
@@ -90,6 +86,15 @@ function oculta_entre(rutina_id: number, desde: string, hasta: string): void {
   hoy_es(hasta)
   mostrar(rutina_id)
   hoy_es(HOY)
+}
+
+/** Entrenados, planificados y por llegar de septiembre en `GET /resumen`. */
+function constancia_de_septiembre(): [number, number, number] {
+  const respuesta = cliente.get('/resumen', { params: { mes: '2026-09' } })
+  expect([respuesta.status_code, respuesta.text]).toEqual([200, respuesta.text])
+  const mes = respuesta.json().constancia.meses[8]
+  expect(mes.mes.startsWith('2026-09')).toBe(true)
+  return [mes.entrenados, mes.planificados, mes.por_llegar]
 }
 
 /** Los tramos `[desde, hasta]` guardados, por fecha de inicio; los de una rutina si se dice. */
@@ -330,6 +335,15 @@ test('no_se_recupera_un_dia_en_que_la_rutina_estuvo_oculta', () => {
   expect(contar(entorno.bd, 'entrenamientos')).toBe(0)
 })
 
+test('la_constancia_no_cuenta_los_dias_del_tramo', () => {
+  // Septiembre, con Push oculta del 7 al 14: el lunes 7 no está entre los planificados (sin el
+  // tramo serían seis: lunes 7 y 14, miércoles 2 y 9, viernes 4 y 11). Por llegar: hoy, 18, 21,
+  // 23, 25, 28 y 30.
+  oculta_entre(ppl.Push, LUNES_7, LUNES_14)
+
+  expect(constancia_de_septiembre()).toEqual([0, 5, 7])
+})
+
 test('borrar_la_rutina_en_definitivo_se_lleva_sus_tramos', () => {
   oculta_entre(ppl.Push, LUNES_7, LUNES_14)
   oculta_entre(ppl.Pull, MIERCOLES_2, MIERCOLES_9)
@@ -373,6 +387,21 @@ test('la_pantalla_de_hoy_da_por_hecho_lo_entrenado_antes_de_ocultar', () => {
   expect(cliente.get('/plan/hoy').json().situacion).toBe('hecho')
   hoy_es(MARTES_15)
   expect(por_recuperar()).not.toContainEqual(['2026-09-14', 'Push'])
+})
+
+test('la_constancia_cuenta_lo_entrenado_antes_de_ocultar', () => {
+  // Septiembre: el lunes 14, hecho, es entrenado y planificado; con el lunes 7, los miércoles
+  // 2 y 9 y los viernes 4 y 11, sin hacer, son seis.
+  hoy_es(LUNES_14)
+  hecha(LUNES_14, ppl.Push, LUNES_14)
+  ocultar(ppl.Push)
+  hoy_es(MARTES_15)
+  mostrar(ppl.Push)
+  hoy_es(HOY)
+
+  const [entrenados, planificados] = constancia_de_septiembre()
+
+  expect([entrenados, planificados]).toEqual([1, 6])
 })
 
 test('una_sesion_cancelada_no_salva_el_dia_en_que_se_oculta', () => {

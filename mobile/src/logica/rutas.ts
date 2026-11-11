@@ -19,6 +19,7 @@ import * as ejercicios from './servicios/ejercicios'
 import * as entrenamientos from './servicios/entrenamientos'
 import { SESIONES_POR_DEFECTO } from './servicios/historial'
 import * as planificar from './servicios/planificar'
+import { obtenerResumen } from './servicios/resumen'
 import * as rutinas from './servicios/rutinas'
 import {
   aBooleano,
@@ -106,6 +107,14 @@ class Entrada {
       return this.v.error('missing', ['query', nombre], 'Field required') as T
     }
     return leer(valor, ['query', nombre]) as T
+  }
+
+  /** Un texto de la consulta que tiene que encajar en `patron` (`Query(pattern=...)`). */
+  textoConPatron(nombre: string, patron: string): string | null {
+    return this.consulta<string | null>(nombre, null, (valor, loc) => {
+      if (new RegExp(patron).test(valor)) return valor
+      return this.v.error('string_pattern_mismatch', loc, `String should match pattern '${patron}'`)
+    })
   }
 
   fechaObligatoria(nombre: string): string {
@@ -567,6 +576,16 @@ ruta('DELETE', '/programas/{programa_id}', (ctx, e) =>
     e,
     () => [e.id('programa_id'), e.modo()] as const,
     ([id, modo]) => programas.borrarPrograma(ctx, id, modo),
+  ),
+)
+
+// Resumen. Años de 2000 a 2099, como el backend: restar meses a una fecha extrema se
+// saldría del calendario.
+ruta('GET', '/resumen', (ctx, e) =>
+  con(
+    e,
+    () => e.textoConPatron('mes', String.raw`^20\d{2}-(0[1-9]|1[0-2])$`),
+    (mes) => obtenerResumen(ctx, mes),
   ),
 )
 
