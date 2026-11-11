@@ -17,7 +17,11 @@ Es donde se va a usar la app de verdad, en el gimnasio: **solo Android**, repart
 ```
 mobile/
   src/
-    app/            rutas de Expo Router (las pantallas)
+    app/            rutas de Expo Router: qué pantalla va en cada dirección y en qué pestaña
+    pantallas/      las pantallas, puertos de las de la web con sus mismos textos
+    componentes/    las piezas que comparten: botones, diálogos, hojas, campos con − y +…
+    utiles/         copias de las de la web: fechas, números, medidas, colores, ajustes
+    reglasDePantalla/  las cuentas de las pantallas sin React, para probarlas en Node
     logica/         la lógica del backend en TypeScript puro, sin React ni Expo
       bd/           la base: interfaz, esquema SQLite, migraciones y siembra
       reglas/       fechas, zonas, pesos, textos, nombres, medidas, ediciones, orden
@@ -45,7 +49,7 @@ npm run tipos    # TypeScript, la app y los tests por separado
 npm run lint     # ESLint
 ```
 
-**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra y las cuentas de fechas en los bordes del calendario.
+**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra, las cuentas de fechas en los bordes del calendario y lo que calculan las pantallas (la mejora de cada ejercicio, los textos de las series, los números en kilos y en libras).
 
 ## Construir el APK
 

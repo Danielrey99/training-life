@@ -11,7 +11,7 @@ App de entrenamiento de gimnasio para uso personal — pensada para sustituir el
 | Móvil | React Native + Expo |
 | Infraestructura | Docker Compose |
 
-La web habla con el backend a través de su API REST: nunca accede directamente a la base de datos. La app móvil funcionará por su cuenta, sin conectarse al PC: guardará los datos en el propio teléfono, con la misma lógica que el backend escrita en TypeScript.
+La web habla con el backend a través de su API REST: nunca accede directamente a la base de datos. La app móvil funciona por su cuenta, sin conectarse al PC: guarda los datos en el propio teléfono, con la misma lógica que el backend escrita en TypeScript.
 
 ## Estructura del repositorio
 
@@ -89,6 +89,8 @@ Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya e
 - [x] Repaso completo: código, tests, documentación y diseño
 - [x] Móvil: el proyecto Expo y el APK firmado, construido en local e instalado en el teléfono (también actualizando encima sin perder nada)
 - [x] Móvil: la base de datos del teléfono (SQLite) con su esquema, sus versiones y los ejercicios predefinidos, y las reglas del backend en TypeScript, con sus tests
+- [x] Móvil: toda la lógica del backend dentro del teléfono (salvo el resumen), probada con las mismas pruebas que el backend
+- [x] Móvil: importar y exportar los datos, entrenar (qué toca hoy y la sesión) y el historial (el calendario, apuntar un día pasado y ver o corregir cada día)
 - [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 
