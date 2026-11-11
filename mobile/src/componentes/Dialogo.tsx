@@ -13,32 +13,47 @@ import { textoDelFallo } from '../logica/api'
 import { useColores } from '../tema'
 import { Boton } from './Boton'
 
-interface Props {
+type Props = {
   titulo: string
   /** Qué pasará. Varios párrafos, separados por una línea en blanco. */
   cuerpo?: string
-  confirmar: string
-  cancelar?: string
-  /** En rojo lo que no se puede deshacer; en verde lo demás. */
-  peligro?: boolean
-  alConfirmar: () => Promise<void>
-  /**
-   * Una segunda forma de seguir (con recuadro, entre las otras dos): los tres botones van
-   * apilados. «Activar y quitarlos», junto a «Activar y dejarlos».
-   */
-  otra?: { texto: string; alElegir: () => Promise<void> }
   alCancelar: () => void
-}
+} & (
+  | {
+      confirmar: string
+      cancelar?: string
+      /** En rojo lo que no se puede deshacer; en verde lo demás. */
+      peligro?: boolean
+      alConfirmar: () => Promise<void>
+      /**
+       * Una segunda forma de seguir (con recuadro, entre las otras dos): los tres botones van
+       * apilados. «Activar y quitarlos», junto a «Activar y dejarlos».
+       */
+      otra?: { texto: string; alElegir: () => Promise<void> }
+      soloAviso?: undefined
+    }
+  | {
+      /** Un aviso sin nada que decidir: un solo botón (*Entendido*) que lo cierra. */
+      soloAviso: string
+      confirmar?: undefined
+      cancelar?: undefined
+      peligro?: undefined
+      alConfirmar?: undefined
+      otra?: undefined
+    }
+)
 
 export function Dialogo({
   titulo,
   cuerpo,
-  confirmar,
+  confirmar = '',
   cancelar = 'Cancelar',
   peligro = false,
-  alConfirmar,
+  // Solo falta en un aviso, que no lo usa.
+  alConfirmar = async () => {},
   otra,
   alCancelar,
+  soloAviso,
 }: Props) {
   const c = useColores()
   const [enCurso, setEnCurso] = useState(false)
@@ -89,7 +104,11 @@ export function Dialogo({
               </Text>
             ))}
             {fallo && <Text style={[estilos.cuerpo, { color: c.error }]}>{fallo}</Text>}
-            {otra ? (
+            {soloAviso ? (
+              <View style={estilos.botones}>
+                <Boton texto={soloAviso} alPulsar={alCancelar} variante="principal" estirar />
+              </View>
+            ) : otra ? (
               <View style={estilos.apilados}>
                 <Boton
                   texto={confirmar}

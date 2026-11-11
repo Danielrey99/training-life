@@ -7,9 +7,9 @@
  * oculto es de solo lectura, con *Mostrar* y *Borrar*; sus notas sí se cambian, cada una con
  * su propio formulario. Un bloque vacío no desaparece: lo dice en su recuadro.
  *
- * Diferencias con la web: relee al volver de editarlo (aquí se queda montada debajo), los usos
- * ocultos abiertos no van en la ruta y, hasta que llegue la gráfica de progresión, su tarjeta
- * enseña la cifra sin llevar a ninguna parte.
+ * Diferencias con la web: relee al volver de editarlo (aquí se queda montada debajo) y los
+ * usos ocultos abiertos no van en la ruta. La gráfica de progresión está en la pestaña
+ * Historial, como en la web, y vuelve a esta ficha (`ficha` en sus parámetros).
  */
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -56,10 +56,10 @@ type Pregunta = 'ocultar' | 'mostrar' | 'borrar' | null
 // La nota que se está escribiendo: una nueva, la de ese id o ninguna.
 type Escribiendo = 'nueva' | number | null
 
-/** La primera medida de su gráfica en la última sesión. */
+/** La primera medida de su gráfica en la última sesión, y con cuál abrir la gráfica. */
 function progresionDe(tipo: Ejercicio['tipo_registro'], ultima: SesionHistorial) {
   const medida = medidasDe(tipo, [ultima])[0]
-  return medida.escribir(valorEnPantalla(medida, ultima))
+  return { clave: medida.clave, cifra: medida.escribir(valorEnPantalla(medida, ultima)) }
 }
 
 /** "Push · ejercicio 1"; uno oculto en su rutina no tiene número. */
@@ -247,10 +247,29 @@ export function Ficha() {
         <View style={e.bloque}>
           <Text style={e.rotulo}>Progresión</Text>
           {ultima ? (
-            <View style={[e.tarjeta, e.progresion]}>
-              <Text style={e.cifra}>{progresionDe(ejercicio.tipo_registro, ultima)}</Text>
-              <Text style={e.tipoAyuda}>Última vez {conArticulo(ultima.fecha)}</Text>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.navigate(
+                  {
+                    pathname: '/historial/progresion/[id]',
+                    params: {
+                      id: String(id),
+                      medida: progresionDe(ejercicio.tipo_registro, ultima).clave,
+                      ficha: String(id),
+                    },
+                  },
+                  { withAnchor: true },
+                )
+              }
+              style={[e.tarjeta, e.progresion]}
+            >
+              <View style={e.progresionTexto}>
+                <Text style={e.cifra}>{progresionDe(ejercicio.tipo_registro, ultima).cifra}</Text>
+                <Text style={e.tipoAyuda}>Última vez {conArticulo(ultima.fecha)}</Text>
+              </View>
+              <Icono nombre="abrir" color={c.textoTenue} pequeno />
+            </Pressable>
           ) : (
             <RecuadroVacio>Aún no has hecho este ejercicio.</RecuadroVacio>
           )}
@@ -617,7 +636,15 @@ function useEstilos(c: Colores) {
     tipo: { paddingVertical: 12, paddingHorizontal: 16, gap: 2 },
     tipoNombre: { fontSize: 15, fontWeight: '700', color: c.texto },
     tipoAyuda: { fontSize: 13, color: c.textoTenue },
-    progresion: { paddingVertical: 14, paddingHorizontal: 16 },
+    progresion: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 14,
+      paddingLeft: 16,
+      paddingRight: 12,
+    },
+    progresionTexto: { flex: 1, minWidth: 0 },
     cifra: { fontSize: 24, fontWeight: '700', lineHeight: 31, color: c.texto },
     notas: { paddingLeft: 16, paddingRight: 4 },
     separada: { borderTopWidth: 1, borderTopColor: c.borde },

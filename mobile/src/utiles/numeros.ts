@@ -126,3 +126,13 @@ export function leerNumero(texto: string): number | null {
   const numero = Number(limpio)
   return Number.isFinite(numero) ? numero : null
 }
+
+/**
+ * «12.345»: un entero con los puntos de miles también con cuatro cifras. La web lo hace con
+ * `toLocaleString('es-ES', { useGrouping: 'always' })`; aquí a mano, porque el motor de
+ * JavaScript del teléfono no garantiza esa opción. Sin signo: quien lo usa pone el suyo.
+ * (Solo del móvil: no está en la copia de la web.)
+ */
+export function conMiles(entero: number) {
+  return String(Math.abs(Math.round(entero))).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}

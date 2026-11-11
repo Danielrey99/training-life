@@ -5,8 +5,6 @@
  * El estado de cada día lo calcula la lógica (`api.seguimiento`); aquí solo se pinta, con las
  * mismas marcas que la tira de la semana de Entrenar. El mes va en la ruta (`?mes=2026-09`)
  * para que volver de un día no devuelva al mes actual.
- *
- * Diferencia con la web, hasta H4: sin los botones de Planificar y de Resumen.
  */
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
@@ -14,6 +12,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 
+import { Boton } from '../../componentes/Boton'
 import { FalloAlCargar } from '../../componentes/FalloAlCargar'
 import { Icono } from '../../componentes/Icono'
 import { MesConMarcas } from '../../componentes/MesConMarcas'
@@ -218,6 +217,20 @@ export function Calendario() {
           <Icono nombre={leyenda ? 'arriba' : 'abajo'} color={c.textoTenue} pequeno />
         </Pressable>
         {leyenda && <Leyenda programa={programa} />}
+
+        <Boton
+          texto="Planificar los próximos días"
+          alPulsar={() => router.push('/historial/planificar')}
+        />
+        {/* Un mes que no ha empezado no tiene nada que resumir. */}
+        {mes <= hoy && (
+          <Boton
+            texto="Ver resumen"
+            alPulsar={() =>
+              router.push({ pathname: '/historial/resumen', params: { mes: mes.slice(0, 7) } })
+            }
+          />
+        )}
       </ScrollView>
 
       {registrando && <HojaRegistrar fecha={registrando} alCerrar={() => setRegistrando(null)} />}

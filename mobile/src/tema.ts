@@ -17,6 +17,14 @@ export interface Colores {
   sobreAcento: string
   /** Lo que caduca hoy (el último día para recuperar). */
   ambar: string
+  /** La fecha en el globo de una gráfica, que tiene el color del texto de fondo. */
+  globoTenue: string
+  /** Las barras del resumen: la que no está elegida, la raya oscura de la en curso, la de la
+   * en curso elegida y lo planificado de la constancia. */
+  barra: string
+  barraRaya: string
+  acentoRaya: string
+  barraVacia: string
 }
 
 const OSCURO: Colores = {
@@ -29,6 +37,11 @@ const OSCURO: Colores = {
   error: '#f87171',
   sobreAcento: '#14161a',
   ambar: '#ecb432',
+  globoTenue: '#5b6270',
+  barra: '#2f7d54',
+  barraRaya: '#1f4d36',
+  acentoRaya: '#27985a',
+  barraVacia: '#3a4150',
 }
 
 const CLARO: Colores = {
@@ -41,6 +54,11 @@ const CLARO: Colores = {
   error: '#dc2626',
   sobreAcento: '#ffffff',
   ambar: '#b45309',
+  globoTenue: '#aab0bb',
+  barra: '#86cfa3',
+  barraRaya: '#b9e4c9',
+  acentoRaya: '#12813b',
+  barraVacia: '#d5d9e0',
 }
 
 export const RADIO = 8

@@ -25,7 +25,7 @@ import { mejora, volumenDe } from '../../reglasDePantalla/mejora'
 import { RADIO, RADIO_PEQUENO, useColores, type Colores } from '../../tema'
 import { fechaCompleta, fechaEnFrase, fechaLarga, hoy, sumarDias } from '../../utiles/fechas'
 import { kilos, kilosCorporales, serieLarga } from '../../utiles/medidas'
-import { enUnidad, unidad } from '../../utiles/numeros'
+import { conMiles, enUnidad, unidad } from '../../utiles/numeros'
 import { seriesObjetivoDe } from '../../utiles/textos'
 import type { DatosDeSerie } from '../sesion/FormularioDeSerie'
 import { BloqueDelDia, type Abierta, type Bloque } from './BloqueDelDia'
@@ -33,15 +33,6 @@ import { HojaDeFecha } from './HojaDeFecha'
 
 function contar(cuantos: number, singular: string, plural: string) {
   return `${cuantos} ${cuantos === 1 ? singular : plural}`
-}
-
-/**
- * «12.345»: un entero con los puntos de miles también con cuatro cifras. La web lo hace con
- * `toLocaleString('es-ES', { useGrouping: 'always' })`; aquí a mano, porque el motor de
- * JavaScript del teléfono no garantiza esa opción.
- */
-function conMiles(entero: number) {
-  return String(Math.abs(Math.round(entero))).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
 /** «20 kg × 9 reps · sentado» (o en lb). */

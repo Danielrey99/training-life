@@ -5,9 +5,8 @@
  * Con Editar, cada serie gana su lápiz y su ✕, y el bloque un *+ Añadir serie*. Las ediciones
  * van de una en una: con un formulario abierto en cualquier parte del día, lo de este bloque
  * se queda en gris. Un hueco que ese día se quedó sin series solo sale al editar.
- *
- * Diferencia con la web, hasta H4: sin la flecha a la progresión del ejercicio.
  */
+import { router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
@@ -134,6 +133,22 @@ export function BloqueDelDia({
               else alPedirCambiar(otro)
             }}
           />
+        )}
+        {/* A la gráfica de este ejercicio; con Editar no, que la pantalla se queda quieta. */}
+        {!vacio && !editando && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Ver la progresión de ${ejercicio.nombre}`}
+            onPress={() =>
+              router.push({
+                pathname: '/historial/progresion/[id]',
+                params: { id: String(ejercicio.id) },
+              })
+            }
+            style={estilos.progresion}
+          >
+            <Icono nombre="abrir" color={c.textoTenue} pequeno />
+          </Pressable>
         )}
       </View>
       {/* El objetivo, debajo del nombre y aparte de las mejoras: es lo que pide la rutina. */}
@@ -317,6 +332,17 @@ const estilos = StyleSheet.create({
   encima: { zIndex: 1 },
   cabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, minHeight: 32, zIndex: 10 },
   nombre: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '600', lineHeight: 21, paddingTop: 5 },
+  // 44 px para el dedo, sin agrandar la cabecera: se come el relleno del bloque.
+  progresion: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -6,
+    marginRight: -12,
+    marginBottom: -10,
+    marginLeft: -6,
+  },
   filaEtiquetas: {
     flexDirection: 'row',
     flexWrap: 'wrap',
