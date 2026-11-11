@@ -2,7 +2,11 @@
  * Las cuentas de la sesión que no dependen de la pantalla (`src/reglasDePantalla/sesion.ts`):
  * la frase de cuántos ejercicios se han completado y con qué ejercicio arranca cada hueco.
  */
-import { completados, ejercicioInicial } from '../../src/reglasDePantalla/sesion'
+import {
+  cuentaDeEjercicios,
+  cuentaDeSeries,
+  ejercicioInicial,
+} from '../../src/reglasDePantalla/sesion'
 import type { Ejercicio, HuecoDeRutina, Serie } from '../../src/logica/tipos'
 
 function ejercicio(id: number, oculto = false): Ejercicio {
@@ -62,21 +66,23 @@ function serie(ejercicioId: number, slot = 7): Serie {
   }
 }
 
-describe('completados', () => {
-  test('con_un_solo_ejercicio_no_dice_cuantos', () => {
-    expect(completados(0, 1)).toBe('aún no has completado el ejercicio')
-    expect(completados(1, 1)).toBe('has completado el ejercicio')
-  })
-
+describe('cuentaDeSeries', () => {
   test.each([
-    [0, 4, 'has completado 0 de los 4 ejercicios'],
-    [1, 4, 'has completado 1 de los 4 ejercicios'],
-    [3, 4, 'has completado 3 de los 4 ejercicios'],
-    [4, 4, 'has completado 4 de los 4 ejercicios'],
-    [0, 2, 'has completado 0 de los 2 ejercicios'],
-    [12, 12, 'has completado 12 de los 12 ejercicios'],
-  ])('completados_de_%i_entre_%i', (hechos, total, texto) => {
-    expect(completados(hechos, total)).toBe(texto)
+    [12, 21, '12/21 series'],
+    [28, 21, '28/21 series'],
+    [0, 3, '0/3 series'],
+  ])('cuenta_de_series_%i_entre_%i', (hechas, objetivo, texto) => {
+    expect(cuentaDeSeries(hechas, objetivo)).toBe(texto)
+  })
+})
+
+describe('cuentaDeEjercicios', () => {
+  test.each([
+    [6, 7, '6 de 7 ejercicios'],
+    [1, 1, '1 de 1 ejercicio'],
+    [0, 1, '0 de 1 ejercicio'],
+  ])('cuenta_de_ejercicios_%i_entre_%i', (hechos, total, texto) => {
+    expect(cuentaDeEjercicios(hechos, total)).toBe(texto)
   })
 })
 

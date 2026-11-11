@@ -1,15 +1,24 @@
 /**
  * Las cuentas de la sesión que no dependen de la pantalla: qué ejercicio arranca en cada
- * hueco y cómo se dice cuántos se han completado. Vienen de `web/src/paginas/sesion/Sesion.tsx`
+ * hueco y cómo se dicen las series y los ejercicios que se llevan. Vienen de `web/src/paginas/sesion/Sesion.tsx`
  * y están aparte para poder probarlas sin React Native.
  */
 import type { Ejercicio, HuecoDeRutina, Serie } from '../logica/tipos'
 
-/** «has completado 1 de los 4 ejercicios»: con cualquier número, sin concordar «completo(s)». */
-export function completados(hechos: number, total: number) {
-  if (total === 1)
-    return hechos === 1 ? 'has completado el ejercicio' : 'aún no has completado el ejercicio'
-  return `has completado ${hechos} de los ${total} ejercicios`
+/**
+ * «12/21 series»: las apuntadas sobre la suma de las series del objetivo de cada ejercicio,
+ * como el «2/3» de cada uno. Pasarse se lee igual («28/21 series»).
+ */
+export function cuentaDeSeries(hechas: number, objetivo: number) {
+  return `${hechas}/${objetivo} series`
+}
+
+/**
+ * «6 de 7 ejercicios»: los que tienen al menos una serie. El objetivo es una recomendación,
+ * así que un ejercicio con menos series de las que pide cuenta como hecho (decisión del autor).
+ */
+export function cuentaDeEjercicios(hechos: number, total: number) {
+  return `${hechos} de ${total} ${total === 1 ? 'ejercicio' : 'ejercicios'}`
 }
 
 /**

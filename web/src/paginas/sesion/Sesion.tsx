@@ -19,15 +19,20 @@ import './sesion.css'
 // la pantalla de Hoy. *Terminar* lleva en cambio al día en el historial.
 const SALIDA = '/'
 
-function contarSeries(cuantas: number) {
-  return cuantas === 1 ? '1 serie' : `${cuantas} series`
+/**
+ * «12/21 series»: las apuntadas sobre la suma de las series del objetivo de cada ejercicio,
+ * como el «2/3» de cada uno. Pasarse se lee igual («28/21 series»).
+ */
+function cuentaDeSeries(hechas: number, objetivo: number) {
+  return `${hechas}/${objetivo} series`
 }
 
-/** «has completado 1 de los 4 ejercicios»: con cualquier número, sin concordar «completo(s)». */
-function completados(hechos: number, total: number) {
-  if (total === 1)
-    return hechos === 1 ? 'has completado el ejercicio' : 'aún no has completado el ejercicio'
-  return `has completado ${hechos} de los ${total} ejercicios`
+/**
+ * «6 de 7 ejercicios»: los que tienen al menos una serie. El objetivo es una recomendación,
+ * así que un ejercicio con menos series de las que pide cuenta como hecho (decisión del autor).
+ */
+function cuentaDeEjercicios(hechos: number, total: number) {
+  return `${hechos} de ${total} ${total === 1 ? 'ejercicio' : 'ejercicios'}`
 }
 
 /**
@@ -144,9 +149,13 @@ export function Sesion() {
       .sort((una, otra) => una.numero_serie - otra.numero_serie)
   const visibles = huecos.filter((hueco) => !hueco.oculto_desde)
   const ocultosConSeries = huecos.filter((hueco) => hueco.oculto_desde)
-  const completos = visibles.filter(
-    (hueco) => deHueco(hueco).length >= seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
-  ).length
+  const hechos = visibles.filter((hueco) => deHueco(hueco).length > 0).length
+  const objetivo = visibles.reduce(
+    (suma, hueco) => suma + seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
+    0,
+  )
+  const textoDeSeries = cuentaDeSeries(activa.series.length, objetivo)
+  const textoDeEjercicios = cuentaDeEjercicios(hechos, visibles.length)
 
   // La pantalla de la que cuelga, para cancelar y para la flecha si no hay pantalla
   // anterior. Una sesión de un día pasado se apunta desde el calendario: va a su día (o
@@ -156,7 +165,7 @@ export function Sesion() {
   const padre = !deOtroDia ? SALIDA : activa.series.length > 0 ? `/historial/${activa.fecha}` : mes
   const alCancelar = deOtroDia ? mes : SALIDA
 
-  const cifras = `${contarSeries(activa.series.length)} · ${completos} de ${visibles.length} ejercicios`
+  const cifras = `${textoDeSeries} · ${textoDeEjercicios}`
 
   async function guardar(huecoId: number, datos: SerieAGuardar, serieId?: number) {
     const cuerpo = { ...datos, slot_id: huecoId }
@@ -383,7 +392,7 @@ export function Sesion() {
       {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
-          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completados(completos, visibles.length)}. Podrás revisarla y corregirla después en la pestaña Historial.`}
+          cuerpo={`Llevas ${textoDeSeries} en ${textoDeEjercicios}. Podrás revisarla y corregirla después en la pestaña Historial.`}
           confirmar="Terminar"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)

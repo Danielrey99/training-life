@@ -27,12 +27,8 @@ import { useColores } from '../../tema'
 import { fechaCompleta, fechaTitulo, hoy } from '../../utiles/fechas'
 import { serieLarga } from '../../utiles/medidas'
 import { seriesObjetivoDe } from '../../utiles/textos'
-import { completados, ejercicioInicial } from '../../reglasDePantalla/sesion'
+import { cuentaDeEjercicios, cuentaDeSeries, ejercicioInicial } from '../../reglasDePantalla/sesion'
 import { BloqueDeHueco, type SerieAGuardar } from './BloqueDeHueco'
-
-function contarSeries(cuantas: number) {
-  return cuantas === 1 ? '1 serie' : `${cuantas} series`
-}
 
 /** Vuelve a Entrenar: la pantalla de la que cuelga la sesión de hoy. */
 function aEntrenar() {
@@ -174,9 +170,13 @@ export function Sesion() {
       .sort((una, otra) => una.numero_serie - otra.numero_serie)
   const visibles = huecos.filter((hueco) => !hueco.oculto_desde)
   const ocultosConSeries = huecos.filter((hueco) => hueco.oculto_desde)
-  const completos = visibles.filter(
-    (hueco) => deHueco(hueco).length >= seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
-  ).length
+  const hechos = visibles.filter((hueco) => deHueco(hueco).length > 0).length
+  const objetivo = visibles.reduce(
+    (suma, hueco) => suma + seriesObjetivoDe(hueco, elegidos[hueco.id]?.id),
+    0,
+  )
+  const textoDeSeries = cuentaDeSeries(activa.series.length, objetivo)
+  const textoDeEjercicios = cuentaDeEjercicios(hechos, visibles.length)
 
   // La pantalla de la que cuelga, para la flecha y para cancelar. Una sesión de un día pasado
   // se apunta desde el calendario: la flecha va a su día (o al mes, si aún no tiene series y
@@ -185,7 +185,7 @@ export function Sesion() {
   const volver = () =>
     !deOtroDia ? aEntrenar() : activa.series.length > 0 ? alDia(activa.fecha) : alMes(activa.fecha)
   const alCancelar = () => (deOtroDia ? alMes(activa.fecha) : aEntrenar())
-  const cifras = `${contarSeries(activa.series.length)} · ${completos} de ${visibles.length} ejercicios`
+  const cifras = `${textoDeSeries} · ${textoDeEjercicios}`
 
   async function guardar(huecoId: number, datos: SerieAGuardar, serieId?: number) {
     const cuerpo = { ...datos, slot_id: huecoId }
@@ -403,7 +403,7 @@ export function Sesion() {
       {confirmando === 'terminar' && activa.series.length > 0 && (
         <Dialogo
           titulo="¿Terminar la sesión?"
-          cuerpo={`Llevas ${contarSeries(activa.series.length)} y ${completados(completos, visibles.length)}. Podrás revisarla y corregirla después en la pestaña Historial.`}
+          cuerpo={`Llevas ${textoDeSeries} en ${textoDeEjercicios}. Podrás revisarla y corregirla después en la pestaña Historial.`}
           confirmar="Terminar"
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
