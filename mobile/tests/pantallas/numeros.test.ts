@@ -10,6 +10,7 @@ import { cambiarAjustes } from '../../src/utiles/ajustes'
 import {
   aKilos,
   aMetros,
+  conMiles,
   distanciaLegible,
   duracionLegible,
   enUnidad,
@@ -228,6 +229,28 @@ describe('1RM', () => {
 
   test('una_serie_de_peso_cero_cuenta_como_cero', () => {
     expect(unoRM([{ peso: '0.00', repeticiones: 10, duracion_s: null }])).toBe(0)
+  })
+})
+
+describe('conMiles', () => {
+  test.each([
+    [0, '0'],
+    [999, '999'],
+    [1000, '1.000'], // con puntos desde las cuatro cifras, a diferencia de numeroLegible
+    [4520, '4.520'],
+    [12345, '12.345'],
+    [1234567, '1.234.567'],
+    [-4520, '4.520'], // sin signo: quien lo usa pone el suyo
+    [-999, '999'],
+    [4519.6, '4.520'], // redondea
+    [999.4, '999'],
+    [999.5, '1.000'],
+  ])('conMiles_de_%d_es_%s', (entero, texto) => {
+    expect(conMiles(entero)).toBe(texto)
+  })
+
+  test('el_cero_negativo_no_lleva_signo', () => {
+    expect(conMiles(-0.4)).toBe('0')
   })
 })
 
