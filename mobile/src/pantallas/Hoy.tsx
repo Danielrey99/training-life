@@ -647,7 +647,10 @@ function UltimaSesion({ ultima }: { ultima: NonNullable<ResumenDeHoy['ultima_ses
   return (
     <Fila
       alPulsar={() =>
-        router.navigate({ pathname: '/historial/[fecha]', params: { fecha: ultima.fecha } })
+        router.navigate(
+          { pathname: '/historial/[fecha]', params: { fecha: ultima.fecha, desde: 'entrenar' } },
+          { withAnchor: true },
+        )
       }
     >
       <View style={e.filaTitulo}>

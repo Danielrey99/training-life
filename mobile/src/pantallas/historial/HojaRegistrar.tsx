@@ -131,10 +131,10 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
     })
     setEleccion(null)
     alCerrar()
-    router.push({
-      pathname: '/sesion/[id]',
-      params: { id: String(creada.id) },
-    })
+    router.push(
+      { pathname: '/sesion/[id]', params: { id: String(creada.id) } },
+      { withAnchor: true },
+    )
   }
 
   function Fila({ opcion }: { opcion: Opcion }) {

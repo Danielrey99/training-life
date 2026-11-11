@@ -10,7 +10,7 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
@@ -90,10 +90,20 @@ function alCalendario(fecha: string) {
   else router.replace({ pathname: '/historial', params: { mes: fecha.slice(0, 7) } })
 }
 
+/**
+ * La flecha: a la pantalla de la que se vino, como en la web. Desde Entrenar (la última
+ * sesión, o al terminar la de hoy) vuelve a Entrenar; al salir de la pestaña, su pila vuelve
+ * sola al calendario (`popToTopOnBlur`). Si no, al calendario.
+ */
+function volverDelDia(fecha: string, desde: string | undefined) {
+  if (desde === 'entrenar') router.navigate('/')
+  else alCalendario(fecha)
+}
+
 export function Dia() {
   const c = useColores()
   const e = useEstilos(c)
-  const { fecha = '' } = useLocalSearchParams<{ fecha: string }>()
+  const { fecha = '', desde } = useLocalSearchParams<{ fecha: string; desde?: string }>()
 
   const [sesion, setSesion] = useState<Entrenamiento | null | undefined>(undefined)
   const [rutina, setRutina] = useState<Rutina | null>(null)
@@ -123,6 +133,28 @@ export function Dia() {
   const [guardandoVacio, setGuardandoVacio] = useState(false)
   const [falloFecha, setFalloFecha] = useState<string | null>(null)
   const [falloGuardar, setFalloGuardar] = useState<string | null>(null)
+
+  // El atrás de Android hace lo mismo que la flecha (decisión del autor). Mientras se edita,
+  // con algo cambiado, pregunta antes de descartarlo, porque ese gesto se hace sin querer.
+  const [descartando, setDescartando] = useState(false)
+  const hayCambios =
+    editando &&
+    !!sesion &&
+    (fechaNueva !== sesion.fecha ||
+      notasNuevas !== sesion.notas ||
+      seriesNuevas !== sesion.series ||
+      Object.keys(ejerciciosNuevos).length > 0 ||
+      abierta !== null)
+  useEffect(() => {
+    // Sin cambios y viniendo del calendario, el atrás normal ya vuelve a él.
+    if (!hayCambios && desde !== 'entrenar') return
+    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (hayCambios) setDescartando(true)
+      else volverDelDia(fecha, desde)
+      return true
+    })
+    return () => suscripcion.remove()
+  }, [hayCambios, desde, fecha])
 
   // Cada cambio guardado sube la versión, y eso vuelve a leer el día.
   const [version, setVersion] = useState(0)
@@ -382,7 +414,7 @@ export function Dia() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Volver"
-            onPress={() => alCalendario(fecha)}
+            onPress={() => volverDelDia(fecha, desde)}
             style={e.volver}
           >
             <Icono nombre="volver" color={c.texto} />
@@ -518,10 +550,10 @@ export function Dia() {
           <Boton
             texto="Seguir apuntando"
             alPulsar={() =>
-              router.navigate({
-                pathname: '/sesion/[id]',
-                params: { id: String(dia.id) },
-              })
+              router.navigate(
+                { pathname: '/sesion/[id]', params: { id: String(dia.id) } },
+                { withAnchor: true },
+              )
             }
           />
         )}
@@ -568,6 +600,22 @@ export function Dia() {
             setEligiendoFecha(false)
           }}
           alCerrar={() => setEligiendoFecha(false)}
+        />
+      )}
+
+      {descartando && (
+        <Dialogo
+          titulo="¿Descartar los cambios?"
+          cuerpo="Lo que has cambiado en este día no se guardará."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          alConfirmar={async () => {
+            setDescartando(false)
+            cancelar()
+            volverDelDia(fecha, desde)
+          }}
+          alCancelar={() => setDescartando(false)}
         />
       )}
 

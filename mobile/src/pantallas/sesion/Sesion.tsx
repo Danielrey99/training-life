@@ -11,7 +11,7 @@
  */
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
@@ -44,9 +44,18 @@ function alMes(fecha: string) {
   router.navigate({ pathname: '/historial', params: { mes: fecha.slice(0, 7) } })
 }
 
-/** Al día del historial de esa fecha. */
-function alDia(fecha: string) {
-  router.navigate({ pathname: '/historial/[fecha]', params: { fecha } })
+/**
+ * Al día del historial de esa fecha. `desdeEntrenar`, si la sesión era la de hoy: la flecha
+ * del día vuelve entonces a Entrenar, como en la web, que vuelve a la pantalla de antes.
+ */
+function alDia(fecha: string, desdeEntrenar = false) {
+  router.navigate(
+    {
+      pathname: '/historial/[fecha]',
+      params: desdeEntrenar ? { fecha, desde: 'entrenar' } : { fecha },
+    },
+    { withAnchor: true },
+  )
 }
 
 export function Sesion() {
@@ -117,6 +126,20 @@ export function Sesion() {
       vigente = false
     }
   }, [id, lectura])
+
+  // El atrás de Android, en una sesión de un día pasado, hace lo mismo que la flecha (decisión
+  // del autor): al día o al mes, y no a Entrenar, que es la pila en la que vive la sesión.
+  const fechaPasada = sesion && sesion.fecha < hoy() ? sesion.fecha : null
+  const conSeries = (sesion?.series.length ?? 0) > 0
+  useEffect(() => {
+    if (!fechaPasada) return
+    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (conSeries) alDia(fechaPasada)
+      else alMes(fechaPasada)
+      return true
+    })
+    return () => suscripcion.remove()
+  }, [fechaPasada, conSeries])
 
   const fondo = { flex: 1, backgroundColor: c.fondo }
   if (error) {
@@ -388,7 +411,7 @@ export function Sesion() {
           alConfirmar={async () => {
             await api.terminarEntrenamiento(activa.id)
             setConfirmando(null)
-            alDia(activa.fecha)
+            alDia(activa.fecha, !deOtroDia)
           }}
           alCancelar={() => setConfirmando(null)}
         />

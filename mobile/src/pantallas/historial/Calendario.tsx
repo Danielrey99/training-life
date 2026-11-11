@@ -120,10 +120,11 @@ export function Calendario() {
    */
   function tocar(dia: DiaSeguimiento) {
     if (dia.sesion?.en_curso) {
-      router.navigate({
-        pathname: '/sesion/[id]',
-        params: { id: String(dia.sesion.entrenamiento_id) },
-      })
+      // Con su ancla (Hoy debajo), como todo salto a otra pestaña: ver `_layout` de la pila.
+      router.navigate(
+        { pathname: '/sesion/[id]', params: { id: String(dia.sesion.entrenamiento_id) } },
+        { withAnchor: true },
+      )
     } else if (dia.sesion) {
       router.push({ pathname: '/historial/[fecha]', params: { fecha: dia.fecha } })
     } else if (dia.fecha === hoy) router.navigate('/')
