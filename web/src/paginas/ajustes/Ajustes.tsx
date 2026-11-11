@@ -269,7 +269,11 @@ export function Ajustes() {
             // Los ids de los borradores eran de los datos de antes.
             tirarTodosLosBorradores()
             setPendiente(null)
-            setHecho(`Datos cargados: ${describir(cargado)}.`)
+            setHecho(
+              describir(cargado) === 'nada'
+                ? 'Datos cargados. El archivo no tenía nada apuntado.'
+                : `Datos cargados: ${describir(cargado)}.`,
+            )
           }}
           alCancelar={() => setPendiente(null)}
         />

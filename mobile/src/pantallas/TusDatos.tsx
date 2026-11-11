@@ -263,7 +263,11 @@ export function TusDatos() {
           alConfirmar={async () => {
             const cargado = await api.importarDatos(pendiente.archivo)
             setPendiente(null)
-            setHecho(`Datos cargados. Ahora tienes ${describir(cargado)}.`)
+            setHecho(
+              describir(cargado) === 'nada'
+                ? 'Datos cargados. El archivo no tenía nada apuntado.'
+                : `Datos cargados. Ahora tienes ${describir(cargado)}.`,
+            )
           }}
           alCancelar={() => setPendiente(null)}
         />
