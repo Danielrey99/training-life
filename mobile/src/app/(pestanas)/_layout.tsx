@@ -12,7 +12,7 @@ const PESTANAS: { ruta: string; nombre: string; icono: NombreIcono }[] = [
   { ruta: '(entrenar)', nombre: 'Entrenar', icono: 'entrenar' },
   { ruta: 'historial', nombre: 'Historial', icono: 'historial' },
   { ruta: 'programas', nombre: 'Programas', icono: 'programas' },
-  { ruta: 'ejercicios/index', nombre: 'Ejercicios', icono: 'ejercicios' },
+  { ruta: 'ejercicios', nombre: 'Ejercicios', icono: 'ejercicios' },
 ]
 
 export default function Pestanas() {

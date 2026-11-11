@@ -15,7 +15,7 @@
  * flecha, preguntando antes de descartar lo que se ha cambiado.
  */
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { BackHandler, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -59,17 +59,30 @@ function fila(hueco: HuecoDeRutina, alAbrir?: () => void, oculto = false): FilaD
   }
 }
 
-/** A la pantalla de la que se vino (la lista o la semana de un programa), o a la lista. */
-function volver() {
-  if (router.canGoBack()) router.back()
+/**
+ * A la pantalla de la que se vino: la ficha de un ejercicio (en la pestaña Ejercicios, que
+ * la abre con `ejercicio` en los parámetros), la lista o la semana de un programa; si no, a la
+ * lista.
+ */
+function volverDeLaRutina(ejercicio: string | undefined) {
+  if (ejercicio) {
+    router.navigate(
+      { pathname: '/ejercicios/[id]', params: { id: ejercicio } },
+      { withAnchor: true },
+    )
+  } else if (router.canGoBack()) router.back()
   else router.replace('/programas')
 }
 
 export function Rutina() {
   const c = useColores()
   const e = useEstilos(c)
-  const { id: idDeLaRuta = '' } = useLocalSearchParams<{ id: string }>()
+  const { id: idDeLaRuta = '', ejercicio } = useLocalSearchParams<{
+    id: string
+    ejercicio?: string
+  }>()
   const id = Number(idDeLaRuta)
+  const volver = useCallback(() => volverDeLaRutina(ejercicio), [ejercicio])
 
   const [rutina, setRutina] = useState<DatosRutina | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -116,14 +129,19 @@ export function Rutina() {
 
   // El atrás de Android hace lo mismo que la flecha (decisión del autor). Mientras se edita,
   // con algo cambiado, pregunta antes de descartarlo, porque ese gesto se hace sin querer.
-  useEffect(() => {
-    if (!hayCambios) return
-    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
-      setDescartando(true)
-      return true
-    })
-    return () => suscripcion.remove()
-  }, [hayCambios])
+  // Abierta desde la ficha de un ejercicio, vuelve a ella, como la flecha. Solo mientras se
+  // ve: con uno de sus ejercicios abierto encima, el atrás es de ese.
+  useFocusEffect(
+    useCallback(() => {
+      if (!hayCambios && !ejercicio) return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (hayCambios) setDescartando(true)
+        else volver()
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [hayCambios, ejercicio, volver]),
+  )
 
   if (error) {
     return (

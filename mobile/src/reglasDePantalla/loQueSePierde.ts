@@ -1,10 +1,15 @@
 /**
- * Qué se perdería al borrar una rutina o un ejercicio de una rutina, con las cifras del aviso
- * de borrado de la lógica. Copia literal de `loQueSePierde` de `web/src/paginas/programas/Rutina.tsx`
- * y de `Ejercicio.tsx`: si cambian allí, se cambian aquí. Aparte de las pantallas para poder
- * probarlas sin React Native.
+ * Qué se perdería al borrar una rutina, un ejercicio de una rutina o un ejercicio, con las
+ * cifras del aviso de borrado de la lógica. Copia literal de `loQueSePierde` de
+ * `web/src/paginas/programas/Rutina.tsx`, de `Ejercicio.tsx` y de
+ * `web/src/paginas/ejercicios/Ficha.tsx`: si cambian allí, se cambian aquí. Aparte de las
+ * pantallas para poder probarlas sin React Native.
  */
-import type { AvisoDeBorrarHueco, AvisoDeBorrarRutina } from '../logica/tipos'
+import type {
+  AvisoDeBorrarEjercicio,
+  AvisoDeBorrarHueco,
+  AvisoDeBorrarRutina,
+} from '../logica/tipos'
 import { diaYMesConAnio } from '../utiles/fechas'
 import { enumerar } from '../utiles/textos'
 
@@ -63,4 +68,47 @@ export function loQueSePierdeDelHueco(aviso: AvisoDeBorrarHueco, oculto: boolean
   // Una sola serie y nada más: «Se borrará», no «Se borrarán».
   const verbo = aviso.series === 1 && vacias === 0 ? 'Se borrará' : 'Se borrarán'
   return `${verbo} también ${series}${desde}${sesiones}.${salida}`
+}
+
+/**
+ * Lo que dice el diálogo de borrar un ejercicio, con palabras de lo que pasa: «Se borrarán
+ * también sus series de 11 sesiones, tus 2 notas, y se quitará de las rutinas donde se usa».
+ * Sin nada que perder, no lleva texto.
+ */
+export function loQueSePierdeDelEjercicio(aviso: AvisoDeBorrarEjercicio, oculto: boolean) {
+  const seBorra: string[] = []
+  if (aviso.sesiones > 0) {
+    seBorra.push(
+      aviso.sesiones === 1 ? 'sus series de 1 sesión' : `sus series de ${aviso.sesiones} sesiones`,
+    )
+  }
+  if (aviso.notas > 0) seBorra.push(aviso.notas === 1 ? 'tu nota' : `tus ${aviso.notas} notas`)
+  // Las rutinas, sin decir en qué puesto ni si es principal o alternativa (decisión del
+  // autor: «su ejercicio 1 en Push» sonaba raro); eso ya lo enseña la ficha, en «Rutinas
+  // donde se usa».
+  // Donde es el principal, el ejercicio de la rutina se va entero, con sus alternativas.
+  const rutinas = new Set(aviso.huecos.map((uso) => uso.rutina.id)).size
+  const conAlternativas = aviso.huecos.some((uso) => uso.rol === 'principal')
+    ? ', con sus alternativas donde es el principal'
+    : ''
+  const deLasRutinas =
+    rutinas === 0
+      ? null
+      : `se quitará de ${rutinas === 1 ? 'la rutina' : 'las rutinas'} donde se usa${conAlternativas}`
+
+  // Solo una nota: «Se borrará también tu nota», no «Se borrarán».
+  const verbo = seBorra.length === 1 && seBorra[0] === 'tu nota' ? 'Se borrará' : 'Se borrarán'
+  const frases: string[] = []
+  if (seBorra.length > 0 && deLasRutinas) {
+    frases.push(`${verbo} también ${enumerar(seBorra)}, y ${deLasRutinas}.`)
+  } else if (seBorra.length > 0) {
+    frases.push(`${verbo} también ${enumerar(seBorra)}.`)
+  } else if (deLasRutinas) {
+    frases.push(`${deLasRutinas[0].toUpperCase()}${deLasRutinas.slice(1)}.`)
+  }
+  const vacias = aviso.sesiones_que_se_vacian.length
+  if (vacias === 1) frases.push('Una sesión se quedará sin series y desaparecerá entera.')
+  if (vacias > 1) frases.push(`${vacias} sesiones se quedarán sin series y desaparecerán enteras.`)
+  if (frases.length > 0 && !oculto) frases.push('Si solo quieres que deje de salir, ocúltalo.')
+  return frases.join(' ') || undefined
 }
