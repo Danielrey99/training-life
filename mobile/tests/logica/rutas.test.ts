@@ -7,6 +7,7 @@
 import { crearApi, ErrorDeApi, esDelCampo, textoDelFallo } from '../../src/logica/api'
 import type { Contexto } from '../../src/logica/contexto'
 import { FalloDeLaApp, conflicto } from '../../src/logica/fallos'
+import { cargarFallo, ultimoFallo } from '../../src/logica/rastro'
 import { despachar } from '../../src/logica/rutas'
 import { EJERCICIO_YA_NO_EXISTE, crear_ejercicio, cuantas_filas, objetivo } from '../apoyo/ayudas'
 import { grupo_muscular_id } from '../apoyo/conftest'
@@ -572,6 +573,15 @@ describe('api', () => {
     expect(fallo).not.toBeInstanceOf(FalloDeLaApp)
     expect(fallo.message).toBe('fallo de programación')
     expect(textoDelFallo(fallo)).toBe('Algo ha fallado. Inténtalo de nuevo.')
+    expect(ultimoFallo()?.detalle).toBe('Error: fallo de programación')
+  })
+
+  test('un_error_de_la_api_no_se_apunta_en_el_rastro', () => {
+    cargarFallo(null)
+
+    textoDelFallo(new ErrorDeApi('Ya existe', 409, 'Ya existe'))
+
+    expect(ultimoFallo()).toBeNull()
   })
 
   test('un_detail_sin_forma_conocida_cae_en_el_texto_generico', async () => {
