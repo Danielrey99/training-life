@@ -39,7 +39,7 @@ mobile/
 
 **La base de datos copia la del backend** con las adaptaciones de SQLite: las 13 tablas con las mismas restricciones y los mismos nombres; tablas `STRICT`, para que un decimal no se cuele en una columna de enteros; los pesos en centésimas enteras (80,5 kg es 8050), para que no haya errores de coma flotante; y `updated_at` lo pone un disparador. Las versiones del esquema van en `PRAGMA user_version`, como las migraciones de Alembic, y los ejercicios predefinidos se ponen al día al arrancar si la lista de `shared/` cambió.
 
-**Comprobado en el teléfono.** Los tests corren en Node, con otro SQLite y otro motor de JavaScript. Una pantalla oculta (se llega tocando la versión) repite en el teléfono, sobre una base en memoria, las comprobaciones que los tests dan por hechas: claves ajenas, borrados en cascada y prohibidos, restricciones, transacciones, zonas horarias y orden alfabético en español.
+**Comprobado en el teléfono.** Los tests corren en Node, con otro SQLite y otro motor de JavaScript. Una pantalla oculta (se llega tocando la versión) repite en el teléfono, sobre una base en memoria, las comprobaciones que los tests dan por hechas: claves ajenas, borrados en cascada y prohibidos, restricciones, transacciones, zonas horarias y orden alfabético en español. Esa pantalla guarda también el último fallo inesperado, con su hora y su pila, aunque la app se haya cerrado: en el resto de la app solo sale «Algo ha fallado».
 
 ## Poner al día la base del teléfono
 
