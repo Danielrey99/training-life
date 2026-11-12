@@ -5,7 +5,16 @@
  * tests dan por hecho. Lo enseña la pantalla oculta de autocomprobación.
  */
 import type { Bd } from './bd/bd'
-import { aplicarMigraciones, VERSION_ACTUAL, versionDeLaBase } from './bd/migraciones'
+import { copiarBase } from './bd/copias'
+import {
+  aplicarMigraciones,
+  MIGRACIONES,
+  MigracionPeligrosa,
+  VERSION_ACTUAL,
+  versionDeLaBase,
+  type Migracion,
+} from './bd/migraciones'
+import { rehacerTabla } from './bd/rehacer'
 import { sincronizarPredefinidos, type ListaDePredefinidos } from './bd/siembra'
 import { hoyEn, zonaValida } from './reglas/zonas'
 import { ordenarPorNombre } from './reglas/orden'
@@ -68,9 +77,14 @@ function montarSesion(bd: Bd) {
 
 /**
  * Pasa todas las comprobaciones sobre `bd`, que tiene que ser una base nueva y vacía (se
- * escribe en ella). `predefinidos` es la lista de shared/.
+ * escribe en ella). `predefinidos` es la lista de shared/. `rutaDePrueba` es un archivo que
+ * no existe, donde se prueba a copiar la base: quien llama lo borra antes y después.
  */
-export function autocomprobar(bd: Bd, predefinidos: ListaDePredefinidos): Resultado[] {
+export function autocomprobar(
+  bd: Bd,
+  predefinidos: ListaDePredefinidos,
+  rutaDePrueba: string,
+): Resultado[] {
   const resultados: Resultado[] = []
   const comprobar = (nombre: string, fn: () => string | true) => {
     try {
@@ -245,6 +259,77 @@ export function autocomprobar(bd: Bd, predefinidos: ListaDePredefinidos): Result
     const error = lanza(() => new Intl.DateTimeFormat('en-US', { timeZone: 'Marte/Base' }))
     if (error === null) return 'Intl acepta una zona inventada'
     return zonaValida('Marte/Base') ? 'zonaValida acepta una zona inventada' : true
+  })
+
+  // Lo de poner la base al día va al final: sube la versión de esta base en memoria.
+  comprobar('Copia de la base (VACUUM INTO)', () => {
+    copiarBase(bd, rutaDePrueba)
+    return true
+  })
+
+  comprobar('Las claves ajenas no se apagan dentro de una transacción', () => {
+    const claves = () => bd.una<{ foreign_keys: number }>('PRAGMA foreign_keys')!.foreign_keys
+    const dentro = bd.transaccion(() => {
+      bd.ejecutarVarias('PRAGMA foreign_keys = OFF')
+      return claves()
+    })
+    if (dentro !== 1) return `Dentro de una transacción se han apagado (${dentro})`
+    bd.ejecutarVarias('PRAGMA foreign_keys = OFF')
+    const fuera = claves()
+    bd.ejecutarVarias('PRAGMA foreign_keys = ON')
+    if (fuera !== 0) return `Fuera de una transacción no se apagan (${fuera})`
+    return claves() === 1 ? true : 'No se han vuelto a encender'
+  })
+
+  // Una tabla madre y una hija con CASCADE, y los pasos que se van añadiendo a la lista.
+  const pasos: Migracion[] = [...MIGRACIONES]
+  const hijos = () => bd.una<{ n: number }>('SELECT count(*) AS n FROM prueba_hijo')!.n
+  comprobar('Rehacer una tabla con hijos los conserva', () => {
+    bd.ejecutarVarias(
+      'CREATE TABLE prueba_padre (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL) STRICT;' +
+        ' CREATE TABLE prueba_hijo (id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+        ' padre_id INTEGER NOT NULL REFERENCES prueba_padre (id) ON DELETE CASCADE) STRICT;' +
+        " INSERT INTO prueba_padre (nombre) VALUES ('uno'), ('dos');" +
+        ' INSERT INTO prueba_hijo (padre_id) VALUES (1), (1);' +
+        // El último id se borra: la secuencia tiene que seguir en 2 después de rehacerla.
+        ' DELETE FROM prueba_padre WHERE id = 2;',
+    )
+    pasos.push({
+      version: VERSION_ACTUAL + 1,
+      sinClavesAjenas: true,
+      sql: rehacerTabla({
+        tabla: 'prueba_padre',
+        cuerpo: 'id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL',
+        columnas: { id: 'id', nombre: 'nombre' },
+        indices: [],
+      }),
+    })
+    aplicarMigraciones(bd, pasos)
+    const claves = bd.una<{ foreign_keys: number }>('PRAGMA foreign_keys')!.foreign_keys
+    if (claves !== 1) return 'Las claves ajenas se han quedado apagadas'
+    return hijos() === 2 ? true : `Quedan ${hijos()} hijos de 2`
+  })
+
+  comprobar('Un paso que borra hijos sin decirlo se para', () => {
+    pasos.push({ version: VERSION_ACTUAL + 2, sql: 'DELETE FROM prueba_padre;' })
+    let error: unknown = null
+    try {
+      aplicarMigraciones(bd, pasos)
+    } catch (lanzado) {
+      error = lanzado
+    }
+    pasos.pop()
+    if (error === null) return 'Se ha aplicado'
+    if (!(error instanceof MigracionPeligrosa)) return `Ha lanzado otro error: ${String(error)}`
+    if (hijos() !== 2) return `Se ha parado, pero quedan ${hijos()} hijos de 2`
+    return versionDeLaBase(bd) === VERSION_ACTUAL + 1 ? true : 'Ha cambiado la versión'
+  })
+
+  comprobar('La secuencia de ids se conserva al rehacer', () => {
+    const seq = bd.una<{ seq: number }>(
+      "SELECT seq FROM sqlite_sequence WHERE name = 'prueba_padre'",
+    )?.seq
+    return seq === 2 ? true : `La secuencia está en ${seq ?? 'ninguna'} y tenía que seguir en 2`
   })
 
   return resultados
