@@ -238,11 +238,7 @@ export function Progresion() {
                       style={e.fila}
                     >
                       <Text style={e.fecha}>{fechaAbreviada(sesion.fecha)}</Text>
-                      {sesion.rutina && (
-                        <Text style={e.etiqueta} numberOfLines={1}>
-                          {sesion.rutina}
-                        </Text>
-                      )}
+                      {sesion.rutina && <Text style={e.etiqueta}>{sesion.rutina}</Text>}
                       <View style={e.relleno} />
                       <Icono nombre="abrir" color={c.textoTenue} pequeno />
                     </Pressable>
@@ -311,15 +307,17 @@ function useEstilos(c: Colores) {
     },
     sesion: { gap: 8, paddingVertical: 12 },
     fila: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
-    fecha: { fontSize: 14, fontWeight: '600', color: c.texto },
-    // `.etiqueta-chica` de la web.
+    // Sin encoger: con un nombre de rutina largo, la fecha se partiría.
+    fecha: { flexShrink: 0, fontSize: 14, fontWeight: '600', color: c.texto },
+    // `.etiqueta-chica` de la web. Un nombre largo pasa a otra línea, nunca se corta: por eso
+    // el radio no es redondo del todo, que con dos líneas se vería como una píldora gorda.
     etiqueta: {
       flexShrink: 1,
       fontSize: 11,
       color: c.textoTenue,
       borderWidth: 1,
       borderColor: c.borde,
-      borderRadius: 999,
+      borderRadius: 9,
       paddingVertical: 1,
       paddingHorizontal: 7,
     },

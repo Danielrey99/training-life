@@ -783,7 +783,14 @@ function useEstilos(c: Colores) {
       paddingLeft: 16,
       paddingRight: 12,
     },
-    recuperable: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    // Con relleno: un nombre largo ocupa varias líneas y, sin él, tocaría la línea de al lado.
+    recuperable: {
+      minHeight: 60,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
     botonRecuperar: {
       minHeight: 44,
       paddingHorizontal: 14,

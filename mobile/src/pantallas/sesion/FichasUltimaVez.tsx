@@ -75,27 +75,38 @@ export function FichasUltimaVez({
         )
       })}
       {serieAbierta && caja && (
+        // Una caja del ancho de las fichas (más lo que el globo puede salirse), y el globo
+        // dentro, movido con el margen. Suelto, con solo `left`, Android no le daba alto a
+        // una variante de varias líneas y se veía solo la primera.
         <View
           pointerEvents="none"
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout
-            if (!globo || globo.width !== width || globo.height !== height) {
-              setGlobo({ width, height })
-            }
-          }}
           style={[
-            estilos.globo,
+            estilos.capa,
             {
-              backgroundColor: c.texto,
-              left: izquierda,
               top: caja.y - (globo?.height ?? 0) - 10,
               // Hasta medirlo, invisible: si no, se vería un instante fuera de su sitio.
               opacity: globo ? 1 : 0,
             },
           ]}
         >
-          <Text style={[estilos.globoTexto, { color: c.fondo }]}>{serieAbierta.variante}</Text>
-          <View style={[estilos.globoFlecha, { left: flecha, borderTopColor: c.texto }]} />
+          <View
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout
+              if (!globo || globo.width !== width || globo.height !== height) {
+                setGlobo({ width, height })
+              }
+            }}
+            style={[estilos.globo, { backgroundColor: c.texto, marginLeft: izquierda + SALIDA }]}
+          >
+            <Text style={[estilos.globoTexto, { color: c.fondo }]}>{serieAbierta.variante}</Text>
+          </View>
+          {/* La flecha, debajo del globo y no dentro: dentro, Android la pintaba encima del texto. */}
+          <View
+            style={[
+              estilos.globoFlecha,
+              { marginLeft: izquierda + SALIDA + flecha, borderTopColor: c.texto },
+            ]}
+          />
         </View>
       )}
     </View>
@@ -124,9 +135,14 @@ const estilos = StyleSheet.create({
     borderRadius: 999,
     opacity: 0.7,
   },
-  globo: {
+  capa: {
     position: 'absolute',
     zIndex: 5,
+    left: -SALIDA,
+    right: -SALIDA,
+    alignItems: 'flex-start',
+  },
+  globo: {
     maxWidth: 260,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -134,12 +150,14 @@ const estilos = StyleSheet.create({
     elevation: 6,
   },
   globoTexto: { fontSize: 13, fontWeight: '600', fontStyle: 'italic', textAlign: 'center' },
+  // Un triángulo hacia abajo: solo el borde de arriba tiene color.
   globoFlecha: {
-    position: 'absolute',
-    top: '100%',
     width: 0,
     height: 0,
-    borderWidth: 6,
-    borderColor: 'transparent',
+    borderTopWidth: 6,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
   },
 })

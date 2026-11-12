@@ -365,7 +365,9 @@ const estilosLeyenda = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
   },
-  color: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Con el tope, un nombre largo pasa a otra línea dentro de la caja: en una fila que se
+  // reparte en varias, nada limita el ancho de cada elemento.
+  color: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   marca: {
     width: 34,
