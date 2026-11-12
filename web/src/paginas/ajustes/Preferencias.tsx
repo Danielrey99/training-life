@@ -373,7 +373,7 @@ export function Preferencias() {
             valor={ajustes.tema}
             alCambiar={(tema) => cambiarAjustes({ tema })}
           />
-          <p className="ajustes-centrado">Automático usa el mismo que tu móvil u ordenador.</p>
+          <p className="ajustes-centrado">Automático usa el mismo que tu dispositivo.</p>
         </div>
         <div className="ajustes-tarjeta">
           <h3>Colores de los días</h3>
