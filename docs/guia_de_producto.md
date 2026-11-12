@@ -350,6 +350,12 @@ Nombre, grupo muscular y descripción (opcional), con *Guardar* arriba. Si falta
 
 **Dos ejercicios no pueden llamarse igual**, aunque cambien las mayúsculas, las tildes o los espacios: crear tu propio *Press banca con barra* sin saber que la app ya lo trae repartiría tu progreso entre dos. Si ya hay uno con ese nombre, lo dice bajo el campo, en rojo, y dice cuál es: uno predefinido (*Búscalo en la pestaña Ejercicios*), uno tuyo o uno tuyo oculto (*Muéstralo desde la pestaña Ejercicios*). Si una versión nueva de la app trae un predefinido que se llama como uno tuyo, conviven los dos (el tuyo, marcado *mío*) y no se renombra nada. Al crear, se abre la ficha del ejercicio nuevo; al editar, se vuelve a ella.
 
+## Al abrir la app
+
+### A0 · Al abrir la app (solo en el móvil)
+
+En el móvil los datos solo existen en el teléfono. Si al abrir la app no se pueden abrir (una versión nueva tenía que ponerlos al día y no ha podido, no hay espacio para la copia que se guarda antes, o son de una versión más nueva de la app), en lugar de la app sale una pantalla sin pestañas que dice qué ha pasado y que no se ha borrado nada, pide no desinstalar la app (se borrarían los datos) y ofrece *Compartir el archivo de tus datos*, que abre el menú de compartir de Android sin preguntar antes, y *Volver a intentarlo* (salvo con datos de una versión más nueva, donde no serviría de nada). Abajo, el aviso técnico, para quien tenga que revisarlo. Antes de poner al día los datos, la app guarda una copia en el teléfono (las dos últimas); «Borrar todos tus datos» no la toca.
+
 ## Ajustes
 
 ### A1 · Ajustes

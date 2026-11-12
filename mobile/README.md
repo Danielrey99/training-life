@@ -23,7 +23,7 @@ mobile/
     utiles/         copias de las de la web: fechas, números, medidas, colores, ajustes
     reglasDePantalla/  las cuentas de las pantallas sin React, para probarlas en Node
     logica/         la lógica del backend en TypeScript puro, sin React ni Expo
-      bd/           la base: interfaz, esquema SQLite, migraciones y siembra
+      bd/           la base: interfaz, esquema SQLite, migraciones, copias y siembra
       reglas/       fechas, zonas, pesos, textos, nombres, medidas, ediciones, orden
       validacion/   lo que valida Pydantic en el backend, con sus mismos mensajes
       servicios/    un archivo por router del backend: ejercicios, rutinas, sesiones, plan…
@@ -41,6 +41,16 @@ mobile/
 
 **Comprobado en el teléfono.** Los tests corren en Node, con otro SQLite y otro motor de JavaScript. Una pantalla oculta (se llega tocando la versión) repite en el teléfono, sobre una base en memoria, las comprobaciones que los tests dan por hechas: claves ajenas, borrados en cascada y prohibidos, restricciones, transacciones, zonas horarias y orden alfabético en español.
 
+## Poner al día la base del teléfono
+
+Los datos solo existen en el teléfono, así que cambiar la forma de la base en una versión nueva de la app es el momento más delicado: se toca todo el historial de golpe. Por eso cada puesta al día va con red:
+
+- **Todo o nada.** Los pasos pendientes se aplican en una sola transacción: si uno falla, la base se queda exactamente como estaba.
+- **Una copia antes.** Antes de tocar nada se guarda una copia del archivo en una carpeta propia de la app, y se comprueba que tiene las mismas filas. Si no se puede copiar (por ejemplo, sin espacio), no se pone al día. Se conservan las dos últimas.
+- **Nada se pierde sin querer.** Antes de confirmar se compara la base con cómo estaba: filas de cada tabla, índices, disparadores, secuencias de ids y claves ajenas. Si algo no cuadra, se deshace. Rehacer una tabla (en SQLite, la única forma de cambiar una restricción) se hace con una receta que apaga las claves ajenas fuera de la transacción, para que borrar la tabla vieja no se lleve en cascada sus hijas, y los pasos que borran o renombran tablas sin declararlo se rechazan antes de empezar.
+- **Un aviso si algo sale mal.** Si los datos no se pueden abrir, en vez de la app sale una pantalla que explica qué ha pasado, pide no desinstalar (se borrarían los datos) y deja compartir el archivo de la base por el menú de compartir de Android para recuperarlo desde el PC.
+- **Ensayado antes de publicar.** Los tests aplican cada versión nueva a una base congelada de la versión 1 (en el repositorio) y comprueban que la app la lee entera; una pantalla oculta repite en el teléfono las comprobaciones de la copia y de rehacer tablas.
+
 ## Tests
 
 ```bash
@@ -49,7 +59,7 @@ npm run tipos    # TypeScript, la app y los tests por separado
 npm run lint     # ESLint
 ```
 
-**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra, las cuentas de fechas en los bordes del calendario y lo que calculan las pantallas (la mejora de cada ejercicio, los textos de las series, los números en kilos y en libras, los objetivos de cada ejercicio de una rutina, lo que avisa que se pierde al borrar, las medidas de la gráfica de progresión, los avisos de planificar y lo que vale en cada campo de los ajustes).
+**Los tests del backend son la especificación.** Cada uno se porta con el mismo nombre, los mismos casos y los mismos textos de error, y un test de inventario lee los del backend y falla si alguno no está portado, ni apuntado como pendiente (con la etapa en que se portará) ni como que no aplica (con su motivo; por ejemplo, los que cuentan consultas a PostgreSQL). Además, el móvil tiene los suyos propios: el esquema, las migraciones, la siembra, las cuentas de fechas en los bordes del calendario y lo que calculan las pantallas (la mejora de cada ejercicio, los textos de las series, los números en kilos y en libras, los objetivos de cada ejercicio de una rutina, lo que avisa que se pierde al borrar, las medidas de la gráfica de progresión, los avisos de planificar, lo que vale en cada campo de los ajustes y los textos de la pantalla de cuando los datos no se pueden abrir). Las puestas al día de la base tienen sus propios tests: la red que impide perder datos, rehacer tablas, la copia y el arranque, y una base de la versión 1 congelada en el repositorio que cada versión nueva tiene que poner al día sin perder nada.
 
 ## Construir el APK
 

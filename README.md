@@ -95,6 +95,7 @@ La **app móvil para Android**, que es donde se va a usar de verdad (cada teléf
 - [x] Móvil: la biblioteca de ejercicios, con la ficha de cada uno, sus notas y dónde se usa, y los tuyos creados y editados en el teléfono
 - [x] Móvil: la progresión de cada ejercicio en una gráfica, planificar los próximos días y el resumen de volumen y constancia
 - [x] Móvil: los ajustes completos, y cada pantalla probada con nombres de 90 caracteres para que un texto largo nunca se salga ni se corte
+- [x] Móvil: poner al día la base del teléfono sin poder perder datos (copia antes, todo o nada, comprobación de filas y claves ajenas) y un aviso para compartir el archivo si no se puede abrir
 - [x] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Móvil: revisión completa de la app en el teléfono
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
