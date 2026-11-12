@@ -25,6 +25,17 @@ export async function elegirArchivo(): Promise<string | null> {
  * Escribe `texto` en un archivo de la caché con ese nombre y abre el menú de compartir.
  * Termina cuando se cierra el menú, se haya compartido o no.
  */
+/**
+ * Abre el menú de compartir con el archivo de la base (el `.db`, no la copia en texto): es
+ * lo que se manda cuando la app no puede abrir los datos y no sabe sacar la copia de siempre.
+ */
+export async function compartirArchivoDeDatos(archivo: File): Promise<void> {
+  await Sharing.shareAsync(archivo.uri, {
+    mimeType: 'application/octet-stream',
+    dialogTitle: 'Mandar el archivo de tus datos',
+  })
+}
+
 export async function compartirArchivo(nombre: string, texto: string): Promise<void> {
   const archivo = new File(Paths.cache, nombre)
   if (archivo.exists) archivo.delete()

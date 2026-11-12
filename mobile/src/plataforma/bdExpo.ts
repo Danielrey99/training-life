@@ -2,7 +2,7 @@
  * La base de datos del teléfono, sobre expo-sqlite. Se usa su API síncrona: la lógica es
  * síncrona para que nada se cuele en medio de una transacción.
  */
-import { openDatabaseSync, type SQLiteBindValue } from 'expo-sqlite'
+import { openDatabaseSync, type SQLiteBindValue, type SQLiteDatabase } from 'expo-sqlite'
 
 import { crearBd, type Bd, type Motor, type Valor } from '../logica/bd/bd'
 
@@ -13,10 +13,8 @@ function aExpo(params: Valor[]): SQLiteBindValue[] {
   return params.map((p) => (typeof p === 'bigint' ? Number(p) : p))
 }
 
-/** Abre la base del teléfono (o una en memoria, para la autocomprobación). */
-export function abrirBdExpo(nombre: string = NOMBRE_DEL_ARCHIVO): Bd {
-  const bd = openDatabaseSync(nombre)
-  const motor: Motor = {
+function motorDe(bd: SQLiteDatabase): Motor {
+  return {
     exec: (sql) => bd.execSync(sql),
     run: (sql, params) => {
       const r = bd.runSync(sql, aExpo(params))
@@ -25,5 +23,31 @@ export function abrirBdExpo(nombre: string = NOMBRE_DEL_ARCHIVO): Bd {
     all: (sql, params) => bd.getAllSync(sql, aExpo(params)),
     get: (sql, params) => bd.getFirstSync(sql, aExpo(params)),
   }
-  return crearBd(motor)
+}
+
+/** Abre una base por su nombre (la autocomprobación usa una en memoria, `:memory:`). */
+export function abrirBdExpo(nombre: string = NOMBRE_DEL_ARCHIVO): Bd {
+  return crearBd(motorDe(openDatabaseSync(nombre)))
+}
+
+export interface BaseAbierta {
+  bd: Bd
+  /** La ruta del archivo en el teléfono, sin `file://`: la que necesita SQLite para copiarlo. */
+  ruta: string
+  cerrar: () => void
+}
+
+/** Abre la base del teléfono sabiendo dónde está su archivo, para copiarlo o compartirlo. */
+export function abrirArchivoDeLaBase(): BaseAbierta {
+  const nativa = openDatabaseSync(NOMBRE_DEL_ARCHIVO)
+  try {
+    return {
+      bd: crearBd(motorDe(nativa)),
+      ruta: decodeURIComponent(nativa.databasePath.replace(/^file:\/\//, '')),
+      cerrar: () => nativa.closeSync(),
+    }
+  } catch (error) {
+    nativa.closeSync()
+    throw error
+  }
 }
