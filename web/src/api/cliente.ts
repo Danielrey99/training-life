@@ -103,13 +103,20 @@ export class AvisoDeLaWeb extends Error {}
 /**
  * Lo que se enseña de un fallo cualquiera. Los de la API y los avisos de la web ya traen
  * una frase para quien usa la app; los demás son fallos de la propia web, en inglés y
- * técnicos («Cannot read properties of undefined»), y no le dicen nada.
+ * técnicos («Cannot read properties of undefined»), y no le dicen nada: van a la consola
+ * del navegador, para que quede rastro de qué pasó.
  */
 export function textoDelFallo(fallo: unknown): string {
-  return fallo instanceof ErrorDeApi || fallo instanceof AvisoDeLaWeb
-    ? fallo.message
-    : 'Algo ha fallado. Inténtalo de nuevo.'
+  if (fallo instanceof ErrorDeApi || fallo instanceof AvisoDeLaWeb) return fallo.message
+  // Una vez por error: una pantalla pide el texto en cada pintado.
+  if (fallo !== ultimoEnConsola) {
+    ultimoEnConsola = fallo
+    console.error(fallo)
+  }
+  return 'Algo ha fallado. Inténtalo de nuevo.'
 }
+
+let ultimoEnConsola: unknown = undefined
 
 /** Si el fallo es de ese campo del formulario: el aviso va bajo él, no arriba. */
 export function esDelCampo(fallo: unknown, campo: 'fecha' | 'nombre'): fallo is ErrorDeApi {
