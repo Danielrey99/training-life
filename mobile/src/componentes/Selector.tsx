@@ -14,6 +14,8 @@ interface Props<T extends string> {
   etiqueta: string
   /** El de dentro de una tarjeta: más bajo, y solo tan ancho como sus opciones. */
   pequeno?: boolean
+  /** El pequeño, pero a todo lo ancho y con las opciones iguales (los de Ajustes). */
+  aLoAncho?: boolean
 }
 
 export function Selector<T extends string>({
@@ -22,6 +24,7 @@ export function Selector<T extends string>({
   alElegir,
   etiqueta,
   pequeno = false,
+  aLoAncho = false,
 }: Props<T>) {
   const c = useColores()
   return (
@@ -31,6 +34,7 @@ export function Selector<T extends string>({
       style={[
         estilos.barra,
         pequeno ? estilos.barraPequena : estilos.barraGrande,
+        aLoAncho && estilos.barraALoAncho,
         { backgroundColor: c.fondo, borderColor: c.borde },
       ]}
     >
@@ -45,6 +49,7 @@ export function Selector<T extends string>({
             style={[
               estilos.opcion,
               pequeno ? estilos.opcionPequena : estilos.opcionGrande,
+              aLoAncho && estilos.opcionALoAncho,
               activa && { backgroundColor: c.superficie, borderColor: c.borde },
             ]}
           >
@@ -77,5 +82,8 @@ const estilos = StyleSheet.create({
   opcionGrande: { flex: 1, minHeight: 38, paddingHorizontal: 6, borderRadius: RADIO_PEQUENO },
   // En la web, tres columnas iguales: aquí, cada una a lo ancho de la más larga.
   opcionPequena: { minWidth: 92, minHeight: 36, paddingHorizontal: 8, borderRadius: 4 },
+  // En Ajustes, como en la web: columnas iguales a todo el ancho de la tarjeta.
+  barraALoAncho: { alignSelf: 'stretch' },
+  opcionALoAncho: { flex: 1, minWidth: 0, paddingHorizontal: 6 },
   texto: { fontWeight: '600' },
 })

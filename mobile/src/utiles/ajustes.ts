@@ -1,6 +1,6 @@
 // Copia de `web/src/utiles/ajustes.ts`. Diferencias: se guardan en el `localStorage` de
-// expo-sqlite (instalado en `app/_layout.tsx`), y el tema del sistema se lee con
-// `Appearance` en vez de `matchMedia`. Si cambia allí, se cambia aquí.
+// expo-sqlite (instalado en `app/_layout.tsx`) y se leen en la primera llamada, y el tema del
+// sistema se lee con `Appearance` en vez de `matchMedia`. Si cambia allí, se cambia aquí.
 import { useSyncExternalStore } from 'react'
 import { Appearance } from 'react-native'
 
@@ -79,17 +79,20 @@ function leer(): Ajustes {
   }
 }
 
-let actuales = leer()
+// Se leen en la primera llamada, no al cargar el módulo: así no depende de que el
+// `localStorage` de expo-sqlite ya esté instalado cuando se importa este archivo.
+let actuales: Ajustes | null = null
 const avisar = new Set<() => void>()
 
 /** Los ajustes de ahora, para leerlos fuera de un componente (al formatear un peso). */
 export function ajustes(): Ajustes {
+  actuales ??= leer()
   return actuales
 }
 
 /** Cambia uno o varios ajustes y lo guarda. */
 export function cambiarAjustes(cambios: Partial<Ajustes>) {
-  actuales = { ...actuales, ...cambios }
+  actuales = { ...ajustes(), ...cambios }
   try {
     localStorage.setItem(CLAVE, JSON.stringify(actuales))
   } catch {
@@ -109,7 +112,7 @@ export function useAjustes(): Ajustes {
 }
 
 /** El tema que se ve: el elegido o, con «Como el sistema», el del sistema. */
-export function temaVisible(): 'oscuro' | 'claro' {
+export function temaVisible(actuales: Ajustes = ajustes()): 'oscuro' | 'claro' {
   const { tema } = actuales
   if (tema !== 'sistema') return tema
   return Appearance.getColorScheme() === 'light' ? 'claro' : 'oscuro'
@@ -119,6 +122,6 @@ export function temaVisible(): 'oscuro' | 'claro' {
 // de la app y los de los días dependen de él. Con un objeto nuevo, para que `useAjustes`
 // vea el cambio y vuelva a pintar.
 Appearance.addChangeListener(() => {
-  actuales = { ...actuales }
+  actuales = { ...ajustes() }
   avisar.forEach((funcion) => funcion())
 })

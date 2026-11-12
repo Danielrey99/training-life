@@ -34,6 +34,7 @@ import {
   type Semana,
 } from '../../reglasDePantalla/planificar'
 import { RADIO, useColores, type Colores } from '../../tema'
+import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia, colorDeRutina, sinDia } from '../../utiles/colores'
 import { diaDeLaSemana, diaYMesConAnio, fechaLarga, sumarDias } from '../../utiles/fechas'
 
@@ -287,6 +288,8 @@ type PropsFila = {
 /** Un día de la lista: qué toca, y si ya se hizo por adelantado o se cambió a mano. */
 function FilaDelDia({ dia, hoy, primera, ejercicios, alTocar }: PropsFila) {
   const c = useColores()
+  // Los colores de los días dependen de los ajustes: se vuelve a pintar al cambiarlos.
+  const actuales = useAjustes()
   const e = useEstilos(c)
   const rutina = dia.descanso ? null : dia.rutina
   // Una rutina oculta sigue en su día, en gris, pero cuenta como descanso.
@@ -303,7 +306,9 @@ function FilaDelDia({ dia, hoy, primera, ejercicios, alTocar }: PropsFila) {
         <>
           {/* El color del día, también para una rutina de fuera del programa (decisión del
               autor): una rutina solo tiene color puesta en un día, y es el de ese día. */}
-          <View style={[e.punto, { backgroundColor: colorDelDia(diaDeLaSemana(dia.fecha)) }]} />
+          <View
+            style={[e.punto, { backgroundColor: colorDelDia(diaDeLaSemana(dia.fecha), actuales) }]}
+          />
           {/* Una fila por día, de una sola línea: un nombre que no cabe se corta con «…». */}
           <Text style={e.nombre} numberOfLines={1}>
             {rutina.nombre}
@@ -312,7 +317,7 @@ function FilaDelDia({ dia, hoy, primera, ejercicios, alTocar }: PropsFila) {
         </>
       ) : oculta ? (
         <>
-          <View style={[e.punto, { backgroundColor: sinDia() }]} />
+          <View style={[e.punto, { backgroundColor: sinDia(actuales) }]} />
           <Text style={[e.nombre, { color: c.textoTenue }]} numberOfLines={1}>
             {oculta.nombre}
           </Text>
@@ -353,6 +358,7 @@ type PropsHoja = {
 /** La hoja de un día: se elige qué toca y se guarda en el momento. */
 function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }: PropsHoja) {
   const c = useColores()
+  const actuales = useAjustes()
   const e = useEstilos(c)
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -448,7 +454,7 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
           <Text style={e.rotuloHoja}>Rutinas del programa</Text>
         )}
         {delProgramaEnOrden.map((rutina) =>
-          filaDeRutina(rutina, colorDeRutina(programa?.dias, rutina.id)),
+          filaDeRutina(rutina, colorDeRutina(programa?.dias, rutina.id, actuales)),
         )}
         {/* Sin programa no hay "otras": todas lo son, y van sin rótulo. */}
         {!programa && otras.map((rutina) => filaDeRutina(rutina))}

@@ -1,3 +1,3 @@
-import { TusDatos } from '../../../pantallas/TusDatos'
+import { Ajustes } from '../../../pantallas/ajustes/Ajustes'
 
-export default TusDatos
+export default Ajustes

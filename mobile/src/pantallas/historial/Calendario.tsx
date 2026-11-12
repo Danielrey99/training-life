@@ -280,14 +280,14 @@ function Flecha({ haciaAtras = false, color }: { haciaAtras?: boolean; color: st
 function Leyenda({ programa }: { programa: Programa | null }) {
   const c = useColores()
   // Los colores dependen de los ajustes: se vuelve a pintar al cambiarlos.
-  useAjustes()
+  const actuales = useAjustes()
   // Los colores de los ejemplos: los de los dos primeros días del programa; si no llega a
   // dos, se completan con el lunes y el miércoles. Siempre de la paleta, nunca el gris.
   const dias = (programa?.dias ?? []).map((dia) => dia.dia_semana).sort((a, b) => a - b)
   for (const relleno of [1, 3, 2] as DiaSemana[]) {
     if (dias.length < 2 && !dias.includes(relleno)) dias.push(relleno)
   }
-  const [uno, otro] = dias.map(colorDelDia)
+  const [uno, otro] = dias.map((dia) => colorDelDia(dia, actuales))
   const filas = [
     { marca: <Punto lleno color={uno} />, texto: 'Hecho ese día' },
     { marca: <Punto color={uno} />, texto: 'Sin hacer' },
@@ -337,7 +337,7 @@ function Leyenda({ programa }: { programa: Programa | null }) {
         <View style={[estilosLeyenda.colores, { borderBottomColor: c.borde }]}>
           {programa.dias.map((dia) => (
             <View key={dia.dia_semana} style={estilosLeyenda.color}>
-              <Punto lleno color={colorDelDia(dia.dia_semana)} />
+              <Punto lleno color={colorDelDia(dia.dia_semana, actuales)} />
               <Text style={texto}>
                 {NOMBRES_DIA[dia.dia_semana - 1]} · {dia.rutina.nombre}
               </Text>

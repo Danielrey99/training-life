@@ -96,7 +96,7 @@ export function Semana() {
   const e = useEstilos(c)
   const s = useEstilosDeSemana(c)
   // Los colores de los días dependen de los ajustes: se vuelve a pintar al cambiarlos.
-  useAjustes()
+  const actuales = useAjustes()
   const { id: idDeLaRuta = '' } = useLocalSearchParams<{ id: string }>()
   const id = Number(idDeLaRuta)
 
@@ -387,7 +387,9 @@ export function Semana() {
                   {nombreDelDia}
                   <View style={s.diaRutina}>
                     {/* El color del día, esté activo o no el programa (decisión del autor). */}
-                    <View style={[s.punto, !oculta && { backgroundColor: colorDelDia(dia) }]} />
+                    <View
+                      style={[s.punto, !oculta && { backgroundColor: colorDelDia(dia, actuales) }]}
+                    />
                     <Text style={[s.nombre, oculta && { color: c.textoTenue }]} numberOfLines={1}>
                       {rutina.nombre}
                     </Text>

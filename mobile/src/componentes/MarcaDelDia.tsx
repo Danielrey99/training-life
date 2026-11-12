@@ -50,8 +50,8 @@ export function MarcaDelDia({
 }) {
   // Los colores dependen de los ajustes (los de cada día y el tema): se vuelve a pintar al
   // cambiarlos.
-  useAjustes()
-  const propio = colorDelDia(diaDeLaSemana(dia.fecha))
+  const actuales = useAjustes()
+  const propio = colorDelDia(diaDeLaSemana(dia.fecha), actuales)
   const sesion = dia.sesion
 
   // Lo que se hizo: del color del día que cuenta; si no cuenta ninguno, del día de su
@@ -60,8 +60,8 @@ export function MarcaDelDia({
   if (sesion) {
     hecho =
       sesion.cuenta && sesion.cubre_fecha
-        ? colorDelDia(diaDeLaSemana(sesion.cubre_fecha))
-        : colorDeRutina(diasDelPrograma, sesion.rutina.id)
+        ? colorDelDia(diaDeLaSemana(sesion.cubre_fecha), actuales)
+        : colorDeRutina(diasDelPrograma, sesion.rutina.id, actuales)
   }
 
   let tocaba = null

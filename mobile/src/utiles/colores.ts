@@ -1,6 +1,13 @@
-// Copia de `web/src/utiles/colores.ts`. Única diferencia: `SIN_DIA` es `sinDia()`, porque
-// aquí no hay variables de CSS. Si cambia allí, se cambia aquí.
+// Copia de `web/src/utiles/colores.ts`. Diferencias: `SIN_DIA` es `sinDia()`, porque aquí no
+// hay variables de CSS, y cada función recibe los ajustes como último parámetro. Si cambia
+// allí, se cambia aquí.
+//
+// Los ajustes, porque la app usa el React Compiler: una función que los lee por dentro le
+// parece pura y memoriza su resultado por los argumentos, así que un componente que siga
+// montado no vería un color o un tema nuevos. Un componente pasa siempre los de
+// `useAjustes()`; fuera de uno, valen los de ahora.
 import { ajustes, temaVisible } from './ajustes'
+import type { Ajustes } from './ajustes'
 
 /**
  * Los colores que se pueden elegir para un día en Ajustes, ordenados por tono (como salen
@@ -53,9 +60,9 @@ export const POR_DIA: Record<number, string> = {
 }
 
 /** Un color de la paleta (su id) hecho color, en el tema que se ve. */
-export function resolverColor(elegido: string): string {
+export function resolverColor(elegido: string, actuales: Ajustes = ajustes()): string {
   const color = PALETA.find((opcion) => opcion.id === elegido) ?? PALETA[0]
-  return color[temaVisible()]
+  return color[temaVisible(actuales)]
 }
 
 /**
@@ -63,22 +70,22 @@ export function resolverColor(elegido: string): string {
  * paleta (un color que se quitó, o un color libre de cuando se podía elegir cualquiera)
  * vuelve al de la app.
  */
-export function eleccionDelDia(diaSemana: number): string {
-  const elegido = ajustes().colores[diaSemana]
+export function eleccionDelDia(diaSemana: number, actuales: Ajustes = ajustes()): string {
+  const elegido = actuales.colores[diaSemana]
   const vale = elegido !== undefined && PALETA.some((opcion) => opcion.id === elegido)
   return vale ? elegido : POR_DIA[diaSemana]
 }
 
 /** El color de un día de la semana (1 = lunes … 7 = domingo). */
-export function colorDelDia(diaSemana: number): string {
-  return resolverColor(eleccionDelDia(diaSemana))
+export function colorDelDia(diaSemana: number, actuales: Ajustes = ajustes()): string {
+  return resolverColor(eleccionDelDia(diaSemana, actuales), actuales)
 }
 
 // Lo que se hizo sin contar para ningún día (una rutina que no está en el programa):
 // no tiene día del que tomar el color. Es el texto tenue de cada tema (en la web,
 // `var(--texto-tenue)`).
-export function sinDia(): string {
-  return temaVisible() === 'claro' ? '#5f6672' : '#9aa1ac'
+export function sinDia(actuales: Ajustes = ajustes()): string {
+  return temaVisible(actuales) === 'claro' ? '#5f6672' : '#9aa1ac'
 }
 
 /**
@@ -89,7 +96,8 @@ export function sinDia(): string {
 export function colorDeRutina(
   dias: { dia_semana: number; rutina: { id: number } }[] | undefined,
   rutinaId: number | null | undefined,
+  actuales: Ajustes = ajustes(),
 ): string {
   const suDia = dias?.find((dia) => dia.rutina.id === rutinaId)
-  return suDia ? colorDelDia(suDia.dia_semana) : sinDia()
+  return suDia ? colorDelDia(suDia.dia_semana, actuales) : sinDia(actuales)
 }

@@ -26,7 +26,7 @@ export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
   const c = useColores()
   const e = useEstilosDeSemana(c)
   // Los colores de los días dependen de los ajustes: se vuelve a pintar al cambiarlos.
-  useAjustes()
+  const actuales = useAjustes()
 
   return (
     <View style={e.dias}>
@@ -55,7 +55,7 @@ export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
             {nombreDelDia}
             <View style={e.diaRutina}>
               {/* El color del día, no de la rutina (decisión del autor). */}
-              <View style={[e.punto, !oculta && { backgroundColor: colorDelDia(dia) }]} />
+              <View style={[e.punto, !oculta && { backgroundColor: colorDelDia(dia, actuales) }]} />
               <Text style={[e.nombre, oculta && { color: c.textoTenue }]} numberOfLines={1}>
                 {rutina.nombre}
               </Text>

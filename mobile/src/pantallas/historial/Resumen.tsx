@@ -28,6 +28,7 @@ import type {
 } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { RADIO, useColores, type Colores } from '../../tema'
+import { useAjustes } from '../../utiles/ajustes'
 import { colorDeRutina, sinDia } from '../../utiles/colores'
 import {
   diaYMes,
@@ -136,6 +137,8 @@ function volver() {
 
 export function Resumen() {
   const c = useColores()
+  // Los colores de las rutinas dependen de los ajustes: se vuelve a pintar al cambiarlos.
+  const actuales = useAjustes()
   const e = useEstilos(c)
   const parametros = useLocalSearchParams<{ mes?: string }>()
   const hoy = hoyLocal()
@@ -232,7 +235,7 @@ export function Resumen() {
   const elegida = barras.find((una) => una.desde === barra) ?? evolucion.periodos.at(-1)!
   const conSeries = elegida.series_por_grupo.length > 0
   const colorDe = (rutina: { id: number; oculto_desde: string | null }) =>
-    rutina.oculto_desde ? sinDia() : colorDeRutina(programa?.dias, rutina.id)
+    rutina.oculto_desde ? sinDia(actuales) : colorDeRutina(programa?.dias, rutina.id, actuales)
 
   return (
     <SafeAreaView edges={['top']} style={e.pantalla}>

@@ -18,6 +18,7 @@ import { Hoja } from '../../componentes/Hoja'
 import type { Hoy, RutinaMinima } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { useColores } from '../../tema'
+import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia } from '../../utiles/colores'
 import {
   conArticulo,
@@ -50,6 +51,8 @@ function contarEjercicios(cuantos: number) {
 }
 
 export function HojaRegistrar({ fecha, alCerrar }: Props) {
+  // Los colores de los días dependen de los ajustes: se vuelve a pintar al cambiarlos.
+  const actuales = useAjustes()
   const c = useColores()
   const [resumen, setResumen] = useState<Hoy | null>(null)
   // Cada vez que cambia, se vuelve a leer el día (Reintentar), sin cerrar la hoja.
@@ -150,7 +153,10 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
       >
         {opcion.cubre && (
           <View
-            style={[estilos.punto, { backgroundColor: colorDelDia(diaDeLaSemana(opcion.cubre)) }]}
+            style={[
+              estilos.punto,
+              { backgroundColor: colorDelDia(diaDeLaSemana(opcion.cubre), actuales) },
+            ]}
           />
         )}
         <Text style={[estilos.filaTitulo, { color: c.texto }]}>{opcion.titulo}</Text>

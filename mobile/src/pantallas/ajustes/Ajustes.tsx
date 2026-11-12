@@ -1,28 +1,31 @@
 /**
- * Tus datos: exportar, importar y borrar todo. Puerto de la parte «Tus datos» de
- * `web/src/paginas/ajustes/Ajustes.tsx`; el resto de Ajustes llega después.
+ * Ajustes: cómo se entrena y cómo se ve la app (`Preferencias`, que se guardan en el
+ * teléfono) y tus datos. Puerto de `web/src/paginas/ajustes/Ajustes.tsx`.
  *
  * En el teléfono no hay otra copia: *Exportar* crea el archivo y abre el menú de compartir
  * para guardarlo en Drive, mandarlo por correo o a WhatsApp. *Importar* carga uno y
  * **sustituye todo**: antes, el diálogo dice qué se sustituye por qué, con lo que cuenta la
- * lógica sin escribir nada.
+ * lógica sin escribir nada. *Borrar todos tus datos* deja la app vacía para empezar de cero.
+ * Los ajustes no van en el archivo, y ni importar ni borrar los tocan.
  */
 import Constants from 'expo-constants'
 import { Link, router } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { Boton } from '../componentes/Boton'
-import { Dialogo } from '../componentes/Dialogo'
-import { Icono } from '../componentes/Icono'
-import type { ComprobacionDeImportar, ResumenDeDatos } from '../logica/tipos'
-import { api, ErrorDeApi, textoDelFallo } from '../plataforma/api'
-import { compartirArchivo, elegirArchivo } from '../plataforma/archivos'
-import { tirarTodosLosBorradores } from './programas/borradores'
-import { RADIO, useColores } from '../tema'
-import { diaDe, diaYMesConAnio, hoy } from '../utiles/fechas'
-import { enumerar } from '../utiles/textos'
+import { Boton } from '../../componentes/Boton'
+import { Desplazable } from '../../componentes/Desplazable'
+import { Dialogo } from '../../componentes/Dialogo'
+import { Icono } from '../../componentes/Icono'
+import type { ComprobacionDeImportar, ResumenDeDatos } from '../../logica/tipos'
+import { api, ErrorDeApi, textoDelFallo } from '../../plataforma/api'
+import { compartirArchivo, elegirArchivo } from '../../plataforma/archivos'
+import { useColores } from '../../tema'
+import { diaDe, diaYMesConAnio, hoy } from '../../utiles/fechas'
+import { enumerar } from '../../utiles/textos'
+import { tirarTodosLosBorradores } from '../programas/borradores'
+import { Apartado, Parrafo, Preferencias, Tarjeta } from './Preferencias'
 
 type Pendiente = { archivo: unknown; comprobacion: ComprobacionDeImportar }
 
@@ -55,7 +58,7 @@ function esUnaSola(resumen: ResumenDeDatos) {
   return rutinas + programas + ejercicios + notas + sesiones === 1
 }
 
-export function TusDatos() {
+export function Ajustes() {
   const c = useColores()
   const [ocupado, setOcupado] = useState(false)
   const [fallo, setFallo] = useState<{ mensaje: string; errores: string[] } | null>(null)
@@ -134,8 +137,6 @@ export function TusDatos() {
     }
   }
 
-  const tarjeta = [estilos.tarjeta, { backgroundColor: c.superficie, borderColor: c.borde }]
-  const parrafo = [estilos.parrafo, { color: c.textoTenue }]
   return (
     <SafeAreaView edges={['top']} style={[estilos.pantalla, { backgroundColor: c.fondo }]}>
       <View style={estilos.cabecera}>
@@ -153,37 +154,37 @@ export function TusDatos() {
         <View style={estilos.volver} />
       </View>
 
-      <ScrollView contentContainerStyle={estilos.contenido}>
-        {/* Centrado y a 15 px, como los apartados de Ajustes en la web (decisión del autor). */}
-        <Text style={[estilos.rotulo, { color: c.texto }]} accessibilityRole="header">
-          Tus datos
-        </Text>
-        <View style={tarjeta}>
-          <Text style={parrafo}>
+      <Desplazable contentContainerStyle={estilos.contenido}>
+        <Preferencias />
+
+        <Apartado>Tus datos</Apartado>
+        <Tarjeta>
+          <Parrafo>
             Guarda en un archivo todo lo que has apuntado, con tus rutinas, programas, sesiones y
-            notas. Sirve para pasarlo a otro dispositivo o para tener una copia.
-          </Text>
+            notas. Sirve para pasarlo a otro dispositivo o para tener una copia. Los ajustes de esta
+            pantalla no van en el archivo.
+          </Parrafo>
           <Boton
             texto="Exportar datos"
             alPulsar={() => void preguntar(setPorExportar)}
             desactivado={ocupado}
           />
-        </View>
-        <View style={tarjeta}>
-          <Text style={parrafo}>
+        </Tarjeta>
+        <Tarjeta>
+          <Parrafo>
             Carga un archivo exportado.{' '}
             <Text style={[estilos.fuerte, { color: c.texto }]}>
               Sustituye todo lo que tienes ahora
             </Text>{' '}
             por lo del archivo. Antes te dirá qué hay en cada sitio.
-          </Text>
+          </Parrafo>
           <Boton texto="Importar datos" alPulsar={() => void importar()} desactivado={ocupado} />
-        </View>
-        <View style={tarjeta}>
-          <Text style={parrafo}>
-            Borra todo lo que has apuntado para empezar de cero. Los ejercicios que trae la app se
-            quedan.
-          </Text>
+        </Tarjeta>
+        <Tarjeta>
+          <Parrafo>
+            Borra todo lo que has apuntado para empezar de cero. Los ejercicios que trae la app y
+            los ajustes se quedan.
+          </Parrafo>
           {/* Sin mirar si hay algo: aunque no quede nada que contar, puede quedar algo que
               borrar (una sesión vacía, un descanso planificado). */}
           <Boton
@@ -192,7 +193,7 @@ export function TusDatos() {
             alPulsar={() => void preguntar(setPorBorrar)}
             desactivado={ocupado}
           />
-        </View>
+        </Tarjeta>
 
         {hecho && <Text style={[estilos.aviso, { color: c.texto }]}>{hecho}</Text>}
         {fallo && (
@@ -211,7 +212,7 @@ export function TusDatos() {
         <Link href="/autocomprobacion" style={[estilos.version, { color: c.textoTenue }]}>
           Versión {Constants.expoConfig?.version}
         </Link>
-      </ScrollView>
+      </Desplazable>
 
       {porExportar && (
         <Dialogo
@@ -220,7 +221,7 @@ export function TusDatos() {
             describir(porExportar) === 'nada'
               ? 'Todavía no tienes nada apuntado, así que el archivo se guardará vacío.'
               : `Se ${esUnaSola(porExportar) ? 'guardará' : 'guardarán'} en un archivo ${describir(porExportar)}. ` +
-                'Después elige dónde guardarlo o a quién mandarlo.'
+                'Después elige dónde guardarlo o a quién mandarlo. Los ajustes no van en el archivo.'
           }
           confirmar="Exportar"
           alConfirmar={exportar}
@@ -234,7 +235,7 @@ export function TusDatos() {
             (describir(porBorrar) === 'nada'
               ? 'No tienes nada apuntado. Se borrará lo poco que quede, como los descansos planificados. '
               : `Se ${esUnaSola(porBorrar) ? 'borrará' : 'borrarán'} ${describir(porBorrar)}. `) +
-            'Los ejercicios que trae la app se quedan. ' +
+            'Los ejercicios que trae la app y los ajustes se quedan. ' +
             'Si quieres conservarlo, expórtalo antes.'
           }
           confirmar="Borrar todo"
@@ -284,12 +285,9 @@ const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
   cabecera: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, height: 56 },
   volver: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  rotulo: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
   version: { fontSize: 13, textAlign: 'center', padding: 12 },
   titulo: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700' },
   contenido: { padding: 16, gap: 12 },
-  tarjeta: { padding: 16, gap: 12, borderWidth: 1, borderRadius: RADIO },
-  parrafo: { fontSize: 14, lineHeight: 20 },
   fuerte: { fontWeight: '700' },
   aviso: { fontSize: 14, lineHeight: 20 },
   error: { fontSize: 13, lineHeight: 19, marginTop: 4 },
