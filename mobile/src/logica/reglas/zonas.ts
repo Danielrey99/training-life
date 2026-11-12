@@ -52,14 +52,27 @@ function esAliasExacto(nombre: string): boolean {
   return /^([A-Z][A-Za-z0-9_+-]*)(\/[A-Z0-9][A-Za-z0-9_+-]*)*$/.test(nombre) || nombre === 'UTC'
 }
 
+// Uno por zona: «hoy» se pide en casi cada petición, y crear un `Intl.DateTimeFormat` es
+// caro en Hermes.
+const FORMATOS = new Map<string, Intl.DateTimeFormat>()
+
+function formatoDe(zona: string): Intl.DateTimeFormat {
+  let formato = FORMATOS.get(zona)
+  if (!formato) {
+    formato = new Intl.DateTimeFormat('en-US', {
+      timeZone: zona,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    })
+    FORMATOS.set(zona, formato)
+  }
+  return formato
+}
+
 /** El día de hoy en esa zona, para el instante `ahora`. */
 export function hoyEn(zona: string, ahora: Date = new Date()): string {
-  const partes = new Intl.DateTimeFormat('en-US', {
-    timeZone: zona,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(ahora)
+  const partes = formatoDe(zona).formatToParts(ahora)
   const valor = (tipo: string) => Number(partes.find((p) => p.type === tipo)?.value)
   return componer(valor('year'), valor('month'), valor('day'))
 }
