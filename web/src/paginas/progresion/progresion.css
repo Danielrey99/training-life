@@ -223,9 +223,19 @@
   text-decoration: none;
 }
 
+/* Sin encoger: con un nombre de rutina largo, la fecha se partía letra a letra. */
 .progresion-fecha {
+  flex-shrink: 0;
   font-size: 14px;
   font-weight: 600;
+}
+
+/* Un nombre de rutina largo pasa a otra línea dentro de su etiqueta, nunca se sale ni se
+   corta. El radio no es redondo del todo: con dos líneas se vería como una píldora gorda.
+   Solo aquí: en las demás pantallas, la etiqueta sigue en una línea. */
+.progresion-fila .etiqueta-chica {
+  white-space: normal;
+  border-radius: 9px;
 }
 
 .progresion-relleno {
