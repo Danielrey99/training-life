@@ -1,0 +1,2 @@
+# Los volcados de la base del móvil se comparan byte a byte: siempre con LF.
+mobile/tests/fijos/*.sql text eol=lf
