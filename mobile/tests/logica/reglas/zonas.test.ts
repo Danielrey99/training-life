@@ -45,6 +45,14 @@ test('hoy_en_una_zona_adelantada_ya_es_manana', () => {
   expect(hoyEn('Pacific/Kiritimati', new Date('2026-11-09T09:59:00Z'))).toBe('2026-11-09')
 })
 
+test('pedir_dos_zonas_seguidas_y_volver_a_la_primera_no_mezcla_zonas', () => {
+  const instante = new Date('2026-11-09T11:00:00Z')
+  expect(hoyEn('Pacific/Kiritimati', instante)).toBe('2026-11-10')
+  expect(hoyEn('Europe/Madrid', instante)).toBe('2026-11-09')
+  expect(hoyEn('Pacific/Kiritimati', instante)).toBe('2026-11-10')
+  expect(hoyEn('Europe/Madrid', instante)).toBe('2026-11-09')
+})
+
 test('hoy_en_madrid_a_las_23_30_utc_es_el_dia_siguiente', () => {
   expect(hoyEn('Europe/Madrid', new Date('2026-11-09T23:30:00Z'))).toBe('2026-11-10')
   expect(hoyEn('Europe/Madrid', new Date('2026-11-09T22:59:00Z'))).toBe('2026-11-09')
