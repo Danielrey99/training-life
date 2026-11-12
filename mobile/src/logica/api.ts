@@ -40,6 +40,7 @@ import type {
   UsoEnRutina,
 } from './tipos'
 import type { Contexto } from './contexto'
+import { apuntarFallo } from './rastro'
 import { despachar, type Metodo } from './rutas'
 
 /**
@@ -84,11 +85,14 @@ const DATO_NO_VALIDO = 'Algún dato no es válido. Revísalo e inténtalo de nue
 /** Un fallo que la propia pantalla explica con sus palabras: `textoDelFallo` lo enseña tal cual. */
 export class AvisoDeLaWeb extends Error {}
 
-/** Lo que se enseña de un fallo cualquiera (copia de la web). */
+/**
+ * Lo que se enseña de un fallo cualquiera (copia de la web). Uno que no es de la app se
+ * apunta antes: en pantalla solo dice «Algo ha fallado».
+ */
 export function textoDelFallo(fallo: unknown): string {
-  return fallo instanceof ErrorDeApi || fallo instanceof AvisoDeLaWeb
-    ? fallo.message
-    : FALLO_DE_LA_APP
+  if (fallo instanceof ErrorDeApi || fallo instanceof AvisoDeLaWeb) return fallo.message
+  apuntarFallo(fallo)
+  return FALLO_DE_LA_APP
 }
 
 /** Si el fallo es de ese campo del formulario: el aviso va bajo él, no arriba. */

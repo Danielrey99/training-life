@@ -7,8 +7,12 @@ import { useState } from 'react'
 
 import { ArranqueFallido } from '../pantallas/ArranqueFallido'
 import { arrancar } from '../plataforma/arranque'
+import { prepararRastroDeFallos } from '../plataforma/rastro'
 import { useAjustes } from '../utiles/ajustes'
 import { useColores } from '../tema'
+
+// Antes de abrir la base: un fallo al arrancar también deja rastro.
+prepararRastroDeFallos()
 
 export default function Layout() {
   const c = useColores()

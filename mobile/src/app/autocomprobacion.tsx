@@ -3,9 +3,11 @@ import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { autocomprobar } from '../logica/autocomprobacion'
+import { ultimoFallo } from '../logica/rastro'
 import { compartirTusDatos, PREDEFINIDOS, rutaDeLaBase } from '../plataforma/arranque'
 import { abrirBdExpo } from '../plataforma/bdExpo'
 import { compartirCopia, copiasGuardadas, rutaDeArchivo } from '../plataforma/copias'
+import { olvidarFallo } from '../plataforma/rastro'
 
 /** Las comprobaciones, con un archivo de prueba en la caché que se borra antes y después. */
 function comprobarTodo() {
@@ -27,6 +29,7 @@ export default function Autocomprobacion() {
   const ruta = rutaDeLaBase()
   const copias = useMemo(() => (ruta ? copiasGuardadas(ruta) : []), [ruta])
   const [aviso, setAviso] = useState<string | null>(null)
+  const [fallo, setFallo] = useState(ultimoFallo)
 
   async function compartir(accion: () => Promise<void>) {
     setAviso(null)
@@ -84,6 +87,34 @@ export default function Autocomprobacion() {
         ))
       )}
       {aviso && <Text style={estilos.mal}>{aviso}</Text>}
+
+      <Text style={estilos.titulo}>Último fallo</Text>
+      {fallo ? (
+        <>
+          <Text style={estilos.detalle}>{new Date(fallo.cuando).toLocaleString('es-ES')}</Text>
+          <Text selectable style={estilos.nombre}>
+            {fallo.detalle}
+          </Text>
+          {fallo.pila && (
+            <Text selectable style={[estilos.detalle, estilos.pila]}>
+              {fallo.pila}
+            </Text>
+          )}
+          <Pressable
+            style={estilos.boton}
+            onPress={() => {
+              olvidarFallo()
+              setFallo(null)
+            }}
+          >
+            <Text style={estilos.nombre}>Olvidarlo</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Text style={[estilos.detalle, estilos.vacio]}>
+          Ninguno. Si algo falla y sale «Algo ha fallado», aquí queda qué pasó.
+        </Text>
+      )}
     </ScrollView>
   )
 }
@@ -107,5 +138,6 @@ const estilos = StyleSheet.create({
     borderColor: '#2c313b',
     borderRadius: 6,
   },
+  pila: { fontSize: 12, fontFamily: 'monospace' },
   vacio: { borderWidth: 1, borderColor: '#2c313b', borderRadius: 6, padding: 12 },
 })
