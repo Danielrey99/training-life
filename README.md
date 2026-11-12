@@ -56,11 +56,11 @@ Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a c
 
 ## Estado actual
 
-🚧 **El backend y la web están completos; falta el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 151 predefinidos en 19 grupos musculares, de peso y repeticiones, de peso corporal, de tiempo o de cardio), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) y exportar, importar y borrar todos los datos. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
+🚧 **El backend, la web y la app móvil tienen todas las pantallas del diseño; falta revisar el móvil.** El backend cubre todo el diseño de la app: ejercicios (con 151 predefinidos en 19 grupos musculares, de peso y repeticiones, de peso corporal, de tiempo o de cardio), rutinas, programas semanales, qué toca cada día y su planificación, entrenamientos y series, notas e historial de progresión. Encima del plan está su seguimiento (qué días se hicieron, se movieron o se faltaron, qué se puede recuperar o adelantar), las estadísticas del resumen (volumen por semana y por mes y constancia del año) y exportar, importar y borrar todos los datos. La web tiene todas las pantallas del diseño: la de hoy, la sesión de entrenamiento, el historial, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes.
 
 Antes de construir las pantallas se definió la app entera —qué pantallas hay, cómo se navega entre ellas y qué hace cada una— para implementarla con criterio en vez de a trozos (ver [Diseño de la app](#diseño-de-la-app)).
 
-Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya empezada), que es donde se va a usar de verdad: cada teléfono con sus propios datos, sin servidor y sin conexión. Después, un diseño propio de la web para el PC.
+La **app móvil para Android**, que es donde se va a usar de verdad (cada teléfono con sus propios datos, sin servidor y sin conexión), ya está completa: **ahora toca** revisarla entera. Después, un diseño propio de la web para el PC.
 
 - [x] Estructura de carpetas del monorepo (`backend/`, `web/`, `mobile/`) y Docker Compose (FastAPI + PostgreSQL) funcionando
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
@@ -94,7 +94,9 @@ Con el proyecto ya repasado, **ahora toca** la **app móvil para Android** (ya e
 - [x] Móvil: las rutinas y los programas, creados y editados en el teléfono (con los ejercicios de cada rutina, sus alternativas y su orden, que se cambia arrastrando)
 - [x] Móvil: la biblioteca de ejercicios, con la ficha de cada uno, sus notas y dónde se usa, y los tuyos creados y editados en el teléfono
 - [x] Móvil: la progresión de cada ejercicio en una gráfica, planificar los próximos días y el resumen de volumen y constancia
-- [ ] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
+- [x] Móvil: los ajustes completos, y cada pantalla probada con nombres de 90 caracteres para que un texto largo nunca se salga ni se corte
+- [x] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
+- [ ] Móvil: revisión completa de la app en el teléfono
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 
 El orden de desarrollo es intencional: primero el backend, probado de forma aislada (FastAPI genera una documentación interactiva en `/docs` donde se puede probar cada endpoint sin necesidad de frontend), después la web, y al final el móvil.
