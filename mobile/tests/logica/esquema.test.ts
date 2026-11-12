@@ -9,7 +9,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { Bd, Valor } from '../../src/logica/bd/bd'
-import { COLUMNAS_CON_UPDATED_AT } from '../../src/logica/bd/esquema'
 import { AHORA, baseNueva } from '../apoyo/baseNueva'
 import {
   filaAlternativa,
@@ -541,19 +540,25 @@ describe('el disparador de updated_at', () => {
   })
 
   test('esta_en_las_8_tablas_con_updated_at_y_mira_todas_sus_demas_columnas', () => {
+    // Todo sale de la base migrada, no de la lista con la que se monta la v1: así vale
+    // también cuando una versión nueva añada tablas, columnas o disparadores propios.
     const columnasDe = (tabla: string) =>
       bd.todas<{ name: string }>('SELECT name FROM pragma_table_info(?)', tabla).map((c) => c.name)
     const conUpdatedAt = TABLAS.filter((tabla) => columnasDe(tabla).includes('updated_at'))
-    const disparadores = bd
-      .todas<{ name: string }>("SELECT name FROM sqlite_schema WHERE type = 'trigger'")
-      .map((d) => d.name)
+    const disparadores = bd.todas<{ name: string; tbl_name: string; sql: string }>(
+      "SELECT name, tbl_name, sql FROM sqlite_schema WHERE type = 'trigger' ORDER BY name",
+    )
 
     expect(conUpdatedAt).toHaveLength(8)
-    expect(disparadores.sort()).toEqual(conUpdatedAt.map((t) => `${t}_updated_at`).sort())
-    expect(Object.keys(COLUMNAS_CON_UPDATED_AT).sort()).toEqual(conUpdatedAt)
-    for (const tabla of conUpdatedAt) {
+    expect(disparadores.map((d) => [d.name, d.tbl_name])).toEqual(
+      conUpdatedAt.map((t) => [`${t}_updated_at`, t]).sort(),
+    )
+    for (const { tbl_name: tabla, sql } of disparadores) {
+      // Las columnas que mira son las de «NEW.x IS NOT OLD.x»: tienen que ser todas menos
+      // `id` y `updated_at`, o cambiar una de las que falten no actualizaría `updated_at`.
+      const miradas = [...sql.matchAll(/NEW\.(\w+) IS NOT OLD\.\1\b/g)].map((m) => m[1])
       const demas = columnasDe(tabla).filter((c) => c !== 'id' && c !== 'updated_at')
-      expect([tabla, [...COLUMNAS_CON_UPDATED_AT[tabla]].sort()]).toEqual([tabla, demas.sort()])
+      expect([tabla, miradas.sort()]).toEqual([tabla, demas.sort()])
     }
   })
 })

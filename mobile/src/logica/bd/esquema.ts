@@ -202,8 +202,15 @@ CREATE INDEX ix_excepciones_del_plan_rutina_id ON excepciones_del_plan (rutina_i
 CREATE INDEX ix_entrenamientos_rutina_id ON entrenamientos (rutina_id);
 `
 
-/** Las tablas con `updated_at` y las columnas cuyo cambio lo actualiza. */
-export const COLUMNAS_CON_UPDATED_AT: Record<string, string[]> = {
+/**
+ * Las tablas con `updated_at` en la v1 y las columnas cuyo cambio lo actualiza.
+ *
+ * Forma parte de la v1 publicada: no se edita nunca. Una instalación nueva crea la base
+ * aplicando la v1 y después cada migración, así que añadir aquí una tabla o una columna de la
+ * v2 haría que la v1 nombrara algo que todavía no existe y la app no arrancaría en un teléfono
+ * nuevo. La v2 lleva su propia lista y sus propios disparadores.
+ */
+export const COLUMNAS_CON_UPDATED_AT_V1: Record<string, string[]> = {
   ejercicios: [
     'nombre',
     'grupo_muscular_id',
@@ -245,6 +252,10 @@ export const COLUMNAS_CON_UPDATED_AT: Record<string, string[]> = {
   excepciones_del_plan: ['fecha', 'rutina_id', 'created_at'],
 }
 
+/**
+ * El disparador que pone `updated_at` en la v1. Su cuerpo tampoco se cambia, por lo mismo
+ * que la lista de arriba: si una versión futura necesita otro, se escribe otra función.
+ */
 function disparador(tabla: string, columnas: string[]): string {
   // Solo si quien actualiza no ha puesto él mismo `updated_at` y algo ha cambiado de verdad.
   const cambio = columnas.map((c) => `NEW.${c} IS NOT OLD.${c}`).join(' OR ')
@@ -256,7 +267,7 @@ function disparador(tabla: string, columnas: string[]): string {
   )
 }
 
-const DISPARADORES = Object.entries(COLUMNAS_CON_UPDATED_AT)
+const DISPARADORES = Object.entries(COLUMNAS_CON_UPDATED_AT_V1)
   .map(([tabla, columnas]) => disparador(tabla, columnas))
   .join('\n')
 
