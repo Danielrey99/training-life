@@ -2,6 +2,7 @@
 // ejercicios, en su propia pila.
 import { Stack } from 'expo-router'
 
+import { FalloAlPintar } from '../../../componentes/FalloAlPintar'
 import { useColores } from '../../../tema'
 
 // La lista va siempre debajo, como el calendario en Historial: si se llegara a una de sus
@@ -15,3 +16,7 @@ export default function Programas() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.fondo } }} />
   )
 }
+
+// Si algo falla al pintar una pantalla de la pestaña, un aviso en su lugar (como la web), y
+// no la app cerrada.
+export { FalloAlPintar as ErrorBoundary }

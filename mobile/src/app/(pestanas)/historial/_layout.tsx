@@ -1,6 +1,7 @@
 // La pestaña Historial: el calendario y el día, en su propia pila.
 import { Stack } from 'expo-router'
 
+import { FalloAlPintar } from '../../../componentes/FalloAlPintar'
 import { useColores } from '../../../tema'
 
 // El calendario va siempre debajo: si se llega a un día desde otra pestaña (la última sesión
@@ -14,3 +15,7 @@ export default function Historial() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.fondo } }} />
   )
 }
+
+// Si algo falla al pintar una pantalla de la pestaña, un aviso en su lugar (como la web), y
+// no la app cerrada.
+export { FalloAlPintar as ErrorBoundary }
