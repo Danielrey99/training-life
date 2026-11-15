@@ -8,8 +8,8 @@
  * de golpe; *Cancelar* lo descarta entero. Los formularios de una serie o de la nota dicen
  * *Añadir* o *Aplicar* y solo cambian el borrador. Las ediciones van de una en una.
  */
-import { router, useLocalSearchParams } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -137,16 +137,19 @@ export function Dia() {
       seriesNuevas !== sesion.series ||
       Object.keys(ejerciciosNuevos).length > 0 ||
       abierta !== null)
-  useEffect(() => {
-    // Sin cambios y viniendo del calendario, el atrás normal ya vuelve a él.
-    if (!hayCambios && desde !== 'entrenar') return
-    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (hayCambios) setDescartando(true)
-      else volverDelDia(fecha, desde)
-      return true
-    })
-    return () => suscripcion.remove()
-  }, [hayCambios, desde, fecha])
+  // Solo mientras se ve: con la progresión de un ejercicio abierta encima, el atrás es suyo.
+  useFocusEffect(
+    useCallback(() => {
+      // Sin cambios y viniendo del calendario, el atrás normal ya vuelve a él.
+      if (!hayCambios && desde !== 'entrenar') return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (hayCambios) setDescartando(true)
+        else volverDelDia(fecha, desde)
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [hayCambios, desde, fecha]),
+  )
 
   // Cada cambio guardado sube la versión, y eso vuelve a leer el día.
   const [version, setVersion] = useState(0)

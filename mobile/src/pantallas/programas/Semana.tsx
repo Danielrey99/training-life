@@ -158,14 +158,17 @@ export function Semana() {
 
   // El atrás de Android hace lo mismo que la flecha (decisión del autor). Mientras se edita,
   // con algo cambiado, pregunta antes de descartarlo, porque ese gesto se hace sin querer.
-  useEffect(() => {
-    if (!hayCambios) return
-    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
-      setDescartando(true)
-      return true
-    })
-    return () => suscripcion.remove()
-  }, [hayCambios])
+  // Solo mientras se ve: con la rutina nueva abierta encima, el atrás es suyo.
+  useFocusEffect(
+    useCallback(() => {
+      if (!hayCambios) return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        setDescartando(true)
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [hayCambios]),
+  )
 
   if (error) {
     return (

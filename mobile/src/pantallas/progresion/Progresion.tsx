@@ -10,7 +10,7 @@
  * Diferencias con la web: el rango y la medida no van en la ruta (aquí no se recarga), salvo la
  * medida con la que se abre desde la ficha.
  */
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -99,15 +99,18 @@ export function Progresion() {
 
   const volver = useCallback(() => volverDeLaProgresion(ficha), [ficha])
 
-  // Abierta desde la ficha, el atrás de Android vuelve a ella, como la flecha.
-  useEffect(() => {
-    if (!ficha) return
-    const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
-      volver()
-      return true
-    })
-    return () => suscripcion.remove()
-  }, [ficha, volver])
+  // Abierta desde la ficha, el atrás de Android vuelve a ella, como la flecha. Solo mientras
+  // se ve: con un día abierto encima, el atrás es suyo.
+  useFocusEffect(
+    useCallback(() => {
+      if (!ficha) return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        volver()
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [ficha, volver]),
+  )
 
   function cambiarRango(clave: Rango['clave']) {
     setRangoElegido(clave)
