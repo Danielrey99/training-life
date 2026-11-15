@@ -13,12 +13,12 @@ import pytest
 
 from app.models import ProgramaDia
 from tests.ayudas import (
-    nombre_repetido,
     alternativa,
     consultas_de,
     crear_ejercicio,
     crear_programa,
     importar_rutinas_y_programas,
+    nombre_repetido,
     objetivo,
     ocultar_hueco,
 )
@@ -526,7 +526,10 @@ def test_al_editar_un_predefinido_con_nombre_repetido_manda_el_403(
 
     respuesta = editado(cliente, ejercicio_predefinido_id, "Curl con cuerda", grupo_muscular_id)
 
-    assert respuesta.status_code == 403, respuesta.text
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        403,
+        "Los ejercicios predefinidos no se pueden editar.",
+    )
     guardado = cliente.get(f"/ejercicios/{ejercicio_predefinido_id}").json()
     assert guardado["nombre"] == "Sentadilla con barra"
 

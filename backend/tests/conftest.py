@@ -35,12 +35,14 @@ def _url_de_tests() -> str:
 os.environ["DATABASE_URL"] = _url_de_tests()
 
 from fastapi.testclient import TestClient  # noqa: E402
+
 from app.database import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
-# Tablas que los tests ensucian. `grupos_musculares` queda fuera a propósito: la
-# siembran las migraciones y todos los tests la necesitan. Por lo mismo,
-# `ejercicios` no se vacía entera (ver `limpiar_tablas`).
+# Tablas que los tests ensucian: todas las de datos (lo comprueba
+# `test_la_limpieza_vacia_todas_las_tablas_de_datos`). `grupos_musculares` queda fuera
+# a propósito: la siembran las migraciones y todos los tests la necesitan. Por lo
+# mismo, `ejercicios` no se vacía entera (ver `limpiar_tablas`).
 TABLAS_A_VACIAR = (
     "excepciones_del_plan",
     "programa_periodos",
@@ -51,6 +53,7 @@ TABLAS_A_VACIAR = (
     "entrenamientos",
     "slot_alternativas",
     "rutina_slots",
+    "rutina_periodos_ocultos",
     "rutinas",
 )
 

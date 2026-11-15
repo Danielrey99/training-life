@@ -1580,7 +1580,7 @@ def test_un_predefinido_dos_veces_con_distinto_id_da_422_y_no_cambia_nada(
 
 
 def test_varios_ids_repetidos_se_dicen_una_sola_vez(cliente, datos):
-    """La frase ya no dice el id, así que dos ids repetidos distintos darían dos frases
+    """La frase no dice el id, así que dos ids repetidos distintos darían dos frases
     iguales: sale una vez por clase de cosa (ejercicios, rutinas y ejercicios de una
     rutina).
     """
@@ -1976,7 +1976,7 @@ def test_como_mucho_se_dicen_veinte_errores(cliente, hoy_es):
     archivo = {
         **VACIO,
         # Treinta errores distintos: treinta notas de ejercicios que no están darían
-        # un solo error, porque la frase ya no dice el id y no se repite.
+        # un solo error, porque la frase no dice el id y no se repite.
         "excepciones": [
             {"fecha": (HOY - timedelta(days=n)).isoformat(), "rutina_id": 1000 + n, **MARCA}
             for n in range(30)
@@ -2068,8 +2068,8 @@ def _errores_del_futuro(dia):
 def test_lo_de_hoy_en_la_zona_del_archivo_se_importa_aunque_aqui_sea_manana(
     cliente, datos, monkeypatch
 ):
-    """Con el reloj de antes (`hoy()` a secas, el 16 en Madrid), la sesión y el
-    periodo del 17 daban 422; en Tokio ya es el 17, así que valen. Comprobar dice lo
+    """Con solo el `hoy()` de aquí (el 16 en Madrid), la sesión y el periodo del 17
+    darían 422; en Tokio ya es el 17, así que valen. Comprobar dice lo
     mismo que importar, y la copia queda tal cual (salvo la zona, que al exportar es
     siempre la de aquí).
     """
@@ -2723,8 +2723,7 @@ def test_tras_borrar_se_puede_empezar_de_cero(cliente, datos, ejercicio_predefin
     )
     assert programa.status_code == 201, programa.text
     hoy = cliente.get("/plan/hoy").json()
-    assert hoy["sesion"] is None
-    assert hoy["situacion"] != "sin_programa"
+    assert (hoy["situacion"], hoy["sesion"]) == ("entrenamiento", None)
 
     sesion = entrenar(cliente, HOY, rutina_id)
     assert sesion.status_code == 201, sesion.text

@@ -604,8 +604,8 @@ def test_la_referencia_anterior_respeta_los_limites_de_semana_y_de_mes(
 def test_una_barra_solo_con_series_sin_peso(cliente, hoy_es, ejercicio_id, grupo_muscular_id):
     """Sus series cuentan, pero no tiene cambio ni sirve de referencia: la siguiente
     se compara con una anterior a ella. Su rutina no sale en el volumen por rutina:
-    una rutina sin volumen esa semana no tiene nada que enseñar ahí (antes salía con
-    0 kg; cambió con los tipos de ejercicio, que dejan semanas enteras sin volumen).
+    una rutina sin volumen esa semana no tiene nada que enseñar ahí (con los ejercicios
+    que no son de peso y repeticiones, puede haber semanas enteras sin volumen).
     """
     hoy_es(MARTES_6_OCT)
     push = crear_rutina(cliente, "Push")

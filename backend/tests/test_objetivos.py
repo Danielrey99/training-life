@@ -25,8 +25,8 @@ from sqlalchemy.exc import IntegrityError
 from app.fechas import hoy
 from app.models import RutinaSlot, SlotAlternativa
 from tests.ayudas import (
-    ELEGIDO_YA_NO_EXISTE,
     CAMPOS_DEL_OBJETIVO,
+    ELEGIDO_YA_NO_EXISTE,
     alternativa,
     crear_ejercicio,
     crear_rutina,
@@ -502,10 +502,11 @@ def test_cambiar_el_objetivo_de_una_alternativa_conserva_su_fila(cliente, sesion
 def test_una_lista_quita_anade_e_intercambia_principal_y_alternativa_a_la_vez(
     cliente, sesion_bd, e
 ):
-    """Press (reps) con Plancha con lastre (segundos) y Dominadas en anillas de alternativas pasa a Plancha con lastre
-    de principal, con Press de alternativa y Remo nuevo: Dominadas en anillas se va, Plancha con lastre
-    deja de ser alternativa y Press lo pasa a ser, cada uno con el objetivo que se
-    manda (no el que tenía en su otro papel).
+    """Press (reps) con Plancha con lastre (segundos) y Dominadas en anillas de
+    alternativas pasa a Plancha con lastre de principal, con Press de alternativa y Remo
+    nuevo: Dominadas en anillas se va, Plancha con lastre deja de ser alternativa y
+    Press lo pasa a ser, cada uno con el objetivo que se manda (no el que tenía en su
+    otro papel).
     """
     slot = anadido(
         cliente,
@@ -586,10 +587,10 @@ def test_se_puede_cambiar_el_objetivo_de_una_alternativa_ya_oculta(cliente, sesi
 def test_editar_un_hueco_sin_lista_no_toca_las_alternativas_ni_sus_objetivos(
     cliente, sesion_bd, e, lista
 ):
-    """Regresión de G1 (hallazgo del repaso): el PUT copia el cuerpo al hueco campo a
-    campo, y con el `exclude` del nombre viejo de la lista (`alternativa_ids`) copiaba
-    también `alternativas` encima de la propiedad de solo lectura del modelo: un
-    `AttributeError`, un 500, en todos los PUT de un hueco, con lista o sin ella.
+    """Regresión: el PUT copia el cuerpo al hueco campo a campo, y con el `exclude` del
+    nombre viejo de la lista (`alternativa_ids`) copiaba también `alternativas` encima
+    de la propiedad de solo lectura del modelo: un `AttributeError`, un 500, en todos
+    los PUT de un hueco, con lista o sin ella.
 
     Aquí cambian el principal y su objetivo, y las alternativas siguen igual, en su
     orden (no se les copia el objetivo del principal), en las mismas filas.
@@ -654,8 +655,8 @@ def test_una_serie_con_una_alternativa_se_valida_por_el_ejercicio_y_no_por_la_fi
     error.
 
     Para que se note, la fila de la alternativa (Remo) lleva a propósito el id de
-    otro ejercicio (Dominadas en anillas) que no está en el hueco: con ids de fila, Remo daría 422
-    y Dominadas en anillas colaría.
+    otro ejercicio (Dominadas en anillas) que no está en el hueco: con ids de fila, Remo
+    daría 422 y Dominadas en anillas colaría.
     """
     slot = anadido(cliente, e.rutina, principal=e.press)["id"]
     sesion_bd.add(

@@ -25,16 +25,16 @@ from tests.semana import (
     DOMINGO_27,
     HOY,
     JUEVES_17,
+    LUNES_7,
     LUNES_14,
     LUNES_31,
-    LUNES_7,
     MARTES_1,
     MARTES_15,
     MIERCOLES_2,
     MIERCOLES_9,
+    SABADO_5,
     SABADO_12,
     SABADO_19,
-    SABADO_5,
     VIERNES_11,
     VIERNES_18,
     VIERNES_25,
@@ -44,7 +44,6 @@ from tests.semana import (
     sesion,
     sin_dia_para_ella,
 )
-
 
 # --- Ayudas -------------------------------------------------------------------
 
@@ -225,9 +224,9 @@ def test_ocultar_una_rutina_no_reabre_el_tramo_que_otra_cerro_hoy(cliente, sesio
 
 
 def test_los_dias_en_que_estuvo_oculta_siguen_siendo_descanso_tras_mostrarla(cliente, hoy_es, ppl):
-    """Regresión del punto G1 del repaso: Push oculta del miércoles 2 al sábado 12.
-    Antes, al mostrarla se borraba `oculto_desde` sin guardar nada, y el lunes 7
-    volvía a ser un día «sin hacer» que además se ofrecía para recuperar.
+    """Regresión: Push oculta del miércoles 2 al sábado 12. Al mostrarla se borraba
+    `oculto_desde` sin guardar nada, y el lunes 7 volvía a ser un día «sin hacer» que
+    además se ofrecía para recuperar.
     """
     hoy_es(MIERCOLES_2)
     ocultar(cliente, ppl["Push"])
@@ -358,10 +357,10 @@ def test_borrar_la_rutina_en_definitivo_se_lleva_sus_tramos(cliente, sesion_bd, 
 def test_lo_entrenado_el_dia_en_que_se_oculta_sigue_hecho(
     cliente, sesion_bd, hoy_es, ppl, grupo_muscular_id
 ):
-    """Push se entrena el lunes 14 y se oculta ese mismo día. Antes, el lunes pasaba a
-    descanso (y la sesión dejaba de contar): ocultar deshacía lo ya hecho. Ahora sigue
-    hecho mientras está oculta y después de mostrarla; el plan sigue diciendo lo que
-    toca (descanso), no lo que pasó.
+    """Push se entrena el lunes 14 y se oculta ese mismo día. Ocultar no deshace lo ya
+    hecho: el lunes sigue hecho mientras está oculta y después de mostrarla (no pasa a
+    descanso ni la sesión deja de contar); el plan sigue diciendo lo que toca
+    (descanso), no lo que pasó.
     """
     hoy_es(LUNES_14)
     entrenada = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)

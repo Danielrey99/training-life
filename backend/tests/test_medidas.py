@@ -13,8 +13,9 @@ Lo que falta o sobra da 422 con el nombre del ejercicio, al apuntar y al corregi
 (con el ejercicio final: cambiar a una alternativa de otro tipo exige sus medidas).
 La base de datos solo comprueba la forma de la serie, con sus CHECK.
 
-El escenario: la rutina tiene un hueco A de Press banca con Dominadas en anillas y Plancha con lastre de
-alternativas (tres de los cuatro tipos en un hueco), un hueco B de Dominadas en anillas y un C de Plancha con lastre.
+El escenario: la rutina tiene un hueco A de Press banca con Dominadas en anillas y
+Plancha con lastre de alternativas (tres de los cuatro tipos en un hueco), un hueco B
+de Dominadas en anillas y un C de Plancha con lastre.
 """
 
 from types import SimpleNamespace
@@ -272,8 +273,7 @@ def test_las_repeticiones_que_faltan_o_sobran_se_dicen_en_plural(
     cliente, e, ejercicio, medidas, mensaje
 ):
     """El verbo concuerda con el campo, no con cuántos son: «faltan las repeticiones»
-    aunque sea solo una cosa. El primer caso es, palabra por palabra, el ejemplo del
-    plan de los tipos.
+    aunque sea solo una cosa.
 
     Bug real: decía «falta las repeticiones» y «sobra las repeticiones».
     """
@@ -285,9 +285,9 @@ def test_las_repeticiones_que_faltan_o_sobran_se_dicen_en_plural(
 
 def test_un_peso_negativo_solo_vale_en_peso_corporal(cliente, e):
     """La ayuda (carga negativa) solo existe en los ejercicios de peso corporal; en
-    ellos se apunta bien (en el test de las series válidas). Antes del peso corporal
-    lo rechazaba el esquema (`ge=0`); ahora el esquema admite negativos y el 422 es el
-    de las medidas del tipo. Con un ejercicio de peso y repeticiones, en
+    ellos se apunta bien (en el test de las series válidas). El esquema admite pesos
+    negativos, así que el 422 es el de las medidas del tipo. Con un ejercicio de peso y
+    repeticiones, en
     `test_la_ayuda_se_valida_con_el_ejercicio_final_y_no_con_el_de_antes`.
     """
     respuesta = apuntar(cliente, e, "plancha", duracion_s=30, peso=-5)
@@ -465,7 +465,7 @@ def test_un_peso_corporal_fuera_de_rango_da_422(cliente, e, valor):
 def test_corregir_una_serie_copia_el_peso_corporal_del_cuerpo_como_la_variante(
     cliente, e, en_el_cuerpo, queda
 ):
-    """El contrato del plan: el PUT copia el cuerpo entero. Un peso corporal que no
+    """El PUT copia el cuerpo entero. Un peso corporal que no
     llega no se conserva: queda nulo, igual que una variante que no llega (la web lo
     manda siempre en las series de peso corporal).
     """

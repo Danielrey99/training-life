@@ -473,9 +473,9 @@ def serie_en(cliente, entrenamiento_id, ejercicio_id, **campos):
 def sesiones_en_curso(cliente) -> list[dict]:
     """Las sesiones del listado que dicen estar en curso (de hoy y sin terminar).
 
-    El listado tuvo un filtro `?en_curso=true` que se quitó: FastAPI ignora un
-    parámetro desconocido, así que pedirlo devolvería todas sin dar error. Por
-    eso se filtra aquí, por el campo `en_curso` de cada una.
+    Se filtra aquí, por el campo `en_curso` de cada una: el listado no tiene ese
+    filtro, y FastAPI ignora un parámetro desconocido, así que pedir `?en_curso=true`
+    devolvería todas sin dar error.
     """
     respuesta = cliente.get("/entrenamientos")
     assert respuesta.status_code == 200, respuesta.text

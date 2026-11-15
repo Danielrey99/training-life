@@ -21,16 +21,16 @@ from tests.semana import (
     DOMINGO_20,
     HOY,
     JUEVES_10,
+    LUNES_7,
     LUNES_14,
     LUNES_21,
-    LUNES_7,
-    MARTES_15,
     MARTES_8,
+    MARTES_15,
     MIERCOLES_9,
     SABADO_19,
+    VIERNES_4,
     VIERNES_11,
     VIERNES_18,
-    VIERNES_4,
     hecha,
     sesion,
 )
@@ -433,9 +433,8 @@ def test_una_rutina_oculta_no_sale_entre_las_rutinas(cliente, ppl):
 def test_un_descanso_pasado_ofrece_recuperar_y_todas_las_rutinas_sin_contar(cliente, ppl):
     """La hoja de registrar un día pasado es para apuntar de ese día hacia atrás:
     ofrece recuperar lo que estaba en plazo y, sin contar, todas las rutinas, también
-    las que se recuperan (decisión del autor del 2-11-2026: antes solo salía el resto).
-    Antes aún ofrecía adelantar el Pull del miércoles y el Leg del viernes, como la
-    pantalla de Entrenar; adelantar queda solo para hoy.
+    las que se recuperan (decisión del autor). No ofrece adelantar el Pull del
+    miércoles ni el Leg del viernes, como haría Entrenar: adelantar es solo para hoy.
     """
     crear_rutina(cliente, "Brazos")
 
@@ -459,8 +458,8 @@ def test_un_descanso_pasado_sin_nada_por_recuperar_no_adelanta_lo_que_queda(
     cliente, ppl, grupo_muscular_id
 ):
     """Todo lo anterior al martes 15 está hecho, y quedan el Pull del miércoles y el
-    Leg del viernes. Antes salían para adelantar; ahora salen sin contar, como
-    cualquier otra rutina.
+    Leg del viernes: no salen para adelantar, sino sin contar, como cualquier otra
+    rutina.
     """
     for fecha, rutina in ((MIERCOLES_9, "Pull"), (VIERNES_11, "Leg"), (LUNES_14, "Push")):
         hecha(cliente, grupo_muscular_id, fecha, ppl[rutina], cubre_fecha=fecha)
@@ -479,10 +478,9 @@ def test_un_descanso_pasado_sin_nada_por_recuperar_no_adelanta_lo_que_queda(
 def test_un_dia_pasado_movido_no_adelanta_y_ofrece_todas_sin_contar(
     cliente, ppl, grupo_muscular_id
 ):
-    """El Pull del miércoles 9 se adelantó al martes 8, y el viernes 11 tocaba Leg.
-    Antes, la hoja del miércoles 9 ofrecía adelantar ese Leg; ahora sale sin contar,
-    con todas las demás: el Pull y también el Push del lunes 7, que sigue para
-    recuperar.
+    """El Pull del miércoles 9 se adelantó al martes 8, y el viernes 11 tocaba Leg. La
+    hoja del miércoles 9 no ofrece adelantar ese Leg: sale sin contar, con todas las
+    demás, el Pull y también el Push del lunes 7, que sigue para recuperar.
     """
     # El Leg del viernes 4 hecho, para que no salga entre lo que se recupera.
     hecha(cliente, grupo_muscular_id, VIERNES_4, ppl["Leg"], cubre_fecha=VIERNES_4)

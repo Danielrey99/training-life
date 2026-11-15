@@ -73,9 +73,9 @@ def test_el_put_corrige_fecha_y_notas_e_ignora_la_rutina(cliente, grupo_muscular
     la fecha y las notas, y la `rutina_id` que traiga se ignora sin dar error (el
     esquema no la recibe, así que da igual cuál sea).
 
-    Tampoco en una sesión vacía: antes, sin series ni `cubre_fecha`, el PUT sí la
-    cambiaba. Con series, el historial de su ejercicio sigue igual (si cambiara,
-    enseñaría la sesión con el nombre de otra rutina).
+    Tampoco en una sesión vacía, sin series ni `cubre_fecha`, donde cambiarla no
+    rompería nada a la vista. Con series, el historial de su ejercicio sigue igual (si
+    cambiara, enseñaría la sesión con el nombre de otra rutina).
     """
     entrenamiento = entrenar(cliente, FECHA).json()
     if con_series:

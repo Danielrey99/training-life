@@ -22,12 +22,12 @@ import pytest
 from app.models import Serie
 from tests.ayudas import (
     SERIE_DEL_DIA_YA_NO_EXISTE,
-    ejercicio_oculto,
     bajo_la_fecha,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
     dejar_planificado,
+    ejercicio_oculto,
     en_texto,
     ocultar_ejercicio,
     ocultar_hueco,
@@ -247,6 +247,31 @@ def test_una_serie_con_medidas_malas_da_422_y_no_guarda_nada(cliente, push, cual
     respuesta = guardar(cliente, dia, [primera, mala], fecha=LUNES_14, notas="Hombro cargado")
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (422, PESO_NEGATIVO)
+    assert foto(cliente, dia) == antes
+
+
+@pytest.mark.parametrize("primera", ["oculta", "mala"])
+def test_con_dos_series_que_no_valen_el_aviso_es_el_de_la_primera_de_la_lista(
+    cliente, push, primera
+):
+    """Las series se validan en el orden en que llegan, como si se apuntaran una a una:
+    una de un ejercicio oculto (404) y otra con un peso negativo (422), en un orden y en
+    el otro.
+    """
+    dia = dia_con(cliente, push)
+    antes = foto(cliente, dia)
+    ocultar_ejercicio(cliente, push["inclinado"])
+    *_, fondos = como_van(cliente, dia)
+    oculta = serie(push["inclinado"], push["a"], 1, 50)
+    mala = serie(push["fondos"], push["b"], 2, peso=-5)
+    series = [fondos, oculta, mala] if primera == "oculta" else [fondos, mala, oculta]
+
+    respuesta = guardar(cliente, dia, series)
+
+    esperado = (
+        (404, ejercicio_oculto("Press inclinado")) if primera == "oculta" else (422, PESO_NEGATIVO)
+    )
+    assert (respuesta.status_code, respuesta.json()["detail"]) == esperado
     assert foto(cliente, dia) == antes
 
 

@@ -404,6 +404,7 @@ def periodos(sesion_bd, programa_id) -> list[tuple]:
 def test_crear_un_programa_activo(cliente):
     respuesta = cliente.post("/programas", json={"nombre": "PPL", "activar": True})
 
+    assert respuesta.status_code == 201, respuesta.text
     assert respuesta.json()["activo"] is True
     assert respuesta.json()["ultimo_periodo"] == {"desde": hoy().isoformat(), "hasta": None}
 
@@ -415,6 +416,7 @@ def test_activar_otro_programa_cierra_hoy_el_periodo_del_anterior(cliente, sesio
 
     respuesta = cliente.post(f"/programas/{nuevo['id']}/activar")
 
+    assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["ultimo_periodo"] == {"desde": hoy().isoformat(), "hasta": None}
     assert cliente.get(f"/programas/{anterior['id']}").json()["activo"] is False
     # Hoy ya le toca al nuevo: el anterior cubre hasta ayer.
@@ -423,7 +425,7 @@ def test_activar_otro_programa_cierra_hoy_el_periodo_del_anterior(cliente, sesio
 
 def test_nunca_hay_dos_programas_activos(cliente):
     for nombre in ("A", "B", "C"):
-        cliente.post("/programas", json={"nombre": nombre, "activar": True})
+        crear_programa(cliente, nombre, activar=True)
 
     activos = [p["nombre"] for p in cliente.get("/programas").json() if p["activo"]]
 
@@ -449,8 +451,10 @@ def test_activar_el_que_ya_esta_activo_no_hace_nada(cliente, sesion_bd):
     programa = crear_programa(cliente)
     activo_desde_hace(sesion_bd, programa["id"], 5)
 
-    cliente.post(f"/programas/{programa['id']}/activar")
+    respuesta = cliente.post(f"/programas/{programa['id']}/activar")
 
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["ultimo_periodo"] == periodo(5)
     assert periodos(sesion_bd, programa["id"]) == [(hoy() - timedelta(days=5), None)]
 
 

@@ -2,10 +2,9 @@
 `intercambiar_con`.
 
 En la pantalla de hoy, *Intercambiar* trae a hoy lo que toca otro día y empieza
-la sesión. Antes eran dos llamadas (`POST /plan/intercambiar` y después crear la
-sesión): si la segunda fallaba, el plan se quedaba cambiado sin sesión. Ahora es
-todo o nada, en una transacción: lo que más importa aquí es que **ningún error
-deja el plan cambiado**.
+la sesión. Es una sola petición, todo o nada, en una transacción: con dos (cambiar el
+plan y después crear la sesión), un fallo en la segunda dejaría el plan cambiado sin
+sesión. Lo que más importa aquí es que **ningún error deja el plan cambiado**.
 
 Orden de las comprobaciones: 422 fecha futura → 404 rutina → 422 del intercambio
 → 409 si hoy ya hay sesión (antes de tocar el plan) → intercambio (puede dar el
@@ -31,7 +30,6 @@ from tests.semana import (
     hecha,
     sin_dia_para_ella,
 )
-
 
 # --- Ayudantes -----------------------------------------------------------
 
@@ -301,8 +299,17 @@ def test_si_hoy_ya_hay_sesion_da_409_y_el_plan_no_cambia(
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], VIERNES_18)
 
     assert respuesta.status_code == 409
-    detalle = respuesta.json()["detail"]
-    assert (detalle["entrenamiento_id"], detalle["en_curso"]) == (hoy_id, not terminada)
+    mensaje = (
+        "Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo, cambia"
+        " antes la fecha de la otra desde su día en el historial."
+        if terminada
+        else "Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra."
+    )
+    assert respuesta.json()["detail"] == {
+        "mensaje": mensaje,
+        "entrenamiento_id": hoy_id,
+        "en_curso": not terminada,
+    }
     assert cuantas_filas(sesion_bd, ExcepcionDelPlan, Entrenamiento) == (0, 1)
     assert lo_que_toca(cliente, HOY) == ("programa", "Pull", False)
 

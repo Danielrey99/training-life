@@ -102,12 +102,16 @@ def test_el_mismo_ejercicio_en_dos_huecos_junta_en_su_historial_las_series_de_am
 ):
     """Un ejercicio puede ocupar dos huecos de la misma rutina. Su historial
     junta las series de ambos, y cada una dice de qué hueco es.
+
+    Las dos tienen el número 1: salen por orden de id, aunque la primera se haya
+    corregido después (Postgres la deja detrás en la tabla y, sin desempate, podría
+    darla la última).
     """
     segundo_slot_id = crear_hueco(
         cliente, escenario["rutina_id"], escenario["ejercicio_id"], orden=2
     )
     entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
-    registrar_serie(
+    primera = registrar_serie(
         cliente,
         entrenamiento_id,
         escenario["ejercicio_id"],
@@ -115,19 +119,30 @@ def test_el_mismo_ejercicio_en_dos_huecos_junta_en_su_historial_las_series_de_am
         peso=60,
         slot_id=escenario["slot_id"],
     )
-    registrar_serie(
+    segunda = registrar_serie(
         cliente, entrenamiento_id, escenario["ejercicio_id"], 1, peso=25, slot_id=segundo_slot_id
     )
+    corregida = cliente.put(
+        f"/entrenamientos/{entrenamiento_id}/series/{primera}",
+        json={
+            "ejercicio_id": escenario["ejercicio_id"],
+            "slot_id": escenario["slot_id"],
+            "numero_serie": 1,
+            "peso": 62.5,
+            "repeticiones": 8,
+        },
+    )
+    assert corregida.status_code == 200, corregida.text
 
     del_ejercicio = historial_de_ejercicio(cliente, escenario["ejercicio_id"])
 
     assert len(del_ejercicio) == 1
-    assert sorted(float(serie["peso"]) for serie in del_ejercicio[0]["series"]) == [25.0, 60.0]
-
     # Las dos series numeran desde 1, así que sin el slot_id no habría forma de
     # saber cuál pertenece a cada hueco.
-    por_hueco = {serie["slot_id"]: float(serie["peso"]) for serie in del_ejercicio[0]["series"]}
-    assert por_hueco == {escenario["slot_id"]: 60.0, segundo_slot_id: 25.0}
+    assert [(s["id"], s["slot_id"], s["peso"]) for s in del_ejercicio[0]["series"]] == [
+        (primera, escenario["slot_id"], "62.50"),
+        (segunda, segundo_slot_id, "25.00"),
+    ]
 
 
 # --- La "última vez" de un ejercicio -------------------------------------

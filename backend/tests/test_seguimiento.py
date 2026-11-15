@@ -17,10 +17,10 @@ from tests.ayudas import consultas_de, rango_invertido
 from tests.semana import (
     HOY,
     JUEVES_10,
-    LUNES_14,
     LUNES_7,
-    MARTES_15,
+    LUNES_14,
     MARTES_8,
+    MARTES_15,
     MIERCOLES_9,
     VIERNES_11,
     VIERNES_18,
@@ -28,7 +28,6 @@ from tests.semana import (
     seguimiento,
     sesion,
 )
-
 
 # --- Los estados ---------------------------------------------------------
 

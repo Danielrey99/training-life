@@ -21,15 +21,15 @@ from app.models import (
     SlotAlternativa,
 )
 from tests.ayudas import (
-    ejercicio_oculto,
-    cambiar_dias,
     PIDE_MODO,
     alternativa,
+    cambiar_dias,
     consultas_de,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
     cuerpo_de_hueco,
+    ejercicio_oculto,
     objetivo,
     poner_alternativas,
     sesiones_en_curso,
@@ -99,7 +99,7 @@ def ocultar(cliente, ruta) -> None:
     assert cliente.delete(f"{ruta}?modo=ocultar").status_code == 204
 
 
-# --- Ejercicio -----------------------------------------------------------
+# --- Sin modo, o con uno que no existe -------------------------------------
 
 
 def todos_los_datos(cliente) -> dict:
@@ -109,13 +109,10 @@ def todos_los_datos(cliente) -> dict:
     return datos
 
 
-@pytest.mark.parametrize("que", ["ejercicio", "rutina", "hueco", "programa"])
-def test_el_delete_sin_modo_de_algo_con_historial_da_409_con_su_frase_y_no_borra_nada(
-    cliente, grupo_muscular_id, hoy_es, que
-):
-    """El 409 es una frase fija que solo pide elegir `modo` (antes, en el ejercicio
-    y el programa era un objeto con lo que se perdería, que ya cuenta su aviso de
-    borrado). Todo lo montado es historial de las cuatro cosas a la vez.
+def ruta_con_historial(cliente, grupo_muscular_id, hoy_es, que) -> str:
+    """La ruta del ejercicio, la rutina, el hueco o el programa de un escenario donde
+    todo es historial de las cuatro cosas a la vez: el programa estuvo activo un lunes
+    pasado y el hueco tiene una serie.
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
@@ -131,12 +128,22 @@ def test_el_delete_sin_modo_de_algo_con_historial_da_409_con_su_frase_y_no_borra
     assert programa.status_code == 201, programa.text
     hoy_es(HOY)
     registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
-    ruta = {
+    return {
         "ejercicio": f"/ejercicios/{ejercicio_id}",
         "rutina": f"/rutinas/{rutina_id}",
         "hueco": f"/rutinas/{rutina_id}/slots/{slot_id}",
         "programa": f"/programas/{programa.json()['id']}",
     }[que]
+
+
+@pytest.mark.parametrize("que", ["ejercicio", "rutina", "hueco", "programa"])
+def test_el_delete_sin_modo_de_algo_con_historial_da_409_con_su_frase_y_no_borra_nada(
+    cliente, grupo_muscular_id, hoy_es, que
+):
+    """El 409 es una frase fija que solo pide elegir `modo`: lo que se perdería lo
+    cuenta su aviso de borrado.
+    """
+    ruta = ruta_con_historial(cliente, grupo_muscular_id, hoy_es, que)
     antes = todos_los_datos(cliente)
 
     respuesta = cliente.delete(ruta)
@@ -146,6 +153,24 @@ def test_el_delete_sin_modo_de_algo_con_historial_da_409_con_su_frase_y_no_borra
     assert type(detalle) is str
     assert detalle == PIDE_MODO[que]
     assert todos_los_datos(cliente) == antes
+
+
+@pytest.mark.parametrize("que", ["ejercicio", "rutina", "hueco", "programa"])
+def test_un_modo_que_no_existe_da_422_y_no_borra_nada(cliente, grupo_muscular_id, hoy_es, que):
+    """Un `modo` mal escrito no puede caer en ninguno de los dos caminos: si el que no
+    es «ocultar» se tomara por «definitivo», una errata lo borraría todo sin vuelta atrás.
+    """
+    ruta = ruta_con_historial(cliente, grupo_muscular_id, hoy_es, que)
+    antes = todos_los_datos(cliente)
+
+    respuesta = cliente.delete(ruta, params={"modo": "borrar"})
+
+    assert respuesta.status_code == 422, respuesta.text
+    assert [e["loc"] for e in respuesta.json()["detail"]] == [["query", "modo"]]
+    assert todos_los_datos(cliente) == antes
+
+
+# --- Ocultar y mostrar ---------------------------------------------------
 
 
 def test_ocultar_guarda_desde_cuando_y_mostrar_lo_borra(cliente, grupo_muscular_id):
@@ -189,6 +214,9 @@ def test_ocultar_guarda_desde_cuando_y_mostrar_lo_borra(cliente, grupo_muscular_
     assert mostrado.json()["oculto_desde"] is None
 
 
+# --- Ejercicio -----------------------------------------------------------
+
+
 def test_borrar_un_ejercicio_en_definitivo_arrastra_sus_huecos_y_sus_series(
     cliente, grupo_muscular_id
 ):
@@ -214,7 +242,7 @@ def test_borrar_un_ejercicio_en_definitivo_arrastra_sus_huecos_y_sus_series(
     assert cliente.get(f"/ejercicios/{ejercicio_id}").status_code == 404
     assert cliente.get(f"/rutinas/{rutina_id}").json()["slots"] == []
     # Su única serie era de este ejercicio: sin ella estaría cancelada, así que se va
-    # con él. Antes se quedaba vacía.
+    # con él.
     assert cliente.get(f"/entrenamientos/{entrenamiento_id}").status_code == 404
 
 
@@ -586,6 +614,28 @@ def test_un_ejercicio_predefinido_no_se_puede_editar_ocultar_ni_borrar(
     )
 
 
+def test_las_notas_de_un_predefinido_se_pueden_leer_y_escribir(
+    cliente, sesion_bd, ejercicio_predefinido_id
+):
+    """El 403 es para el ejercicio, no para sus notas: son de quien entrena y no cambian
+    nada de lo que viene con la app. Casi todo lo que se entrena son predefinidos, así
+    que es donde más notas habrá.
+    """
+    ruta = f"/ejercicios/{ejercicio_predefinido_id}/notas"
+    vieja = cliente.post(ruta, json={"nota": "Barra en los trapecios"})
+    nueva = cliente.post(ruta, json={"nota": "Bajar hasta paralelo"})
+    assert (vieja.status_code, nueva.status_code) == (201, 201), (vieja.text, nueva.text)
+
+    editada = cliente.put(f"{ruta}/{nueva.json()['id']}", json={"nota": "Bajar más"})
+    borrada = cliente.delete(f"{ruta}/{vieja.json()['id']}")
+
+    assert (editada.status_code, borrada.status_code) == (200, 204)
+    assert [nota["nota"] for nota in cliente.get(ruta).json()] == ["Bajar más"]
+    sesion_bd.expire_all()
+    fila = sesion_bd.get(Ejercicio, ejercicio_predefinido_id)
+    assert (fila.nombre, fila.es_predefinido) == ("Sentadilla con barra", True)
+
+
 def test_editar_un_predefinido_da_403_antes_de_mirar_el_grupo(cliente, ejercicio_predefinido_id):
     """El orden del PUT es 404 → 403 → 409 → grupo: con un grupo que no existe, lo
     que se dice es que el predefinido no se edita, no que falta el grupo.
@@ -856,9 +906,8 @@ def test_una_rutina_con_solo_sesiones_canceladas_se_borra_directa_y_se_las_lleva
     no se hizo nada en ella y no es historial. Ni la de un día pasado que se quedó
     sin terminar ni la de hoy ya terminada bloquean el borrado.
 
-    Antes, cualquier sesión pedía `modo`. Y hay que llevárselas igualmente: con
-    `entrenamientos.rutina_id` en RESTRICT, si el camino directo no las borrara
-    daría un 500.
+    Y hay que llevárselas igualmente: con `entrenamientos.rutina_id` en RESTRICT, si
+    el camino directo no las borrara daría un 500.
     """
     hoy_es(HOY)
     rutina_id = crear_rutina(cliente, "Brazos")
@@ -1165,9 +1214,9 @@ def test_si_su_dia_aun_no_ha_llegado_con_el_programa_activo_se_borra_directa(cli
 def test_una_rutina_que_entra_hoy_en_el_programa_activo_se_borra_directa(cliente, ppl):
     """El martes del PPL pasa hoy a ser Brazos: su única fila de programa empieza
     hoy y no tiene nada en común con el pasado. Sin huecos ni sesiones, el DELETE
-    sin modo la borra y el martes vuelve a descanso. (Hasta ahora este caso solo se
-    cubría de rebote, según el orden en que Postgres devolviera las filas de otro
-    test: la cobertura de ramas dependía de la suerte.)
+    sin modo la borra y el martes vuelve a descanso. (Sin este test, el caso solo se
+    cubriría de rebote, según el orden en que Postgres devolviera las filas de otro
+    test: la cobertura de ramas dependería de la suerte.)
     """
     brazos = crear_rutina(cliente, "Brazos")
     programa = cliente.get("/programas").json()[0]["id"]
@@ -1356,8 +1405,7 @@ def test_borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso(
 
     En una sola petición, con sesiones que se van y otras que se quedan (la del 4
     conserva la serie del otro hueco, la del 8 ni lo usaba, una ya vacía y la abierta
-    hoy): se borran exactamente las del aviso. Antes, las que se vaciaban se quedaban
-    vacías.
+    hoy): se borran exactamente las del aviso.
     """
     escenario = push_con_dos_huecos
     rutina_id, a = escenario["rutina_id"], escenario["a"]

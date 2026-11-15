@@ -15,7 +15,6 @@ from datetime import date
 import pytest
 
 from app.models import Entrenamiento
-
 from tests.ayudas import (
     bajo_la_fecha,
     crear_programa,
@@ -29,16 +28,15 @@ from tests.semana import (
     DOMINGO_20,
     HOY,
     JUEVES_17,
+    LUNES_7,
     LUNES_14,
     LUNES_21,
-    LUNES_7,
     MARTES_15,
     MIERCOLES_23,
     VIERNES_18,
     con_una_serie,
     sesion,
 )
-
 
 # --- Empezar, recuperar y adelantar --------------------------------------
 

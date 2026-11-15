@@ -314,6 +314,11 @@ def test_el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones(cliente):
 
     assert [s["id"] for s in todas] == [reciente, antigua]
     assert [s["id"] for s in una] == [reciente]
+    # El límite va de 1 a 500, como el del historial.
+    for limite in (0, 501):
+        fuera = cliente.get("/entrenamientos", params={"rutina_id": push, "limite": limite})
+        assert fuera.status_code == 422, (limite, fuera.text)
+        assert [e["loc"] for e in fuera.json()["detail"]] == [["query", "limite"]]
 
 
 def test_el_listado_filtra_por_rango_de_fechas_incluidos_los_extremos(cliente):

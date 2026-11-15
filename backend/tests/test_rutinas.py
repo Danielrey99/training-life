@@ -14,16 +14,16 @@ from app.fechas import hoy
 from app.models import Rutina, RutinaSlot, SlotAlternativa
 from tests.ayudas import (
     ELEGIDO_YA_NO_EXISTE,
-    ejercicio_oculto,
-    nombre_repetido,
     alternativa,
     consultas_de,
     crear_ejercicio,
     crear_hueco,
     crear_rutina,
     cuantas_filas,
+    ejercicio_oculto,
     entrenar,
     ids_de_alternativas,
+    nombre_repetido,
     objetivo,
     ocultar_hueco,
     poner_alternativas,

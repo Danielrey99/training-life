@@ -18,11 +18,11 @@ from app.fechas import hoy
 from app.models import RutinaSlot, Serie, SlotAlternativa
 from tests.ayudas import (
     ELEGIDO_YA_NO_EXISTE,
-    ejercicio_oculto,
     alternativa,
     crear_ejercicio,
     crear_rutina,
     cuantas_filas,
+    ejercicio_oculto,
     entrenar,
     ids_de_alternativas,
     objetivo,

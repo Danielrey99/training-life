@@ -97,8 +97,7 @@ def test_dos_adelantos_que_se_cruzan_el_dia_al_restablecer_la_semana(
     Pull del viernes el martes. Al restablecer la semana, hoy vuelve a Pull y el
     viernes a Leg: cada sesión pasa al día de la otra. Asignarlas de una vez chocaría
     a mitad de camino con la unicidad de `cubre_fecha` (por eso se reubican en dos
-    fases). Antes se probaba con `POST /plan/intercambiar`, que ya no existe; el
-    intercambio de la pantalla de hoy, en `test_intercambiar.py`.
+    fases). El intercambio de la pantalla de hoy, en `test_intercambiar.py`.
     """
     assert planificar(cliente, HOY, ppl["Leg"]).status_code == 200
     assert planificar(cliente, VIERNES_18, ppl["Pull"]).status_code == 200
