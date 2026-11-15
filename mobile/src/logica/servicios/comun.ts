@@ -15,16 +15,6 @@ export interface Condicion {
   params: Valor[]
 }
 
-/** La negación de una condición. Las columnas que se miran no son nulas: NOT basta. */
-export function no(c: Condicion): Condicion {
-  return { sql: `NOT (${c.sql})`, params: c.params }
-}
-
-/** Las dos condiciones a la vez. */
-export function y(a: Condicion, b: Condicion): Condicion {
-  return { sql: `(${a.sql}) AND (${b.sql})`, params: [...a.params, ...b.params] }
-}
-
 /**
  * Qué se puede hacer con algo oculto (`app/ocultos.py`): leerlo, borrarlo o mostrarlo, sí;
  * editarlo, no, y eso es un 409. Elegirlo en otro sitio es un 404, y lo decide el

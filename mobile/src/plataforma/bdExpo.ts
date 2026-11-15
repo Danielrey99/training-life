@@ -25,9 +25,14 @@ function motorDe(bd: SQLiteDatabase): Motor {
   }
 }
 
-/** Abre una base por su nombre (la autocomprobación usa una en memoria, `:memory:`). */
-export function abrirBdExpo(nombre: string = NOMBRE_DEL_ARCHIVO): Bd {
-  return crearBd(motorDe(openDatabaseSync(nombre)))
+/** Una base en memoria para `usar`, cerrada después pase lo que pase (la autocomprobación). */
+export function conBaseEnMemoria<T>(usar: (bd: Bd) => T): T {
+  const nativa = openDatabaseSync(':memory:')
+  try {
+    return usar(crearBd(motorDe(nativa)))
+  } finally {
+    nativa.closeSync()
+  }
 }
 
 export interface BaseAbierta {

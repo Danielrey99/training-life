@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { autocomprobar } from '../logica/autocomprobacion'
 import { ultimoFallo } from '../logica/rastro'
 import { compartirTusDatos, PREDEFINIDOS, rutaDeLaBase } from '../plataforma/arranque'
-import { abrirBdExpo } from '../plataforma/bdExpo'
+import { conBaseEnMemoria } from '../plataforma/bdExpo'
 import { compartirCopia, copiasGuardadas, rutaDeArchivo } from '../plataforma/copias'
 import { olvidarFallo } from '../plataforma/rastro'
 
@@ -14,7 +14,7 @@ function comprobarTodo() {
   const prueba = new File(Paths.cache, 'autocomprobacion.db')
   if (prueba.exists) prueba.delete()
   try {
-    return autocomprobar(abrirBdExpo(':memory:'), PREDEFINIDOS, rutaDeArchivo(prueba.uri))
+    return conBaseEnMemoria((bd) => autocomprobar(bd, PREDEFINIDOS, rutaDeArchivo(prueba.uri)))
   } finally {
     if (prueba.exists) prueba.delete()
   }

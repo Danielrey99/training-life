@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 
 import { Pestanas } from './componentes/Pestanas'
 import { Proteccion } from './componentes/Proteccion'
@@ -43,10 +43,6 @@ export default function App() {
             <Route path="/historial/planificar" element={<Planificar />} />
             <Route path="/historial/resumen" element={<Resumen />} />
             <Route path="/historial/:fecha" element={<Dia />} />
-            {/* Direcciones antiguas, por si quedaron guardadas en el móvil: registrar un
-              día pasado vive ahora en el calendario, y la sesión, en /sesion. */}
-            <Route path="/registrar" element={<Navigate to="/historial" replace />} />
-            <Route path="/registrar/:entrenamientoId" element={<RedirigirASesion />} />
             <Route path="/progresion/:ejercicioId" element={<Progresion />} />
             <Route path="/programas" element={<Programas />} />
             <Route path="/programas/nuevo" element={<ProgramaNuevo />} />
@@ -74,9 +70,4 @@ export default function App() {
       </main>
     </div>
   )
-}
-
-function RedirigirASesion() {
-  const { entrenamientoId } = useParams()
-  return <Navigate to={`/sesion/${entrenamientoId}`} replace />
 }
