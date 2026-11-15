@@ -31,7 +31,8 @@ type Props = {
 // En píxeles. El ancho no es fijo: es el de la tarjeta, medido (ver `useAncho`).
 const ANCHO_INICIAL = 326
 const ALTO = 176
-const IZQUIERDA = 32
+// El hueco de los valores del eje, como mínimo: con cifras largas («2400») se ensancha.
+const IZQUIERDA_MINIMA = 32
 const ARRIBA = 20
 const ABAJO = 150
 // El alto del globo es fijo; el ancho se ajusta a lo que dice (`anchoDelGlobo`).
@@ -118,6 +119,13 @@ export function Grafica({
   )
   const bajo = marcas[0]
   const alto = marcas[marcas.length - 1]
+  const textoDeMarca = (marca: number) =>
+    formatoDeMarca ? formatoDeMarca(marca * divisor) : marca.toLocaleString('es-ES')
+  // A 11 px, unos 6,2 px por letra, más los 8 de separación con la cuadrícula.
+  const IZQUIERDA = Math.max(
+    IZQUIERDA_MINIMA,
+    Math.ceil(Math.max(...marcas.map((marca) => textoDeMarca(marca).length)) * 6.2) + 10,
+  )
   const primero = puntos[0].fecha
   const ultimo = puntos[puntos.length - 1].fecha
   const total = diasEntre(primero, ultimo)
@@ -294,7 +302,7 @@ export function Grafica({
         <g fill="var(--texto-tenue)" fontSize="11" textAnchor="end">
           {marcas.map((marca) => (
             <text key={marca} x={IZQUIERDA - 8} y={enEje(marca) + 4}>
-              {formatoDeMarca ? formatoDeMarca(marca * divisor) : marca.toLocaleString('es-ES')}
+              {textoDeMarca(marca)}
             </text>
           ))}
         </g>

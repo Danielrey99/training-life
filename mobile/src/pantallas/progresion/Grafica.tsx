@@ -45,7 +45,8 @@ type Props = {
 // En píxeles. El ancho no es fijo: es el de la tarjeta, medido.
 const ANCHO_INICIAL = 326
 const ALTO = 176
-const IZQUIERDA = 32
+// El hueco de los valores del eje, como mínimo: con cifras largas («2.400») se ensancha.
+const IZQUIERDA_MINIMA = 32
 const ARRIBA = 20
 const ABAJO = 150
 const GLOBO = { alto: 40, relleno: 10 }
@@ -96,6 +97,13 @@ export function Grafica({
     Math.min(...puntos.map((p) => p.valor)) / divisor,
     Math.max(...puntos.map((p) => p.valor)) / divisor,
     pasos,
+  )
+  const textoDeMarca = (marca: number) =>
+    formatoDeMarca ? formatoDeMarca(marca * divisor) : numeroLegible(marca)
+  // A 11 px, unos 6,2 px por letra, más los 8 de separación con la cuadrícula.
+  const IZQUIERDA = Math.max(
+    IZQUIERDA_MINIMA,
+    Math.ceil(Math.max(...marcas.map((marca) => textoDeMarca(marca).length)) * 6.2) + 10,
   )
   const bajo = marcas[0]
   const alto = marcas[marcas.length - 1]
@@ -267,7 +275,7 @@ export function Grafica({
           <G fill={c.textoTenue} fontSize={11} textAnchor="end">
             {marcas.map((marca) => (
               <TextoSvg key={marca} x={IZQUIERDA - 8} y={enEje(marca) + 4}>
-                {formatoDeMarca ? formatoDeMarca(marca * divisor) : numeroLegible(marca)}
+                {textoDeMarca(marca)}
               </TextoSvg>
             ))}
           </G>
