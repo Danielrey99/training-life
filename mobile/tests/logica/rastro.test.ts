@@ -77,3 +77,23 @@ test('cargar_null_deja_el_rastro_vacio', () => {
 
   expect(ultimoFallo()).toBeNull()
 })
+
+// Fallo conocido de `apuntarFallo` (src/logica/rastro.ts, `let apuntado: unknown = undefined`):
+// para no apuntar dos veces el mismo error, se compara con el último apuntado, que empieza siendo
+// `undefined`. Así, si lo primero que falla desde que se abre la app lanza `undefined` (un
+// `throw undefined` o una promesa rechazada sin motivo), no se apunta y el rastro se queda vacío.
+test('lo_primero_que_se_apunta_al_abrir_la_app_se_guarda_aunque_sea_undefined', () => {
+  jest.isolateModules(() => {
+    // El módulo recién cargado, como al abrir la app.
+    const rastro =
+      jest.requireActual<typeof import('../../src/logica/rastro')>('../../src/logica/rastro')
+
+    rastro.apuntarFallo(undefined, '2026-11-12T10:00:00.000Z')
+
+    expect(rastro.ultimoFallo()).toEqual({
+      cuando: '2026-11-12T10:00:00.000Z',
+      detalle: 'undefined',
+      pila: null,
+    })
+  })
+})

@@ -563,6 +563,101 @@ test('un_end_suelto_no_deja_la_base_a_medias', () => {
   expect(versionDeLaBase(bd)).toBe(1)
 })
 
+// Fallo conocido de `sinCuerposDeDisparadores` (src/logica/bd/migraciones.ts): toma cualquier
+// `TRIGGER` detrás de un `CREATE` como el principio de un disparador y, si no encuentra su
+// `BEGIN`, se come todo lo que va detrás. SQLite admite `trigger` como nombre de columna sin
+// comillas, así que una tabla o un índice con esa columna esconde un `COMMIT;` o un `END;`
+// sueltos, y con ellos vuelve el paso a medias de `un_end_suelto_no_deja_la_base_a_medias`.
+test.each([
+  ['CREATE TABLE b2 (trigger INTEGER) STRICT; COMMIT;'],
+  ['CREATE INDEX ix_b_x ON b (x) WHERE x > 0; CREATE TABLE b2 (trigger INTEGER) STRICT; END;'],
+])('comprobar_paso_no_se_deja_enganar_por_una_columna_llamada_trigger (%s)', (sql) => {
+  // Es SQL que SQLite acepta: la columna se llama así de verdad.
+  const bd = abrirBdNode()
+  bd.ejecutarVarias('CREATE TABLE prueba (trigger INTEGER) STRICT')
+
+  expect(lanzado(() => comprobarPaso(conDelante(sql)))).toMatchObject({
+    name: 'MigracionPeligrosa',
+    message: expect.stringContaining('transacción'),
+  })
+})
+
+// --- Las comprobaciones de la propia infraestructura --------------------------------------------
+// Lo que SQLite no debería hacer nunca (no apagar o no volver a encender las claves ajenas, una
+// base dañada tras los pasos), con una base que miente al mirarlo: la red no puede darlo por bueno.
+
+/** La base, con la respuesta a una consulta cambiada. */
+function conRespuesta(bd: Bd, sql: string, respuesta: () => unknown): Bd {
+  return {
+    ...bd,
+    una<T>(consulta: string, ...params: Parameters<Bd['una']>[1][]) {
+      return (consulta === sql ? respuesta() : bd.una<T>(consulta, ...params)) as T | undefined
+    },
+    get enTransaccion() {
+      return bd.enTransaccion
+    },
+  }
+}
+
+const REHACER_SERIES = (bd: Bd): Migracion => ({
+  version: 2,
+  sinClavesAjenas: true,
+  sql: rehacerIgual(bd, 'series'),
+})
+
+test('si_las_claves_ajenas_no_se_apagan_no_se_pone_al_dia', () => {
+  const bd = baseV1ConDatos()
+  const volcado = volcar(bd)
+  const esquema = esquemaEntero(bd)
+
+  const error = lanzado(() =>
+    aplicarMigraciones(
+      conRespuesta(bd, 'PRAGMA foreign_keys', () => ({ foreign_keys: 1 })),
+      [V1, REHACER_SERIES(bd)],
+    ),
+  )
+
+  expect(error).toBeInstanceOf(MigracionPeligrosa)
+  expect((error as Error).message).toBe('No se han podido apagar las claves ajenas.')
+  // Ni un paso aplicado. (Las claves, apagadas de verdad: la base mentía al mirarlas.)
+  bd.ejecutarVarias('PRAGMA foreign_keys = ON')
+  expectIntacta(bd, volcado, esquema)
+})
+
+test('si_las_claves_ajenas_no_vuelven_a_encenderse_lanza_aunque_el_paso_saliera_bien', () => {
+  // Seguir sin claves ajenas es peor que avisar: sin ellas no hay CASCADE ni RESTRICT.
+  const bd = baseV1ConDatos()
+
+  const error = lanzado(() =>
+    aplicarMigraciones(
+      conRespuesta(bd, 'PRAGMA foreign_keys', () => ({ foreign_keys: 0 })),
+      [V1, REHACER_SERIES(bd)],
+    ),
+  )
+
+  expect(error).toBeInstanceOf(MigracionPeligrosa)
+  expect((error as Error).message).toBe('No se han podido volver a encender las claves ajenas.')
+})
+
+test('una_base_danada_tras_los_pasos_se_para_y_se_deshace', () => {
+  const bd = baseV1ConDatos()
+  const volcado = volcar(bd)
+  const esquema = esquemaEntero(bd)
+
+  const error = lanzado(() =>
+    aplicarMigraciones(
+      conRespuesta(bd, 'PRAGMA quick_check', () => ({ quick_check: 'página 3 rota' })),
+      [V1, { version: 2, sql: 'CREATE TABLE extra (x INTEGER) STRICT;' }],
+    ),
+  )
+
+  expect(error).toBeInstanceOf(MigracionPeligrosa)
+  expect((error as Error).message).toBe(
+    'La puesta al día a la versión 2 deja la base dañada: página 3 rota.',
+  )
+  expectIntacta(bd, volcado, esquema)
+})
+
 // --- Un lote de varios pasos es todo o nada ---------------------------------------------------
 
 /** Un paso normal (con claves ajenas) que deja huella en los datos y en el esquema. */

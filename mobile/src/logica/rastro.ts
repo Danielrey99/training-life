@@ -19,8 +19,10 @@ export interface Fallo {
 const LARGO_DE_LA_PILA = 2000
 
 let ultimo: Fallo | null = null
-// El error de `ultimo`, para no apuntar dos veces el mismo.
-let apuntado: unknown = undefined
+// El error de `ultimo`, para no apuntar dos veces el mismo. Empieza con una marca propia y no
+// con `undefined`: un `throw undefined` también es un fallo que apuntar.
+const NINGUNO = Symbol('ninguno')
+let apuntado: unknown = NINGUNO
 let guardar: ((fallo: Fallo) => void) | null = null
 
 /** Lo que hace la plataforma con cada fallo apuntado (guardarlo en un archivo). */

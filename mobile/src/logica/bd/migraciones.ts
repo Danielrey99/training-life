@@ -118,37 +118,42 @@ function sinTextos(sql: string): string {
  * cierra ninguna transacción. Dentro del cuerpo, cada `CASE` lleva su propio `END`.
  */
 function sinCuerposDeDisparadores(sql: string): string {
-  const palabras = /\b(CREATE|TRIGGER|BEGIN|CASE|END)\b|;/gi
+  // Un disparador empieza solo con `CREATE [TEMP] TRIGGER` seguido: `trigger` suelto puede ser
+  // el nombre de una columna (`CREATE TABLE t (trigger INTEGER)`), y tomarlo por un disparador
+  // escondería lo que viene detrás.
+  const palabras = /\bCREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b|\b(BEGIN|CASE|END)\b|;/gi
   let limpio = ''
   let desde = 0
   let estado: 'fuera' | 'cabecera' | 'cuerpo' = 'fuera'
-  let creando = false
+  let inicio = 0
   let casos = 0
   for (let m = palabras.exec(sql); m; m = palabras.exec(sql)) {
     const palabra = m[0].toUpperCase()
     if (estado === 'fuera') {
-      if (palabra === 'CREATE') creando = true
-      else if (palabra === 'TRIGGER' && creando) {
+      if (palabra.startsWith('CREATE')) {
         estado = 'cabecera'
-        limpio += sql.slice(desde, m.index)
-      } else if (palabra === ';') creando = false
+        inicio = m.index
+      }
     } else if (estado === 'cabecera') {
       if (palabra === 'BEGIN') {
         estado = 'cuerpo'
         casos = 0
+        limpio += sql.slice(desde, inicio)
+      } else if (palabra === ';') {
+        // Sin `BEGIN`, no era un disparador: lo de detrás se sigue mirando.
+        estado = 'fuera'
       }
     } else if (palabra === 'CASE') casos++
     else if (palabra === 'END') {
       if (casos > 0) casos--
       else {
         estado = 'fuera'
-        creando = false
         desde = m.index + m[0].length
         limpio += ' TRIGGER '
       }
     }
   }
-  return estado === 'fuera' ? limpio + sql.slice(desde) : limpio
+  return estado === 'cuerpo' ? limpio : limpio + sql.slice(desde)
 }
 
 /**
