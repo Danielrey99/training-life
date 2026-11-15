@@ -657,11 +657,9 @@ export function Dia() {
 
       {falloGuardar && <p className="aviso error">{falloGuardar}</p>}
 
-      <div
-        className="cifras"
-        // Sin volumen (un día solo de peso corporal, tiempo…), son dos cifras y no tres.
-        style={hayVolumen ? undefined : { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
-      >
+      {/* Siempre tres cifras (decisión del autor): un día sin ejercicios de peso y
+          repeticiones tiene volumen 0, sin comparación. */}
+      <div className="cifras">
         <div className="cifra">
           <span className="num cifra-valor destacada">
             {series.length}
@@ -669,25 +667,23 @@ export function Dia() {
           </span>
           <span>series</span>
         </div>
-        {hayVolumen && (
-          <div className="cifra">
-            <span className="num cifra-valor">
-              {volumen.toLocaleString('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' })}
-              <small> {unidad()}</small>
+        <div className="cifra">
+          <span className="num cifra-valor">
+            {volumen.toLocaleString('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' })}
+            <small> {unidad()}</small>
+          </span>
+          <span>volumen</span>
+          {hayVolumen && cambioVolumen !== null && (
+            <span
+              className={`num cifra-cambio ${cambioVolumen > 0 ? 'mejor' : cambioVolumen < 0 ? 'peor' : ''}`}
+            >
+              {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
+              {cambioVolumen === 0
+                ? 'igual'
+                : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} ${unidad()}`}
             </span>
-            <span>volumen</span>
-            {cambioVolumen !== null && (
-              <span
-                className={`num cifra-cambio ${cambioVolumen > 0 ? 'mejor' : cambioVolumen < 0 ? 'peor' : ''}`}
-              >
-                {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
-                {cambioVolumen === 0
-                  ? 'igual'
-                  : `${Math.abs(cambioVolumen).toLocaleString('es-ES', { useGrouping: 'always' })} ${unidad()}`}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+        </div>
         <div className="cifra">
           <span className="num cifra-valor">{mejorados}</span>
           <span>{mejorados === 1 ? 'ejercicio mejorado' : 'ejercicios mejorados'}</span>
@@ -771,6 +767,7 @@ export function Dia() {
               rutina.
             </p>
           )}
+          {!hayVolumen && <p>El volumen solo cuenta peso y repeticiones.</p>}
         </div>
       )}
 

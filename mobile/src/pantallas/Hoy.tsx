@@ -152,7 +152,12 @@ export function Hoy() {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
     if (!datos) return ''
     const cuando = datos.ultima_vez ? `última vez ${conArticulo(datos.ultima_vez)}` : 'nunca hecha'
-    return `${contar(datos.ejercicios, 'ejercicio', 'ejercicios')} · ${cuando}`
+    // «Sin ejercicios», como en la lista de Programas, y no «0 ejercicios».
+    const cuantos =
+      datos.ejercicios === 0
+        ? 'Sin ejercicios'
+        : contar(datos.ejercicios, 'ejercicio', 'ejercicios')
+    return `${cuantos} · ${cuando}`
   }
 
   /** El nombre para una sesión sin terminar; una rutina oculta no está en el resumen. */

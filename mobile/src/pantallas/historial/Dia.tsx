@@ -469,24 +469,21 @@ export function Dia() {
             </Text>
             <Text style={e.cifraTexto}>series</Text>
           </View>
-          {/* Sin volumen (un día solo de peso corporal, tiempo…), son dos cifras y no tres. */}
-          {hayVolumen && (
-            <View style={e.cifra}>
-              <Text style={e.cifraValor}>
-                {conMiles(volumen)}
-                <Text style={e.cifraPequena}> {unidad()}</Text>
+          {/* Siempre tres cifras (decisión del autor): un día sin ejercicios de peso y
+              repeticiones tiene volumen 0, sin comparación. */}
+          <View style={e.cifra}>
+            <Text style={e.cifraValor}>
+              {conMiles(volumen)}
+              <Text style={e.cifraPequena}> {unidad()}</Text>
+            </Text>
+            <Text style={e.cifraTexto}>volumen</Text>
+            {hayVolumen && cambioVolumen !== null && (
+              <Text style={[e.cifraTexto, e.cifraCambio, cambioVolumen > 0 && { color: c.acento }]}>
+                {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
+                {cambioVolumen === 0 ? 'igual' : `${conMiles(cambioVolumen)} ${unidad()}`}
               </Text>
-              <Text style={e.cifraTexto}>volumen</Text>
-              {cambioVolumen !== null && (
-                <Text
-                  style={[e.cifraTexto, e.cifraCambio, cambioVolumen > 0 && { color: c.acento }]}
-                >
-                  {cambioVolumen > 0 ? '↑ +' : cambioVolumen < 0 ? '↓ −' : ''}
-                  {cambioVolumen === 0 ? 'igual' : `${conMiles(cambioVolumen)} ${unidad()}`}
-                </Text>
-              )}
-            </View>
-          )}
+            )}
+          </View>
           <View style={e.cifra}>
             <Text style={e.cifraValor}>{mejorados}</Text>
             <Text style={e.cifraTexto}>
@@ -579,6 +576,9 @@ export function Dia() {
                 El volumen solo cuenta peso y repeticiones, frente a la sesión anterior de esta
                 rutina.
               </Text>
+            )}
+            {!hayVolumen && (
+              <Text style={e.leyendaTexto}>El volumen solo cuenta peso y repeticiones.</Text>
             )}
           </View>
         )}
