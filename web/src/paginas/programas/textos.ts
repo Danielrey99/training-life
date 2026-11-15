@@ -107,7 +107,7 @@ export function deDonde(
 export function diasCambiadosAMano(fechas: string[], enFrase: (iso: string) => string) {
   const ordenadas = [...fechas].sort()
   const primero = enFrase(ordenadas[0])
-  if (ordenadas.length === 1) return `Tienes 1 día cambiado a mano: ${primero}.`
+  if (ordenadas.length === 1) return `Tienes 1 día cambiado a mano, ${primero}.`
   const ultimo = enFrase(ordenadas[ordenadas.length - 1])
   return `Tienes ${ordenadas.length} días cambiados a mano, entre ${primero} y ${ultimo}.`
 }

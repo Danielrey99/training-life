@@ -21,8 +21,14 @@ export function FalloAlCargar({
   if (fallo instanceof ErrorDeApi && fallo.estado === 404) {
     return <Text style={aviso}>{textoDelFallo(fallo)}</Text>
   }
+  // Un dato que no vale viene de la ruta: o no tiene la forma que toca, o la lógica lo
+  // explica con una frase («Diciembre de 2026 todavía no ha llegado…»), que se enseña tal cual.
   if (fallo instanceof ErrorDeApi && fallo.estado === 422) {
-    return <Text style={aviso}>Esa página no existe.</Text>
+    return (
+      <Text style={aviso}>
+        {typeof fallo.detalle === 'string' ? fallo.message : 'Esa página no existe.'}
+      </Text>
+    )
   }
   return (
     <View style={estilos.caja}>

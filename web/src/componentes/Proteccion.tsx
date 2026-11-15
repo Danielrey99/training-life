@@ -77,8 +77,13 @@ export function FalloAlCargar({
   if (fallo instanceof ErrorDeApi && fallo.estado === 404) {
     return <p className="aviso error">{textoDelFallo(fallo)}</p>
   }
-  // Al leer, un dato que no vale solo puede venir de la dirección («/sesion/abc»).
+  // Al leer, un dato que no vale viene de la dirección: o no tiene la forma que toca
+  // («/sesion/abc», la lista de la validación) o el servidor lo explica con una frase
+  // («Diciembre de 2026 todavía no ha llegado…»), que se enseña tal cual.
   if (fallo instanceof ErrorDeApi && fallo.estado === 422) {
+    if (typeof fallo.detalle === 'string') {
+      return <p className="aviso error">{fallo.message}</p>
+    }
     return <p className="aviso error">{siLaDireccionNoVale ?? 'Esa página no existe.'}</p>
   }
   return (

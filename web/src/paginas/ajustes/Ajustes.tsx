@@ -258,7 +258,9 @@ export function Ajustes() {
               ? 'Ahora no tienes nada apuntado. '
               : `Ahora tienes ${describir(pendiente.comprobacion.actual)}. `) +
             `El archivo, exportado el ${diaYMesConAnio(diaDe(pendiente.comprobacion.exportado_en))}, ` +
-            `tiene ${describir(pendiente.comprobacion.archivo)}. ` +
+            (describir(pendiente.comprobacion.archivo) === 'nada'
+              ? 'no tiene nada apuntado. '
+              : `tiene ${describir(pendiente.comprobacion.archivo)}. `) +
             'Todo lo de ahora se sustituirá por lo del archivo. ' +
             'Si quieres conservarlo, expórtalo antes.'
           }
