@@ -245,6 +245,12 @@ export function BloqueDelDia({
           muéstralo desde la pestaña Ejercicios.
         </p>
       )}
+      {editando && hueco.oculto_desde && (
+        <p className="nota">
+          {ejercicio.nombre} está oculto en esta rutina. Puedes corregir sus series, pero para
+          apuntar más muéstralo en la rutina desde la pestaña Programas.
+        </p>
+      )}
 
       {!vacio && (
         <div className="dia-vez">

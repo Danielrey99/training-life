@@ -290,6 +290,12 @@ export function BloqueDelDia({
           muéstralo desde la pestaña Ejercicios.
         </Text>
       )}
+      {editando && hueco.oculto_desde && (
+        <Text style={[estilos.nota, tenue]}>
+          {ejercicio.nombre} está oculto en esta rutina. Puedes corregir sus series, pero para
+          apuntar más muéstralo en la rutina desde la pestaña Programas.
+        </Text>
+      )}
 
       {!vacio && (
         <View style={[estilos.vez, { borderTopColor: c.borde }]}>
