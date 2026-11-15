@@ -118,32 +118,40 @@ function todos_los_datos(cliente: Cliente): any {
   return datos
 }
 
+/**
+ * La ruta del ejercicio, la rutina, el hueco o el programa de un escenario donde todo es
+ * historial de las cuatro cosas a la vez: el programa estuvo activo un lunes pasado y el hueco
+ * tiene una serie.
+ */
+function ruta_con_historial(cliente: Cliente, reloj: RelojDeTest, que: string): string {
+  const ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id(cliente))
+  const [rutina_id, slot_id] = crear_rutina_con_hueco(cliente, ejercicio_id)
+  reloj.fijar(LUNES_14)
+  const programa = cliente.post('/programas', {
+    json: {
+      nombre: 'Push',
+      activar: true,
+      dias: [{ dia_semana: 1, rutina_id }],
+    },
+  })
+  expect(programa.status_code).toBe(201)
+  reloj.fijar(HOY)
+  registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
+  return {
+    ejercicio: `/ejercicios/${ejercicio_id}`,
+    rutina: `/rutinas/${rutina_id}`,
+    hueco: `/rutinas/${rutina_id}/slots/${slot_id}`,
+    programa: `/programas/${programa.json().id}`,
+  }[que]!
+}
+
 test.each([['ejercicio'], ['rutina'], ['hueco'], ['programa']])(
   'el_delete_sin_modo_de_algo_con_historial_da_409_con_su_frase_y_no_borra_nada (%s)',
   (que) => {
     // El 409 es una frase fija que solo pide elegir `modo` (antes, en el ejercicio y el programa
-    // era un objeto con lo que se perdería, que ya cuenta su aviso de borrado). Todo lo montado
-    // es historial de las cuatro cosas a la vez.
+    // era un objeto con lo que se perdería, que ya cuenta su aviso de borrado).
     const { cliente, reloj } = crearCliente()
-    const ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id(cliente))
-    const [rutina_id, slot_id] = crear_rutina_con_hueco(cliente, ejercicio_id)
-    reloj.fijar(LUNES_14)
-    const programa = cliente.post('/programas', {
-      json: {
-        nombre: 'Push',
-        activar: true,
-        dias: [{ dia_semana: 1, rutina_id }],
-      },
-    })
-    expect(programa.status_code).toBe(201)
-    reloj.fijar(HOY)
-    registrar_serie(cliente, rutina_id, slot_id, ejercicio_id)
-    const ruta = {
-      ejercicio: `/ejercicios/${ejercicio_id}`,
-      rutina: `/rutinas/${rutina_id}`,
-      hueco: `/rutinas/${rutina_id}/slots/${slot_id}`,
-      programa: `/programas/${programa.json().id}`,
-    }[que]!
+    const ruta = ruta_con_historial(cliente, reloj, que)
     const antes = todos_los_datos(cliente)
 
     const respuesta = cliente.delete(ruta)
@@ -152,6 +160,23 @@ test.each([['ejercicio'], ['rutina'], ['hueco'], ['programa']])(
     const detalle = respuesta.json().detail
     expect(typeof detalle).toBe('string')
     expect(detalle).toBe((PIDE_MODO as Record<string, string>)[que])
+    expect(todos_los_datos(cliente)).toEqual(antes)
+  },
+)
+
+test.each([['ejercicio'], ['rutina'], ['hueco'], ['programa']])(
+  'un_modo_que_no_existe_da_422_y_no_borra_nada (%s)',
+  (que) => {
+    // Un `modo` mal escrito no puede caer en ninguno de los dos caminos: si el que no es
+    // «ocultar» se tomara por «definitivo», una errata lo borraría todo sin vuelta atrás.
+    const { cliente, reloj } = crearCliente()
+    const ruta = ruta_con_historial(cliente, reloj, que)
+    const antes = todos_los_datos(cliente)
+
+    const respuesta = cliente.delete(ruta, { params: { modo: 'borrar' } })
+
+    expect(respuesta.status_code).toBe(422)
+    expect(respuesta.json().detail.map((e: any) => e.loc)).toEqual([['query', 'modo']])
     expect(todos_los_datos(cliente)).toEqual(antes)
   },
 )
@@ -588,6 +613,32 @@ test('un_ejercicio_predefinido_no_se_puede_editar_ocultar_ni_borrar', () => {
     null,
     1,
   ])
+})
+
+test('las_notas_de_un_predefinido_se_pueden_leer_y_escribir', () => {
+  // El 403 es para el ejercicio, no para sus notas: son de quien entrena y no cambian nada de
+  // lo que viene con la app. Casi todo lo que se entrena son predefinidos, así que es donde más
+  // notas habrá.
+  const { cliente, bd } = crearCliente()
+  const predefinido = ejercicio_predefinido_id(bd)
+  const ruta = `/ejercicios/${predefinido}/notas`
+  const vieja = cliente.post(ruta, { json: { nota: 'Barra en los trapecios' } })
+  const nueva = cliente.post(ruta, { json: { nota: 'Bajar hasta paralelo' } })
+  expect([vieja.status_code, nueva.status_code]).toEqual([201, 201])
+
+  const editada = cliente.put(`${ruta}/${nueva.json().id}`, { json: { nota: 'Bajar más' } })
+  const borrada = cliente.delete(`${ruta}/${vieja.json().id}`)
+
+  expect([editada.status_code, borrada.status_code]).toEqual([200, 204])
+  expect(
+    cliente
+      .get(ruta)
+      .json()
+      .map((nota: any) => nota.nota),
+  ).toEqual(['Bajar más'])
+  expect(bd.una('SELECT nombre, es_predefinido FROM ejercicios WHERE id = ?', predefinido)).toEqual(
+    { nombre: 'Sentadilla con barra', es_predefinido: 1 },
+  )
 })
 
 test('editar_un_predefinido_da_403_antes_de_mirar_el_grupo', () => {

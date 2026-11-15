@@ -1,8 +1,8 @@
 /**
  * Inventario de los tests del backend: cada `def test_*` de backend/tests/test_*.py tiene
- * que estar portado a un test del móvil con el mismo nombre (sin «test_»), o apuntado en
- * no_aplica.ts (con su motivo) o en pendientes.ts (con su hito). Así no se pierde ningún
- * escenario del backend al portar la lógica.
+ * que estar portado a un test del móvil con el mismo nombre (sin «test_») o apuntado en
+ * no_aplica.ts con su motivo. Así no se pierde ningún escenario del backend: uno nuevo que no
+ * se porte hace fallar la tanda.
  *
  * Se busca por texto, sin importar los archivos de test. Un nombre que está en dos archivos
  * del backend se apunta con el archivo delante («resumen:siempre_hace_las_mismas_consultas»)
@@ -13,7 +13,6 @@ import { basename, join } from 'node:path'
 
 import { nombresDeTests } from './apoyo/reconocedor'
 import { noAplica } from './no_aplica'
-import { pendientes } from './pendientes'
 
 const TESTS_DEL_BACKEND = join(__dirname, '..', '..', 'backend', 'tests')
 const TESTS_DEL_MOVIL = __dirname
@@ -23,7 +22,7 @@ interface TestDelBackend {
   archivo: string
   /** El nombre sin «test_». */
   nombre: string
-  /** Como se apunta en no_aplica.ts y pendientes.ts. */
+  /** Como se apunta en no_aplica.ts. */
   clave: string
 }
 
@@ -82,7 +81,7 @@ function estaPortado(t: TestDelBackend): boolean {
 }
 
 function enLista(clave: string): boolean {
-  return Object.hasOwn(noAplica, clave) || Object.hasOwn(pendientes, clave)
+  return Object.hasOwn(noAplica, clave)
 }
 
 test('se_leen_los_tests_del_backend', () => {
@@ -99,24 +98,16 @@ test('cada_test_del_backend_esta_portado_o_apuntado', () => {
   expect(faltan).toEqual([])
 })
 
-test('ninguno_de_no_aplica_ni_de_pendientes_esta_ya_portado', () => {
-  const portados = backend
-    .filter((t) => enLista(t.clave) && estaPortado(t))
-    .map((t) => `${t.clave} (${Object.hasOwn(noAplica, t.clave) ? 'no_aplica' : 'pendientes'})`)
+test('ninguno_de_no_aplica_esta_ya_portado', () => {
+  const portados = backend.filter((t) => enLista(t.clave) && estaPortado(t)).map((t) => t.clave)
 
   expect(portados).toEqual([])
 })
 
-test('todos_los_de_no_aplica_y_pendientes_existen_en_el_backend', () => {
-  const viejos = [...Object.keys(noAplica), ...Object.keys(pendientes)].filter(
-    (clave) => !claves.has(clave),
-  )
+test('todos_los_de_no_aplica_existen_en_el_backend', () => {
+  const viejos = Object.keys(noAplica).filter((clave) => !claves.has(clave))
 
   expect(viejos).toEqual([])
-})
-
-test('ninguno_esta_a_la_vez_en_no_aplica_y_en_pendientes', () => {
-  expect(Object.keys(noAplica).filter((clave) => Object.hasOwn(pendientes, clave))).toEqual([])
 })
 
 test('cada_uno_de_no_aplica_dice_su_motivo', () => {

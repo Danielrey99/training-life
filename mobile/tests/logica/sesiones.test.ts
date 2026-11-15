@@ -339,6 +339,12 @@ test('el_listado_por_rutina_con_limite_da_sus_ultimas_sesiones', () => {
 
   expect(todas.map((s: any) => s.id)).toEqual([reciente, antigua])
   expect(una.map((s: any) => s.id)).toEqual([reciente])
+  // El límite va de 1 a 500, como el del historial.
+  for (const limite of [0, 501]) {
+    const fuera = cliente.get('/entrenamientos', { params: { rutina_id: push, limite } })
+    expect([limite, fuera.status_code]).toEqual([limite, 422])
+    expect(fuera.json().detail.map((e: any) => e.loc)).toEqual([['query', 'limite']])
+  }
 })
 
 test('el_listado_filtra_por_rango_de_fechas_incluidos_los_extremos', () => {

@@ -117,27 +117,41 @@ test('una_sesion_solo_trae_las_series_de_ese_ejercicio_no_el_entrenamiento_enter
 test('el_mismo_ejercicio_en_dos_huecos_junta_en_su_historial_las_series_de_ambos', () => {
   // Un ejercicio puede ocupar dos huecos de la misma rutina. Su historial junta las series
   // de ambos, y cada una dice de qué hueco es.
+  //
+  // Las dos tienen el número 1: salen por orden de id, aunque la primera se haya corregido
+  // después (sin desempate, el orden de dos series con el mismo número no está garantizado).
   const { cliente, esc } = escenario()
   const segundo_slot_id = crear_hueco(cliente, esc.rutina_id, esc.ejercicio_id, { orden: 2 })
   const entrenamiento_id = crear_entrenamiento(cliente, '2026-09-05', esc.rutina_id)
-  registrar_serie(cliente, entrenamiento_id, esc.ejercicio_id, 1, 60, esc.slot_id)
-  registrar_serie(cliente, entrenamiento_id, esc.ejercicio_id, 1, 25, segundo_slot_id)
+  const primera = registrar_serie(cliente, entrenamiento_id, esc.ejercicio_id, 1, 60, esc.slot_id)
+  const segunda = registrar_serie(
+    cliente,
+    entrenamiento_id,
+    esc.ejercicio_id,
+    1,
+    25,
+    segundo_slot_id,
+  )
+  const corregida = cliente.put(`/entrenamientos/${entrenamiento_id}/series/${primera}`, {
+    json: {
+      ejercicio_id: esc.ejercicio_id,
+      slot_id: esc.slot_id,
+      numero_serie: 1,
+      peso: 62.5,
+      repeticiones: 8,
+    },
+  })
+  esperar_estado(corregida, 200)
 
   const del_ejercicio = historial_de_ejercicio(cliente, esc.ejercicio_id)
 
   expect(del_ejercicio).toHaveLength(1)
-  expect(
-    del_ejercicio[0].series
-      .map((serie: any) => Number(serie.peso))
-      .sort((a: number, b: number) => a - b),
-  ).toEqual([25.0, 60.0])
-
   // Las dos series numeran desde 1, así que sin el slot_id no habría forma de saber cuál
   // pertenece a cada hueco.
-  const por_hueco = Object.fromEntries(
-    del_ejercicio[0].series.map((serie: any) => [serie.slot_id, Number(serie.peso)]),
-  )
-  expect(por_hueco).toEqual({ [esc.slot_id]: 60.0, [segundo_slot_id]: 25.0 })
+  expect(del_ejercicio[0].series.map((s: any) => [s.id, s.slot_id, s.peso])).toEqual([
+    [primera, esc.slot_id, '62.50'],
+    [segunda, segundo_slot_id, '25.00'],
+  ])
 })
 
 // --- La "última vez" de un ejercicio -------------------------------------

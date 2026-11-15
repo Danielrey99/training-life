@@ -49,28 +49,28 @@ const OCULTALA = 'Si solo quieres que deje de salir, ocúltala.'
 const OCULTALO = `Si solo quieres que deje de salir, ocúltalo en esta rutina y su historial se conservará. ${CAMBIARLO}`
 
 describe('loQueSePierdeDeLaRutina', () => {
-  test('una rutina sin nada no cuenta nada: la pregunta basta', () => {
+  test('una_rutina_sin_nada_no_cuenta_nada_la_pregunta_basta', () => {
     expect(loQueSePierdeDeLaRutina(avisoDeRutina(), false)).toBeUndefined()
   })
 
-  test('con un solo ejercicio, en singular', () => {
+  test('con_un_solo_ejercicio_en_singular', () => {
     const aviso = avisoDeRutina({ con_historial: true, huecos: 1 })
     expect(loQueSePierdeDeLaRutina(aviso, true)).toBe('Se borrará también su ejercicio.')
   })
 
-  test('con una sola sesión y nada más, también en singular', () => {
+  test('con_una_sola_sesion_y_nada_mas_tambien_en_singular', () => {
     const aviso = avisoDeRutina({ con_historial: true, sesiones: 1 })
     expect(loQueSePierdeDeLaRutina(aviso, true)).toBe('Se borrará también su sesión entera.')
   })
 
-  test('un ejercicio y una sesión ya son dos cosas, en plural', () => {
+  test('un_ejercicio_y_una_sesion_ya_son_dos_cosas_en_plural', () => {
     const aviso = avisoDeRutina({ con_historial: true, huecos: 1, sesiones: 1 })
     expect(loQueSePierdeDeLaRutina(aviso, true)).toBe(
       'Se borrarán también su ejercicio y su sesión entera.',
     )
   })
 
-  test('con varios ejercicios y varias sesiones, cuenta los dos', () => {
+  test('con_varios_ejercicios_y_varias_sesiones_cuenta_los_dos', () => {
     const aviso = avisoDeRutina({ con_historial: true, huecos: 5, sesiones: 12 })
     expect(loQueSePierdeDeLaRutina(aviso, true)).toBe(
       'Se borrarán también sus 5 ejercicios y sus 12 sesiones enteras.',
@@ -98,11 +98,11 @@ describe('loQueSePierdeDeLaRutina', () => {
       { sesion_en_curso: true },
       'También se cancelará la sesión que tienes abierta hoy.',
     ],
-  ])('cuenta lo que pasa con %s', (_caso, cambios, frase) => {
+  ])('cuenta_lo_que_pasa_con_%s', (_caso, cambios, frase) => {
     expect(loQueSePierdeDeLaRutina(avisoDeRutina(cambios), true)).toBe(frase)
   })
 
-  test('con todo a la vez, las frases van en orden y la salida de ocultar al final', () => {
+  test('con_todo_a_la_vez_las_frases_van_en_orden_y_la_salida_de_ocultar_al_final', () => {
     const aviso = avisoDeRutina({
       con_historial: true,
       huecos: 3,
@@ -122,14 +122,14 @@ describe('loQueSePierdeDeLaRutina', () => {
     )
   })
 
-  test('con historial y visible, ofrece ocultarla', () => {
+  test('con_historial_y_visible_ofrece_ocultarla', () => {
     const aviso = avisoDeRutina({ con_historial: true, huecos: 1 })
     expect(loQueSePierdeDeLaRutina(aviso, false)).toBe(
       `Se borrará también su ejercicio. ${OCULTALA}`,
     )
   })
 
-  test('sin historial no ofrece ocultarla, aunque se vea', () => {
+  test('sin_historial_no_ofrece_ocultarla_aunque_se_vea', () => {
     const aviso = avisoDeRutina({ dias_de_programa: 1 })
     expect(loQueSePierdeDeLaRutina(aviso, false)).toBe(
       'Los días de tus programas que la tienen pasarán a descanso.',
@@ -138,17 +138,17 @@ describe('loQueSePierdeDeLaRutina', () => {
 })
 
 describe('loQueSePierdeDelHueco', () => {
-  test('sin series no cuenta nada: la pregunta basta', () => {
+  test('sin_series_no_cuenta_nada_la_pregunta_basta', () => {
     expect(loQueSePierdeDelHueco(avisoDeHueco(), false)).toBeUndefined()
   })
 
-  test('una sola serie y ninguna sesión que se vacíe, en singular', () => {
+  test('una_sola_serie_y_ninguna_sesion_que_se_vacie_en_singular', () => {
     expect(loQueSePierdeDelHueco(avisoDeHueco({ series: 1 }), true)).toBe(
       'Se borrará también su serie.',
     )
   })
 
-  test('con la fecha de la primera serie, dice desde cuándo', () => {
+  test('con_la_fecha_de_la_primera_serie_dice_desde_cuando', () => {
     const desde = `${hoy().slice(0, 4)}-07-06`
     expect(loQueSePierdeDelHueco(avisoDeHueco({ series: 47, desde }), true)).toBe(
       'Se borrarán también sus 47 series, apuntadas desde el 6 de julio.',
@@ -158,7 +158,7 @@ describe('loQueSePierdeDelHueco', () => {
     )
   })
 
-  test('una fecha de otro año lleva el año', () => {
+  test('una_fecha_de_otro_año_lleva_el_año', () => {
     const anioPasado = Number(hoy().slice(0, 4)) - 1
     const aviso = avisoDeHueco({ series: 2, desde: `${anioPasado}-07-06` })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
@@ -166,14 +166,14 @@ describe('loQueSePierdeDelHueco', () => {
     )
   })
 
-  test('una serie que vacía su sesión ya son dos cosas, en plural', () => {
+  test('una_serie_que_vacia_su_sesion_ya_son_dos_cosas_en_plural', () => {
     const aviso = avisoDeHueco({ series: 1, sesiones_que_se_vacian: sesionesQueSeVacian(1) })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
       'Se borrarán también su serie, y 1 sesión que solo tenía series de este ejercicio.',
     )
   })
 
-  test('cuenta las sesiones que se vacían detrás de la fecha', () => {
+  test('cuenta_las_sesiones_que_se_vacian_detras_de_la_fecha', () => {
     const desde = `${hoy().slice(0, 4)}-07-06`
     const aviso = avisoDeHueco({ series: 9, desde, sesiones_que_se_vacian: sesionesQueSeVacian(3) })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
@@ -182,7 +182,7 @@ describe('loQueSePierdeDelHueco', () => {
     )
   })
 
-  test('si aún se ve en la rutina, ofrece ocultarlo y cambiarlo', () => {
+  test('si_aun_se_ve_en_la_rutina_ofrece_ocultarlo_y_cambiarlo', () => {
     expect(loQueSePierdeDelHueco(avisoDeHueco({ series: 4 }), false)).toBe(
       `Se borrarán también sus 4 series. ${OCULTALO}`,
     )
@@ -216,29 +216,31 @@ function uso(rutinaId: number, slotId: number, rol: 'principal' | 'comodin'): Us
 const OCULTALO_EJERCICIO = 'Si solo quieres que deje de salir, ocúltalo.'
 
 describe('loQueSePierdeDelEjercicio', () => {
-  test('sin nada que perder no cuenta nada: la pregunta basta', () => {
+  test('sin_nada_que_perder_no_cuenta_nada_la_pregunta_basta', () => {
     expect(loQueSePierdeDelEjercicio(avisoDeEjercicio(), false)).toBeUndefined()
     expect(loQueSePierdeDelEjercicio(avisoDeEjercicio(), true)).toBeUndefined()
   })
 
-  test('solo una nota, en singular, y ofrece ocultarlo', () => {
+  test('solo_una_nota_en_singular_y_ofrece_ocultarlo', () => {
     expect(loQueSePierdeDelEjercicio(avisoDeEjercicio({ notas: 1 }), false)).toBe(
       `Se borrará también tu nota. ${OCULTALO_EJERCICIO}`,
     )
   })
 
-  test('varias notas, en plural', () => {
+  test('varias_notas_en_plural', () => {
     expect(loQueSePierdeDelEjercicio(avisoDeEjercicio({ notas: 3 }), true)).toBe(
       'Se borrarán también tus 3 notas.',
     )
   })
 
-  test('una sola sesión, en singular', () => {
+  test('una_sola_sesion_en_singular', () => {
     const aviso = avisoDeEjercicio({ con_historial: true, series: 4, sesiones: 1 })
-    expect(loQueSePierdeDelEjercicio(aviso, true)).toBe('Se borrarán también sus series de 1 sesión.')
+    expect(loQueSePierdeDelEjercicio(aviso, true)).toBe(
+      'Se borrarán también sus series de 1 sesión.',
+    )
   })
 
-  test('sesiones y notas juntas', () => {
+  test('sesiones_y_notas_juntas', () => {
     const aviso = avisoDeEjercicio({ con_historial: true, series: 30, sesiones: 11, notas: 2 })
     expect(loQueSePierdeDelEjercicio(aviso, false)).toBe(
       `Se borrarán también sus series de 11 sesiones y tus 2 notas. ${OCULTALO_EJERCICIO}`,
@@ -249,29 +251,29 @@ describe('loQueSePierdeDelEjercicio', () => {
     )
   })
 
-  test('dos huecos de la misma rutina cuentan como una sola rutina', () => {
+  test('dos_huecos_de_la_misma_rutina_cuentan_como_una_sola_rutina', () => {
     const aviso = avisoDeEjercicio({ huecos: [uso(1, 10, 'comodin'), uso(1, 11, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe('Se quitará de la rutina donde se usa.')
   })
 
-  test('en dos rutinas distintas, habla de las rutinas', () => {
+  test('en_dos_rutinas_distintas_habla_de_las_rutinas', () => {
     const aviso = avisoDeEjercicio({ huecos: [uso(1, 10, 'comodin'), uso(2, 20, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe('Se quitará de las rutinas donde se usa.')
   })
 
-  test('donde es el principal, avisa de que se van sus alternativas', () => {
+  test('donde_es_el_principal_avisa_de_que_se_van_sus_alternativas', () => {
     const aviso = avisoDeEjercicio({ huecos: [uso(1, 10, 'principal'), uso(2, 20, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe(
       'Se quitará de las rutinas donde se usa, con sus alternativas donde es el principal.',
     )
   })
 
-  test('sin ser principal en ninguna, no menciona las alternativas', () => {
+  test('sin_ser_principal_en_ninguna_no_menciona_las_alternativas', () => {
     const aviso = avisoDeEjercicio({ huecos: [uso(1, 10, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).not.toContain('alternativas')
   })
 
-  test('series y rutinas juntas se unen con una coma y una «y»', () => {
+  test('series_y_rutinas_juntas_se_unen_con_una_coma_y_una_y', () => {
     const aviso = avisoDeEjercicio({
       con_historial: true,
       series: 8,
@@ -284,14 +286,14 @@ describe('loQueSePierdeDelEjercicio', () => {
     )
   })
 
-  test('una nota y una rutina: el verbo sigue en singular solo si hay una sola cosa', () => {
+  test('una_nota_y_una_rutina_el_verbo_sigue_en_singular_solo_si_hay_una_sola_cosa', () => {
     const aviso = avisoDeEjercicio({ notas: 1, huecos: [uso(1, 10, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe(
       'Se borrará también tu nota, y se quitará de la rutina donde se usa.',
     )
   })
 
-  test('una sesión que se vacía', () => {
+  test('una_sesion_que_se_vacia', () => {
     const aviso = avisoDeEjercicio({
       con_historial: true,
       series: 2,
@@ -303,7 +305,7 @@ describe('loQueSePierdeDelEjercicio', () => {
     )
   })
 
-  test('varias sesiones que se vacían', () => {
+  test('varias_sesiones_que_se_vacian', () => {
     const aviso = avisoDeEjercicio({
       con_historial: true,
       series: 20,
@@ -317,7 +319,7 @@ describe('loQueSePierdeDelEjercicio', () => {
     )
   })
 
-  test('oculto, no ofrece ocultarlo', () => {
+  test('oculto_no_ofrece_ocultarlo', () => {
     const aviso = avisoDeEjercicio({ notas: 2, huecos: [uso(1, 10, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).not.toContain('ocúltalo')
     expect(loQueSePierdeDelEjercicio(aviso, false)).toContain(OCULTALO_EJERCICIO)

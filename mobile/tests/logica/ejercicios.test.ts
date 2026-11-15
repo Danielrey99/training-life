@@ -535,7 +535,10 @@ test('al_editar_un_predefinido_con_nombre_repetido_manda_el_403', () => {
 
   const respuesta = editado(cliente, predefinido, 'Curl con cuerda', g)
 
-  expect(respuesta.status_code).toBe(403)
+  expect([respuesta.status_code, respuesta.json().detail]).toEqual([
+    403,
+    'Los ejercicios predefinidos no se pueden editar.',
+  ])
   const guardado = cliente.get(`/ejercicios/${predefinido}`).json()
   expect(guardado.nombre).toBe('Sentadilla con barra')
 })

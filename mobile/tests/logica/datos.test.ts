@@ -2702,8 +2702,7 @@ test('tras_borrar_se_puede_empezar_de_cero', () => {
   })
   expect(programa.status_code).toBe(201)
   const hoy = cliente.get('/plan/hoy').json()
-  expect(hoy.sesion).toBeNull()
-  expect(hoy.situacion).not.toBe('sin_programa')
+  expect([hoy.situacion, hoy.sesion]).toEqual(['entrenamiento', null])
 
   const sesion = entrenar(cliente, HOY, rutina_id)
   expect(sesion.status_code).toBe(201)

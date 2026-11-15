@@ -251,7 +251,11 @@ function montarBaseSintetica(cliente: ClienteDeTest, reloj: RelojDeTest): void {
   const del8 = sesion('2026-09-08', torso, [
     [huecoPress, pressMancuernas, { peso: 24, repeticiones: 12 }],
     [huecoPress, pressMancuernas, { peso: 26, repeticiones: 9 }],
-    [huecoFondos, fondos, { peso: 7.5, repeticiones: 8, peso_corporal: 78.4, variante: 'En paralelas' }],
+    [
+      huecoFondos,
+      fondos,
+      { peso: 7.5, repeticiones: 8, peso_corporal: 78.4, variante: 'En paralelas' },
+    ],
     [huecoFondos, fondos, { peso: 7.5, repeticiones: 1 }],
   ])
   borrar(cliente, `/entrenamientos/${del8.id}/series/${del8.series[3]}`)

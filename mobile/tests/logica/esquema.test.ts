@@ -100,6 +100,21 @@ test('las_claves_ajenas_son_las_de_los_modelos_del_backend_con_su_on_delete', ()
   expect(reales.sort()).toEqual(esperadas.sort())
 })
 
+test('las_restricciones_con_nombre_de_los_modelos_estan_en_la_base_con_ese_nombre', () => {
+  // Los CHECK y los UNIQUE de models.py llevan nombre («series_medidas_check»): el mismo en el
+  // teléfono, para que un fallo diga lo mismo en los dos sitios. Uno nuevo en el backend que no
+  // llegue aquí se ve en este test.
+  const delBackend = [...MODELOS.matchAll(/name="(\w+_(?:check|key))"/g)].map((m) => m[1]).sort()
+  const sql = bd
+    .todas<{ sql: string }>('SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL')
+    .map((fila) => fila.sql)
+    .join(' ')
+
+  expect(delBackend.length).toBeGreaterThanOrEqual(15)
+  const faltan = delBackend.filter((nombre) => !new RegExp(`CONSTRAINT ${nombre}\\b`).test(sql))
+  expect(faltan).toEqual([])
+})
+
 test('las_claves_ajenas_estan_activadas_al_abrir', () => {
   expect(bd.una('PRAGMA foreign_keys')).toEqual({ foreign_keys: 1 })
   expect(bd.todas('PRAGMA foreign_key_check')).toEqual([])

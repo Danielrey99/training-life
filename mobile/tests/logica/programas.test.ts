@@ -474,6 +474,7 @@ function periodos(programa_id: number): [string, string | null][] {
 test('crear_un_programa_activo', () => {
   const respuesta = cliente.post('/programas', { json: { nombre: 'PPL', activar: true } })
 
+  expect(respuesta.status_code).toBe(201)
   expect(respuesta.json().activo).toBe(true)
   expect(respuesta.json().ultimo_periodo).toEqual({ desde: hoy(), hasta: null })
 })
@@ -485,6 +486,7 @@ test('activar_otro_programa_cierra_hoy_el_periodo_del_anterior', () => {
 
   const respuesta = cliente.post(`/programas/${nuevo.id}/activar`)
 
+  expect(respuesta.status_code).toBe(200)
   expect(respuesta.json().ultimo_periodo).toEqual({ desde: hoy(), hasta: null })
   expect(cliente.get(`/programas/${anterior.id}`).json().activo).toBe(false)
   // Hoy ya le toca al nuevo: el anterior cubre hasta ayer.
@@ -523,8 +525,10 @@ test('activar_el_que_ya_esta_activo_no_hace_nada', () => {
   const programa = crear_programa(cliente)
   activo_desde_hace(programa.id, 5)
 
-  cliente.post(`/programas/${programa.id}/activar`)
+  const respuesta = cliente.post(`/programas/${programa.id}/activar`)
 
+  expect(respuesta.status_code).toBe(200)
+  expect(respuesta.json().ultimo_periodo).toEqual(periodo(5))
   expect(periodos(programa.id)).toEqual([[sumar(hoy(), -5), null]])
 })
 

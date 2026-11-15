@@ -264,6 +264,29 @@ test.each(['nueva', 'cambiada'])(
   },
 )
 
+test.each([['oculta'], ['mala']])(
+  'con_dos_series_que_no_valen_el_aviso_es_el_de_la_primera_de_la_lista (%s)',
+  (primera) => {
+    // Las series se validan en el orden en que llegan, como si se apuntaran una a una: una de un
+    // ejercicio oculto (404) y otra con un peso negativo (422), en un orden y en el otro.
+    const { cliente, push } = escenario()
+    const dia = dia_con(cliente, push)
+    const antes = foto(cliente, dia)
+    ocultar_ejercicio(cliente, push.inclinado)
+    const fondos = como_van(cliente, dia).at(-1)!
+    const oculta = serie(push.inclinado, push.a, 1, 50)
+    const mala = serie(push.fondos, push.b, 2, -5)
+    const series = primera === 'oculta' ? [fondos, oculta, mala] : [fondos, mala, oculta]
+
+    const respuesta = guardar(cliente, dia, series)
+
+    const esperado =
+      primera === 'oculta' ? [404, ejercicio_oculto('Press inclinado')] : [422, PESO_NEGATIVO]
+    expect([respuesta.status_code, respuesta.json().detail]).toEqual(esperado)
+    expect(foto(cliente, dia)).toEqual(antes)
+  },
+)
+
 test('con_el_dia_nuevo_ocupado_da_409_y_no_guarda_nada', () => {
   // El 409 del día ocupado es lo último que se mira, después de todas las series.
   const { cliente, push } = escenario()

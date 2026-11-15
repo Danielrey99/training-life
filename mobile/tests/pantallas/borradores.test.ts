@@ -28,11 +28,11 @@ function programa(): BorradorDePrograma {
 }
 
 describe('sinDias', () => {
-  test('los siete días de la semana, todos de descanso', () => {
+  test('los_siete_dias_de_la_semana_todos_de_descanso', () => {
     expect(sinDias()).toEqual({ 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null })
   })
 
-  test('cada llamada da una semana nueva: cambiar una no toca la siguiente', () => {
+  test('cada_llamada_da_una_semana_nueva_cambiar_una_no_toca_la_siguiente', () => {
     const una = sinDias()
     una[1] = rutina
     expect(sinDias()[1]).toBeNull()
@@ -40,7 +40,7 @@ describe('sinDias', () => {
 })
 
 describe('semanaEnEdicion', () => {
-  test('cada programa tiene su propia clave, distinta de las de lo nuevo', () => {
+  test('cada_programa_tiene_su_propia_clave_distinta_de_las_de_lo_nuevo', () => {
     const claves = [semanaEnEdicion(1), semanaEnEdicion(2), PROGRAMA_NUEVO, RUTINA_NUEVA]
     expect(new Set(claves).size).toBe(claves.length)
     expect(semanaEnEdicion(1)).toBe(semanaEnEdicion(1))
@@ -48,11 +48,11 @@ describe('semanaEnEdicion', () => {
 })
 
 describe('leer, guardar y tirar', () => {
-  test('sin nada guardado, no hay borrador', () => {
+  test('sin_nada_guardado_no_hay_borrador', () => {
     expect(leerBorrador(PROGRAMA_NUEVO)).toBeNull()
   })
 
-  test('lo que se guarda se lee, y lo último guardado sustituye a lo anterior', () => {
+  test('lo_que_se_guarda_se_lee_y_lo_ultimo_guardado_sustituye_a_lo_anterior', () => {
     guardarBorrador(PROGRAMA_NUEVO, programa())
     expect(leerBorrador<BorradorDePrograma>(PROGRAMA_NUEVO)).toEqual(programa())
 
@@ -61,7 +61,7 @@ describe('leer, guardar y tirar', () => {
     expect(leerBorrador<BorradorDePrograma>(PROGRAMA_NUEVO)).toEqual(otro)
   })
 
-  test('tirar un borrador no toca los demás', () => {
+  test('tirar_un_borrador_no_toca_los_demas', () => {
     const rutinaNueva: BorradorDeRutina = { nombre: 'Pierna', ejercicios: [] }
     guardarBorrador(PROGRAMA_NUEVO, programa())
     guardarBorrador(RUTINA_NUEVA, rutinaNueva)
@@ -74,13 +74,13 @@ describe('leer, guardar y tirar', () => {
     expect(leerBorrador(semanaEnEdicion(3))).toEqual(sinDias())
   })
 
-  test('tirar uno que no existe no falla ni toca los demás', () => {
+  test('tirar_uno_que_no_existe_no_falla_ni_toca_los_demas', () => {
     guardarBorrador(PROGRAMA_NUEVO, programa())
     expect(() => tirarBorrador(semanaEnEdicion(99))).not.toThrow()
     expect(leerBorrador(PROGRAMA_NUEVO)).toEqual(programa())
   })
 
-  test('tirar todos los deja vacíos', () => {
+  test('tirar_todos_los_deja_vacios', () => {
     guardarBorrador(PROGRAMA_NUEVO, programa())
     guardarBorrador(RUTINA_NUEVA, { nombre: 'Pierna', ejercicios: [] })
     guardarBorrador(semanaEnEdicion(3), sinDias())

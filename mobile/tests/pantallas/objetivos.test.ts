@@ -46,13 +46,13 @@ describe('familiaDe', () => {
     ['corporal', 'repeticiones'],
     ['tiempo', 'duracion'],
     ['cardio', 'duracion'],
-  ])('un ejercicio de %s va por %s', (tipo, familia) => {
+  ])('un_ejercicio_de_%s_va_por_%s', (tipo, familia) => {
     expect(familiaDe({ tipo_registro: tipo })).toBe(familia)
   })
 })
 
 describe('enTexto', () => {
-  test('un objetivo por repeticiones pasa sus reps al formulario', () => {
+  test('un_objetivo_por_repeticiones_pasa_sus_reps_al_formulario', () => {
     const objetivo: Objetivo = {
       series_objetivo: 4,
       reps_min: 6,
@@ -63,7 +63,7 @@ describe('enTexto', () => {
     expect(enTexto(objetivo)).toEqual(texto('4', '6', '10'))
   })
 
-  test('un objetivo por duración pasa sus segundos al formulario', () => {
+  test('un_objetivo_por_duracion_pasa_sus_segundos_al_formulario', () => {
     const objetivo: Objetivo = {
       series_objetivo: 3,
       reps_min: null,
@@ -74,7 +74,7 @@ describe('enTexto', () => {
     expect(enTexto(objetivo)).toEqual(texto('3', '30', '45'))
   })
 
-  test('sin reps ni duración, el mínimo y el máximo quedan vacíos y no «null»', () => {
+  test('sin_reps_ni_duracion_el_minimo_y_el_maximo_quedan_vacios_y_no_null', () => {
     const objetivo: Objetivo = {
       series_objetivo: 3,
       reps_min: null,
@@ -93,13 +93,13 @@ describe('deAjustes', () => {
     ['tiempo', texto('3', '30', '60')],
     ['cardio', texto('1', '1200', '1800')],
   ])(
-    'un ejercicio nuevo de %s empieza con el objetivo por defecto de su tipo',
+    'un_ejercicio_nuevo_de_%s_empieza_con_el_objetivo_por_defecto_de_su_tipo',
     (tipo, esperado) => {
       expect(deAjustes({ tipo_registro: tipo })).toEqual(esperado)
     },
   )
 
-  test('sigue lo que se cambió en los ajustes para ese tipo y no los demás', () => {
+  test('sigue_lo_que_se_cambio_en_los_ajustes_para_ese_tipo_y_no_los_demas', () => {
     cambiarAjustes({
       objetivoNuevo: { ...POR_DEFECTO.objetivoNuevo, tiempo: { series: 5, min: 20, max: 40 } },
     })
@@ -109,7 +109,7 @@ describe('deAjustes', () => {
 })
 
 describe('aObjetivo', () => {
-  test('por repeticiones, rellena las reps y deja nula la duración', () => {
+  test('por_repeticiones_rellena_las_reps_y_deja_nula_la_duracion', () => {
     expect(aObjetivo('repeticiones', texto('3', '8', '12'))).toEqual({
       series_objetivo: 3,
       reps_min: 8,
@@ -119,7 +119,7 @@ describe('aObjetivo', () => {
     })
   })
 
-  test('por duración, rellena los segundos y deja nulas las reps', () => {
+  test('por_duracion_rellena_los_segundos_y_deja_nulas_las_reps', () => {
     expect(aObjetivo('duracion', texto('1', '1200', '1800'))).toEqual({
       series_objetivo: 1,
       reps_min: null,
@@ -129,7 +129,7 @@ describe('aObjetivo', () => {
     })
   })
 
-  test('lee lo tecleado con espacios y con coma decimal', () => {
+  test('lee_lo_tecleado_con_espacios_y_con_coma_decimal', () => {
     expect(aObjetivo('repeticiones', texto(' 3 ', '7,5', '12'))).toEqual({
       series_objetivo: 3,
       reps_min: 7.5,
@@ -169,13 +169,13 @@ describe('queFaltaDelObjetivo', () => {
     expect(queFaltaDelObjetivo('Press banca', familia, objetivo)).toBe(esperado)
   })
 
-  test('las repeticiones máximas no pueden ser menos que las mínimas', () => {
+  test('las_repeticiones_maximas_no_pueden_ser_menos_que_las_minimas', () => {
     expect(queFaltaDelObjetivo('Press banca', 'repeticiones', texto('3', '12', '8'))).toBe(
       'El objetivo de Press banca: las repeticiones máximas no pueden ser menos que las mínimas.',
     )
   })
 
-  test('la duración máxima no puede ser menos que la mínima', () => {
+  test('la_duracion_maxima_no_puede_ser_menos_que_la_minima', () => {
     expect(queFaltaDelObjetivo('Plancha', 'duracion', texto('3', '60', '30'))).toBe(
       'El objetivo de Plancha: la duración máxima no puede ser menos que la mínima.',
     )
@@ -183,23 +183,23 @@ describe('queFaltaDelObjetivo', () => {
 })
 
 describe('resumenDelObjetivo', () => {
-  test('si el objetivo no vale todavía, sale una raya', () => {
+  test('si_el_objetivo_no_vale_todavia_sale_una_raya', () => {
     expect(resumenDelObjetivo(ejercicio('peso_reps'), texto('3', '12', '8'))).toBe('—')
   })
 
-  test('por repeticiones, el texto del objetivo', () => {
+  test('por_repeticiones_el_texto_del_objetivo', () => {
     const resumen = resumenDelObjetivo(ejercicio('corporal'), texto('4', '6', '10'))
     expect(resumen).toBe('4 × 6-10')
     expect(resumen).toBe(objetivoEnTexto(aObjetivo('repeticiones', texto('4', '6', '10'))))
   })
 
-  test('por duración, el texto del objetivo en segundos o minutos', () => {
+  test('por_duracion_el_texto_del_objetivo_en_segundos_o_minutos', () => {
     const resumen = resumenDelObjetivo(ejercicio('cardio'), texto('1', '1200', '1800'))
     expect(resumen).toBe('1 × 20-30 min')
     expect(resumen).toBe(objetivoEnTexto(aObjetivo('duracion', texto('1', '1200', '1800'))))
   })
 
-  test('el mismo texto vale o no según el tipo del ejercicio', () => {
+  test('el_mismo_texto_vale_o_no_segun_el_tipo_del_ejercicio', () => {
     // 2000 es demasiado para unas repeticiones, pero son 33 min 20 s de un ejercicio de tiempo.
     expect(resumenDelObjetivo(ejercicio('peso_reps'), texto('1', '1200', '2000'))).toBe('—')
     expect(resumenDelObjetivo(ejercicio('tiempo'), texto('1', '1200', '2000'))).toBe(

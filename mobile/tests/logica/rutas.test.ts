@@ -1,17 +1,15 @@
 /**
- * El despachador de rutas (`src/logica/rutas.ts`) y la api que lo usa (`src/logica/api.ts`).
+ * El despachador de rutas (`src/logica/rutas.ts`). La api que lo usa, en `api.test.ts`.
  * Propios del móvil: en el backend lo hace FastAPI, que no tiene tests aquí. La
  * especificación es su comportamiento: 404 y 405 de rutas, el 422 de la ruta, la consulta y
  * el cuerpo (en ese orden, todos juntos) y una petición que o se hace entera o no se hace.
  */
-import { crearApi, ErrorDeApi, esDelCampo, textoDelFallo } from '../../src/logica/api'
 import type { Contexto } from '../../src/logica/contexto'
-import { FalloDeLaApp, conflicto } from '../../src/logica/fallos'
-import { cargarFallo, ultimoFallo } from '../../src/logica/rastro'
+import { conflicto } from '../../src/logica/fallos'
 import { despachar } from '../../src/logica/rutas'
-import { EJERCICIO_YA_NO_EXISTE, crear_ejercicio, cuantas_filas, objetivo } from '../apoyo/ayudas'
+import { EJERCICIO_YA_NO_EXISTE, cuantas_filas, objetivo } from '../apoyo/ayudas'
 import { grupo_muscular_id } from '../apoyo/conftest'
-import { ClienteDeTest, RelojDeTest, ZONA, crearCliente } from '../apoyo/cliente'
+import { RelojDeTest, ZONA, crearCliente } from '../apoyo/cliente'
 import { baseNueva } from '../apoyo/baseNueva'
 
 const ENTERO_NO_VALIDO = 'Input should be a valid integer, unable to parse string as an integer'
@@ -254,7 +252,7 @@ test.each([
   expect(respuesta.json()).toEqual(esperado.json())
 })
 
-test('los_parametros_de_httpx_true_va_como_texto_y_null_se_omite', () => {
+test('un_parametro_null_de_la_consulta_no_viaja', () => {
   const { cliente } = crearCliente()
 
   // `modo: null` no viaja: un borrado sin modo, no un literal_error.
@@ -436,199 +434,4 @@ test('una_peticion_buena_se_confirma_en_la_base', () => {
 
   expect(cuantas_filas(bd, 'rutinas')).toEqual([1])
   expect(bd.enTransaccion).toBe(false)
-})
-
-// --- La api (lo que usan las pantallas) -----------------------------------------
-
-function nuevaApi() {
-  const bd = baseNueva()
-  const reloj = new RelojDeTest()
-  const ctx: Contexto = { bd, reloj, zona: () => ZONA }
-  return { api: crearApi(ctx), bd, ctx }
-}
-
-describe('api', () => {
-  test('un_404_sale_como_error_de_api_con_el_texto_del_servidor', async () => {
-    const { api } = nuevaApi()
-
-    const fallo = await api.ejercicio(999999).catch((e) => e)
-
-    expect(fallo).toBeInstanceOf(ErrorDeApi)
-    expect(fallo.estado).toBe(404)
-    expect(fallo.message).toBe(EJERCICIO_YA_NO_EXISTE)
-    expect(fallo.detalle).toBe(EJERCICIO_YA_NO_EXISTE)
-  })
-
-  test('un_detail_con_mensaje_se_enseña_por_su_mensaje_y_conserva_el_campo', async () => {
-    const { api, ctx } = nuevaApi()
-    const grupo = grupo_muscular_id(new ClienteDeTest(ctx))
-    await api.crearEjercicio({ nombre: 'Remo', grupo_muscular_id: grupo } as any)
-
-    const fallo = await api
-      .crearEjercicio({ nombre: 'remo', grupo_muscular_id: grupo } as any)
-      .catch((e) => e)
-
-    expect(fallo).toBeInstanceOf(ErrorDeApi)
-    expect(fallo.estado).toBe(409)
-    expect(fallo.detalle).toEqual({ mensaje: fallo.message, campo: 'nombre' })
-    expect(fallo.message).toBe('Ya tienes un ejercicio que se llama «Remo». Elige otro nombre.')
-    expect(esDelCampo(fallo, 'nombre')).toBe(true)
-    expect(esDelCampo(fallo, 'fecha')).toBe(false)
-    expect(textoDelFallo(fallo)).toBe(fallo.message)
-  })
-
-  test('un_422_de_una_comprobacion_de_la_app_enseña_su_frase_sin_el_value_error', async () => {
-    const { api, bd } = nuevaApi()
-    const ejercicio = bd.una<{ id: number }>('SELECT id FROM ejercicios LIMIT 1')!.id
-
-    const fallo = await api
-      .crearRutina({
-        nombre: 'Push',
-        slots: [
-          {
-            ejercicio_principal_id: ejercicio,
-            ...objetivo(3, [10, 6]),
-          },
-        ],
-      } as any)
-      .catch((e) => e)
-
-    expect(fallo).toBeInstanceOf(ErrorDeApi)
-    expect(fallo.estado).toBe(422)
-    expect(fallo.detalle[0].type).toBe('value_error')
-    expect(fallo.message).toBe('El máximo de repeticiones no puede ser menor que el mínimo.')
-  })
-
-  test('un_422_de_validacion_se_dice_con_palabras_de_la_app_una_sola_vez', async () => {
-    const { api } = nuevaApi()
-
-    // Faltan dos campos: dos errores en inglés, una sola frase.
-    const fallo = await api.crearEjercicio({} as any).catch((e) => e)
-
-    expect(fallo.estado).toBe(422)
-    expect(fallo.detalle.length).toBe(2)
-    expect(fallo.message).toBe('Algún dato no es válido. Revísalo e inténtalo de nuevo.')
-  })
-
-  test('un_422_mezcla_las_frases_de_la_app_con_la_generica', async () => {
-    const { api, bd } = nuevaApi()
-    const ejercicio = bd.una<{ id: number }>('SELECT id FROM ejercicios LIMIT 1')!.id
-
-    // Un hueco con el objetivo al revés y otro sin ejercicio ni objetivo.
-    const fallo = await api
-      .crearRutina({
-        nombre: 'Push',
-        slots: [{ ejercicio_principal_id: ejercicio, ...objetivo(3, [10, 6]) }, {}],
-      } as any)
-      .catch((e) => e)
-
-    expect(fallo.estado).toBe(422)
-    expect(fallo.message).toBe(
-      'El máximo de repeticiones no puede ser menor que el mínimo. ' +
-        'Algún dato no es válido. Revísalo e inténtalo de nuevo.',
-    )
-  })
-
-  test('un_fallo_de_la_consulta_llega_como_422', async () => {
-    const { api } = nuevaApi()
-    const ejercicio = (await api.ejercicios())[0]
-
-    const fallo = await api.historialDeEjercicio(ejercicio.id, { limite: 0 }).catch((e) => e)
-    const bien = await api.historialDeEjercicio(ejercicio.id, { limite: 5 })
-
-    expect(fallo).toBeInstanceOf(ErrorDeApi)
-    expect(fallo.estado).toBe(422)
-    expect(fallo.detalle[0].loc).toEqual(['query', 'limite'])
-    expect(bien).toEqual([])
-  })
-
-  test('borrar_devuelve_null_y_crear_devuelve_el_objeto', async () => {
-    const { api } = nuevaApi()
-    const grupo = (await api.gruposMusculares())[0]
-
-    const creado = await api.crearEjercicio({ nombre: 'Remo', grupo_muscular_id: grupo.id } as any)
-    const borrado = await api.borrarEjercicio(creado.id)
-
-    expect(creado.nombre).toBe('Remo')
-    expect(borrado).toBeNull()
-    await expect(api.ejercicio(creado.id)).rejects.toBeInstanceOf(ErrorDeApi)
-  })
-
-  test('un_error_que_no_es_de_la_app_sale_tal_cual_y_no_como_error_de_api', async () => {
-    const { ctx } = nuevaApi()
-    const roto: Contexto = {
-      ...ctx,
-      bd: Object.assign(Object.create(ctx.bd), {
-        todas: () => {
-          throw new Error('fallo de programación')
-        },
-      }),
-    }
-
-    const fallo = await crearApi(roto)
-      .gruposMusculares()
-      .catch((e) => e)
-
-    expect(fallo).not.toBeInstanceOf(ErrorDeApi)
-    expect(fallo).not.toBeInstanceOf(FalloDeLaApp)
-    expect(fallo.message).toBe('fallo de programación')
-    expect(textoDelFallo(fallo)).toBe('Algo ha fallado. Inténtalo de nuevo.')
-    expect(ultimoFallo()?.detalle).toBe('Error: fallo de programación')
-  })
-
-  test('un_error_de_la_api_no_se_apunta_en_el_rastro', () => {
-    cargarFallo(null)
-
-    textoDelFallo(new ErrorDeApi('Ya existe', 409, 'Ya existe'))
-
-    expect(ultimoFallo()).toBeNull()
-  })
-
-  test('un_detail_sin_forma_conocida_cae_en_el_texto_generico', async () => {
-    // Un 409 con un `detail` que no es texto, lista ni lleva `mensaje` (el de «sin día para
-    // ella» sí lleva `mensaje`; este no): el texto genérico, y el detalle intacto.
-    const { ctx } = nuevaApi()
-    const roto: Contexto = {
-      ...ctx,
-      bd: Object.assign(Object.create(ctx.bd), {
-        todas: () => {
-          throw conflicto({ otra_cosa: 1 })
-        },
-      }),
-    }
-
-    const fallo = await crearApi(roto)
-      .gruposMusculares()
-      .catch((e) => e)
-
-    expect(fallo).toBeInstanceOf(ErrorDeApi)
-    expect(fallo.estado).toBe(409)
-    expect(fallo.message).toBe('Algo ha fallado. Inténtalo de nuevo.')
-    expect(fallo.detalle).toEqual({ otra_cosa: 1 })
-  })
-
-  test('el_cuerpo_pasa_por_json_y_un_undefined_no_llega', async () => {
-    const { api } = nuevaApi()
-    const grupo = (await api.gruposMusculares())[0]
-
-    // `descripcion: undefined` no viaja, como en `fetch(JSON.stringify(...))`.
-    const creado = await api.crearEjercicio({
-      nombre: 'Remo',
-      grupo_muscular_id: grupo.id,
-      descripcion: undefined,
-    } as any)
-
-    expect(creado.nombre).toBe('Remo')
-  })
-
-  test('crear_ejercicio_de_las_ayudas_y_de_la_api_llegan_al_mismo_sitio', async () => {
-    const { api, ctx } = nuevaApi()
-    const id = crear_ejercicio(
-      new ClienteDeTest(ctx),
-      grupo_muscular_id(new ClienteDeTest(ctx)),
-      'Remo',
-    )
-
-    expect((await api.ejercicio(id)).nombre).toBe('Remo')
-  })
 })

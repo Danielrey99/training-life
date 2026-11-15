@@ -280,8 +280,15 @@ test.each([
   const respuesta = empezar_intercambiando(ppl.Leg, VIERNES_18)
 
   expect(respuesta.status_code).toBe(409)
-  const detalle = respuesta.json().detail
-  expect([detalle.entrenamiento_id, detalle.en_curso]).toEqual([hoy_id, !terminada])
+  const mensaje = terminada
+    ? 'Ese día ya tiene una sesión, y se entrena una rutina al día. Para usarlo, cambia' +
+      ' antes la fecha de la otra desde su día en el historial.'
+    : 'Ya hay una sesión en curso hoy. Termínala o cancélala antes de empezar otra.'
+  expect(respuesta.json().detail).toEqual({
+    mensaje,
+    entrenamiento_id: hoy_id,
+    en_curso: !terminada,
+  })
   expect(cuantas_filas(entorno.bd, 'excepciones_del_plan', 'entrenamientos')).toEqual([0, 1])
   expect(lo_que_toca(HOY)).toEqual(['programa', 'Pull', false])
 })
