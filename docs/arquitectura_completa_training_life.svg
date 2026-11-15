@@ -104,8 +104,8 @@
 <text x="1020" y="457" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">SQLite, funciona sin el PC</text>
 
 <rect x="910" y="488" width="220" height="50" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
-<text x="1020" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">EAS build</text>
-<text x="1020" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">genera el APK instalable</text>
+<text x="1020" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Gradle, en local</text>
+<text x="1020" y="525" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#3C3489">genera y firma el APK</text>
 
 <rect x="910" y="553" width="220" height="50" rx="8" fill="#CECBF6" stroke="#3C3489" stroke-width="1"/>
 <text x="1020" y="573" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="600" fill="#26215C">Exportar / Importar</text>

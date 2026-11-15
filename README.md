@@ -36,7 +36,7 @@ Cómo se conectan: `docker-compose.yml` es el que junta todo en tiempo de ejecuc
 
 ![Arquitectura completa de Training Life](docs/arquitectura_completa_training_life.svg)
 
-Diagrama de la arquitectura **completa y final** del proyecto: el recorrido de una petición de la web de principio a fin, y el móvil por su cuenta, que pasa los datos con un archivo exportado. Sirve para entender de un vistazo cómo encajan todas las piezas entre sí — no refleja el estado actual del desarrollo, para eso está el checklist de la siguiente sección.
+Diagrama de la arquitectura **completa y final** del proyecto: el recorrido de una petición de la web de principio a fin, y el móvil por su cuenta, que pasa los datos con un archivo exportado. Sirve para entender de un vistazo cómo encajan todas las piezas entre sí.
 
 ## Modelo de datos
 
@@ -46,13 +46,13 @@ Las 13 tablas de la app, con lo que más condiciona el diseño: qué relaciones 
 
 ## Diseño de la app
 
-Antes de construir las pantallas de verdad, la app entera se diseñó en bocetos de móvil (390 px de ancho, pensada para usarse con una mano en el gimnasio). La web y el móvil tendrán las mismas pantallas y funciones; la versión de escritorio es la misma con más aire.
+Antes de construir las pantallas de verdad, la app entera se diseñó en bocetos de móvil (390 px de ancho, pensada para usarse con una mano en el gimnasio). La web y el móvil tienen las mismas pantallas y funciones; en el PC, la web es por ahora la misma con más aire, y tendrá su propio diseño más adelante.
 
-- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 16 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
+- **[Bocetos de todas las pantallas](docs/bocetos-movil-training-life.png)**: las 17 pantallas de la app en todos sus estados (editando, confirmaciones, elementos ocultos, primera vez…), cada una con una nota que explica qué hace y desde dónde se llega.
 - **[Mapa de navegación](docs/mapa-navegacion-training-life.png)**: cómo se pasa de una pantalla a otra, agrupado por las cuatro secciones de la barra de pestañas (Entrenar, Historial, Programas y Ejercicios).
 - **[Guía de producto](docs/guia_de_producto.md)**: el texto que acompaña a los bocetos — qué hace cada pantalla, las reglas que siguen todas (confirmaciones, ocultar frente a borrar, qué toca cada día) y lo que el diseño pide al backend.
 
-Los dos son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a cada una está su versión interactiva (`.html`), que se abre en el navegador y permite moverse y hacer zoom por el lienzo.
+Los bocetos y el mapa son imágenes grandes: se leen mejor abriéndolas y ampliando. Junto a cada una está su versión interactiva (`.html`), que se abre en el navegador y permite moverse y hacer zoom por el lienzo.
 
 ## Estado actual
 
@@ -71,8 +71,7 @@ La **app móvil para Android**, que es donde se va a usar de verdad (cada teléf
 - [x] Backend: notas personales por ejercicio (también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión de cada ejercicio (hasta una fecha y con un límite de sesiones)
 - [x] Backend: tests automáticos con pytest sobre PostgreSQL real (borrados en cascada, restricciones de la base, CRUD)
-- [x] Web: proyecto React + TypeScript (Vite) hablando con la API, con la pantalla de ejercicios
-- [x] Web: primera versión de registrar un entrenamiento (ya sustituida por la del diseño)
+- [x] Web: proyecto React + TypeScript (Vite) hablando con la API
 - [x] Diseño de la app completo: pantallas, navegación y comportamiento, en móvil primero
 - [x] Backend: ampliar el modelo según el diseño — programas semanales (qué rutina toca cada día), planificación por fecha, sesiones abiertas y una biblioteca de ejercicios predefinidos
 - [x] Backend: una sesión por día, y que editar un programa no cambie los días pasados
@@ -87,6 +86,7 @@ La **app móvil para Android**, que es donde se va a usar de verdad (cada teléf
 - [x] Repaso final del diseño, pantalla a pantalla
 - [x] Una sola persona por instalación: sin usuarios en el backend (la app no va a ser una red social)
 - [x] Repaso completo: código, tests, documentación y diseño
+- [x] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [x] Móvil: el proyecto Expo y el APK firmado, construido en local e instalado en el teléfono (también actualizando encima sin perder nada)
 - [x] Móvil: la base de datos del teléfono (SQLite) con su esquema, sus versiones y los ejercicios predefinidos, y las reglas del backend en TypeScript, con sus tests
 - [x] Móvil: toda la lógica del backend dentro del teléfono, probada con las mismas pruebas que el backend
@@ -96,7 +96,6 @@ La **app móvil para Android**, que es donde se va a usar de verdad (cada teléf
 - [x] Móvil: la progresión de cada ejercicio en una gráfica, planificar los próximos días y el resumen de volumen y constancia
 - [x] Móvil: los ajustes completos, y cada pantalla probada con nombres de 90 caracteres para que un texto largo nunca se salga ni se corte
 - [x] Móvil: poner al día la base del teléfono sin poder perder datos (copia antes, todo o nada, comprobación de filas y claves ajenas) y un aviso para compartir el archivo si no se puede abrir
-- [x] Móvil: React Native + Expo, para Android, con los datos en el propio teléfono (sin servidor ni conexión)
 - [ ] Móvil: revisión completa de la app en el teléfono
 - [ ] Web: un diseño propio para el PC, aprovechando el ancho de la pantalla
 

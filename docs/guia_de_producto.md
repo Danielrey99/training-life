@@ -4,15 +4,15 @@ Qué hace la app, qué pantallas tiene y cómo se comporta cada una. Es la refer
 
 Va acompañada de dos imágenes que conviene tener abiertas al leerla:
 
-- **[Bocetos](bocetos-movil-training-life.png)**: las 16 pantallas en todos sus estados, cada una con una nota. Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
+- **[Bocetos](bocetos-movil-training-life.png)**: las 17 pantallas en todos sus estados, cada una con una nota (una de ellas, A0, solo existe en el móvil). Los códigos de esta guía (E1, H2, P4…) son los de los bocetos.
 - **[Mapa de navegación](mapa-navegacion-training-life.png)**: qué se toca para ir de una pantalla a otra.
 
 Los datos que aparecen en los bocetos son de ejemplo: enseñan cómo se ve cada función, no tienen por qué cuadrar entre una pantalla y otra.
 
 **Índice:** [Para qué existe](#para-qué-existe) · [Lo que hace el usuario](#lo-que-hace-el-usuario) ·
-[Vocabulario](#vocabulario) · [Principios](#principios) · [Pantallas](#pantallas) ·
+[Vocabulario](#vocabulario) · [Principios](#principios) · [Los cuatro tipos de ejercicio](#los-cuatro-tipos-de-ejercicio) · [Pantallas](#pantallas) ·
 [Entrenar](#entrenar) · [Historial](#historial) · [Programas y rutinas](#programas-y-rutinas) ·
-[Ejercicios](#ejercicios) · [Ajustes](#ajustes) · [Ocultar y borrar](#ocultar-y-borrar) · [La primera vez](#la-primera-vez) ·
+[Ejercicios](#ejercicios) · [Al abrir la app](#al-abrir-la-app) · [Ajustes](#ajustes) · [Ocultar y borrar](#ocultar-y-borrar) · [La primera vez](#la-primera-vez) ·
 [Flujos](#flujos) · [Lo que necesita del backend](#lo-que-necesita-del-backend) ·
 [Por decidir](#por-decidir)
 
@@ -74,7 +74,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 **Estructura**
 
 1. **Lo de cada día, sin rodeos.** Abrir la app deja delante lo que toca hoy. Nunca hay que pasar por una lista para llegar a ello.
-2. **Móvil primero.** Se diseña para 390 px de ancho y una mano. La versión de escritorio es la misma pantalla con más aire, y como mucho dos columnas donde tenga sentido. No hay funciones "solo de PC" ni "solo de móvil".
+2. **Móvil primero.** Se diseña para 390 px de ancho y una mano. En el PC, la web es por ahora la misma pantalla con más aire. No hay funciones "solo de PC" ni "solo de móvil" (salvo A0, que solo tiene sentido con los datos en el teléfono).
 3. **Cuatro secciones**: Entrenar, Historial, Programas y Ejercicios. En el móvil, una barra de pestañas abajo (donde llega el pulgar); en el PC, un menú lateral.
 4. **Lo que se puede deducir no se pregunta**: qué toca hoy, el número de la siguiente serie, si un día se movió o se faltó. La app lo calcula de lo que pasó.
 
@@ -91,18 +91,31 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 **Aspecto**
 
-11. **Tema oscuro**, con contraste alto: luz de gimnasio, pantalla con reflejos. Fondo `#14161a`, superficie `#1c1f26`, borde `#2c313b`, texto `#e8eaed` y `#9aa1ac`, acento verde `#4ade80`. También hay **tema claro**, y por defecto la app sigue al del móvil u ordenador (se elige en Ajustes).
-12. **Jerarquía de botones**: verde relleno para la acción principal (una por pantalla); con recuadro y fondo para las normales; con recuadro y sin fondo para las secundarias (gris: *Duplicar rutina*, *Ocultar programa*) y las peligrosas (rojo: *Borrar rutina*, *Cancelar sesión*), porque solo el texto se leía como un rótulo. Los selectores de opciones son todos una barra con la elegida resaltada dentro: más grandes los filtros de arriba de una pantalla, algo más pequeños los de dentro de una tarjeta. Solo van como texto los atajos que se entienden por su forma: el desplegable *Ver 2 rutinas ocultas*, con su flecha, y *+ Añadir serie*, dentro de cada ejercicio. *Añadir nota* sí lleva recuadro: va suelto entre los botones del final. Al menos 44 px de alto. Única excepción: los *Recuperar* de *Por recuperar* van siempre en verde, también junto a *Empezar* en un día de entrenamiento.
-13. **Un apartado vacío no desaparece**: sale con su título y su recuadro, como si tuviera datos, y dentro dice qué pasa (*Aún no has hecho este ejercicio.*, *Todavía no está en ninguna rutina.*). Si desapareciera, no se sabría si falta algo o si la app no lo tiene. **Lo mismo si algo falla: se dice qué pasa y cómo seguir.** Sin conexión con el servidor, o si una pantalla no puede leer sus datos, sale el motivo con palabras de la vida real y un botón *Reintentar*. Lo que no existe (una rutina borrada, una dirección mal escrita) solo lo dice. Si algo falla al pintar una pantalla, en vez de dejarla en blanco sale un aviso y la salida a Entrenar, con la barra de pestañas a mano: lo ya guardado sigue guardado.
-14. **El color es de los días, no de las rutinas.** Una rutina solo tiene color puesta en un día (en la semana de un programa, en Planificar, en el calendario), y es el de ese día: una rutina que va el martes y el jueves sale naranja el martes y verde el jueves. Donde la rutina se ve por su papel en el programa (las rutinas del programa en la hoja de Planificar, el volumen por rutina del resumen), lleva el color de su día en él: Pull, el del miércoles, aunque se vaya a poner otro día. Suelta en una lista que no tiene que ver con el programa, sin punto: un color ahí no diría nada.
+13. **Tema oscuro**, con contraste alto: luz de gimnasio, pantalla con reflejos. Fondo `#14161a`, superficie `#1c1f26`, borde `#2c313b`, texto `#e8eaed` y `#9aa1ac`, acento verde `#4ade80`. También hay **tema claro**, y por defecto la app sigue al del móvil u ordenador (se elige en Ajustes).
+14. **Jerarquía de botones**: verde relleno para la acción principal (una por pantalla); con recuadro y fondo para las normales; con recuadro y sin fondo para las secundarias (gris: *Duplicar rutina*, *Ocultar programa*) y las peligrosas (rojo: *Borrar rutina*, *Cancelar sesión*), porque solo el texto se leía como un rótulo. Los selectores de opciones son todos una barra con la elegida resaltada dentro: más grandes los filtros de arriba de una pantalla, algo más pequeños los de dentro de una tarjeta. Solo van como texto los atajos que se entienden por su forma: el desplegable *Ver 2 rutinas ocultas*, con su flecha, y *+ Añadir serie*, dentro de cada ejercicio. *Añadir nota* sí lleva recuadro: va suelto entre los botones del final. Al menos 44 px de alto. Única excepción: los *Recuperar* de *Por recuperar* van siempre en verde, también junto a *Empezar* en un día de entrenamiento.
+15. **Un apartado vacío no desaparece**: sale con su título y su recuadro, como si tuviera datos, y dentro dice qué pasa (*Aún no has hecho este ejercicio.*, *Todavía no está en ninguna rutina.*). Si desapareciera, no se sabría si falta algo o si la app no lo tiene. **Lo mismo si algo falla: se dice qué pasa y cómo seguir.** Sin conexión con el servidor, o si una pantalla no puede leer sus datos, sale el motivo con palabras de la vida real y un botón *Reintentar*. Lo que no existe (una rutina borrada, una dirección mal escrita) solo lo dice. Si algo falla al pintar una pantalla, en vez de dejarla en blanco sale un aviso y la salida a Entrenar, con la barra de pestañas a mano: lo ya guardado sigue guardado.
+16. **El color es de los días, no de las rutinas.** Una rutina solo tiene color puesta en un día (en la semana de un programa, en Planificar, en el calendario), y es el de ese día: una rutina que va el martes y el jueves sale naranja el martes y verde el jueves. Donde la rutina se ve por su papel en el programa (las rutinas del programa en la hoja de Planificar, el volumen por rutina del resumen), lleva el color de su día en él: Pull, el del miércoles, aunque se vaya a poner otro día. Suelta en una lista que no tiene que ver con el programa, sin punto: un color ahí no diría nada.
 
 **Textos**
 
-14. **Cortos, y nombrando el control de verdad**: "Pulsa › para cambiar la rutina de un día", no "toca un día para…" cuando lo que se pulsa es un icono concreto.
-15. **Frases cortas, una por línea y centradas**, para que nunca quede una palabra suelta colgando; si en una pantalla estrecha alguna no cabe, el texto entero pasa a párrafo alineado a la izquierda. **Frases largas, en un solo párrafo** alineado a la izquierda, en un bloque centrado y más estrecho que la pantalla.
-16. **Las leyendas van al final**, debajo de los botones: se consultan, no se leen antes de actuar. Excepción: la de Planificar va arriba, porque su lista no tiene final.
-17. **Los títulos de tarjeta van centrados**; los rótulos de sección que encabezan una lista, a la izquierda, como la lista. En los diálogos, todo a la izquierda.
-18. **Sin dos puntos ni punto y coma**, salvo para empezar una enumeración (*rutinas, programas, sesiones y notas*): dos frases se separan con un punto o se unen con «y» o «así que», como se hablaría.
+17. **Cortos, y nombrando el control de verdad**: "Pulsa › para cambiar la rutina de un día", no "toca un día para…" cuando lo que se pulsa es un icono concreto.
+18. **Frases cortas, una por línea y centradas**, para que nunca quede una palabra suelta colgando; si en una pantalla estrecha alguna no cabe, el texto entero pasa a párrafo alineado a la izquierda. **Frases largas, en un solo párrafo** alineado a la izquierda, en un bloque centrado y más estrecho que la pantalla.
+19. **Las leyendas van al final**, debajo de los botones: se consultan, no se leen antes de actuar. Excepción: la de Planificar va arriba, porque su lista no tiene final.
+20. **Los títulos de tarjeta van centrados**; los rótulos de sección que encabezan una lista, a la izquierda, como la lista. En los diálogos, todo a la izquierda.
+21. **Sin dos puntos ni punto y coma**, salvo para empezar una enumeración (*rutinas, programas, sesiones y notas*): dos frases se separan con un punto o se unen con «y» o «así que», como se hablaría.
+
+## Los cuatro tipos de ejercicio
+
+Cada ejercicio se apunta de una de cuatro formas, que se elige al crearlo y no se puede cambiar (cada pantalla que cambia tiene una vista por tipo en los bocetos):
+
+- **Peso y repeticiones** (press banca, sentadilla): el peso y las repeticiones de cada serie.
+- **Peso corporal** (dominadas, fondos, flexiones): repeticiones y una carga opcional, de lastre o de ayuda, más el peso corporal de ese día, que no entra en ningún cálculo.
+- **Tiempo** (plancha, paseo del granjero): la duración, en minutos y segundos, y un peso opcional.
+- **Cardio** (cinta, bici, elíptica, remo): la duración, la distancia si se quiere y el ritmo que sale de las dos (`5:26 min/km`).
+
+En la gráfica de un ejercicio (H3), las medidas son: **peso corporal**, repeticiones (media por serie), repeticiones totales y carga; **tiempo**, la duración (media por serie), la total y el peso; **cardio**, la distancia, el tiempo y el ritmo. La carga, el peso, la distancia y el ritmo solo salen si se apuntaron en el rango elegido (un cardio sin distancia en el último mes abre en el tiempo). El globo de un punto solo dice la fecha y el valor.
+
+La biblioteca viene con 151 ejercicios predefinidos en 19 grupos (con Cuerpo completo, para los que trabajan todo el cuerpo a la vez), cada uno con su tipo (las dominadas y los fondos son de peso corporal, la plancha, de tiempo, y la cinta, de cardio); al crear uno propio, el grupo Cardio marca solo el tipo Cardio. Cada ejercicio de una rutina, y cada una de sus alternativas, lleva su propio objetivo en la unidad de su tipo (repeticiones o duración); las alternativas pueden ser de otro tipo (un crunch en polea o una plancha). En una sesión, cada ejercicio de la rutina se hace con uno solo: cambiar a otro con series ya apuntadas pide confirmar y las borra. Solo el volumen de peso y repeticiones suma kilos; las series de todos los tipos cuentan en las de cada grupo muscular.
 
 ## Pantallas
 
@@ -123,6 +136,7 @@ Concretos, para poder comprobar si una pantalla los cumple.
 | **X1** | Biblioteca | Ejercicios, con buscador y filtros | Pestaña Ejercicios |
 | **X2** | Ficha | Descripción, progresión, notas y dónde se usa | X1 |
 | **X3** | Nuevo / editar ejercicio | Nombre, grupo, cómo se apunta y descripción | X1, X2 |
+| **A0** | Al abrir la app | Solo en el móvil: lo que sale en vez de la app si los datos del teléfono no se pueden abrir | Al abrir la app |
 | **A1** | Ajustes | Unidades, botones del peso y del tiempo, peso corporal, objetivo de cada tipo, 1RM, tema, colores de los días y tus datos (exportar, importar, borrar) | E1 (engranaje) |
 
 **Cómo se cuentan.** Un código es una pantalla que hay que programar; los bocetos que comparten código son la misma pantalla en otro estado (H2 y H2 editando, P4 nuevo, existente y oculto). El corte está entre **leer y escribir**: la ficha de un ejercicio (X2) y su formulario (X3) son pantallas distintas, y por lo mismo lo son la semana de un programa (P2) y el formulario de uno nuevo (P5). En cambio, **crear y editar con el mismo formulario no se separan**: X3 sirve para los dos, y P4 también, porque un ejercicio de una rutina no tiene versión de solo leer. Son un componente con un id opcional sirviendo a dos rutas.
@@ -177,7 +191,6 @@ La pantalla importante. Un bloque por ejercicio de la rutina, en orden; el que s
 Comportamiento:
 
 - **El formulario arranca con la serie anterior** (ejercicio, peso y variante). Lo normal es cambiar solo las reps.
-- **El número de la siguiente serie es el mayor + 1**, no la cuenta: si se borra una del medio, no se repite un número.
 - **Cambiar a una alternativa**: si el ejercicio tiene alternativas, junto a su nombre hay una flecha en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre no abre nada) se despliegan el principal y sus alternativas, cada uno con su última vez, y el de hoy marcado. Al elegir una alternativa, la última vez, el peso con el que arranca el formulario y las series que se apunten pasan a ser de ese ejercicio, y el bloque plegado lo dice con la etiqueta *alternativa*. Se queda elegida para el resto del ejercicio. Un ejercicio de la rutina se hace con un solo ejercicio por sesión: si ya tiene series apuntadas y se elige otro, la app pregunta («¿Cambiar a Press militar en máquina? Se borrarán las 2 series de Press militar con mancuernas de hoy») y, si se confirma, borra esas series; sin series, cambia sin preguntar. Si el principal está oculto, empieza ya con una alternativa; un ejercicio sin alternativas no lleva flecha, porque no hay nada que elegir.
 - **Si a mitad de sesión se oculta algo que ya tiene series de hoy**, esas series no se pierden. Un ejercicio oculto en la pestaña Ejercicios sigue en su sitio, con la etiqueta *oculto*: sus series se pueden corregir, pero para apuntar más hay que mostrarlo, y el bloque lo dice. Un ejercicio oculto en la rutina pasa al final, plegado en *Ver 1 ejercicio oculto en la rutina*, con la etiqueta *oculto en la rutina* y sin flecha de alternativas: arriba quedan, numerados y en orden, los que se están haciendo. En el día del historial se ve igual, pero en su sitio.
 - **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
@@ -196,7 +209,7 @@ Comportamiento:
 
 ### H1 · Calendario
 
-El mes, con un **color por día de la semana** (no por rutina; más adelante podrá personalizarse). Cada día lleva una marca, que dice a la vez qué tocaba y qué se hizo ese día:
+El mes, con un **color por día de la semana** (no por rutina; cada color se puede cambiar en Ajustes). Cada día lleva una marca, que dice a la vez qué tocaba y qué se hizo ese día:
 
 | Marca | Significa |
 |---|---|
@@ -346,7 +359,7 @@ Descripción; la progresión, con el peso más alto de la última sesión y cuá
 
 ### X3 · Nuevo / editar ejercicio
 
-Nombre, grupo muscular y descripción (opcional), con *Guardar* arriba. Si falta el nombre o el grupo, lo dice bajo ese campo y no guarda nada.
+Nombre, grupo muscular, cómo se apunta (peso y repeticiones, peso corporal, tiempo o cardio; solo al crearlo, porque decide las medidas de sus series) y descripción (opcional), con *Guardar* arriba. Si falta el nombre o el grupo, lo dice bajo ese campo y no guarda nada.
 
 **Dos ejercicios no pueden llamarse igual**, aunque cambien las mayúsculas, las tildes o los espacios: crear tu propio *Press banca con barra* sin saber que la app ya lo trae repartiría tu progreso entre dos. Si ya hay uno con ese nombre, lo dice bajo el campo, en rojo, y dice cuál es: uno predefinido (*Búscalo en la pestaña Ejercicios*), uno tuyo o uno tuyo oculto (*Muéstralo desde la pestaña Ejercicios*). Si una versión nueva de la app trae un predefinido que se llama como uno tuyo, conviven los dos (el tuyo, marcado *mío*) y no se renombra nada. Al crear, se abre la ficha del ejercicio nuevo; al editar, se vuelve a ella.
 
@@ -365,7 +378,9 @@ Se llega con el engranaje de arriba a la derecha de *Hoy*. Tiene tres apartados.
 **Entrenamiento**
 
 - **Unidad de peso**: kilos o libras. Lo apuntado se guarda igual; solo cambia cómo se ve y en qué unidad se escribe.
-- **Botones − y + del peso**: cuánto suben o bajan cada vez. El número lo escribe el usuario (por defecto, 1).
+- **Unidad de distancia**: kilómetros o millas, para el cardio.
+- **Peso corporal**: el tuyo, con el que empieza cada serie de un ejercicio de peso corporal (se guarda con la serie, pero ningún cálculo lo usa).
+- **Botones − y + del peso** y **del tiempo**: cuánto suben o bajan cada vez. El número lo escribe el usuario (por defecto, 1 kg y 1 s).
 - **Ejercicio nuevo en una rutina**: el objetivo con el que empieza cada ejercicio que se añade a una rutina, uno por tipo (por defecto, 3 × 8-12 en peso y repeticiones, 3 × 6-10 en peso corporal, 3 × 30 s-1 min en tiempo y 1 × 20-30 min en cardio). Luego se cambia en cada uno.
 - **1RM estimado**: la **media de las series** (por defecto) o la **mejor serie** del día. Es lo que dice si un ejercicio ha mejorado, en el día del historial y en la gráfica de progresión, que cambian a la vez. La media cuenta el progreso de las series de después, que es donde está en las rutinas de doble progresión; la mejor serie es lo habitual en el entrenamiento de fuerza máxima.
 
@@ -428,27 +443,13 @@ Recién instalada, la app no tiene rutinas, ni programas, ni historial. Ejercici
 
 ## Lo que necesita del backend
 
-Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de cada ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conectará al PC (los datos pasan en un archivo exportado), así que hará esos cálculos ella misma.
+Todo lo que pide este diseño ya existe en el backend: programas, qué programa estuvo activo en cada periodo, días planificados, ocultar con fecha, sesiones terminadas, ejercicios predefinidos, el historial de cada ejercicio, una sesión por día, días de programa con fecha de vigencia, qué día del plan cuenta cada sesión y el plazo para moverla, el estado de cada día, que Planificar y editar un programa respeten lo hecho por adelantado, que borrar una rutina que ya estuvo en el plan pida elegir, y exportar e importar todos los datos. El estado de cada día y lo que se ofrece en Hoy se calculan en el backend, para que la web solo tenga que pintarlos. La app móvil no se conecta al PC (los datos pasan en un archivo exportado), así que hace esos cálculos ella misma, con la misma lógica del backend escrita en TypeScript y probada con los mismos tests.
 
-Las pantallas de la web ya están todas. La app ya es de una sola persona por instalación, sin usuarios, y apunta los cuatro tipos de ejercicio (ver más abajo). Con todo repasado, lo siguiente es la app móvil para Android, que guardará los datos en el propio teléfono y llevará dentro la misma lógica que hoy hace el backend.
+La web y la app móvil para Android tienen ya todas las pantallas. Lo siguiente es un diseño propio de la web para el PC, que aproveche el ancho de la pantalla.
 
 ## Por decidir
 
 Hablado, sin prisa: se decidirá cuando la app esté en uso.
 
-- **Ocultar predefinidos**: de momento no se ve necesario, así que no se pueden ocultar.
 - **Temporizador de descanso** entre series, en E2, con el tiempo por defecto en Ajustes.
 - **Contar el peso corporal en los cálculos** (volumen y 1RM) de los ejercicios de peso corporal, con una casilla por ejercicio. De momento solo se guarda con cada serie.
-
-## Ejercicios que no son de peso y repeticiones
-
-Cada ejercicio se apunta de una de cuatro formas, que se elige al crearlo y no se puede cambiar (cada pantalla que cambia tiene una vista por tipo en los bocetos):
-
-- **Peso y repeticiones**, como hasta ahora.
-- **Peso corporal** (dominadas, fondos, flexiones): repeticiones y una carga opcional, de lastre o de ayuda, más el peso corporal de ese día, que no entra en ningún cálculo.
-- **Tiempo** (plancha, paseo del granjero): la duración, en minutos y segundos, y un peso opcional.
-- **Cardio** (cinta, bici, elíptica, remo): la duración, la distancia si se quiere y el ritmo que sale de las dos (`5:26 min/km`).
-
-En la gráfica de un ejercicio (H3), las medidas son: **peso corporal**, repeticiones (media por serie), repeticiones totales y carga; **tiempo**, la duración (media por serie), la total y el peso; **cardio**, la distancia, el tiempo y el ritmo. La carga, el peso, la distancia y el ritmo solo salen si se apuntaron en el rango elegido (un cardio sin distancia en el último mes abre en el tiempo). El globo de un punto solo dice la fecha y el valor.
-
-La biblioteca viene con 151 ejercicios predefinidos en 19 grupos (con Cuerpo completo, para los que trabajan todo el cuerpo a la vez), cada uno con su tipo (las dominadas y los fondos son de peso corporal, la plancha, de tiempo, y la cinta, de cardio); al crear uno propio, el grupo Cardio marca solo el tipo Cardio. Cada ejercicio de una rutina, y cada una de sus alternativas, lleva su propio objetivo en la unidad de su tipo (repeticiones o duración); las alternativas pueden ser de otro tipo (un crunch en polea o una plancha). En una sesión, cada ejercicio de la rutina se hace con uno solo: cambiar a otro con series ya apuntadas pide confirmar y las borra. Solo el volumen de peso y repeticiones suma kilos; las series de todos los tipos cuentan en las de cada grupo muscular. Ajustes lleva el peso corporal, el paso de los botones del tiempo, la unidad de distancia y el objetivo con el que empieza cada tipo.

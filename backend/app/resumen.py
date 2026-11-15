@@ -1,6 +1,6 @@
 """Las cifras de la pantalla de resumen: volumen, series por grupo y constancia.
 
-Se calculan aquí y no en la web porque la app móvil enseñará lo mismo, y porque
+Se calculan aquí y no en la web porque la app móvil enseña lo mismo, y porque
 la constancia sale del seguimiento del plan, que solo conoce el backend. Todo va
 en una sola respuesta: cambiar entre semanas y meses o elegir una barra no pide
 nada más.

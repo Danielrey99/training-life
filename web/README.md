@@ -10,12 +10,10 @@ Frontend web del proyecto, construido con **React 19** y **TypeScript**, sobre *
 
 Completa: tiene todas las pantallas del diseño de la app.
 
-La primera versión se escribió para validar que el circuito funciona —React pide, la API responde, la pantalla pinta— y sirvió también para encontrar las asperezas de la API consumiéndola de verdad. Con eso aprendido, la app se [diseñó entera](../README.md#diseño-de-la-app) antes de seguir, y la web se rehízo pantalla a pantalla siguiendo ese diseño. Están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días, el resumen de volumen y constancia, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes: todas las pantallas del diseño.
+La app se [diseñó entera](../README.md#diseño-de-la-app) antes de programarla, y la web sigue ese diseño pantalla a pantalla. Están la sesión en curso, la pantalla de entrada (*Hoy*), el historial (el calendario y cada día), la progresión de un ejercicio, la planificación de los próximos días, el resumen de volumen y constancia, los programas con sus rutinas, la biblioteca de ejercicios y los ajustes: todas las pantallas del diseño.
 
 - [x] Proyecto Vite + React + TypeScript, con React Router
 - [x] Módulo propio para hablar con la API, con los tipos de cada respuesta
-- [x] Pantalla de ejercicios
-- [x] Primera versión de registrar un entrenamiento (ya sustituida)
 - [x] El armazón del diseño: las cuatro secciones (Entrenar, Historial, Programas, Ejercicios) en una barra abajo en el móvil y en una columna a la izquierda en el PC, y el cliente de la API completo, con los tipos al día
 - [x] La sesión en curso, siguiendo los bocetos
 - [x] *Hoy*: qué toca, la semana, lo que queda por recuperar y qué más se puede entrenar
@@ -69,14 +67,16 @@ web/
     │   ├── tipos.ts      # la forma de lo que devuelve la API
     │   └── cliente.ts    # todas las llamadas, en un solo sitio
     ├── componentes/      # piezas que usan varias pantallas
+    │   ├── CampoDeDuracion.tsx  # minutos y segundos con − / +, para las series de tiempo y cardio, los objetivos y Ajustes
     │   ├── Dialogo.tsx   # la confirmación antes de terminar, cancelar o borrar, y el aviso de un solo botón
     │   ├── Icono.tsx     # los iconos de trazo de los bocetos
     │   ├── Interruptor.tsx  # la tarjeta con un interruptor: «Programa activo» y «Activarlo al crearlo»
     │   ├── MarcaDelDia.tsx  # la marca de un día (hecho, movido, sin hacer…), para la semana y el calendario
     │   ├── NotaDeSesion.tsx # la nota de una sesión, en la sesión y en el día del historial
     │   ├── Ocultos.tsx   # el «Ver N ocultos» plegable del pie de una lista
-    │   └── Pestanas.tsx  # la barra de las cuatro secciones
-    ├── utiles/           # los ajustes, fechas y pesos en formato español (en kg o lb), el color de cada día, la flecha de volver y los textos que pasan a párrafo
+    │   ├── Pestanas.tsx  # la barra de las cuatro secciones
+    │   └── Proteccion.tsx   # si una pantalla falla, un aviso con Reintentar en vez de la página en blanco
+    ├── utiles/           # los ajustes, fechas y números en formato español (en kg o lb, km o millas), las medidas de cada serie, las de la gráfica, el color de cada día, la flecha de volver y los textos que pasan a párrafo
     └── paginas/          # una pantalla por archivo, o por carpeta si tiene piezas propias
         ├── ajustes/      # los ajustes del dispositivo y tus datos (exportar, importar, borrar)
         ├── ejercicios/   # la pestaña de Ejercicios
@@ -84,6 +84,7 @@ web/
         │   ├── Ficha.tsx                # un ejercicio: progresión, notas, dónde se usa, ocultar y borrar
         │   ├── Formulario.tsx           # crear o editar un ejercicio
         │   ├── HojaDeGrupos.tsx         # la hoja del filtro por grupo muscular
+        │   ├── tiposDeRegistro.ts       # las cuatro formas de apuntar un ejercicio, con su ayuda
         │   └── ejercicios.css
         ├── historial/    # la pestaña de Historial
         │   ├── Calendario.tsx           # el mes, sus cifras y la leyenda
@@ -136,10 +137,9 @@ Decisiones que se notan al usarla:
 - **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado. La flecha de volver lleva a la pantalla de la que se venía, y en una sesión de un día pasado, a su día en el historial.
 - **El formulario arranca con la serie anterior** de ese ejercicio (sus medidas y la variante), porque las series de un ejercicio casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
 - **Los topes de la API se comprueban antes de enviar** (1000 repeticiones, 24 horas, 1000 km, unos 10.000 kg), con una frase en la unidad elegida: si no, el error llegaba con el texto en inglés de la validación del backend.
-- **El número de la siguiente serie es el más alto + 1**, no cuántas hay: borrando una del medio, contarlas repetiría un número.
 - **La alternativa se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y las alternativas, cada uno con su última vez. Al elegir una, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el ejercicio empieza ya con una alternativa.
 - **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar cambios* en la misma línea. No hay un modo de edición aparte.
-- **Las series se numeran por su posición**: al borrar una, las que quedan se renumeran. El número que guarda la base solo da el orden, así que no hay que reescribir nada al borrar.
+- **Las series se numeran por su posición**: al borrar una, las que quedan se renumeran. El número que guarda la base solo da el orden (una serie nueva lleva el más alto + 1), así que no hay que reescribir nada al borrar.
 - **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás ejercicios, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
 - **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
 - **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
@@ -148,7 +148,7 @@ Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperado de
 
 ## Hoy
 
-La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que tendrá el calendario; debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo de cada día, la **última sesión hecha** y una lista con qué más se puede entrenar hoy.
+La pantalla de entrada (`/`). Arriba, la semana con las mismas marcas que el calendario; debajo, una tarjeta con lo de hoy, lo que queda **por recuperar** con el plazo de cada día, la **última sesión hecha** y una lista con qué más se puede entrenar hoy.
 
 - **Todo sale de una sola llamada** (`GET /plan/hoy`). Qué toca, qué se puede recuperar, adelantar o intercambiar, y si hoy ya se entrenó, lo decide el backend: así la web y el móvil dirán siempre lo mismo, y la pantalla solo pinta.
 - **Al pulsar un botón, la web dice qué día del plan va a contar la sesión**: *Empezar* cuenta hoy, *Recuperar* el día que se faltó y *Adelantar* el día ofrecido. *Intercambiar* cambia antes el plan de los dos días y después empieza la de hoy.
@@ -239,7 +239,7 @@ La rutina (`/programas/rutinas/10`) enseña sus ejercicios en orden, numerados p
 
 La biblioteca (`/ejercicios`) junta los 151 ejercicios predefinidos y los propios, con un buscador (sin tildes ni mayúsculas), un filtro de origen (*Todos · Predefinidos · Míos*) y otro por grupo muscular, que solo ofrece los grupos con algo que enseñar. Cada ejercicio dice su grupo y su origen. El grupo se elige con un campo que abre una hoja con los 19 grupos en dos columnas: en una fila de píldoras no se veían todos, y envueltos ocupaban media pantalla. Lo que se busca y filtra va en la URL, así que volver de una ficha deja la lista como estaba.
 
-- **La ficha** (`/ejercicios/12`) enseña la descripción, la progresión (la primera medida de su gráfica en la última sesión, como el peso más alto, y cuándo fue; lleva a la gráfica), las notas y las rutinas donde se usa: *Push · ejercicio 1*, si es el principal o una alternativa y en qué programas está la rutina, con el punto del color de su día. Un bloque sin contenido no sale.
+- **La ficha** (`/ejercicios/12`) enseña la descripción, la progresión (la primera medida de su gráfica en la última sesión, como el peso más alto, y cuándo fue; lleva a la gráfica), las notas y las rutinas donde se usa: *Push · ejercicio 1*, si es el principal o una alternativa y en qué programas está la rutina (sin punto de color: fuera de un día, una rutina no lo lleva). Un apartado vacío sale igual, con su recuadro y una frase que dice qué pasa (*Aún no tienes notas de este ejercicio.*).
 - **Las notas se escriben en la propia ficha**, cada una con su lápiz y su ✕ y su propio *Guardar*, porque la ficha no tiene un modo editar general. Se puede anotar también un ejercicio predefinido o uno oculto: las notas son tuyas. Su fecha es la del día en que se escribieron en tu hora, no en la del servidor, que la guarda en UTC: si no, una nota de pasada la medianoche saldría del día anterior.
 - **Lo oculto va plegado**, como en Programas: los ejercicios ocultos al pie de la biblioteca, y en la ficha, las rutinas donde el ejercicio está oculto o que lo están ellas. Un ejercicio oculto se ve en solo lectura, con *Mostrar*. Los predefinidos no se pueden editar, ocultar ni borrar, y la ficha lo dice.
 - **Borrar cuenta lo que se pierde** con las cifras que da la API (*Se borrarán también sus series de 11 sesiones y tus 2 notas, y se quitará de las rutinas donde se usa, con sus alternativas donde es el principal*) y ofrece ocultarlo en su lugar.

@@ -3,7 +3,7 @@ import { distanciaLegible, duracionLegible, pesoLegible, ritmoLegible, unidad } 
 
 /**
  * Las medidas que puede llevar una serie, según el tipo de su ejercicio: las que no le
- * tocan van nulas. Es la misma regla que `app/medidas.py` del backend; el móvil copiará
+ * tocan van nulas. Es la misma regla que `app/medidas.py` del backend; el móvil copia
  * este archivo.
  *
  * - `peso_reps`: peso (0 o más) y repeticiones.

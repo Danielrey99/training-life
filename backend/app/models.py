@@ -189,7 +189,7 @@ class RutinaPeriodoOculto(Base):
 
 
 # Exactamente un par de objetivo, y completo: repeticiones o duración, nunca los dos
-# ni ninguno. Vale igual en SQLite, que es donde lo copiará el móvil.
+# ni ninguno. Vale igual en SQLite, donde lo copia el móvil.
 OBJETIVO_CHECK = (
     "(reps_min IS NULL) = (reps_max IS NULL)"
     " AND (duracion_min_s IS NULL) = (duracion_max_s IS NULL)"

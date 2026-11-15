@@ -14,7 +14,7 @@ cambia, y el tipo decide qué medidas lleva cada serie suya:
 números. La base de datos solo comprueba la forma de la serie (`series_medidas_check`):
 qué pide cada ejercicio lo comprueba esta regla, porque el tipo está en otra tabla.
 
-Esta es la especificación que copiará la app móvil, así que no usa nada de FastAPI.
+Es la especificación que copia la app móvil, así que no usa nada de FastAPI.
 """
 
 from collections.abc import Mapping

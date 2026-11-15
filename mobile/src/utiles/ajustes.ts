@@ -8,8 +8,8 @@ import type { TipoRegistro } from '../logica/tipos'
 
 /**
  * Los ajustes de la app. No están en la base de datos ni viajan en el archivo de
- * exportación: son de cada dispositivo y se guardan en el navegador. Sin nada
- * guardado (o si el navegador no deja guardar), valen los de por defecto.
+ * exportación: son de cada dispositivo y se guardan en el teléfono (el `localStorage` de
+ * expo-sqlite). Sin nada guardado (o si no se puede guardar), valen los de por defecto.
  */
 /** Con lo que empieza un ejercicio nuevo de una rutina: series y, de repeticiones o de segundos. */
 export type ObjetivoNuevo = { series: number; min: number; max: number }
@@ -96,7 +96,7 @@ export function cambiarAjustes(cambios: Partial<Ajustes>) {
   try {
     localStorage.setItem(CLAVE, JSON.stringify(actuales))
   } catch {
-    // Sin poder guardar, el cambio vale hasta que se cierre la pestaña.
+    // Sin poder guardar, el cambio vale hasta que se cierre la app.
   }
   avisar.forEach((funcion) => funcion())
 }
