@@ -313,7 +313,8 @@ export function Dia() {
     setEjerciciosNuevos({})
     setEditando(false)
     if (fechaFinal !== dia.fecha) {
-      router.replace({ pathname: '/historial/[fecha]', params: { fecha: fechaFinal } })
+      // Con `desde`: abierto desde Entrenar, la flecha tiene que seguir volviendo allí.
+      router.replace({ pathname: '/historial/[fecha]', params: { fecha: fechaFinal, desde } })
     } else recargar()
   }
 
@@ -396,7 +397,8 @@ export function Dia() {
 
   async function borrarYSalir() {
     await api.borrarEntrenamiento(dia.id)
-    alCalendario(dia.fecha)
+    // Al mes de ese día, como la web: volver atrás podría llevar a la progresión o a otro mes.
+    router.dismissTo({ pathname: '/historial', params: { mes: dia.fecha.slice(0, 7) } })
   }
 
   return (

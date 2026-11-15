@@ -116,8 +116,7 @@ export function Ficha() {
       api.notas(id),
       api.dondeSeUsa(id),
     ])
-    // Las más recientes arriba.
-    notas.sort((una, otra) => otra.created_at.localeCompare(una.created_at))
+    // Las notas ya llegan de la más reciente a la más antigua.
     return { ejercicio, grupos, sesiones, notas, usos }
   }, [id])
 
@@ -582,7 +581,13 @@ function FormularioDeNota({
         autoFocus
       />
       <View style={e.botones}>
-        <Boton texto="Cancelar" alPulsar={alCancelar} desactivado={guardando} estirar />
+        <Boton
+          texto="Cancelar"
+          variante="peligro"
+          alPulsar={alCancelar}
+          desactivado={guardando}
+          estirar
+        />
         <Boton
           texto="Guardar"
           variante="principal"

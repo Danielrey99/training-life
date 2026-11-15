@@ -9,7 +9,7 @@
  * problemas de toques), y se cierra eligiendo o con el mismo campo.
  */
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 
 import { Icono } from '../../componentes/Icono'
 import type { GrupoMuscular } from '../../logica/tipos'
@@ -27,6 +27,11 @@ export const TODOS_LOS_GRUPOS = 'Todos los grupos musculares'
 export function DesplegableDeGrupo({ grupos, elegido, alElegir }: Props) {
   const c = useColores()
   const [abierto, setAbierto] = useState(false)
+  // Hasta el pie de la hoja, como la web (decisión del autor: cuantos más grupos se vean,
+  // mejor). La hoja ocupa el 85 % del alto; encima de la lista quedan su cabecera, el buscador
+  // y este campo, unos 240.
+  const { height } = useWindowDimensions()
+  const alto = Math.max(320, Math.round(height * 0.85 - 240))
 
   function elegir(grupo: number | null) {
     alElegir(grupo)
@@ -72,7 +77,10 @@ export function DesplegableDeGrupo({ grupos, elegido, alElegir }: Props) {
         <ScrollView
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
-          style={[estilos.lista, { backgroundColor: c.fondo, borderColor: c.borde }]}
+          style={[
+            estilos.lista,
+            { maxHeight: alto, backgroundColor: c.fondo, borderColor: c.borde },
+          ]}
         >
           {opcion(null, TODOS_LOS_GRUPOS)}
           {grupos.map((uno) => opcion(uno.id, uno.nombre))}
@@ -94,7 +102,7 @@ const estilos = StyleSheet.create({
     borderRadius: RADIO_PEQUENO,
   },
   campoTexto: { flex: 1, fontSize: 15 },
-  lista: { maxHeight: 320, padding: 4, borderWidth: 1, borderRadius: RADIO_PEQUENO },
+  lista: { padding: 4, borderWidth: 1, borderRadius: RADIO_PEQUENO },
   opcion: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 4 },
   opcionTexto: { fontSize: 15 },
 })

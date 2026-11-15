@@ -69,7 +69,8 @@ export function rutaDeLaBase(): string | null {
  * una versión más nueva, esta versión no sabe sacar la copia en texto de siempre.
  */
 export async function compartirTusDatos(): Promise<void> {
-  const destino = new File(Paths.cache, `training-life-${relojDelTelefono.ahora().slice(0, 10)}.db`)
+  // Con el día del teléfono: `ahora()` va en UTC, y pasada la medianoche saldría el anterior.
+  const destino = new File(Paths.cache, `training-life-${relojDelTelefono.hoy()}.db`)
   if (destino.exists) destino.delete()
   let copiada = false
   if (abierta && !abierta.bd.enTransaccion) {
@@ -82,6 +83,8 @@ export async function compartirTusDatos(): Promise<void> {
     }
   }
   if (!copiada) {
+    // Sin poder abrir la base no se puede volcar en ella lo del `-wal`, y el menú de compartir
+    // manda un solo archivo: sale el `.db` tal cual, que es lo que hay.
     const ruta = abierta?.ruta ?? `${defaultDatabaseDirectory}/${NOMBRE_DEL_ARCHIVO}`
     new File(ruta.startsWith('file://') ? ruta : `file://${ruta}`).copySync(destino)
   }
