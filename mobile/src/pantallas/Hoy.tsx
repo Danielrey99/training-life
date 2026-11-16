@@ -30,6 +30,7 @@ import type {
 import { api } from '../plataforma/api'
 import { RADIO, useColores, type Colores } from '../tema'
 import { conArticulo, fechaEnFrase, fechaLarga, nombreDelDia, sumarDias } from '../utiles/fechas'
+import { cuantosEjercicios } from '../utiles/textos'
 
 const INICIALES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
@@ -152,17 +153,20 @@ export function Hoy() {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
     if (!datos) return ''
     const cuando = datos.ultima_vez ? `última vez ${conArticulo(datos.ultima_vez)}` : 'nunca hecha'
-    // «Sin ejercicios», como en la lista de Programas, y no «0 ejercicios».
-    const cuantos =
-      datos.ejercicios === 0
-        ? 'Sin ejercicios'
-        : contar(datos.ejercicios, 'ejercicio', 'ejercicios')
-    return `${cuantos} · ${cuando}`
+    return `${cuantosEjercicios(datos.ejercicios)} · ${cuando}`
   }
 
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
-    return datos ? contar(datos.ejercicios, 'ejercicio', 'ejercicios') : ''
+    return datos ? cuantosEjercicios(datos.ejercicios) : ''
+  }
+
+  /**
+   * Sin ejercicios no hay nada que entrenar: no se ofrece empezarla (decisión del autor).
+   * Una oculta no está en el resumen, y no cuenta como vacía.
+   */
+  function sinEjercicios(rutina: RutinaMinima) {
+    return resumen!.rutinas.find((una) => una.id === rutina.id)?.ejercicios === 0
   }
 
   function abrirSesion(id: number) {
@@ -289,6 +293,7 @@ export function Hoy() {
           enCurso={enCurso}
           detalle={detalle}
           ejercicios={ejercicios}
+          sinEjercicios={sinEjercicios}
           alEmpezar={() => rutinaDeHoy && pedirEmpezar(rutinaDeHoy, hoy)}
           alContinuar={() => abrirSesion(resumen.sesion!.entrenamiento_id)}
         />
@@ -327,6 +332,7 @@ export function Hoy() {
                   hoy={hoy}
                   primera={indice === 0}
                   ejercicios={ejercicios(recuperable.rutina)}
+                  sinEjercicios={sinEjercicios(recuperable.rutina)}
                   alRecuperar={() => pedirRecuperar(recuperable)}
                 />
               ))}
@@ -343,11 +349,15 @@ export function Hoy() {
         {listaDeAbajo.length > 0 && (
           <Seccion titulo={TITULO_DE_LA_LISTA[listaDeAbajo[0].accion]}>
             {listaDeAbajo.map((ofrecida) => (
-              // Hoy ya se entrenó: la fila es solo un recordatorio, sin flecha ni nada que
-              // pulsar (como los recuperables sin botón).
+              // Hoy ya se entrenó, o la rutina no tiene ejercicios: la fila es solo un
+              // recordatorio, sin flecha ni nada que pulsar (como los recuperables sin botón).
               <Fila
                 key={`${ofrecida.rutina.id}-${ofrecida.fecha}`}
-                alPulsar={ofrecida.se_puede_hoy ? () => pedirOfrecida(ofrecida) : undefined}
+                alPulsar={
+                  ofrecida.se_puede_hoy && !sinEjercicios(ofrecida.rutina)
+                    ? () => pedirOfrecida(ofrecida)
+                    : undefined
+                }
               >
                 {/* El día junto al nombre: «Rutina · día», como las demás listas. */}
                 <Text style={e.filaFuerte}>
@@ -430,6 +440,7 @@ type PropsTarjeta = {
   enCurso: Entrenamiento | null
   detalle: (rutina: RutinaMinima) => string
   ejercicios: (rutina: RutinaMinima) => string
+  sinEjercicios: (rutina: RutinaMinima) => boolean
   alEmpezar: () => void
   alContinuar: () => void
 }
@@ -441,6 +452,7 @@ function Tarjeta({
   enCurso,
   detalle,
   ejercicios,
+  sinEjercicios,
   alEmpezar,
   alContinuar,
 }: PropsTarjeta) {
@@ -588,10 +600,37 @@ function Tarjeta({
           {chip}
           {antes('Hoy toca')}
           <Text style={e.tarjetaGrande}>{rutina!.nombre}</Text>
-          <TextoCentrado style={e.tarjetaDespues}>{detalle(rutina!)}</TextoCentrado>
-          <View style={e.tarjetaBoton}>
-            <Boton texto={`Empezar ${rutina!.nombre}`} variante="principal" alPulsar={alEmpezar} />
-          </View>
+          {sinEjercicios(rutina!) ? (
+            <>
+              <TextoCentrado style={e.tarjetaDespues}>
+                {`${rutina!.nombre} no tiene ejercicios.
+Añádele alguno desde la pestaña Programas para poder entrenarla.`}
+              </TextoCentrado>
+              <View style={e.tarjetaBoton}>
+                <Boton
+                  texto="Ir a Programas"
+                  variante="principal"
+                  alPulsar={() =>
+                    router.navigate(
+                      { pathname: '/programas/rutinas/[id]', params: { id: String(rutina!.id) } },
+                      { withAnchor: true },
+                    )
+                  }
+                />
+              </View>
+            </>
+          ) : (
+            <>
+              <TextoCentrado style={e.tarjetaDespues}>{detalle(rutina!)}</TextoCentrado>
+              <View style={e.tarjetaBoton}>
+                <Boton
+                  texto={`Empezar ${rutina!.nombre}`}
+                  variante="principal"
+                  alPulsar={alEmpezar}
+                />
+              </View>
+            </>
+          )}
         </View>
       )
   }
@@ -602,11 +641,19 @@ type PropsRecuperable = {
   hoy: string
   primera: boolean
   ejercicios: string
+  sinEjercicios: boolean
   alRecuperar: () => void
 }
 
 /** Un día por recuperar: hasta cuándo se puede y, si hoy se puede, su botón. */
-function FilaRecuperable({ recuperable, hoy, primera, ejercicios, alRecuperar }: PropsRecuperable) {
+function FilaRecuperable({
+  recuperable,
+  hoy,
+  primera,
+  ejercicios,
+  sinEjercicios,
+  alRecuperar,
+}: PropsRecuperable) {
   const c = useColores()
   const e = useEstilos(c)
   const { rutina, fecha, plazo, se_puede_hoy } = recuperable
@@ -626,7 +673,7 @@ function FilaRecuperable({ recuperable, hoy, primera, ejercicios, alRecuperar }:
         <Text style={[e.filaTexto, caducaHoy && se_puede_hoy && { color: c.ambar }]}>{texto}</Text>
       </View>
       {/* Siempre en verde, también junto a Empezar: decisión expresa del autor. */}
-      {se_puede_hoy && (
+      {se_puede_hoy && !sinEjercicios && (
         <Pressable
           accessibilityRole="button"
           onPress={alRecuperar}

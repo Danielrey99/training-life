@@ -37,15 +37,12 @@ import { RADIO, useColores, type Colores } from '../../tema'
 import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia, colorDeRutina, sinDia } from '../../utiles/colores'
 import { diaDeLaSemana, diaYMesConAnio, fechaLarga, sumarDias } from '../../utiles/fechas'
+import { cuantosEjercicios } from '../../utiles/textos'
 
 // Las semanas que se piden de una vez, y el máximo de días que admite la lógica por llamada
 // (400) con un margen.
 const SEMANAS_POR_TANDA = 4
 const DIAS_POR_LLAMADA = 392
-
-function contar(cuantos: number) {
-  return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
-}
 
 /** Los días de `desde` a `hasta`, en las llamadas que haga falta. */
 async function leerDias(desde: string, hasta: string) {
@@ -152,7 +149,7 @@ export function Planificar() {
 
   function ejercicios(rutinaId: number) {
     const datos = resumen!.rutinas.find((una) => una.id === rutinaId)
-    return datos ? contar(datos.ejercicios) : ''
+    return datos ? cuantosEjercicios(datos.ejercicios) : ''
   }
 
   function pedirRestablecerSemana(semana: Semana) {
@@ -420,11 +417,16 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
       key={rutina.id}
       accessibilityRole="button"
       onPress={() => elegir(rutina.id)}
-      disabled={guardando}
+      // Sin ejercicios no se puede poner en un día (decisión del autor): sale en su sitio, en
+      // gris, y con su marca si es la que ya toca.
+      disabled={guardando || rutina.ejercicios === 0}
+      accessibilityState={{ disabled: rutina.ejercicios === 0 }}
       style={e.filaHoja}
     >
       {color && <View style={[e.punto, { backgroundColor: color }]} />}
-      <Text style={e.filaTitulo}>{rutina.nombre}</Text>
+      <Text style={[e.filaTitulo, rutina.ejercicios === 0 && { color: c.textoTenue }]}>
+        {rutina.nombre}
+      </Text>
       <Text style={e.detalle}>{ejercicios(rutina.id)}</Text>
       {marca(actual === rutina.id)}
     </Pressable>

@@ -36,6 +36,7 @@ import {
   type ObjetivoEnTexto,
 } from './objetivos'
 import './semana.css'
+import { avisoDeRutinaVacia } from './textos'
 
 /**
  * De dónde sale lo que se edita: un ejercicio del borrador de la rutina nueva (nada
@@ -569,7 +570,10 @@ export function Ejercicio() {
       {pregunta === 'ocultar' && origen.tipo === 'existente' && (
         <Dialogo
           titulo={`¿Ocultar ${principalNombre} en ${origen.rutina.nombre}?`}
-          cuerpo={`Dejará de salir en esta rutina y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina. ${CAMBIARLO}`}
+          cuerpo={conAviso(
+            `Dejará de salir en esta rutina y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina. ${CAMBIARLO}`,
+            avisoDeRutinaVacia(origen.rutina, origen.hueco.id),
+          )}
           confirmar="Ocultar"
           alConfirmar={async () => {
             await api.borrarHueco(origen.rutina.id, origen.hueco.id, 'ocultar')
@@ -595,7 +599,10 @@ export function Ejercicio() {
       {pregunta === 'borrar' && origen.tipo === 'existente' && aviso && (
         <Dialogo
           titulo={`¿Borrar ${principalNombre}?`}
-          cuerpo={loQueSePierde(aviso, huecoOculto)}
+          cuerpo={conAviso(
+            loQueSePierde(aviso, huecoOculto),
+            avisoDeRutinaVacia(origen.rutina, origen.hueco.id),
+          )}
           confirmar="Borrar"
           peligro
           alConfirmar={async () => {
@@ -608,6 +615,11 @@ export function Ejercicio() {
       )}
     </div>
   )
+}
+
+/** El cuerpo de un diálogo con un aviso al final, si lo hay; sin ninguno de los dos, nada. */
+function conAviso(cuerpo: string | undefined, aviso: string | null) {
+  return [cuerpo, aviso].filter(Boolean).join(' ') || undefined
 }
 
 /** Que no hace falta ocultar ni borrar para hacer otro ejercicio en su lugar. */

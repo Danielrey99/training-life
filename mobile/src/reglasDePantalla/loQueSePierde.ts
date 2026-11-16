@@ -13,6 +13,11 @@ import type {
 import { diaYMesConAnio } from '../utiles/fechas'
 import { enumerar } from '../utiles/textos'
 
+/** El cuerpo de un diálogo con un aviso al final, si lo hay; sin ninguno de los dos, nada. */
+export function conAviso(cuerpo: string | undefined, aviso: string | null) {
+  return [cuerpo, aviso].filter(Boolean).join(' ') || undefined
+}
+
 /** Que no hace falta ocultar ni borrar para hacer otro ejercicio en su lugar. */
 export const CAMBIARLO =
   'Si quieres hacer otro ejercicio en su lugar, cambia el ejercicio principal o las alternativas y lo que ya hiciste se conservará.'

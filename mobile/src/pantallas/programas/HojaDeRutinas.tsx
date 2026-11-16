@@ -13,7 +13,7 @@ import { Hoja } from '../../componentes/Hoja'
 import { Icono } from '../../componentes/Icono'
 import type { ProgramaDia, Rutina } from '../../logica/tipos'
 import { useColores } from '../../tema'
-import { ejercicios, nombreDelDiaSemana } from '../../utiles/textos'
+import { ejercicios, nombreDelDiaSemana, sinEjercicios } from '../../utiles/textos'
 
 interface Props {
   diaSemana: number
@@ -67,7 +67,10 @@ export function HojaDeRutinas({
         <Pressable
           key={rutina.id}
           accessibilityRole="button"
-          accessibilityState={{ selected: elegida === rutina.id }}
+          // Sin ejercicios no se puede poner en un día (decisión del autor): sale en su sitio,
+          // en gris, y con su marca si es la que ya tiene el día.
+          disabled={sinEjercicios(rutina)}
+          accessibilityState={{ selected: elegida === rutina.id, disabled: sinEjercicios(rutina) }}
           onPress={() => alElegir(rutina)}
           style={({ pressed }) => [
             estilos.fila,
@@ -75,7 +78,9 @@ export function HojaDeRutinas({
             pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={[estilos.nombre, { color: c.texto }]}>{rutina.nombre}</Text>
+          <Text style={[estilos.nombre, { color: sinEjercicios(rutina) ? c.textoTenue : c.texto }]}>
+            {rutina.nombre}
+          </Text>
           <Text style={[estilos.extra, { color: c.textoTenue }]}>{ejercicios(rutina)}</Text>
           <View style={estilos.marca}>
             {elegida === rutina.id && <Icono nombre="elegido" color={c.acento} pequeno />}

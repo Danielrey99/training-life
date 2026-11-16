@@ -4,7 +4,7 @@ import type { ProgramaDia, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import '../historial/historial.css'
 import './programas.css'
-import { ejercicios, nombreDelDiaSemana } from './textos'
+import { ejercicios, nombreDelDiaSemana, sinEjercicios } from './textos'
 
 type Props = {
   diaSemana: number
@@ -75,7 +75,10 @@ export function HojaDeRutinas({
           <button
             key={rutina.id}
             type="button"
-            className="hoja-fila"
+            // Sin ejercicios no se puede poner en un día (decisión del autor): sale en su sitio,
+            // en gris, y con su marca si es la que ya tiene el día.
+            className={sinEjercicios(rutina) ? 'hoja-fila hoja-fila-sin-ejercicios' : 'hoja-fila'}
+            disabled={sinEjercicios(rutina)}
             onClick={() => alElegir(rutina)}
           >
             <span className="hoja-fila-texto">

@@ -43,6 +43,8 @@ import {
   NOMBRES_DE_LOS_DIAS,
   nombreDelDiaSemana,
   QUE_HACER_CON_ELLOS,
+  avisoDeRutinasVacias,
+  sinEjercicios,
 } from '../../utiles/textos'
 import {
   DIAS,
@@ -190,6 +192,11 @@ export function Semana() {
   const oculto = programa.oculto_desde !== null
   const delDia = editando && dias ? dias : diasDe(programa)
   const ejerciciosDe = new Map(rutinas.map((rutina) => [rutina.id, ejercicios(rutina)]))
+  const vacias = new Set(rutinas.filter(sinEjercicios).map((rutina) => rutina.id))
+  const avisoDeVacias = avisoDeRutinasVacias(
+    DIAS.map((dia) => delDia[dia]),
+    vacias,
+  )
   const visibles = DIAS.filter((dia) => delDia[dia] && delDia[dia].oculto_desde === null)
   const conOculta = DIAS.filter((dia) => delDia[dia]?.oculto_desde)
 
@@ -358,6 +365,7 @@ export function Semana() {
             dias={dias}
             alAbrir={setHojaDe}
             alQuitar={(dia) => elegir(dia, null)}
+            vacias={vacias}
             desactivado={guardando}
           />
         ) : (
@@ -495,6 +503,7 @@ export function Semana() {
             activo
               ? `${activo.nombre} dejará de estar activo.`
               : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.',
+            ...(avisoDeVacias ? [avisoDeVacias] : []),
             ...(cambiados.length > 0
               ? [
                   `${diasCambiadosAMano(cambiados, (iso) => fechaEnFrase(iso, false))} ${QUE_HACER_CON_ELLOS}`,

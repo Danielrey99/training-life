@@ -4,9 +4,18 @@
  * («3 × 8-12», «3 × 30-45 s»), qué objetivo y cuántas series tocan con una alternativa, y las
  * cuentas y enumeraciones de las listas.
  */
-import type { Ejercicio, HuecoDeRutina, Objetivo, Rutina } from '../../src/logica/tipos'
+import type {
+  Ejercicio,
+  HuecoDeRutina,
+  Objetivo,
+  Rutina,
+  RutinaMinima,
+} from '../../src/logica/tipos'
 import {
+  avisoDeRutinaVacia,
+  avisoDeRutinasVacias,
   cuantosDias,
+  cuantosEjercicios,
   deDonde,
   diasCambiadosAMano,
   ejercicios,
@@ -16,6 +25,7 @@ import {
   objetivo,
   objetivoDelEjercicio,
   seriesObjetivoDe,
+  sinEjercicios,
 } from '../../src/utiles/textos'
 
 jest.mock('react-native', () => jest.requireActual('../apoyo/reactNative').falso)
@@ -166,5 +176,74 @@ describe('diasCambiadosAMano', () => {
     )
     // Sin tocar la lista que recibe.
     expect(fechas).toEqual(['2026-09-25', '2026-09-18', '2026-09-30'])
+  })
+})
+
+describe('rutinas sin ejercicios', () => {
+  const rutinaCon = (...huecos: [number, string | null][]) =>
+    ({
+      nombre: 'Pull',
+      slots: huecos.map(([id, oculto]) => ({ ...hueco(oculto), id })),
+    }) as unknown as Rutina
+
+  test('cuantosEjercicios_dice_sin_ejercicios_uno_o_varios', () => {
+    expect([0, 1, 4].map(cuantosEjercicios)).toEqual([
+      'Sin ejercicios',
+      '1 ejercicio',
+      '4 ejercicios',
+    ])
+  })
+
+  test('sinEjercicios_es_cierto_sin_huecos_o_con_todos_ocultos_y_falso_con_uno_visible', () => {
+    expect(sinEjercicios(rutinaCon())).toBe(true)
+    expect(sinEjercicios(rutinaCon([1, '2026-09-01'], [2, '2026-09-01']))).toBe(true)
+    expect(sinEjercicios(rutinaCon([1, '2026-09-01'], [2, null]))).toBe(false)
+  })
+
+  test('avisoDeRutinaVacia_solo_avisa_si_ese_hueco_es_el_unico_visible', () => {
+    const frase = 'Pull se quedará sin ejercicios y no podrás entrenarla hasta que le añadas otro.'
+    expect(avisoDeRutinaVacia(rutinaCon([1, null], [2, '2026-09-01']), 1)).toBe(frase)
+    expect(avisoDeRutinaVacia(rutinaCon([1, null], [2, null]), 1)).toBeNull()
+    // Ya estaba oculto: ocultarlo otra vez no cambia nada.
+    expect(avisoDeRutinaVacia(rutinaCon([1, null], [2, '2026-09-01']), 2)).toBeNull()
+  })
+
+  describe('avisoDeRutinasVacias', () => {
+    const r = (id: number, nombre: string, oculto_desde: string | null = null): RutinaMinima => ({
+      id,
+      nombre,
+      oculto_desde,
+    })
+    const push = r(1, 'Push')
+    const pull = r(2, 'Pull')
+    const legs = r(3, 'Legs')
+
+    test('sin_ninguna_rutina_todos_los_dias_son_descanso', () => {
+      expect(avisoDeRutinasVacias(Array(7).fill(null), new Set())).toBe(
+        'Este programa no tiene rutinas, así que todos los días serán descanso.',
+      )
+    })
+
+    test('una_vacia_en_varios_dias_se_nombra_una_sola_vez_en_singular', () => {
+      expect(avisoDeRutinasVacias([push, null, pull, null, push, null, null], new Set([1]))).toBe(
+        'Push no tiene ejercicios, así que no podrás entrenarla los días que le tocan hasta que le añadas alguno.',
+      )
+    })
+
+    test('varias_vacias_van_enumeradas_en_plural_en_el_orden_de_la_semana', () => {
+      expect(
+        avisoDeRutinasVacias([legs, push, pull, push, null, null, null], new Set([1, 2, 3])),
+      ).toBe(
+        'Legs, Push y Pull no tienen ejercicios, así que no podrás entrenarlas los días que les tocan hasta que les añadas alguno.',
+      )
+    })
+
+    test('una_oculta_vacia_no_cuenta_y_sin_vacias_no_hay_aviso', () => {
+      const oculta = r(4, 'Vieja', '2026-09-01')
+      expect(
+        avisoDeRutinasVacias([oculta, push, null, null, null, null, null], new Set([4])),
+      ).toBeNull()
+      expect(avisoDeRutinasVacias([push, pull, null, null, null, null, null], new Set())).toBeNull()
+    })
   })
 })

@@ -13,6 +13,7 @@ import {
   fechaLarga,
   nombreDelDia,
 } from '../../utiles/fechas'
+import { cuantosEjercicios } from '../programas/textos'
 
 type Props = {
   fecha: string
@@ -33,10 +34,6 @@ type Opcion = {
 }
 
 type Eleccion = { opcion: Opcion; cuerpo: string | undefined }
-
-function contarEjercicios(cuantos: number) {
-  return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
-}
 
 /**
  * H1b · Registrar un día pasado: para pasar la libreta de meses anteriores o
@@ -87,7 +84,12 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
 
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen?.rutinas.find((una) => una.id === rutina.id)
-    return datos ? contarEjercicios(datos.ejercicios) : ''
+    return datos ? cuantosEjercicios(datos.ejercicios) : ''
+  }
+
+  /** Sin ejercicios no hay nada que apuntar: no se puede elegir. Una oculta no está aquí. */
+  function sinEjercicios(rutina: RutinaMinima) {
+    return resumen?.rutinas.find((una) => una.id === rutina.id)?.ejercicios === 0
   }
 
   const cuentan: Opcion[] = []
@@ -145,7 +147,14 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
 
   function Fila({ opcion }: { opcion: Opcion }) {
     return (
-      <button type="button" className="hoja-fila" onClick={() => elegir(opcion)}>
+      <button
+        type="button"
+        className={
+          sinEjercicios(opcion.rutina) ? 'hoja-fila hoja-fila-sin-ejercicios' : 'hoja-fila'
+        }
+        disabled={sinEjercicios(opcion.rutina)}
+        onClick={() => elegir(opcion)}
+      >
         {opcion.cubre && (
           <span
             className="marca-punto"

@@ -90,13 +90,16 @@ export function RutinaNueva() {
 
   async function guardar() {
     const nombre = borrador.nombre.trim()
-    if (!nombre) {
-      setFalloNombre('Ponle un nombre.')
-      return
-    }
+    // Si falta todo, se dicen las dos cosas a la vez (el nombre, bajo su campo).
+    setFalloNombre(nombre ? null : 'Ponle un nombre.')
+    // Una rutina sin ejercicios no se podría entrenar (decisión del autor).
+    setFallo(
+      borrador.ejercicios.length === 0
+        ? 'Añade al menos un ejercicio antes de guardar la rutina.'
+        : null,
+    )
+    if (!nombre || borrador.ejercicios.length === 0) return
     setGuardando(true)
-    setFallo(null)
-    setFalloNombre(null)
     try {
       const rutina = await api.crearRutina({
         nombre,

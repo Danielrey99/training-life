@@ -19,10 +19,12 @@ interface Props {
   dias: DiasDelBorrador
   alAbrir: (dia: DiaSemana) => void
   alQuitar: (dia: DiaSemana) => void
+  // Las rutinas sin ejercicios: ya puestas en un día se quedan, pero lo dicen.
+  vacias: ReadonlySet<number>
   desactivado?: boolean
 }
 
-export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
+export function DiasEditables({ dias, alAbrir, alQuitar, vacias, desactivado }: Props) {
   const c = useColores()
   const e = useEstilosDeSemana(c)
   // Los colores de los días dependen de los ajustes: se vuelve a pintar al cambiarlos.
@@ -60,6 +62,7 @@ export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
                 {rutina.nombre}
               </Text>
               {oculta && <Text style={e.etiquetaChica}>oculta</Text>}
+              {!oculta && vacias.has(rutina.id) && <Text style={e.extra}>Sin ejercicios</Text>}
             </View>
             <Pressable
               accessibilityRole="button"

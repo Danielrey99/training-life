@@ -1,4 +1,4 @@
-import type { HuecoDeRutina, Objetivo, Rutina } from '../../api/tipos'
+import type { HuecoDeRutina, Objetivo, Rutina, RutinaMinima } from '../../api/tipos'
 import { duracionLegible } from '../../utiles/numeros'
 
 /** 1 = lunes … 7 = domingo, en minúscula para ir dentro de una frase. */
@@ -24,17 +24,65 @@ export function enumerar(partes: string[]) {
   return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
 }
 
+/**
+ * El párrafo del diálogo de activar un programa cuyos días no se podrán entrenar: sin
+ * ninguna rutina, todo descanso; con rutinas sin ejercicios, cuáles, una vez cada una y en el
+ * orden de la semana. Si no pasa nada de eso, `null`. Las ocultas ya lo dicen aparte.
+ */
+export function avisoDeRutinasVacias(
+  semana: readonly (RutinaMinima | null)[],
+  vacias: ReadonlySet<number>,
+): string | null {
+  if (semana.every((rutina) => rutina === null)) {
+    return 'Este programa no tiene rutinas, así que todos los días serán descanso.'
+  }
+  const nombres = [
+    ...new Map(
+      semana
+        .filter((rutina) => rutina && rutina.oculto_desde === null && vacias.has(rutina.id))
+        .map((rutina) => [rutina!.id, rutina!.nombre]),
+    ).values(),
+  ]
+  if (nombres.length === 0) return null
+  if (nombres.length === 1) {
+    return `${nombres[0]} no tiene ejercicios, así que no podrás entrenarla los días que le tocan hasta que le añadas alguno.`
+  }
+  return `${enumerar(nombres)} no tienen ejercicios, así que no podrás entrenarlas los días que les tocan hasta que les añadas alguno.`
+}
+
 /** "3 días"; ninguno, "Sin días de entreno". */
 export function cuantosDias(cuantos: number) {
   if (cuantos === 0) return 'Sin días de entreno'
   return cuantos === 1 ? '1 día' : `${cuantos} días`
 }
 
-/** Los ejercicios de una rutina son sus huecos visibles: los ocultos ya no se entrenan. */
-export function ejercicios(rutina: Rutina) {
-  const cuantos = rutina.slots.filter((hueco) => hueco.oculto_desde === null).length
+/** «Sin ejercicios», «1 ejercicio» o «N ejercicios»: la misma cifra en todas las pantallas. */
+export function cuantosEjercicios(cuantos: number) {
   if (cuantos === 0) return 'Sin ejercicios'
   return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
+}
+
+/**
+ * Sin ningún ejercicio visible no hay nada que entrenar: no se puede poner en un día ni
+ * empezar (decisión del autor). Uno oculto solo en la biblioteca sí cuenta.
+ */
+export function sinEjercicios(rutina: Rutina) {
+  return rutina.slots.every((hueco) => hueco.oculto_desde !== null)
+}
+
+/** Los ejercicios de una rutina son sus huecos visibles: los ocultos ya no se entrenan. */
+export function ejercicios(rutina: Rutina) {
+  return cuantosEjercicios(rutina.slots.filter((hueco) => hueco.oculto_desde === null).length)
+}
+
+/**
+ * Si ocultar o borrar ese ejercicio deja la rutina sin ninguno visible, la frase que lo
+ * avisa; si no (le quedan otros, o ya estaba oculto), `null`.
+ */
+export function avisoDeRutinaVacia(rutina: Rutina, huecoId: number): string | null {
+  const visibles = rutina.slots.filter((hueco) => hueco.oculto_desde === null)
+  if (visibles.length !== 1 || visibles[0].id !== huecoId) return null
+  return `${rutina.nombre} se quedará sin ejercicios y no podrás entrenarla hasta que le añadas otro.`
 }
 
 /**

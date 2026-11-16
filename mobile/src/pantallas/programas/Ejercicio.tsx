@@ -27,7 +27,7 @@ import type {
   Rutina,
 } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
-import { CAMBIARLO, loQueSePierdeDelHueco } from '../../reglasDePantalla/loQueSePierde'
+import { CAMBIARLO, conAviso, loQueSePierdeDelHueco } from '../../reglasDePantalla/loQueSePierde'
 import {
   aObjetivo,
   deAjustes,
@@ -39,6 +39,7 @@ import {
 } from '../../reglasDePantalla/objetivos'
 import { RADIO, RADIO_PEQUENO, useColores, type Colores } from '../../tema'
 import { diaYMesConAnio } from '../../utiles/fechas'
+import { avisoDeRutinaVacia } from '../../utiles/textos'
 import {
   guardarBorrador,
   leerBorrador,
@@ -566,7 +567,10 @@ export function Ejercicio() {
       {pregunta === 'ocultar' && origen.tipo === 'existente' && (
         <Dialogo
           titulo={`¿Ocultar ${principalNombre} en ${origen.rutina.nombre}?`}
-          cuerpo={`Dejará de salir en esta rutina y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina. ${CAMBIARLO}`}
+          cuerpo={conAviso(
+            `Dejará de salir en esta rutina y en tus próximas sesiones. Lo que hiciste con él sigue en tu historial, y podrás volver a mostrarlo desde la rutina. ${CAMBIARLO}`,
+            avisoDeRutinaVacia(origen.rutina, origen.hueco.id),
+          )}
           confirmar="Ocultar"
           alConfirmar={async () => {
             await api.borrarHueco(origen.rutina.id, origen.hueco.id, 'ocultar')
@@ -592,7 +596,10 @@ export function Ejercicio() {
       {pregunta === 'borrar' && origen.tipo === 'existente' && aviso && (
         <Dialogo
           titulo={`¿Borrar ${principalNombre}?`}
-          cuerpo={loQueSePierdeDelHueco(aviso, huecoOculto)}
+          cuerpo={conAviso(
+            loQueSePierdeDelHueco(aviso, huecoOculto),
+            avisoDeRutinaVacia(origen.rutina, origen.hueco.id),
+          )}
           confirmar="Borrar"
           peligro
           alConfirmar={async () => {

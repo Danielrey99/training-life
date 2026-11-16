@@ -315,6 +315,15 @@
   font-size: 13px;
 }
 
+/* Una rutina sin ejercicios no se puede elegir (decisión del autor): sale en su sitio, en gris. */
+.hoja-fila.hoja-fila-sin-ejercicios {
+  cursor: default;
+}
+
+.hoja-fila-sin-ejercicios .hoja-fila-texto strong {
+  color: var(--texto-tenue);
+}
+
 /* «4 ejercicios» junto a un nombre largo: sin encoger, o el nombre lo parte letra a letra. */
 .hoja-fila-extra {
   flex-shrink: 0;

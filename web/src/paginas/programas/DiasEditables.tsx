@@ -10,6 +10,8 @@ type Props = {
   dias: DiasDelBorrador
   alAbrir: (dia: DiaSemana) => void
   alQuitar: (dia: DiaSemana) => void
+  // Las rutinas sin ejercicios: ya puestas en un día se quedan, pero lo dicen.
+  vacias: ReadonlySet<number>
   desactivado?: boolean
 }
 
@@ -18,7 +20,7 @@ type Props = {
  * Un día con rutina lleva ✕ (descanso) y › (cambiarla); uno de descanso, *Añadir
  * rutina*. Nada se guarda aquí: cada toque cambia el borrador de quien la usa.
  */
-export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
+export function DiasEditables({ dias, alAbrir, alQuitar, vacias, desactivado }: Props) {
   return (
     <div className="semana-dias">
       {DIAS.map((dia) => {
@@ -50,6 +52,7 @@ export function DiasEditables({ dias, alAbrir, alQuitar, desactivado }: Props) {
               <span className="programas-punto" style={color ? { background: color } : undefined} />
               <strong className={oculta ? 'oculta' : undefined}>{rutina.nombre}</strong>
               {oculta && <span className="etiqueta-chica">oculta</span>}
+              {!oculta && vacias.has(rutina.id) && <span>Sin ejercicios</span>}
             </span>
             <button
               type="button"

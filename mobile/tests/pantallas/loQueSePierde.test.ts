@@ -12,6 +12,7 @@ import type {
 } from '../../src/logica/tipos'
 import {
   CAMBIARLO,
+  conAviso,
   loQueSePierdeDelEjercicio,
   loQueSePierdeDelHueco,
   loQueSePierdeDeLaRutina,
@@ -306,5 +307,14 @@ describe('loQueSePierdeDelEjercicio', () => {
     const aviso = avisoDeEjercicio({ notas: 2, huecos: [uso(1, 10, 'comodin')] })
     expect(loQueSePierdeDelEjercicio(aviso, true)).not.toContain('ocúltalo')
     expect(loQueSePierdeDelEjercicio(aviso, false)).toContain(OCULTALO_EJERCICIO)
+  })
+})
+
+describe('conAviso', () => {
+  test('une_el_cuerpo_y_el_aviso_con_un_espacio_y_sin_ninguno_no_da_nada', () => {
+    expect(conAviso('Cuerpo.', 'Aviso.')).toBe('Cuerpo. Aviso.')
+    expect(conAviso('Cuerpo.', null)).toBe('Cuerpo.')
+    expect(conAviso(undefined, 'Aviso.')).toBe('Aviso.')
+    expect(conAviso(undefined, null)).toBeUndefined()
   })
 })

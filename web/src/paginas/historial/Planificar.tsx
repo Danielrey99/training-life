@@ -15,6 +15,7 @@ import {
   nombreDelDia,
   sumarDias,
 } from '../../utiles/fechas'
+import { cuantosEjercicios } from '../programas/textos'
 import { useVolver } from '../../utiles/volver'
 import './planificar.css'
 
@@ -22,10 +23,6 @@ import './planificar.css'
 // (400) con un margen.
 const SEMANAS_POR_TANDA = 4
 const DIAS_POR_LLAMADA = 392
-
-function contar(cuantos: number) {
-  return cuantos === 1 ? '1 ejercicio' : `${cuantos} ejercicios`
-}
 
 function mayuscula(texto: string) {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
@@ -145,7 +142,7 @@ export function Planificar() {
 
   function ejercicios(rutinaId: number) {
     const datos = resumen!.rutinas.find((una) => una.id === rutinaId)
-    return datos ? contar(datos.ejercicios) : ''
+    return datos ? cuantosEjercicios(datos.ejercicios) : ''
   }
 
   function pedirRestablecerSemana(semana: Semana) {
@@ -471,9 +468,11 @@ function HojaDelDia({ dia, programa, resumen, ejercicios, alCambiar, alCerrar }:
     return (
       <button
         type="button"
-        className="hoja-fila"
+        // Sin ejercicios no se puede poner en un día (decisión del autor): sale en su sitio, en
+        // gris, y con su marca si es la que ya toca.
+        className={rutina.ejercicios === 0 ? 'hoja-fila hoja-fila-sin-ejercicios' : 'hoja-fila'}
         onClick={() => elegir(rutina.id)}
-        disabled={guardando}
+        disabled={guardando || rutina.ejercicios === 0}
       >
         {color && <span className="marca-punto" style={{ background: color }} />}
         <span className="hoja-fila-texto">

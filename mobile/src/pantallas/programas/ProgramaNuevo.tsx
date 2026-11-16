@@ -24,7 +24,12 @@ import type { DiaSemana, Programa, Rutina } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { useColores, type Colores } from '../../tema'
 import { fechaEnFrase, hoy } from '../../utiles/fechas'
-import { diasCambiadosAMano, QUE_HACER_CON_ELLOS } from '../../utiles/textos'
+import {
+  avisoDeRutinasVacias,
+  diasCambiadosAMano,
+  QUE_HACER_CON_ELLOS,
+  sinEjercicios,
+} from '../../utiles/textos'
 import { DIAS, PROGRAMA_NUEVO, sinDias, useBorrador, type BorradorDePrograma } from './borradores'
 import { DiasEditables } from './DiasEditables'
 import { HojaDeRutinas } from './HojaDeRutinas'
@@ -101,6 +106,11 @@ export function ProgramaNuevo() {
   }
 
   const { activo, rutinas } = datos
+  const vacias = new Set(rutinas.filter(sinEjercicios).map((rutina) => rutina.id))
+  const avisoDeVacias = avisoDeRutinasVacias(
+    DIAS.map((dia) => borrador.dias[dia]),
+    vacias,
+  )
 
   function cambiar(cambios: Partial<BorradorDePrograma>) {
     setBorrador((antes) => ({ ...antes, ...cambios }))
@@ -196,6 +206,7 @@ export function ProgramaNuevo() {
           dias={borrador.dias}
           alAbrir={setHojaDe}
           alQuitar={(dia) => cambiar({ dias: { ...borrador.dias, [dia]: null } })}
+          vacias={vacias}
           desactivado={guardando}
         />
 
@@ -230,6 +241,7 @@ export function ProgramaNuevo() {
             activo
               ? `${activo.nombre} dejará de estar activo.`
               : 'Cada día, Entrenar te dirá qué rutina toca, y el calendario marcará qué días entrenaste y cuáles te saltaste.',
+            ...(avisoDeVacias ? [avisoDeVacias] : []),
             ...(cambiados.length > 0
               ? [
                   `${diasCambiadosAMano(cambiados, (iso) => fechaEnFrase(iso, false))} ${QUE_HACER_CON_ELLOS}`,

@@ -15,6 +15,7 @@ import { Icono } from '../../componentes/Icono'
 import { MarcaDelDia } from '../../componentes/MarcaDelDia'
 import { FalloAlCargar } from '../../componentes/Proteccion'
 import { conArticulo, fechaEnFrase, fechaLarga, nombreDelDia, sumarDias } from '../../utiles/fechas'
+import { cuantosEjercicios } from '../programas/textos'
 import '../sesion/sesion.css'
 import './hoy.css'
 
@@ -120,17 +121,20 @@ export function Hoy() {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
     if (!datos) return ''
     const cuando = datos.ultima_vez ? `última vez ${conArticulo(datos.ultima_vez)}` : 'nunca hecha'
-    // «Sin ejercicios», como en la lista de Programas, y no «0 ejercicios».
-    const cuantos =
-      datos.ejercicios === 0
-        ? 'Sin ejercicios'
-        : contar(datos.ejercicios, 'ejercicio', 'ejercicios')
-    return `${cuantos} · ${cuando}`
+    return `${cuantosEjercicios(datos.ejercicios)} · ${cuando}`
   }
 
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
-    return datos ? contar(datos.ejercicios, 'ejercicio', 'ejercicios') : ''
+    return datos ? cuantosEjercicios(datos.ejercicios) : ''
+  }
+
+  /**
+   * Sin ejercicios no hay nada que entrenar: no se ofrece empezarla (decisión del autor).
+   * Una oculta no está en el resumen, y no cuenta como vacía.
+   */
+  function sinEjercicios(rutina: RutinaMinima) {
+    return resumen!.rutinas.find((una) => una.id === rutina.id)?.ejercicios === 0
   }
 
   /** Crea la sesión que cuenta `cubre` (o ninguno) y abre E2. */
@@ -243,6 +247,7 @@ export function Hoy() {
         enCurso={enCurso}
         detalle={detalle}
         ejercicios={ejercicios}
+        sinEjercicios={sinEjercicios}
         alEmpezar={() => rutinaDeHoy && pedirEmpezar(rutinaDeHoy, hoy)}
         alContinuar={() => navegar(`/sesion/${resumen.sesion!.entrenamiento_id}`)}
       />
@@ -286,6 +291,7 @@ export function Hoy() {
                 recuperable={recuperable}
                 hoy={hoy}
                 ejercicios={ejercicios(recuperable.rutina)}
+                sinEjercicios={sinEjercicios(recuperable.rutina)}
                 alRecuperar={() => pedirRecuperar(recuperable)}
               />
             ))}
@@ -317,9 +323,9 @@ export function Hoy() {
                 </span>
               </>
             )
-            // Hoy ya se entrenó: la fila es solo un recordatorio, sin flecha ni nada que
-            // pulsar (como los recuperables sin botón).
-            return ofrecida.se_puede_hoy ? (
+            // Hoy ya se entrenó, o la rutina no tiene ejercicios: la fila es solo un
+            // recordatorio, sin flecha ni nada que pulsar (como los recuperables sin botón).
+            return ofrecida.se_puede_hoy && !sinEjercicios(ofrecida.rutina) ? (
               <button
                 key={`${ofrecida.rutina.id}-${ofrecida.fecha}`}
                 type="button"
@@ -368,6 +374,7 @@ type PropsTarjeta = {
   enCurso: Entrenamiento | null
   detalle: (rutina: RutinaMinima) => string
   ejercicios: (rutina: RutinaMinima) => string
+  sinEjercicios: (rutina: RutinaMinima) => boolean
   alEmpezar: () => void
   alContinuar: () => void
 }
@@ -379,6 +386,7 @@ function Tarjeta({
   enCurso,
   detalle,
   ejercicios,
+  sinEjercicios,
   alEmpezar,
   alContinuar,
 }: PropsTarjeta) {
@@ -513,10 +521,32 @@ function Tarjeta({
           {chip}
           <p className="tarjeta-antes con-chip">Hoy toca</p>
           <p className="tarjeta-grande">{rutina!.nombre}</p>
-          <p className="tarjeta-despues">{detalle(rutina!)}</p>
-          <button type="button" className="boton boton-principal tarjeta-boton" onClick={alEmpezar}>
-            Empezar {rutina!.nombre}
-          </button>
+          {sinEjercicios(rutina!) ? (
+            <>
+              <p className="tarjeta-despues">
+                {rutina!.nombre} no tiene ejercicios.
+                <br />
+                Añádele alguno desde la pestaña Programas para poder entrenarla.
+              </p>
+              <Link
+                to={`/programas/rutinas/${rutina!.id}`}
+                className="boton boton-principal tarjeta-boton"
+              >
+                Ir a Programas
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="tarjeta-despues">{detalle(rutina!)}</p>
+              <button
+                type="button"
+                className="boton boton-principal tarjeta-boton"
+                onClick={alEmpezar}
+              >
+                Empezar {rutina!.nombre}
+              </button>
+            </>
+          )}
         </div>
       )
   }
@@ -526,11 +556,18 @@ type PropsRecuperable = {
   recuperable: Recuperable
   hoy: string
   ejercicios: string
+  sinEjercicios: boolean
   alRecuperar: () => void
 }
 
 /** Un día por recuperar: hasta cuándo se puede y, si hoy se puede, su botón. */
-function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRecuperable) {
+function FilaRecuperable({
+  recuperable,
+  hoy,
+  ejercicios,
+  sinEjercicios,
+  alRecuperar,
+}: PropsRecuperable) {
   const { rutina, fecha, plazo, se_puede_hoy } = recuperable
   const caducaHoy = plazo === hoy
   let texto: string
@@ -548,7 +585,7 @@ function FilaRecuperable({ recuperable, hoy, ejercicios, alRecuperar }: PropsRec
         <span className={caducaHoy && se_puede_hoy ? 'caduca' : undefined}>{texto}</span>
       </div>
       {/* Siempre en verde, también junto a Empezar: decisión expresa del autor. */}
-      {se_puede_hoy && (
+      {se_puede_hoy && !sinEjercicios && (
         <button
           type="button"
           className="boton boton-principal boton-recuperar"
