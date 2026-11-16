@@ -252,8 +252,14 @@ def listar_entrenamientos(
     if rutina_id is not None:
         stmt = stmt.where(Entrenamiento.rutina_id == rutina_id)
     stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc()).limit(limite)
-    # Las rutinas, de una vez y no una consulta por sesión.
-    return db.scalars(stmt.options(selectinload(Entrenamiento.rutina))).all()
+    # La rutina, las series y su ejercicio, de una vez para todas: sin esto serían
+    # varias consultas por cada sesión de la lista.
+    return db.scalars(
+        stmt.options(
+            selectinload(Entrenamiento.rutina),
+            selectinload(Entrenamiento.series).selectinload(Serie.ejercicio),
+        )
+    ).all()
 
 
 @router.get("/{entrenamiento_id}", response_model=EntrenamientoOut)
