@@ -261,7 +261,7 @@ Desde el engranaje de *Hoy* (`/ajustes`). Arriba, los ajustes de la app: **unida
 
 ## Hablar con la API
 
-Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. El cliente cubre todos los endpoints del backend, agrupados por recurso. Los errores llegan a la pantalla como una frase para quien usa la app: el motivo que da la API, o, si no se puede conectar con el PC o el servidor falla, qué comprobar.
+Todas las peticiones pasan por `src/api/cliente.ts`. Las pantallas no construyen URLs ni tratan errores HTTP por su cuenta: piden `api.ejercicios()` y reciben datos ya tipados. Cada petición lleva la zona horaria del navegador (`X-Zona-Horaria`), para que «hoy» sea el del dispositivo y no el del servidor. El cliente cubre todos los endpoints del backend, agrupados por recurso. Los errores llegan a la pantalla como una frase para quien usa la app: el motivo que da la API, o, si no se puede conectar con el PC o el servidor falla, qué comprobar.
 
 Cuando la API responde con un error, el cliente lanza un `ErrorDeApi` con un mensaje legible (el motivo que da el backend, no "la API respondió 409"), el código de estado y el `detail` tal cual llegó. La pantalla suele necesitar solo el mensaje, pero algunos 409 traen datos con los que reaccionar: al empezar una sesión con otra ya en curso, el backend dice cuál es, y la pantalla puede ofrecer continuarla.
 
