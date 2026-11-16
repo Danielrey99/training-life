@@ -21,7 +21,7 @@ import { TextoCentrado } from '../../componentes/TextoCentrado'
 import type { Programa, Rutina } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { RADIO, useColores, type Colores } from '../../tema'
-import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
+import { fechaCompleta, mesConAnio, sumarDias } from '../../utiles/fechas'
 import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from '../../utiles/textos'
 
 type Datos = {
@@ -48,11 +48,11 @@ function diasDelPrograma(programa: Programa, conNombres = true) {
 function usoDelPrograma(programa: Programa) {
   const periodo = programa.ultimo_periodo
   if (periodo === null) return 'Sin usar todavía'
-  if (periodo.hasta === null) return `Desde el ${diaYMesConAnio(periodo.desde)}`
+  if (periodo.hasta === null) return `Desde el ${fechaCompleta(periodo.desde)}`
   // `hasta` es el primer día en que ya no estaba activo.
   const ultimo = sumarDias(periodo.hasta, -1)
-  if (ultimo === periodo.desde) return `El ${diaYMesConAnio(ultimo)}`
-  return `Del ${diaYMesConAnio(periodo.desde)} al ${diaYMesConAnio(ultimo)}`
+  if (ultimo === periodo.desde) return `El ${fechaCompleta(ultimo)}`
+  return `Del ${fechaCompleta(periodo.desde)} al ${fechaCompleta(ultimo)}`
 }
 
 /**
@@ -227,7 +227,7 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
             <Text style={e.linea}>
               {diasDelPrograma(programa, false)} · {sinUsarDesde(programa)}
             </Text>
-            <Text style={e.linea}>Oculto desde el {diaYMesConAnio(programa.oculto_desde!)}</Text>
+            <Text style={e.linea}>Oculto desde el {fechaCompleta(programa.oculto_desde!)}</Text>
           </>
         ) : (
           <>
@@ -266,7 +266,7 @@ function FilaDeRutina({ rutina, primera }: { rutina: Rutina; primera: boolean })
         <Text style={[e.rutinaNombre, oculta && { color: c.textoTenue }]}>{rutina.nombre}</Text>
         <Text style={e.linea}>
           {ejercicios(rutina)} ·{' '}
-          {oculta ? `oculta desde el ${diaYMesConAnio(rutina.oculto_desde!)}` : enProgramas(rutina)}
+          {oculta ? `oculta desde el ${fechaCompleta(rutina.oculto_desde!)}` : enProgramas(rutina)}
         </Text>
       </View>
       <Icono nombre="abrir" color={c.textoTenue} pequeno />

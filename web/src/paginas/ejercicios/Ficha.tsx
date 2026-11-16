@@ -15,7 +15,7 @@ import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
+import { conArticulo, diaDe, fechaCompleta } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { enumerar } from '../programas/textos'
@@ -70,7 +70,7 @@ function dondeEsta(uso: UsoEnRutina) {
           ),
         )
   if (uso.rutina.oculto_desde) {
-    return `Rutina oculta desde el ${diaYMesConAnio(uso.rutina.oculto_desde)} · ${programas}`
+    return `Rutina oculta desde el ${fechaCompleta(uso.rutina.oculto_desde)} · ${programas}`
   }
   return programas
 }
@@ -245,7 +245,7 @@ export function Ficha() {
 
       {oculto && (
         <div className="semana-oculto">
-          <strong>Oculto desde el {diaYMesConAnio(ejercicio.oculto_desde!)}</strong>
+          <strong>Oculto desde el {fechaCompleta(ejercicio.oculto_desde!)}</strong>
           <span>No sale en las listas de ejercicios.</span>
           <span>Las rutinas que lo usan lo conservan, en gris.</span>
         </div>
@@ -310,7 +310,7 @@ export function Ficha() {
                   <span className="detalle-nota-texto">
                     <span>{nota.nota}</span>
                     <span className="detalle-nota-fecha">
-                      {diaYMesConAnio(diaDe(nota.created_at))}
+                      {fechaCompleta(diaDe(nota.created_at))}
                     </span>
                   </span>
                   <button

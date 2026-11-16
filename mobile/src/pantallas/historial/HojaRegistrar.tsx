@@ -20,13 +20,7 @@ import { api } from '../../plataforma/api'
 import { useColores } from '../../tema'
 import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia } from '../../utiles/colores'
-import {
-  conArticulo,
-  diaDeLaSemana,
-  fechaCompleta,
-  fechaLarga,
-  nombreDelDia,
-} from '../../utiles/fechas'
+import { conArticulo, diaDeLaSemana, fechaEnFrase, fechaLarga } from '../../utiles/fechas'
 import { cuantosEjercicios } from '../../utiles/textos'
 
 interface Props {
@@ -69,12 +63,10 @@ export function HojaRegistrar({ fecha, alCerrar }: Props) {
     }
   }, [fecha, intento])
 
-  // «del miércoles 9»: lo que se recupera es de pocos días antes que el de la hoja, cuyo
-  // título ya dice el mes. De otro mes, la fecha entera.
+  // «del miércoles 9 de noviembre»: la fecha entera, como cualquier fecha en una frase (decisión
+  // del autor, 16-11-2026), y así toda la lista se lee igual.
   function delDia(iso: string) {
-    return iso.slice(0, 7) === fecha.slice(0, 7)
-      ? `${nombreDelDia(iso)} ${Number(iso.slice(8))}`
-      : fechaCompleta(iso)
+    return fechaEnFrase(iso, false)
   }
 
   function ejercicios(rutina: RutinaMinima) {

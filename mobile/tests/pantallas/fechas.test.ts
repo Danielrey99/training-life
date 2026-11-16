@@ -189,9 +189,9 @@ describe('día de la semana', () => {
 
 describe('fechaTitulo y fechaCorta', () => {
   test.each([
-    ['2026-11-09', 'Lunes 9'], // de este mes: sin mes
-    ['2026-11-10', 'Martes 10'],
-    ['2026-11-30', 'Lunes 30'],
+    ['2026-11-09', 'Lunes 9 de noviembre'], // de este mes: también lleva el mes
+    ['2026-11-10', 'Martes 10 de noviembre'],
+    ['2026-11-30', 'Lunes 30 de noviembre'],
     ['2026-09-14', 'Lunes 14 de septiembre'], // de otro mes de este año
     ['2026-01-01', 'Jueves 1 de enero'],
     ['2025-10-01', 'Miércoles 1 de octubre de 2025'], // de otro año
@@ -202,21 +202,28 @@ describe('fechaTitulo y fechaCorta', () => {
   })
 
   test.each([
-    ['2026-11-10', 'martes 10'], // hoy: nunca «hoy»
-    ['2026-11-09', 'lunes 9'],
-    ['2026-11-04', 'miércoles 4'], // hace seis días: el de la semana
-    ['2026-11-03', '3 de noviembre'], // hace siete: ya el mes
-    ['2026-08-26', '26 de agosto'],
-    ['2026-11-11', '11 de noviembre'], // el futuro no entra en «los últimos seis días»
-    ['2025-08-26', '26 de agosto de 2025'],
+    ['2026-11-10', 'martes 10 de noviembre'], // hoy: nunca «hoy»
+    ['2026-11-09', 'lunes 9 de noviembre'],
+    ['2026-11-04', 'miércoles 4 de noviembre'], // hace seis días
+    ['2026-11-03', 'martes 3 de noviembre'], // hace siete
+    ['2026-08-26', 'miércoles 26 de agosto'],
+    ['2026-11-11', 'miércoles 11 de noviembre'], // el futuro, igual
+    ['2025-08-26', 'martes 26 de agosto de 2025'],
   ])('fechaCorta_de_%s_es_%s', (iso, texto) => {
     expect(fechaCorta(iso)).toBe(texto)
   })
 
-  test('fechaCorta_cruzando_el_año_usa_el_dia_de_la_semana_hasta_seis_dias_y_luego_el_año', () => {
+  test('las_fechas_de_hace_dos_dias_llevan_el_dia_de_la_semana_y_el_mes', () => {
+    // Antes, a menos de una semana salía «domingo 8» a secas, sin el mes.
+    expect(fechaCorta('2026-11-08')).toBe('domingo 8 de noviembre')
+    expect(fechaEnFrase('2026-11-08', false)).toBe('domingo 8 de noviembre')
+    expect(fechaTitulo('2026-11-08')).toBe('Domingo 8 de noviembre')
+  })
+
+  test('fechaCorta_cruzando_el_año_la_de_hace_cuatro_dias_ya_lleva_el_año', () => {
     ponerHoy(2026, 1, 3)
-    expect(fechaCorta('2025-12-30')).toBe('martes 30') // hace cuatro días, aún «semana»
-    expect(fechaCorta('2025-12-20')).toBe('20 de diciembre de 2025')
+    expect(fechaCorta('2025-12-30')).toBe('martes 30 de diciembre de 2025')
+    expect(fechaCorta('2025-12-20')).toBe('sábado 20 de diciembre de 2025')
   })
 })
 
@@ -278,45 +285,40 @@ describe('fechaEnFrase y conArticulo', () => {
   })
 
   test('sin_relativa_nunca_dice_hoy_ayer_ni_manana', () => {
-    expect(fechaEnFrase('2026-11-10', false)).toBe('martes 10')
-    expect(fechaEnFrase('2026-11-09', false)).toBe('lunes 9')
-    expect(fechaEnFrase('2026-11-11', false)).toBe('miércoles 11')
+    expect(fechaEnFrase('2026-11-10', false)).toBe('martes 10 de noviembre')
+    expect(fechaEnFrase('2026-11-09', false)).toBe('lunes 9 de noviembre')
+    expect(fechaEnFrase('2026-11-11', false)).toBe('miércoles 11 de noviembre')
   })
 
   test.each([
-    ['2026-11-04', 'miércoles 4'], // hace seis días
-    ['2026-11-03', 'martes 3'], // hace siete, mismo mes: sin mes
-    ['2026-10-28', 'miércoles 28 de octubre'], // hace trece, otro mes: con mes
-    ['2026-10-27', '27 de octubre'], // hace catorce: ya el día y el mes
-    ['2026-11-16', 'lunes 16'], // dentro de seis días
-    ['2026-11-23', 'lunes 23'], // dentro de trece, mismo mes
-    ['2026-11-24', '24 de noviembre'], // dentro de catorce
-    ['2026-12-05', '5 de diciembre'],
-    ['2025-11-10', '10 de noviembre de 2025'], // otro año: con año
-    ['2027-03-01', '1 de marzo de 2027'],
+    ['2026-11-04', 'miércoles 4 de noviembre'], // hace seis días
+    ['2026-11-03', 'martes 3 de noviembre'], // hace siete
+    ['2026-10-28', 'miércoles 28 de octubre'], // hace trece, otro mes
+    ['2026-10-27', 'martes 27 de octubre'], // hace catorce
+    ['2026-11-16', 'lunes 16 de noviembre'], // dentro de seis días
+    ['2026-11-23', 'lunes 23 de noviembre'], // dentro de trece
+    ['2026-11-24', 'martes 24 de noviembre'], // dentro de catorce
+    ['2026-12-05', 'sábado 5 de diciembre'],
+    ['2025-11-10', 'lunes 10 de noviembre de 2025'], // otro año: con año
+    ['2027-03-01', 'lunes 1 de marzo de 2027'],
   ])('fechaEnFrase_de_%s_es_%s', (iso, texto) => {
     expect(fechaEnFrase(iso)).toBe(texto)
     // Sin relativa dan lo mismo: ninguna de estas es hoy, ayer ni mañana.
     expect(fechaEnFrase(iso, false)).toBe(texto)
   })
 
-  test('a_menos_de_dos_semanas_en_otro_mes_lleva_el_mes_pero_no_el_año', () => {
-    // Decisión del código: a diez días vista el año se sobreentiende.
+  test('en_otro_año_lleva_dia_de_la_semana_mes_y_año_a_cualquier_distancia', () => {
     ponerHoy(2026, 1, 3)
-    expect(fechaEnFrase('2025-12-24')).toBe('miércoles 24 de diciembre')
-  })
-
-  test('a_dos_semanas_o_mas_en_otro_año_lleva_el_año', () => {
-    ponerHoy(2026, 1, 3)
-    expect(fechaEnFrase('2025-12-19')).toBe('19 de diciembre de 2025')
+    expect(fechaEnFrase('2025-12-24')).toBe('miércoles 24 de diciembre de 2025') // menos de dos semanas
+    expect(fechaEnFrase('2025-12-19')).toBe('viernes 19 de diciembre de 2025') // dos semanas o más
   })
 
   test('conArticulo_nunca_usa_hoy_ayer_ni_manana', () => {
-    expect(conArticulo('2026-11-10')).toBe('el martes 10')
-    expect(conArticulo('2026-11-09')).toBe('el lunes 9')
-    expect(conArticulo('2026-11-11')).toBe('el miércoles 11')
-    expect(conArticulo('2026-06-26')).toBe('el 26 de junio')
-    expect(conArticulo('2025-06-26')).toBe('el 26 de junio de 2025')
+    expect(conArticulo('2026-11-10')).toBe('el martes 10 de noviembre')
+    expect(conArticulo('2026-11-09')).toBe('el lunes 9 de noviembre')
+    expect(conArticulo('2026-11-11')).toBe('el miércoles 11 de noviembre')
+    expect(conArticulo('2026-06-26')).toBe('el viernes 26 de junio')
+    expect(conArticulo('2025-06-26')).toBe('el jueves 26 de junio de 2025')
   })
 })
 
@@ -324,8 +326,8 @@ describe('los extremos del calendario', () => {
   test('el_ultimo_dia_del_calendario_se_escribe_entero', () => {
     expect(fechaTitulo('9999-12-31')).toBe('Viernes 31 de diciembre de 9999')
     expect(fechaCompleta('9999-12-31')).toBe('viernes 31 de diciembre de 9999')
-    expect(fechaCorta('9999-12-31')).toBe('31 de diciembre de 9999')
-    expect(fechaEnFrase('9999-12-31')).toBe('31 de diciembre de 9999')
+    expect(fechaCorta('9999-12-31')).toBe('viernes 31 de diciembre de 9999')
+    expect(fechaEnFrase('9999-12-31')).toBe('viernes 31 de diciembre de 9999')
     expect(diaDeLaSemana('9999-12-31')).toBe(5)
     expect(finDeMes('9999-12-31')).toBe('9999-12-31')
     expect(tituloDeMes('9999-12-31')).toBe('Diciembre 9999')

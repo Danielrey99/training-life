@@ -6,7 +6,7 @@ import type { Programa, Rutina } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { diaYMesConAnio, mesConAnio, sumarDias } from '../../utiles/fechas'
+import { fechaCompleta, mesConAnio, sumarDias } from '../../utiles/fechas'
 import { cuantosDias, ejercicios, enumerar, NOMBRES_DE_LOS_DIAS } from './textos'
 import './programas.css'
 
@@ -34,11 +34,11 @@ function diasDelPrograma(programa: Programa, conNombres = true) {
 function usoDelPrograma(programa: Programa) {
   const periodo = programa.ultimo_periodo
   if (periodo === null) return 'Sin usar todavía'
-  if (periodo.hasta === null) return `Desde el ${diaYMesConAnio(periodo.desde)}`
+  if (periodo.hasta === null) return `Desde el ${fechaCompleta(periodo.desde)}`
   // `hasta` es el primer día en que ya no estaba activo.
   const ultimo = sumarDias(periodo.hasta, -1)
-  if (ultimo === periodo.desde) return `El ${diaYMesConAnio(ultimo)}`
-  return `Del ${diaYMesConAnio(periodo.desde)} al ${diaYMesConAnio(ultimo)}`
+  if (ultimo === periodo.desde) return `El ${fechaCompleta(ultimo)}`
+  return `Del ${fechaCompleta(periodo.desde)} al ${fechaCompleta(ultimo)}`
 }
 
 function enProgramas(rutina: Rutina) {
@@ -203,7 +203,7 @@ function TarjetaDePrograma({ programa }: { programa: Programa }) {
             <span>
               {diasDelPrograma(programa, false)} · {sinUsarDesde(programa)}
             </span>
-            <span>Oculto desde el {diaYMesConAnio(programa.oculto_desde!)}</span>
+            <span>Oculto desde el {fechaCompleta(programa.oculto_desde!)}</span>
           </>
         ) : (
           <>
@@ -231,7 +231,7 @@ function FilaDeRutina({ rutina }: { rutina: Rutina }) {
           {ejercicios(rutina)} ·{' '}
           {rutina.oculto_desde === null
             ? enProgramas(rutina)
-            : `oculta desde el ${diaYMesConAnio(rutina.oculto_desde)}`}
+            : `oculta desde el ${fechaCompleta(rutina.oculto_desde)}`}
         </span>
       </span>
       <Icono nombre="abrir" pequeno />

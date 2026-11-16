@@ -22,7 +22,7 @@ import { RADIO, useColores, type Colores } from '../../tema'
 import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia } from '../../utiles/colores'
 import {
-  diaYMes,
+  fechaCompleta,
   finDeMes,
   hoy as hoyLocal,
   inicioDeMes,
@@ -201,7 +201,7 @@ export function Calendario() {
               </View>
             </View>
             <TextoCentrado style={e.cifrasPie}>
-              {esteMes ? `Hasta hoy, ${diaYMes(hoy)} · ` : ''}
+              {esteMes ? `Hasta hoy, ${fechaCompleta(hoy)} · ` : ''}
               {series === 1 ? '1 serie registrada' : `${series} series registradas`}
             </TextoCentrado>
           </>

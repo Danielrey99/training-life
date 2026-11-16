@@ -658,11 +658,16 @@ function FilaRecuperable({
   const e = useEstilos(c)
   const { rutina, fecha, plazo, se_puede_hoy } = recuperable
   const caducaHoy = plazo === hoy
-  let texto: string
-  if (!se_puede_hoy) texto = `Recupéralo otro día, hasta ${conArticulo(plazo)}`
-  else if (caducaHoy) texto = `${ejercicios} · hoy es el último día`
-  else texto = `${ejercicios} · hasta ${conArticulo(plazo)}`
-  if (!se_puede_hoy && caducaHoy) texto = 'Hoy era el último día para recuperarlo'
+  // Qué se hace y hasta cuándo, cada cosa en su línea (decisión del autor, 16-11-2026): con
+  // la fecha entera, en una sola línea el plazo se partía por la mitad.
+  let que: string
+  let plazoEnTexto: string | null
+  if (!se_puede_hoy && caducaHoy)
+    [que, plazoEnTexto] = ['Hoy era el último día para recuperarlo', null]
+  else if (!se_puede_hoy)
+    [que, plazoEnTexto] = ['Recupéralo otro día', `hasta ${conArticulo(plazo)}`]
+  else if (caducaHoy) [que, plazoEnTexto] = [ejercicios, 'hoy es el último día']
+  else [que, plazoEnTexto] = [ejercicios, `hasta ${conArticulo(plazo)}`]
 
   return (
     <View style={[e.recuperable, !primera && { borderTopWidth: 1, borderTopColor: c.borde }]}>
@@ -670,7 +675,12 @@ function FilaRecuperable({
         <Text style={e.filaFuerte}>
           {rutina.nombre} · {fechaEnFrase(fecha, false)}
         </Text>
-        <Text style={[e.filaTexto, caducaHoy && se_puede_hoy && { color: c.ambar }]}>{texto}</Text>
+        <Text style={e.filaTexto}>{que}</Text>
+        {plazoEnTexto && (
+          <Text style={[e.filaTexto, caducaHoy && se_puede_hoy && { color: c.ambar }]}>
+            {plazoEnTexto}
+          </Text>
+        )}
       </View>
       {/* Siempre en verde, también junto a Empezar: decisión expresa del autor. */}
       {se_puede_hoy && !sinEjercicios && (

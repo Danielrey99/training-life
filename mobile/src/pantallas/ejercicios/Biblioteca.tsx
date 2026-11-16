@@ -20,7 +20,7 @@ import { RecuadroVacio } from '../../componentes/RecuadroVacio'
 import type { Ejercicio, GrupoMuscular } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { RADIO, RADIO_PEQUENO, useColores, type Colores } from '../../tema'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { TODOS_LOS_GRUPOS } from '../programas/DesplegableDeGrupo'
 import { HojaDeGrupos } from './HojaDeGrupos'
 
@@ -252,7 +252,7 @@ function FilaDeEjercicio({
     ejercicio.es_predefinido ? 'predefinido' : 'mío',
   ]
   if (ejercicio.oculto_desde) {
-    detalle.push(`oculto desde el ${diaYMesConAnio(ejercicio.oculto_desde)}`)
+    detalle.push(`oculto desde el ${fechaCompleta(ejercicio.oculto_desde)}`)
   }
   return (
     <Pressable

@@ -6,7 +6,7 @@ import type { AvisoDeBorrarRutina, HuecoDeRutina, Rutina as DatosRutina } from '
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
@@ -27,7 +27,7 @@ function visiblesEnOrden(rutina: DatosRutina) {
 
 function fila(hueco: HuecoDeRutina, enlace?: string, oculto = false): FilaDeEjercicio {
   const alternativas = lineaDeAlternativas(hueco.alternativas.length)
-  const desde = oculto ? `oculto desde el ${diaYMesConAnio(hueco.oculto_desde!)}` : null
+  const desde = oculto ? `oculto desde el ${fechaCompleta(hueco.oculto_desde!)}` : null
   return {
     clave: hueco.id,
     nombre: hueco.ejercicio_principal.nombre,
@@ -273,7 +273,7 @@ export function Rutina() {
 
       {oculta && (
         <div className="semana-oculto">
-          <strong>Oculta desde el {diaYMesConAnio(rutina.oculto_desde!)}</strong>
+          <strong>Oculta desde el {fechaCompleta(rutina.oculto_desde!)}</strong>
           <span>No sale al elegir rutina ni al entrenar.</span>
           <span>Los días de tus programas que la tenían la conservan, como descanso.</span>
         </div>

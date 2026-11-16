@@ -6,7 +6,7 @@ import type { Ejercicio, GrupoMuscular } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { Ocultos } from '../../componentes/Ocultos'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import '../programas/ejercicio.css'
 import '../programas/programas.css'
 import '../progresion/progresion.css'
@@ -221,7 +221,7 @@ function FilaDeEjercicio({
     ejercicio.es_predefinido ? 'predefinido' : 'mío',
   ]
   if (ejercicio.oculto_desde) {
-    detalle.push(`oculto desde el ${diaYMesConAnio(ejercicio.oculto_desde)}`)
+    detalle.push(`oculto desde el ${fechaCompleta(ejercicio.oculto_desde)}`)
   }
   return (
     <Link to={`/ejercicios/${ejercicio.id}`} className="programas-rutina biblioteca-fila">

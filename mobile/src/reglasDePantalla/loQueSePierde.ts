@@ -10,7 +10,7 @@ import type {
   AvisoDeBorrarHueco,
   AvisoDeBorrarRutina,
 } from '../logica/tipos'
-import { diaYMesConAnio } from '../utiles/fechas'
+import { fechaCompleta } from '../utiles/fechas'
 import { enumerar } from '../utiles/textos'
 
 /** El cuerpo de un diálogo con un aviso al final, si lo hay; sin ninguno de los dos, nada. */
@@ -58,7 +58,7 @@ export function loQueSePierdeDelHueco(aviso: AvisoDeBorrarHueco, oculto: boolean
   if (aviso.series === 0) return undefined
   const series = aviso.series === 1 ? 'su serie' : `sus ${aviso.series} series`
   const apuntadas = aviso.series === 1 ? 'apuntada' : 'apuntadas'
-  const desde = aviso.desde ? `, ${apuntadas} desde el ${diaYMesConAnio(aviso.desde)}` : ''
+  const desde = aviso.desde ? `, ${apuntadas} desde el ${fechaCompleta(aviso.desde)}` : ''
   const vacias = aviso.sesiones_que_se_vacian
   const sesiones =
     vacias === 0

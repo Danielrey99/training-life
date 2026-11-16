@@ -5,7 +5,7 @@ import { api } from '../../api/cliente'
 import type { Ejercicio, SesionHistorial } from '../../api/tipos'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { diaYMesConAnio, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
+import { fechaCompleta, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { useVolver } from '../../utiles/volver'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
@@ -176,7 +176,7 @@ export function Progresion() {
                 {puntos.length > 1 && (
                   <span className="progresion-cambio num">
                     {medida.cambio(ultimo.valor - primero.valor)} desde el{' '}
-                    {diaYMesConAnio(primero.fecha)}
+                    {fechaCompleta(primero.fecha)}
                   </span>
                 )}
                 <span className="progresion-sesiones-cuenta num">

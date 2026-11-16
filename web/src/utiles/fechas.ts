@@ -77,34 +77,21 @@ function mayuscula(texto: string): string {
 }
 
 /**
- * Para una cabecera: "Lunes 14" si es de este mes, "Jueves 10 de septiembre" si
- * no, y con el año si tampoco es de este año.
+ * Para una cabecera: "Lunes 14 de septiembre", siempre con el mes y con el año si no es
+ * el actual (decisión del autor, 16-11-2026: antes, de este mes salía "Lunes 14" a secas).
  */
 export function fechaTitulo(iso: string): string {
-  const fecha = aFecha(iso)
-  const ahora = aFecha(hoy())
-  let texto = `${mayuscula(DIAS[fecha.getDay()])} ${fecha.getDate()}`
-  if (fecha.getMonth() !== ahora.getMonth() || fecha.getFullYear() !== ahora.getFullYear()) {
-    texto += ` de ${MESES[fecha.getMonth()]}`
-  }
-  if (fecha.getFullYear() !== ahora.getFullYear()) texto += ` de ${fecha.getFullYear()}`
-  return texto
+  return fechaLarga(iso)
 }
 
 /**
- * Para una referencia dentro de una frase ("Última vez · martes 8"): el día de la
- * semana si fue en los últimos seis días, que es como se piensa en una semana de
- * gimnasio; si no, el día y el mes ("26 de agosto"). Nunca "hoy" ni "ayer"
- * (decisión del autor): el día con su número se entiende igual y no cambia de un
- * día para otro.
+ * Para una referencia dentro de una frase o una lista ("Última vez · martes 8 de
+ * septiembre"): la fecha entera, con el día de la semana y el mes, y con el año si no es
+ * el actual. Nunca "hoy" ni "ayer" (decisión del autor, 16-11-2026: antes, los últimos
+ * seis días salían como "martes 8", sin el mes, junto a otras que sí lo llevaban).
  */
 export function fechaCorta(iso: string): string {
-  const fecha = aFecha(iso)
-  const dias = diasEntre(iso, hoy())
-  if (dias >= 0 && dias < 7) return `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
-  let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
-  if (fecha.getFullYear() !== aFecha(hoy()).getFullYear()) texto += ` de ${fecha.getFullYear()}`
-  return texto
+  return fechaCompleta(iso)
 }
 
 /** La fecha `dias` días después (o antes, si es negativo). */
@@ -148,34 +135,21 @@ function deOtroAnio(fecha: Date): string {
 }
 
 /**
- * Dentro de una frase ("del miércoles 9", "hasta el domingo 20", "Leg · hoy"):
- * hoy, ayer o mañana si lo es; el día de la semana y el número si está a menos de
- * dos semanas (con el mes si es de otro y está a más de una semana); y si no, el día y el mes.
+ * Dentro de una frase ("del miércoles 9 de noviembre", "hasta el domingo 20 de
+ * noviembre"): la fecha entera, como `fechaCorta` (decisión del autor, 16-11-2026: antes,
+ * a menos de dos semanas salía "el miércoles 9" sin el mes). Con `relativa`, hoy, ayer o
+ * mañana si lo es (no tiene ningún uso: en una frase con fecha nunca se dicen).
  */
 export function fechaEnFrase(iso: string, relativa = true): string {
   const dias = diasEntre(hoy(), iso)
-  // Sin `relativa`, nunca "hoy" ni "ayer": donde el día que se mira no es hoy (la
-  // hoja de registrar un día pasado), confundirían.
   if (relativa && dias === 0) return 'hoy'
   if (relativa && dias === -1) return 'ayer'
   if (relativa && dias === 1) return 'mañana'
-  const fecha = aFecha(iso)
-  const ahora = aFecha(hoy())
-  if (Math.abs(dias) < 14) {
-    let texto = `${DIAS[fecha.getDay()]} ${fecha.getDate()}`
-    // A menos de una semana, el día de la semana ya dice cuál es: el mes sobra.
-    if (Math.abs(dias) >= 7 && fecha.getMonth() !== ahora.getMonth()) {
-      texto += ` de ${MESES[fecha.getMonth()]}`
-    }
-    return texto
-  }
-  let texto = `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`
-  if (fecha.getFullYear() !== ahora.getFullYear()) texto += ` de ${fecha.getFullYear()}`
-  return texto
+  return fechaCompleta(iso)
 }
 
 /**
- * "el miércoles 2", "el 26 de junio": nunca "hoy", "ayer" ni "mañana" (decisión del
+ * "el miércoles 2 de septiembre": nunca "hoy", "ayer" ni "mañana" (decisión del
  * autor). La única excepción, «Mañana toca…» en Hoy, no pasa por aquí.
  */
 export function conArticulo(iso: string): string {

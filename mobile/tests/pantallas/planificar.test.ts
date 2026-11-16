@@ -229,16 +229,16 @@ describe('porQueNoSePuede', () => {
 describe('porQueNoSeRestablece', () => {
   test('con_la_rutina_visible_manda_a_restablecer_dia_a_dia', () => {
     expect(porQueNoSeRestablece('Push', '2026-11-10', false)).toBe(
-      'El Push que hiciste el martes 10 se quedaría sin ningún día de esta semana en el que ' +
+      'El Push que hiciste el martes 10 de noviembre se quedaría sin ningún día de esta semana en el que ' +
         'contar. Restablece los días uno a uno, dejando algún día con Push.',
     )
   })
 
   test('con_la_rutina_oculta_manda_a_mostrarla_o_borrar_la_sesion', () => {
     expect(porQueNoSeRestablece('Push', '2026-11-10', true)).toBe(
-      'El Push que hiciste el martes 10 se quedaría sin ningún día de esta semana en el que ' +
+      'El Push que hiciste el martes 10 de noviembre se quedaría sin ningún día de esta semana en el que ' +
         'contar, y Push está oculta, así que no puede ir a otro día. Muestra Push desde la ' +
-        'pestaña Programas o borra la sesión del martes 10, y después restablece la semana.',
+        'pestaña Programas o borra la sesión del martes 10 de noviembre, y después restablece la semana.',
     )
   })
 

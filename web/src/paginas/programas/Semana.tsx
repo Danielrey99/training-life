@@ -8,7 +8,7 @@ import { Icono } from '../../componentes/Icono'
 import { Interruptor } from '../../componentes/Interruptor'
 import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia } from '../../utiles/colores'
-import { diaYMesConAnio, fechaEnFrase, hoy } from '../../utiles/fechas'
+import { fechaCompleta, fechaEnFrase, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
@@ -310,7 +310,7 @@ export function Semana() {
 
       {oculto ? (
         <div className="semana-oculto">
-          <strong>Oculto desde el {diaYMesConAnio(programa.oculto_desde!)}</strong>
+          <strong>Oculto desde el {fechaCompleta(programa.oculto_desde!)}</strong>
           <span>No sale en tu lista de programas.</span>
           <span>Sus rutinas y su historial siguen intactos.</span>
         </div>

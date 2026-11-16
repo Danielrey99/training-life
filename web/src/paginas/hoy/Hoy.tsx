@@ -570,11 +570,16 @@ function FilaRecuperable({
 }: PropsRecuperable) {
   const { rutina, fecha, plazo, se_puede_hoy } = recuperable
   const caducaHoy = plazo === hoy
-  let texto: string
-  if (!se_puede_hoy) texto = `Recupéralo otro día, hasta ${conArticulo(plazo)}`
-  else if (caducaHoy) texto = `${ejercicios} · hoy es el último día`
-  else texto = `${ejercicios} · hasta ${conArticulo(plazo)}`
-  if (!se_puede_hoy && caducaHoy) texto = 'Hoy era el último día para recuperarlo'
+  // Qué se hace y hasta cuándo, cada cosa en su línea (decisión del autor, 16-11-2026): con
+  // la fecha entera, en una sola línea el plazo se partía por la mitad.
+  let que: string
+  let plazoEnTexto: string | null
+  if (!se_puede_hoy && caducaHoy)
+    [que, plazoEnTexto] = ['Hoy era el último día para recuperarlo', null]
+  else if (!se_puede_hoy)
+    [que, plazoEnTexto] = ['Recupéralo otro día', `hasta ${conArticulo(plazo)}`]
+  else if (caducaHoy) [que, plazoEnTexto] = [ejercicios, 'hoy es el último día']
+  else [que, plazoEnTexto] = [ejercicios, `hasta ${conArticulo(plazo)}`]
 
   return (
     <div className="recuperable">
@@ -582,7 +587,10 @@ function FilaRecuperable({
         <strong>
           {rutina.nombre} · {fechaEnFrase(fecha, false)}
         </strong>
-        <span className={caducaHoy && se_puede_hoy ? 'caduca' : undefined}>{texto}</span>
+        <span>{que}</span>
+        {plazoEnTexto && (
+          <span className={caducaHoy && se_puede_hoy ? 'caduca' : undefined}>{plazoEnTexto}</span>
+        )}
       </div>
       {/* Siempre en verde, también junto a Empezar: decisión expresa del autor. */}
       {se_puede_hoy && !sinEjercicios && (

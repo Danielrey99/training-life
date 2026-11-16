@@ -34,7 +34,7 @@ import { api } from '../../plataforma/api'
 import { RADIO, useColores, type Colores } from '../../tema'
 import { useAjustes } from '../../utiles/ajustes'
 import { colorDelDia } from '../../utiles/colores'
-import { diaYMesConAnio, fechaEnFrase, hoy } from '../../utiles/fechas'
+import { fechaCompleta, fechaEnFrase, hoy } from '../../utiles/fechas'
 import {
   cuantosDias,
   diasCambiadosAMano,
@@ -333,7 +333,7 @@ export function Semana() {
         {oculto ? (
           <View style={e.oculto}>
             <Text style={e.ocultoTitulo}>
-              Oculto desde el {diaYMesConAnio(programa.oculto_desde!)}
+              Oculto desde el {fechaCompleta(programa.oculto_desde!)}
             </Text>
             <Text style={e.ocultoTexto}>No sale en tu lista de programas.</Text>
             <Text style={e.ocultoTexto}>Sus rutinas y su historial siguen intactos.</Text>

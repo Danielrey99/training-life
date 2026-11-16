@@ -22,7 +22,7 @@ import { Selector } from '../../componentes/Selector'
 import type { Ejercicio, SesionHistorial } from '../../logica/tipos'
 import { api } from '../../plataforma/api'
 import { RADIO, useColores, type Colores } from '../../tema'
-import { diaYMesConAnio, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
+import { fechaCompleta, diasEntre, fechaAbreviada, hoy, sumarDias } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { FichasUltimaVez } from '../sesion/FichasUltimaVez'
 import { Grafica, type Punto } from './Grafica'
@@ -202,7 +202,7 @@ export function Progresion() {
                   {puntos.length > 1 && (
                     <Text style={e.cambio}>
                       {medida.cambio(ultimo.valor - primero.valor)} desde el{' '}
-                      {diaYMesConAnio(primero.fecha)}
+                      {fechaCompleta(primero.fecha)}
                     </Text>
                   )}
                   <Text style={e.cambio}>

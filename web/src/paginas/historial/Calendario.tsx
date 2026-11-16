@@ -7,7 +7,7 @@ import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
 import { colorDelDia, SIN_DIA } from '../../utiles/colores'
 import {
-  diaYMes,
+  fechaCompleta,
   finDeMes,
   hoy as hoyLocal,
   inicioDeMes,
@@ -171,7 +171,7 @@ export function Calendario() {
             </div>
           </div>
           <p className="cifras-pie">
-            {esteMes ? `Hasta hoy, ${diaYMes(hoy)} · ` : ''}
+            {esteMes ? `Hasta hoy, ${fechaCompleta(hoy)} · ` : ''}
             {series === 1 ? '1 serie registrada' : `${series} series registradas`}
           </p>
         </>

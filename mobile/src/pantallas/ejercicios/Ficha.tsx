@@ -37,7 +37,7 @@ import type {
 import { api } from '../../plataforma/api'
 import { loQueSePierdeDelEjercicio } from '../../reglasDePantalla/loQueSePierde'
 import { RADIO, RADIO_PEQUENO, useColores, type Colores } from '../../tema'
-import { conArticulo, diaDe, diaYMesConAnio } from '../../utiles/fechas'
+import { conArticulo, diaDe, fechaCompleta } from '../../utiles/fechas'
 import { medidasDe, valorEnPantalla } from '../../utiles/progresion'
 import { enumerar } from '../../utiles/textos'
 import { TIPOS } from './tiposDeRegistro'
@@ -82,7 +82,7 @@ function dondeEsta(uso: UsoEnRutina) {
           ),
         )
   if (uso.rutina.oculto_desde) {
-    return `Rutina oculta desde el ${diaYMesConAnio(uso.rutina.oculto_desde)} · ${programas}`
+    return `Rutina oculta desde el ${fechaCompleta(uso.rutina.oculto_desde)} · ${programas}`
   }
   return programas
 }
@@ -214,7 +214,7 @@ export function Ficha() {
         {oculto && (
           <View style={e.oculto}>
             <Text style={e.ocultoTitulo}>
-              Oculto desde el {diaYMesConAnio(ejercicio.oculto_desde!)}
+              Oculto desde el {fechaCompleta(ejercicio.oculto_desde!)}
             </Text>
             <Text style={e.ocultoTexto}>No sale en las listas de ejercicios.</Text>
             <Text style={e.ocultoTexto}>Las rutinas que lo usan lo conservan, en gris.</Text>
@@ -293,7 +293,7 @@ export function Ficha() {
                     <View style={e.nota}>
                       <View style={e.notaTexto}>
                         <Text style={e.notaCuerpo}>{nota.nota}</Text>
-                        <Text style={e.notaFecha}>{diaYMesConAnio(diaDe(nota.created_at))}</Text>
+                        <Text style={e.notaFecha}>{fechaCompleta(diaDe(nota.created_at))}</Text>
                       </View>
                       <BotonDeIcono
                         icono="editar"

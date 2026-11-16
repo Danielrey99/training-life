@@ -38,7 +38,7 @@ import {
   type ObjetivoEnTexto,
 } from '../../reglasDePantalla/objetivos'
 import { RADIO, RADIO_PEQUENO, useColores, type Colores } from '../../tema'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { avisoDeRutinaVacia } from '../../utiles/textos'
 import {
   guardarBorrador,
@@ -351,7 +351,7 @@ export function Ejercicio() {
         {huecoOculto && origen.tipo === 'existente' && (
           <View style={e.oculto}>
             <Text style={e.ocultoTitulo}>
-              Oculto en esta rutina desde el {diaYMesConAnio(origen.hueco.oculto_desde!)}
+              Oculto en esta rutina desde el {fechaCompleta(origen.hueco.oculto_desde!)}
             </Text>
             <Text style={e.ocultoTexto}>No sale en la rutina ni al entrenar.</Text>
             <Text style={e.ocultoTexto}>Su historial sigue intacto.</Text>

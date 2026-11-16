@@ -131,6 +131,12 @@ describe('loQueSePierdeDeLaRutina', () => {
 })
 
 describe('loQueSePierdeDelHueco', () => {
+  // "lunes 6 de julio": el día de la semana depende del año, así que se calcula aparte.
+  const seisDeJulio = (anio: number | string): string => {
+    const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+    return `${dias[new Date(Number(anio), 6, 6).getDay()]} 6 de julio`
+  }
+
   test('sin_series_no_cuenta_nada_la_pregunta_basta', () => {
     expect(loQueSePierdeDelHueco(avisoDeHueco(), false)).toBeUndefined()
   })
@@ -144,10 +150,10 @@ describe('loQueSePierdeDelHueco', () => {
   test('con_la_fecha_de_la_primera_serie_dice_desde_cuando', () => {
     const desde = `${hoy().slice(0, 4)}-07-06`
     expect(loQueSePierdeDelHueco(avisoDeHueco({ series: 47, desde }), true)).toBe(
-      'Se borrarán también sus 47 series, apuntadas desde el 6 de julio.',
+      `Se borrarán también sus 47 series, apuntadas desde el ${seisDeJulio(hoy().slice(0, 4))}.`,
     )
     expect(loQueSePierdeDelHueco(avisoDeHueco({ series: 1, desde }), true)).toBe(
-      'Se borrará también su serie, apuntada desde el 6 de julio.',
+      `Se borrará también su serie, apuntada desde el ${seisDeJulio(hoy().slice(0, 4))}.`,
     )
   })
 
@@ -155,7 +161,7 @@ describe('loQueSePierdeDelHueco', () => {
     const anioPasado = Number(hoy().slice(0, 4)) - 1
     const aviso = avisoDeHueco({ series: 2, desde: `${anioPasado}-07-06` })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
-      `Se borrarán también sus 2 series, apuntadas desde el 6 de julio de ${anioPasado}.`,
+      `Se borrarán también sus 2 series, apuntadas desde el ${seisDeJulio(anioPasado)} de ${anioPasado}.`,
     )
   })
 
@@ -170,7 +176,7 @@ describe('loQueSePierdeDelHueco', () => {
     const desde = `${hoy().slice(0, 4)}-07-06`
     const aviso = avisoDeHueco({ series: 9, desde, sesiones_que_se_vacian: 3 })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
-      'Se borrarán también sus 9 series, apuntadas desde el 6 de julio, ' +
+      `Se borrarán también sus 9 series, apuntadas desde el ${seisDeJulio(hoy().slice(0, 4))}, ` +
         'y 3 sesiones que solo tenían series de este ejercicio.',
     )
   })

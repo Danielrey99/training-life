@@ -33,7 +33,7 @@ import type { AvisoDeBorrarRutina, HuecoDeRutina, Rutina as DatosRutina } from '
 import { api } from '../../plataforma/api'
 import { loQueSePierdeDeLaRutina } from '../../reglasDePantalla/loQueSePierde'
 import { RADIO, useColores, type Colores } from '../../tema'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { lineaDeAlternativas, objetivo } from '../../utiles/textos'
 import { ListaDeEjercicios, type FilaDeEjercicio } from './ListaDeEjercicios'
 
@@ -48,7 +48,7 @@ function visiblesEnOrden(rutina: DatosRutina) {
 
 function fila(hueco: HuecoDeRutina, alAbrir?: () => void, oculto = false): FilaDeEjercicio {
   const alternativas = lineaDeAlternativas(hueco.alternativas.length)
-  const desde = oculto ? `oculto desde el ${diaYMesConAnio(hueco.oculto_desde!)}` : null
+  const desde = oculto ? `oculto desde el ${fechaCompleta(hueco.oculto_desde!)}` : null
   return {
     clave: hueco.id,
     nombre: hueco.ejercicio_principal.nombre,
@@ -290,7 +290,7 @@ export function Rutina() {
         {oculta && (
           <View style={e.oculto}>
             <Text style={e.ocultoTitulo}>
-              Oculta desde el {diaYMesConAnio(rutina.oculto_desde!)}
+              Oculta desde el {fechaCompleta(rutina.oculto_desde!)}
             </Text>
             <Text style={e.ocultoTexto}>No sale al elegir rutina ni al entrenar.</Text>
             <Text style={e.ocultoTexto}>

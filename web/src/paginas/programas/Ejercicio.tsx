@@ -12,7 +12,7 @@ import type {
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { FalloAlCargar } from '../../componentes/Proteccion'
-import { diaYMesConAnio } from '../../utiles/fechas'
+import { fechaCompleta } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
 import '../sesion/sesion.css'
@@ -346,7 +346,7 @@ export function Ejercicio() {
       {huecoOculto && origen.tipo === 'existente' && (
         <div className="semana-oculto">
           <strong>
-            Oculto en esta rutina desde el {diaYMesConAnio(origen.hueco.oculto_desde!)}
+            Oculto en esta rutina desde el {fechaCompleta(origen.hueco.oculto_desde!)}
           </strong>
           <span>No sale en la rutina ni al entrenar.</span>
           <span>Su historial sigue intacto.</span>
@@ -631,7 +631,7 @@ function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
   if (aviso.series === 0) return undefined
   const series = aviso.series === 1 ? 'su serie' : `sus ${aviso.series} series`
   const apuntadas = aviso.series === 1 ? 'apuntada' : 'apuntadas'
-  const desde = aviso.desde ? `, ${apuntadas} desde el ${diaYMesConAnio(aviso.desde)}` : ''
+  const desde = aviso.desde ? `, ${apuntadas} desde el ${fechaCompleta(aviso.desde)}` : ''
   const vacias = aviso.sesiones_que_se_vacian
   const sesiones =
     vacias === 0

@@ -5,7 +5,7 @@ import { api, ErrorDeApi, textoDelFallo } from '../../api/cliente'
 import type { ComprobacionDeImportar, ResumenDeDatos } from '../../api/tipos'
 import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
-import { diaDe, diaYMesConAnio, hoy } from '../../utiles/fechas'
+import { diaDe, fechaCompleta, hoy } from '../../utiles/fechas'
 import { useVolver } from '../../utiles/volver'
 import { tirarTodosLosBorradores } from '../programas/borradores'
 import { enumerar } from '../programas/textos'
@@ -30,8 +30,8 @@ function describir(resumen: ResumenDeDatos) {
     partes.push(contar(resumen.ejercicios, 'ejercicio tuyo', 'ejercicios tuyos'))
   if (resumen.notas) partes.push(contar(resumen.notas, 'nota', 'notas'))
   if (resumen.sesiones && resumen.primera_sesion && resumen.ultima_sesion) {
-    const desde = diaYMesConAnio(resumen.primera_sesion)
-    const hasta = diaYMesConAnio(resumen.ultima_sesion)
+    const desde = fechaCompleta(resumen.primera_sesion)
+    const hasta = fechaCompleta(resumen.ultima_sesion)
     const cuando = desde === hasta ? `del ${desde}` : `del ${desde} al ${hasta}`
     partes.push(`${contar(resumen.sesiones, 'sesión', 'sesiones')} (${cuando})`)
   }
@@ -257,7 +257,7 @@ export function Ajustes() {
             (describir(pendiente.comprobacion.actual) === 'nada'
               ? 'Ahora no tienes nada apuntado. '
               : `Ahora tienes ${describir(pendiente.comprobacion.actual)}. `) +
-            `El archivo, exportado el ${diaYMesConAnio(diaDe(pendiente.comprobacion.exportado_en))}, ` +
+            `El archivo, exportado el ${fechaCompleta(diaDe(pendiente.comprobacion.exportado_en))}, ` +
             (describir(pendiente.comprobacion.archivo) === 'nada'
               ? 'no tiene nada apuntado. '
               : `tiene ${describir(pendiente.comprobacion.archivo)}. `) +
