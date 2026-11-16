@@ -9,7 +9,7 @@
  */
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { StyleSheet, Text } from 'react-native'
+import { BackHandler, StyleSheet, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Cabecera } from '../../componentes/Cabecera'
@@ -30,7 +30,14 @@ import {
   QUE_HACER_CON_ELLOS,
   sinEjercicios,
 } from '../../utiles/textos'
-import { DIAS, PROGRAMA_NUEVO, sinDias, useBorrador, type BorradorDePrograma } from './borradores'
+import {
+  DIAS,
+  hayAlgoEnElPrograma,
+  PROGRAMA_NUEVO,
+  sinDias,
+  useBorrador,
+  type BorradorDePrograma,
+} from './borradores'
 import { DiasEditables } from './DiasEditables'
 import { HojaDeRutinas } from './HojaDeRutinas'
 
@@ -67,6 +74,8 @@ export function ProgramaNuevo() {
   // Los días cambiados a mano de hoy en adelante, que se preguntan al activar el programa.
   const [cambiados, setCambiados] = useState<string[]>([])
   const [lectura, setLectura] = useState(0)
+  const [descartando, setDescartando] = useState(false)
+  const escrito = hayAlgoEnElPrograma(borrador)
 
   // También al volver de crear una rutina, para que salga en la hoja de los demás días.
   useFocusEffect(
@@ -88,6 +97,25 @@ export function ProgramaNuevo() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lectura]),
   )
+
+  // Con algo escrito, el atrás de Android pregunta antes de tirarlo, como la flecha (decisión
+  // del autor). Solo mientras se ve: con la rutina nueva abierta encima, el atrás es suyo.
+  useFocusEffect(
+    useCallback(() => {
+      if (!escrito) return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        setDescartando(true)
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [escrito]),
+  )
+
+  /** La flecha: con algo escrito, pregunta antes de tirarlo. */
+  function pedirSalir() {
+    if (escrito) setDescartando(true)
+    else salir()
+  }
 
   if (error) {
     return (
@@ -173,7 +201,7 @@ export function ProgramaNuevo() {
     <SafeAreaView edges={['top']} style={e.pantalla}>
       <Cabecera
         titulo="Nuevo programa"
-        alVolver={salir}
+        alVolver={pedirSalir}
         derecha={{ texto: 'Crear', alPulsar: () => void pedirCrear(), desactivado: guardando }}
       />
 
@@ -231,6 +259,21 @@ export function ProgramaNuevo() {
             setHojaDe(null)
             router.push({ pathname: '/programas/rutinas/nueva', params: { dia: String(hojaDe) } })
           }}
+        />
+      )}
+
+      {descartando && (
+        <Dialogo
+          titulo="¿Descartar los cambios?"
+          cuerpo="El programa nuevo no se creará."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          alConfirmar={async () => {
+            setDescartando(false)
+            salir()
+          }}
+          alCancelar={() => setDescartando(false)}
         />
       )}
 

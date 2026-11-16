@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 
 import { api, esDelCampo, textoDelFallo } from '../../api/cliente'
 import type { DiaSemana } from '../../api/tipos'
+import { Dialogo } from '../../componentes/Dialogo'
 import { Icono } from '../../componentes/Icono'
 import { useVolver } from '../../utiles/volver'
 import '../historial/historial.css'
@@ -11,6 +12,7 @@ import {
   guardarBorrador,
   leerBorrador,
   leerBorradorDeRutina,
+  hayAlgoEnLaRutina,
   PROGRAMA_NUEVO,
   RUTINA_NUEVA,
   tirarBorrador,
@@ -53,6 +55,7 @@ export function RutinaNueva() {
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
+  const [descartando, setDescartando] = useState(false)
 
   // El borrador vive fuera de la pantalla: el formulario de cada ejercicio lo lee y lo cambia.
   useEffect(() => {
@@ -77,6 +80,15 @@ export function RutinaNueva() {
   function salir() {
     tirarBorrador(RUTINA_NUEVA)
     volver(padre)
+  }
+
+  /**
+   * La flecha: con algo escrito, pregunta antes de tirarlo (decisión del autor). El borrador
+   * del programa que espera esta rutina no se toca: se vuelve a él como estaba.
+   */
+  function pedirSalir() {
+    if (hayAlgoEnLaRutina(borrador)) setDescartando(true)
+    else salir()
   }
 
   function mover(desde: number, hasta: number) {
@@ -149,7 +161,7 @@ export function RutinaNueva() {
   return (
     <div className="rutina">
       <header className="sesion-cabecera">
-        <button type="button" className="boton-icono" aria-label="Volver" onClick={salir}>
+        <button type="button" className="boton-icono" aria-label="Volver" onClick={pedirSalir}>
           <Icono nombre="volver" />
         </button>
         <div className="sesion-titulo">
@@ -213,6 +225,18 @@ export function RutinaNueva() {
           )}
           Pulsa un ejercicio para cambiarlo o quitarlo.
         </p>
+      )}
+
+      {descartando && (
+        <Dialogo
+          titulo="¿Descartar los cambios?"
+          cuerpo="La rutina nueva no se creará."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          alConfirmar={async () => salir()}
+          alCancelar={() => setDescartando(false)}
+        />
       )}
     </div>
   )

@@ -40,6 +40,20 @@ export type BorradorDeRutina = {
   ejercicios: EjercicioDelBorrador[]
 }
 
+/** Si hay algo escrito en el programa nuevo: salir sin guardarlo pregunta antes. */
+export function hayAlgoEnElPrograma(borrador: BorradorDePrograma) {
+  return (
+    borrador.nombre.trim() !== '' ||
+    borrador.activar ||
+    Object.values(borrador.dias).some((rutina) => rutina !== null)
+  )
+}
+
+/** Si hay algo escrito en la rutina nueva: salir sin guardarla pregunta antes. */
+export function hayAlgoEnLaRutina(borrador: BorradorDeRutina) {
+  return borrador.nombre.trim() !== '' || borrador.ejercicios.length > 0
+}
+
 export const PROGRAMA_NUEVO = 'borrador-programa-nuevo'
 export const RUTINA_NUEVA = 'borrador-rutina-nueva'
 

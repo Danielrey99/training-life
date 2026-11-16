@@ -10,15 +10,16 @@
  * `&programa=7`, de uno que se está editando), al guardarla vuelve allí con la rutina puesta
  * en ese día.
  */
-import { router, useLocalSearchParams } from 'expo-router'
-import { useState } from 'react'
-import { StyleSheet, Text } from 'react-native'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useCallback, useState } from 'react'
+import { BackHandler, StyleSheet, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Boton } from '../../componentes/Boton'
 import { Cabecera } from '../../componentes/Cabecera'
 import { CampoDeNombre } from '../../componentes/CampoDeNombre'
 import { Desplazable } from '../../componentes/Desplazable'
+import { Dialogo } from '../../componentes/Dialogo'
 import { IconoEnTexto } from '../../componentes/IconoEnTexto'
 import { TextoCentrado } from '../../componentes/TextoCentrado'
 import { esDelCampo, textoDelFallo } from '../../logica/api'
@@ -28,6 +29,7 @@ import { RADIO, useColores, type Colores } from '../../tema'
 import { lineaDeAlternativas, NOMBRES_DE_LOS_DIAS, objetivo } from '../../utiles/textos'
 import {
   guardarBorrador,
+  hayAlgoEnLaRutina,
   leerBorrador,
   PROGRAMA_NUEVO,
   RUTINA_NUEVA,
@@ -77,6 +79,27 @@ export function RutinaNueva() {
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
   const [arrastrando, setArrastrando] = useState(false)
+  const [descartando, setDescartando] = useState(false)
+  const escrita = hayAlgoEnLaRutina(borrador)
+
+  // Con algo escrito, el atrás de Android pregunta antes de tirarla, como la flecha (decisión
+  // del autor). El borrador del programa que la espera no se toca: se vuelve a él como estaba.
+  useFocusEffect(
+    useCallback(() => {
+      if (!escrita) return
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        setDescartando(true)
+        return true
+      })
+      return () => suscripcion.remove()
+    }, [escrita]),
+  )
+
+  /** La flecha: con algo escrito, pregunta antes de tirarla. */
+  function pedirSalir() {
+    if (escrita) setDescartando(true)
+    else volver()
+  }
 
   function mover(desde: number, hasta: number) {
     setBorrador((antes) => {
@@ -158,7 +181,7 @@ export function RutinaNueva() {
             ? `Se pondrá el ${NOMBRES_DE_LOS_DIAS[dia - 1]} de ${programa?.nombre.trim() || 'tu programa nuevo'}`
             : undefined
         }
-        alVolver={volver}
+        alVolver={pedirSalir}
         derecha={{ texto: 'Guardar', alPulsar: () => void guardar(), desactivado: guardando }}
       />
 
@@ -209,6 +232,21 @@ export function RutinaNueva() {
           </TextoCentrado>
         )}
       </Desplazable>
+
+      {descartando && (
+        <Dialogo
+          titulo="¿Descartar los cambios?"
+          cuerpo="La rutina nueva no se creará."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          alConfirmar={async () => {
+            setDescartando(false)
+            volver()
+          }}
+          alCancelar={() => setDescartando(false)}
+        />
+      )}
     </SafeAreaView>
   )
 }

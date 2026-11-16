@@ -14,6 +14,7 @@ import '../sesion/sesion.css'
 import {
   DIAS,
   guardarBorrador,
+  hayAlgoEnElPrograma,
   leerBorrador,
   PROGRAMA_NUEVO,
   sinDias,
@@ -59,6 +60,7 @@ export function ProgramaNuevo() {
   const [guardando, setGuardando] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
   const [falloNombre, setFalloNombre] = useState<string | null>(null)
+  const [descartando, setDescartando] = useState(false)
   // Crear un programa que se activa pregunta antes, como activar uno desde su semana.
   const [confirmando, setConfirmando] = useState(false)
   // Los días cambiados a mano de hoy en adelante, que se preguntan al activar el programa.
@@ -111,6 +113,12 @@ export function ProgramaNuevo() {
   function salir() {
     tirarBorrador(PROGRAMA_NUEVO)
     volver('/programas')
+  }
+
+  /** La flecha: con algo escrito, pregunta antes de tirarlo (decisión del autor). */
+  function pedirSalir() {
+    if (hayAlgoEnElPrograma(borrador!)) setDescartando(true)
+    else salir()
   }
 
   /**
@@ -169,7 +177,7 @@ export function ProgramaNuevo() {
   return (
     <div className="semana">
       <header className="sesion-cabecera">
-        <button type="button" className="boton-icono" aria-label="Volver" onClick={salir}>
+        <button type="button" className="boton-icono" aria-label="Volver" onClick={pedirSalir}>
           <Icono nombre="volver" />
         </button>
         <div className="sesion-titulo">
@@ -240,6 +248,18 @@ export function ProgramaNuevo() {
           alCrearNueva={() =>
             navegar(`/programas/rutinas/nueva?dia=${hojaDe}`, { state: { empezar: true } })
           }
+        />
+      )}
+
+      {descartando && (
+        <Dialogo
+          titulo="¿Descartar los cambios?"
+          cuerpo="El programa nuevo no se creará."
+          confirmar="Descartar"
+          cancelar="Seguir editando"
+          peligro
+          alConfirmar={async () => salir()}
+          alCancelar={() => setDescartando(false)}
         />
       )}
 

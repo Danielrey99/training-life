@@ -6,6 +6,8 @@
  */
 import {
   guardarBorrador,
+  hayAlgoEnElPrograma,
+  hayAlgoEnLaRutina,
   leerBorrador,
   PROGRAMA_NUEVO,
   RUTINA_NUEVA,
@@ -90,5 +92,32 @@ describe('leer, guardar y tirar', () => {
     expect(leerBorrador(PROGRAMA_NUEVO)).toBeNull()
     expect(leerBorrador(RUTINA_NUEVA)).toBeNull()
     expect(leerBorrador(semanaEnEdicion(3))).toBeNull()
+  })
+})
+
+describe('si hay algo escrito', () => {
+  const programa = (cambios: Partial<BorradorDePrograma> = {}): BorradorDePrograma => ({
+    nombre: '',
+    activar: false,
+    dias: sinDias(),
+    ...cambios,
+  })
+
+  test('hayAlgoEnElPrograma_cuenta_el_nombre_activar_o_un_dia_con_rutina_pero_no_espacios', () => {
+    expect(hayAlgoEnElPrograma(programa())).toBe(false)
+    expect(hayAlgoEnElPrograma(programa({ nombre: '   ' }))).toBe(false)
+    expect(hayAlgoEnElPrograma(programa({ nombre: ' PPL ' }))).toBe(true)
+    expect(hayAlgoEnElPrograma(programa({ activar: true }))).toBe(true)
+    const dias = { ...sinDias(), 3: { id: 1, nombre: 'Push', oculto_desde: null } }
+    expect(hayAlgoEnElPrograma(programa({ dias }))).toBe(true)
+  })
+
+  test('hayAlgoEnLaRutina_cuenta_el_nombre_o_un_ejercicio_pero_no_espacios', () => {
+    const vacia: BorradorDeRutina = { nombre: '', ejercicios: [] }
+    expect(hayAlgoEnLaRutina(vacia)).toBe(false)
+    expect(hayAlgoEnLaRutina({ ...vacia, nombre: '  ' })).toBe(false)
+    expect(hayAlgoEnLaRutina({ ...vacia, nombre: 'Pull' })).toBe(true)
+    const ejercicios = [{}] as unknown as BorradorDeRutina['ejercicios']
+    expect(hayAlgoEnLaRutina({ ...vacia, ejercicios })).toBe(true)
   })
 })
