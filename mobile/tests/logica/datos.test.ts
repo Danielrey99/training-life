@@ -1134,7 +1134,16 @@ const _cubre_fecha_repetida: Estropear = (a) => {
 const _excepcion_repetida: Estropear = (a) => {
   a.excepciones[1].fecha = a.excepciones[0].fecha
 }
+/**
+ * «Viejo» está oculto desde el 1: activo, o usado después de ese día, ya es otro error (un
+ * programa oculto y activo, o usado después de ocultarse). Se muestra para que el caso pruebe
+ * solo lo suyo.
+ */
+function _mostrar_viejo(a: any): void {
+  _programa(a, 'Viejo').oculto_desde = null
+}
 const _dos_periodos_abiertos_en_dos_programas: Estropear = (a) => {
+  _mostrar_viejo(a)
   _programa(a, 'Viejo').periodos[0].hasta = null
 }
 const _dos_periodos_abiertos_en_un_programa: Estropear = (a) => {
@@ -1142,6 +1151,44 @@ const _dos_periodos_abiertos_en_un_programa: Estropear = (a) => {
 }
 const _dos_filas_vigentes_el_mismo_dia: Estropear = (a) => {
   _programa(a, 'PPL').dias[1].hasta = null
+}
+
+function _dias_de(archivo: any, programa: string, dia_semana: number): any[] {
+  return _programa(archivo, programa).dias.filter((d: any) => d.dia_semana === dia_semana)
+}
+
+const _dos_filas_que_se_solapan_con_fecha: Estropear = (a) => {
+  // Los miércoles, Pull del 3 de agosto al 10 de septiembre y Push desde el 7: a la vez desde el
+  // 7, el mayor de los dos «desde».
+  const [pull, push] = _dias_de(a, 'PPL', 3)
+  expect(push.desde).toBe('2026-09-07')
+  pull.desde = '2026-08-03'
+  pull.hasta = '2026-09-10'
+}
+const _dos_filas_que_se_solapan_desde_siempre: Estropear = (a) => {
+  // Los lunes, Push desde siempre y vigente, y Pull desde siempre hasta el 1.
+  const [push] = _dias_de(a, 'PPL', 1)
+  _programa(a, 'PPL').dias.push({ ...push, rutina_id: _rutina(a, 'Pull').id, hasta: '2026-09-01' })
+}
+/**
+ * Tres pares a la vez el mismo día: un solo error, el del primer par del archivo (Pull y Push,
+ * desde el 7), y no el de Pull con la tercera (desde el 1 de agosto).
+ */
+const _tres_filas_que_se_solapan_el_mismo_dia: Estropear = (a) => {
+  const [pull, push] = _dias_de(a, 'PPL', 3)
+  pull.hasta = '2026-09-10'
+  _programa(a, 'PPL').dias.push({ ...push, desde: '2026-08-01', hasta: '2026-09-09' })
+}
+/** Con dos vigentes, el texto de siempre, y una sola vez aunque choquen tres. */
+const _tres_filas_vigentes_el_mismo_dia: Estropear = (a) => {
+  _dos_filas_vigentes_el_mismo_dia(a)
+  const [, push] = _dias_de(a, 'PPL', 3)
+  _programa(a, 'PPL').dias.push({ ...push, desde: '2026-08-01', hasta: '2026-09-09' })
+}
+const _periodo_que_empieza_y_acaba_el_mismo_dia: Estropear = (a) => {
+  const periodo = _programa(a, 'Viejo').periodos[0]
+  periodo.desde = '2026-08-20'
+  periodo.hasta = '2026-08-20'
 }
 const _orden_repetido: Estropear = (a) => {
   _rutina(a, 'Push').slots[2].orden = 1
@@ -1174,7 +1221,19 @@ function _periodo_abierto(a: any): any {
   return _programa(a, 'PPL').periodos.find((p: any) => p.hasta === null)
 }
 
+const _programa_oculto_y_activo: Estropear = (a) => {
+  // Solo «Viejo» activo: PPL se dejó de usar hoy.
+  _periodo_abierto(a).hasta = HOY
+  _programa(a, 'Viejo').periodos[0].hasta = null
+}
+const _programa_usado_un_dia_despues_de_ocultarse: Estropear = (a) => {
+  const viejo = _programa(a, 'Viejo')
+  expect(viejo.oculto_desde).toBe('2026-09-01')
+  viejo.periodos[0].hasta = '2026-09-02'
+}
+
 const _programa_que_se_deja_de_usar_despues_de_hoy: Estropear = (a) => {
+  _mostrar_viejo(a)
   _programa(a, 'Viejo').periodos[0].hasta = '2026-09-20'
 }
 
@@ -1192,6 +1251,7 @@ const _rutina_mostrada_despues_de_hoy: Estropear = (a) => {
   _tramo_oculto(a).hasta = '2026-09-17'
 }
 const _periodo_cerrado_entero_en_el_futuro: Estropear = (a) => {
+  _mostrar_viejo(a)
   const periodo = _programa(a, 'Viejo').periodos[0]
   periodo.desde = '2026-09-20'
   periodo.hasta = '2026-09-25'
@@ -1414,6 +1474,53 @@ const MALOS: [string, Estropear, string, string | null][] = [
     _dos_filas_vigentes_el_mismo_dia,
     NO_SE_CAMBIA_NADA,
     'El programa «PPL» tiene dos rutinas a la vez los miércoles.',
+  ],
+  [
+    'tres_filas_vigentes_el_mismo_dia',
+    _tres_filas_vigentes_el_mismo_dia,
+    NO_SE_CAMBIA_NADA,
+    'El programa «PPL» tiene dos rutinas a la vez los miércoles.',
+  ],
+  [
+    'dos_filas_que_se_solapan_con_fecha',
+    _dos_filas_que_se_solapan_con_fecha,
+    NO_SE_CAMBIA_NADA,
+    'El programa «PPL» tiene dos rutinas a la vez los miércoles desde el lunes 7 de' +
+      ' septiembre, y la app nunca lo guarda así.',
+  ],
+  [
+    'dos_filas_que_se_solapan_desde_siempre',
+    _dos_filas_que_se_solapan_desde_siempre,
+    NO_SE_CAMBIA_NADA,
+    'El programa «PPL» tiene dos rutinas a la vez los lunes desde que se creó, y la app' +
+      ' nunca lo guarda así.',
+  ],
+  [
+    'tres_filas_que_se_solapan_el_mismo_dia',
+    _tres_filas_que_se_solapan_el_mismo_dia,
+    NO_SE_CAMBIA_NADA,
+    'El programa «PPL» tiene dos rutinas a la vez los miércoles desde el lunes 7 de' +
+      ' septiembre, y la app nunca lo guarda así.',
+  ],
+  [
+    'periodo_que_empieza_y_acaba_el_mismo_dia',
+    _periodo_que_empieza_y_acaba_el_mismo_dia,
+    NO_SE_CAMBIA_NADA,
+    'El programa «Viejo» se empezó a usar y se dejó de usar el mismo día, el jueves 20 de' +
+      ' agosto, y la app nunca lo guarda así.',
+  ],
+  [
+    'programa_oculto_y_activo',
+    _programa_oculto_y_activo,
+    NO_SE_CAMBIA_NADA,
+    'El programa «Viejo» está oculto y a la vez activo, y la app nunca lo deja así.',
+  ],
+  [
+    'programa_usado_un_dia_despues_de_ocultarse',
+    _programa_usado_un_dia_despues_de_ocultarse,
+    NO_SE_CAMBIA_NADA,
+    'El programa «Viejo» se dejó de usar el miércoles 2 de septiembre, después de' +
+      ' ocultarse el martes 1 de septiembre, y la app nunca lo guarda así.',
   ],
   [
     'orden_repetido',
@@ -1649,6 +1756,39 @@ const _dia_de_programa_que_empieza_dentro_de_tres_dias: Estropear = (a) => {
     hasta: null,
   })
 }
+const _periodo_de_un_solo_dia: Estropear = (a) => {
+  const periodo = _programa(a, 'Viejo').periodos[0]
+  periodo.desde = '2026-08-20'
+  periodo.hasta = '2026-08-21'
+}
+/**
+ * Una acaba el día en que empieza la otra: lo que deja cambiar la rutina de un día (los
+ * miércoles del escenario ya lo tienen con una vigente; aquí, cerradas). Van de la más nueva a
+ * la más vieja: los miércoles van al revés, y así se mira el borde por los dos lados de la
+ * comparación.
+ */
+const _filas_que_se_tocan_sin_solaparse: Estropear = (a) => {
+  const push = _rutina(a, 'Push').id
+  const pull = _rutina(a, 'Pull').id
+  _programa(a, 'PPL').dias.push(
+    { dia_semana: 5, rutina_id: pull, desde: '2026-08-10', hasta: '2026-08-17' },
+    { dia_semana: 5, rutina_id: push, desde: '2026-08-03', hasta: '2026-08-10' },
+    { dia_semana: 5, rutina_id: pull, desde: null, hasta: '2026-08-03' },
+  )
+}
+const _el_mismo_dia_en_dos_programas: Estropear = (a) => {
+  // PPL ya tiene Push los lunes, vigente y desde siempre.
+  _programa(a, 'Viejo').dias.push({
+    dia_semana: 1,
+    rutina_id: _rutina(a, 'Push').id,
+    desde: null,
+    hasta: null,
+  })
+}
+const _programa_que_se_deja_de_usar_el_dia_que_se_oculta: Estropear = (a) => {
+  // Ocultar el programa activo lo deja de usar ese mismo día.
+  _programa(a, 'Viejo').periodos[0].hasta = '2026-09-01'
+}
 const _rutina_mostrada_hoy: Estropear = (a) => {
   _tramo_oculto(a).hasta = HOY
 }
@@ -1666,6 +1806,13 @@ const BUENOS: [string, Estropear][] = [
   [
     'dia_de_programa_que_empieza_dentro_de_tres_dias',
     _dia_de_programa_que_empieza_dentro_de_tres_dias,
+  ],
+  ['periodo_de_un_solo_dia', _periodo_de_un_solo_dia],
+  ['filas_que_se_tocan_sin_solaparse', _filas_que_se_tocan_sin_solaparse],
+  ['el_mismo_dia_en_dos_programas', _el_mismo_dia_en_dos_programas],
+  [
+    'programa_que_se_deja_de_usar_el_dia_que_se_oculta',
+    _programa_que_se_deja_de_usar_el_dia_que_se_oculta,
   ],
 ]
 

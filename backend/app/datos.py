@@ -246,18 +246,37 @@ def _repetidos(valores) -> list:
     return [valor for valor, veces in Counter(valores).items() if veces > 1]
 
 
+def _dos_rutinas_a_la_vez(filas: list) -> tuple | None:
+    """El primer par de filas del mismo día de un programa que valen a la vez, o `None`.
+
+    Cada fila vale de `desde` (nulo, desde siempre) a `hasta` sin incluirlo (nulo, sigue
+    vigente). Que una acabe el día en que empieza otra no es solape: es lo que deja
+    cambiar la rutina de un día.
+    """
+    for i, una in enumerate(filas):
+        for otra in filas[i + 1 :]:
+            if (una.desde is None or otra.hasta is None or una.desde < otra.hasta) and (
+                otra.desde is None or una.hasta is None or otra.desde < una.hasta
+            ):
+                return una, otra
+    return None
+
+
 def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     """Todo lo que impediría cargar el archivo tal cual, para decirlo de una vez y no
     tocar nada: ids repetidos, referencias a algo que no está en el archivo,
     predefinidos o grupos que no existen aquí y las restricciones de la base.
 
     No se valida a propósito lo que no rompe nada y podría venir de una copia legítima
-    (periodos solapados), ni que la fecha de una sesión y el día que cuenta sean del
+    (periodos de uso de dos programas que se solapan), ni que la fecha de una sesión y el día que cuenta sean del
     mismo programa: la app lo deja así al activar otro programa con un adelanto
     pendiente. Sí las fechas que la app nunca crea: un periodo de programa, una
     sesión o algo oculto que empieza después de hoy, y un día que cuenta una sesión fuera de su
     plazo. Vienen de un dispositivo con la fecha mal puesta y rompen cosas más tarde
-    (desactivar el programa, el estado de los días). "Hoy" es el mayor entre hoy aquí y
+    (desactivar el programa, el estado de los días). Y cuatro estados que la app nunca
+    guarda: un periodo de uso que empieza y acaba el mismo día, dos rutinas a la vez en un
+    día del programa, un programa oculto y activo, y uno que se dejó de usar después de
+    ocultarse. "Hoy" es el mayor entre hoy aquí y
     hoy en la zona de quien exportó, con el reloj de ahora y no con `exportado_en`, que
     lo escribió el mismo reloj que puede estar mal: así un archivo hecho pasada la
     medianoche en una zona más adelantada no da error.
@@ -359,13 +378,27 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                 errores.append(
                     f"El programa «{programa.nombre}» usa una rutina que no está en el archivo."
                 )
-        # Una sola fila vigente por día.
-        for dia_semana in _repetidos(d.dia_semana for d in programa.dias if d.hasta is None):
+        # Una sola rutina a la vez en cada día de la semana: un error por día.
+        for dia_semana in sorted({d.dia_semana for d in programa.dias}):
+            filas = [d for d in programa.dias if d.dia_semana == dia_semana]
+            choque = _dos_rutinas_a_la_vez(filas)
+            if choque is None:
+                continue
             dia = nombre_del_dia(dia_semana)
             # «los lunes», pero «los sábados».
             dias = f"{dia}s" if dia.endswith("o") else dia
+            if sum(d.hasta is None for d in filas) > 1:
+                errores.append(
+                    f"El programa «{programa.nombre}» tiene dos rutinas a la vez los {dias}."
+                )
+                continue
+            inicios = [d.desde for d in choque if d.desde is not None]
+            desde_cuando = (
+                f"desde el {fecha_en_texto(max(inicios))}" if inicios else "desde que se creó"
+            )
             errores.append(
-                f"El programa «{programa.nombre}» tiene dos rutinas a la vez los {dias}."
+                f"El programa «{programa.nombre}» tiene dos rutinas a la vez los {dias}"
+                f" {desde_cuando}, y la app nunca lo guarda así."
             )
     hoy_ = hoy()
     if datos.zona_horaria is not None:
@@ -386,6 +419,12 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
                     f"El programa «{programa.nombre}» {cuando} el {fecha_en_texto(fecha)}, un día"
                     " que todavía no ha llegado. Comprueba la fecha del teléfono o del ordenador"
                     " que hizo la copia."
+                )
+            if periodo.hasta == periodo.desde:
+                errores.append(
+                    f"El programa «{programa.nombre}» se empezó a usar y se dejó de usar el"
+                    f" mismo día, el {fecha_en_texto(periodo.desde)}, y la app nunca lo guarda"
+                    " así."
                 )
     ocultos = (
         [(f"El ejercicio «{e.nombre}»", e.oculto_desde) for e in datos.ejercicios]
@@ -419,6 +458,22 @@ def validar(db: Session, datos: ArchivoDeDatos) -> tuple[list[str], Mapas]:
     ]
     if len(abiertos) > 1:
         errores.append("Hay más de un programa activo a la vez.")
+    for programa in datos.programas:
+        if programa.oculto_desde is None:
+            continue
+        for periodo in programa.periodos:
+            if periodo.hasta is None:
+                errores.append(
+                    f"El programa «{programa.nombre}» está oculto y a la vez activo, y la app"
+                    " nunca lo deja así."
+                )
+            # El mismo día sí: ocultar el programa activo lo deja de usar ese día.
+            elif periodo.hasta > programa.oculto_desde:
+                errores.append(
+                    f"El programa «{programa.nombre}» se dejó de usar el"
+                    f" {fecha_en_texto(periodo.hasta)}, después de ocultarse el"
+                    f" {fecha_en_texto(programa.oculto_desde)}, y la app nunca lo guarda así."
+                )
     for excepcion in datos.excepciones:
         if excepcion.rutina_id is not None and excepcion.rutina_id not in rutinas:
             errores.append(

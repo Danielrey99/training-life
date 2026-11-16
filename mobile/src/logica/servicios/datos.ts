@@ -15,7 +15,7 @@ import { validarMedidas, validarObjetivo, type TipoRegistro } from '../reglas/me
 import { hoyEn, zonaValida } from '../reglas/zonas'
 import type { ComprobacionDeImportar, ResumenDeDatos } from '../tipos'
 import { Validador } from '../validacion/base'
-import { archivoDeDatos, type ArchivoDeDatos } from '../validacion/datos'
+import { archivoDeDatos, type ArchivoDeDatos, type DiaDeArchivo } from '../validacion/datos'
 import { enTexto } from './plan'
 import {
   agrupar,
@@ -216,11 +216,34 @@ function repetidos<T>(valores: Iterable<T>): T[] {
 }
 
 /**
+ * El primer par de filas del mismo día de un programa que valen a la vez, o `null`. Cada una
+ * vale de `desde` (nulo, desde siempre) a `hasta` sin incluirlo (nulo, sigue vigente): que
+ * una acabe el día en que empieza otra no es solape, es lo que deja cambiar la rutina de un
+ * día.
+ */
+function dosRutinasALaVez(filas: readonly DiaDeArchivo[]): [DiaDeArchivo, DiaDeArchivo] | null {
+  for (let i = 0; i < filas.length; i++) {
+    for (const otra of filas.slice(i + 1)) {
+      const una = filas[i]
+      if (
+        (una.desde === null || otra.hasta === null || una.desde < otra.hasta) &&
+        (otra.desde === null || una.hasta === null || otra.desde < una.hasta)
+      ) {
+        return [una, otra]
+      }
+    }
+  }
+  return null
+}
+
+/**
  * Todo lo que impediría cargar el archivo tal cual, de una vez y sin tocar nada: ids
  * repetidos, referencias a algo que no está en el archivo, predefinidos o grupos que no
  * existen aquí, las restricciones de la base y las fechas que la app nunca crea (del
- * futuro, o un día que cuenta una sesión fuera de su plazo). «Hoy» es el mayor entre hoy
- * aquí y hoy en la zona de quien exportó.
+ * futuro, o un día que cuenta una sesión fuera de su plazo), y cuatro estados que la app
+ * nunca guarda: un periodo de uso que empieza y acaba el mismo día, dos rutinas a la vez en
+ * un día del programa, un programa oculto y activo, y uno que se dejó de usar después de
+ * ocultarse. «Hoy» es el mayor entre hoy aquí y hoy en la zona de quien exportó.
  */
 function validar(ctx: Contexto, datos: ArchivoDeDatos): [string[], Mapas] {
   const errores: string[] = []
@@ -323,14 +346,25 @@ function validar(ctx: Contexto, datos: ArchivoDeDatos): [string[], Mapas] {
         errores.push(`El programa «${p.nombre}» usa una rutina que no está en el archivo.`)
       }
     }
-    // Una sola fila vigente por día.
-    for (const diaSemana of repetidos(
-      p.dias.filter((d) => d.hasta === null).map((d) => d.dia_semana),
-    )) {
+    // Una sola rutina a la vez en cada día de la semana: un error por día.
+    for (const diaSemana of [...new Set(p.dias.map((d) => d.dia_semana))].sort((a, b) => a - b)) {
+      const filas = p.dias.filter((d) => d.dia_semana === diaSemana)
+      const choque = dosRutinasALaVez(filas)
+      if (choque === null) continue
       const dia = nombreDelDia(diaSemana)
       // «los lunes», pero «los sábados».
       const dias = dia.endsWith('o') ? `${dia}s` : dia
-      errores.push(`El programa «${p.nombre}» tiene dos rutinas a la vez los ${dias}.`)
+      if (filas.filter((d) => d.hasta === null).length > 1) {
+        errores.push(`El programa «${p.nombre}» tiene dos rutinas a la vez los ${dias}.`)
+        continue
+      }
+      const inicios = choque.map((d) => d.desde).filter((x): x is string => x !== null)
+      const desdeCuando =
+        inicios.length > 0 ? `desde el ${texto(inicios.sort().at(-1)!)}` : 'desde que se creó'
+      errores.push(
+        `El programa «${p.nombre}» tiene dos rutinas a la vez los ${dias}` +
+          ` ${desdeCuando}, y la app nunca lo guarda así.`,
+      )
     }
   }
   let hoy = ctx.reloj.hoy()
@@ -355,6 +389,12 @@ function validar(ctx: Contexto, datos: ArchivoDeDatos): [string[], Mapas] {
         errores.push(
           `El programa «${p.nombre}» ${cuando} el ${texto(fecha)}, un día` +
             ` que todavía no ha llegado.${comprueba}`,
+        )
+      }
+      if (x.hasta === x.desde) {
+        errores.push(
+          `El programa «${p.nombre}» se empezó a usar y se dejó de usar el mismo día, el` +
+            ` ${texto(x.desde)}, y la app nunca lo guarda así.`,
         )
       }
     }
@@ -396,6 +436,22 @@ function validar(ctx: Contexto, datos: ArchivoDeDatos): [string[], Mapas] {
   }
   const abiertos = datos.programas.flatMap((p) => p.periodos.filter((x) => x.hasta === null))
   if (abiertos.length > 1) errores.push('Hay más de un programa activo a la vez.')
+  for (const p of datos.programas) {
+    if (p.oculto_desde === null) continue
+    for (const x of p.periodos) {
+      if (x.hasta === null) {
+        errores.push(
+          `El programa «${p.nombre}» está oculto y a la vez activo, y la app nunca lo deja así.`,
+        )
+      } else if (x.hasta > p.oculto_desde) {
+        // El mismo día sí: ocultar el programa activo lo deja de usar ese día.
+        errores.push(
+          `El programa «${p.nombre}» se dejó de usar el ${texto(x.hasta)}, después de` +
+            ` ocultarse el ${texto(p.oculto_desde)}, y la app nunca lo guarda así.`,
+        )
+      }
+    }
+  }
   for (const x of datos.excepciones) {
     if (x.rutina_id !== null && !rutinas.has(x.rutina_id)) {
       errores.push(`El ${texto(x.fecha)} tiene una rutina que no está en el archivo.`)

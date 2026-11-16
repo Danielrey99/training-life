@@ -1167,7 +1167,16 @@ def _excepcion_repetida(a):
     a["excepciones"][1]["fecha"] = a["excepciones"][0]["fecha"]
 
 
+def _mostrar_viejo(a):
+    """«Viejo» está oculto desde el 1: activo, o usado después de ese día, ya es otro
+    error (un programa oculto y activo, o usado después de ocultarse). Se muestra
+    para que el caso pruebe solo lo suyo.
+    """
+    _programa(a, "Viejo")["oculto_desde"] = None
+
+
 def _dos_periodos_abiertos_en_dos_programas(a):
+    _mostrar_viejo(a)
     _programa(a, "Viejo")["periodos"][0]["hasta"] = None
 
 
@@ -1177,6 +1186,59 @@ def _dos_periodos_abiertos_en_un_programa(a):
 
 def _dos_filas_vigentes_el_mismo_dia(a):
     _programa(a, "PPL")["dias"][1]["hasta"] = None
+
+
+def _dias_de(archivo, programa, dia_semana):
+    return [d for d in _programa(archivo, programa)["dias"] if d["dia_semana"] == dia_semana]
+
+
+def _dos_filas_que_se_solapan_con_fecha(a):
+    # Los miércoles, Pull del 3 de agosto al 10 de septiembre y Push desde el 7: a la vez
+    # desde el 7, el mayor de los dos «desde».
+    pull, push = _dias_de(a, "PPL", 3)
+    assert push["desde"] == "2026-09-07"
+    pull["desde"], pull["hasta"] = "2026-08-03", "2026-09-10"
+
+
+def _dos_filas_que_se_solapan_desde_siempre(a):
+    # Los lunes, Push desde siempre y vigente, y Pull desde siempre hasta el 1.
+    [push] = _dias_de(a, "PPL", 1)
+    _programa(a, "PPL")["dias"].append(
+        {**push, "rutina_id": _rutina(a, "Pull")["id"], "hasta": "2026-09-01"}
+    )
+
+
+def _tres_filas_que_se_solapan_el_mismo_dia(a):
+    """Tres pares a la vez el mismo día: un solo error, el del primer par del archivo
+    (Pull y Push, desde el 7), y no el de Pull con la tercera (desde el 1 de agosto).
+    """
+    pull, push = _dias_de(a, "PPL", 3)
+    pull["hasta"] = "2026-09-10"
+    _programa(a, "PPL")["dias"].append({**push, "desde": "2026-08-01", "hasta": "2026-09-09"})
+
+
+def _tres_filas_vigentes_el_mismo_dia(a):
+    """Con dos vigentes, el texto de siempre, y una sola vez aunque choquen tres."""
+    _dos_filas_vigentes_el_mismo_dia(a)
+    _, push = _dias_de(a, "PPL", 3)
+    _programa(a, "PPL")["dias"].append({**push, "desde": "2026-08-01", "hasta": "2026-09-09"})
+
+
+def _periodo_que_empieza_y_acaba_el_mismo_dia(a):
+    periodo = _programa(a, "Viejo")["periodos"][0]
+    periodo["desde"], periodo["hasta"] = "2026-08-20", "2026-08-20"
+
+
+def _programa_oculto_y_activo(a):
+    # Solo «Viejo» activo: PPL se dejó de usar hoy.
+    _periodo_abierto(a)["hasta"] = HOY.isoformat()
+    _programa(a, "Viejo")["periodos"][0]["hasta"] = None
+
+
+def _programa_usado_un_dia_despues_de_ocultarse(a):
+    viejo = _programa(a, "Viejo")
+    assert viejo["oculto_desde"] == "2026-09-01"
+    viejo["periodos"][0]["hasta"] = "2026-09-02"
 
 
 def _orden_repetido(a):
@@ -1216,6 +1278,7 @@ def _periodo_abierto(a):
 
 
 def _programa_que_se_deja_de_usar_despues_de_hoy(a):
+    _mostrar_viejo(a)
     _programa(a, "Viejo")["periodos"][0]["hasta"] = "2026-09-20"
 
 
@@ -1234,6 +1297,7 @@ def _rutina_mostrada_despues_de_hoy(a):
 
 
 def _periodo_cerrado_entero_en_el_futuro(a):
+    _mostrar_viejo(a)
     periodo = _programa(a, "Viejo")["periodos"][0]
     periodo["desde"], periodo["hasta"] = "2026-09-20", "2026-09-25"
 
@@ -1433,6 +1497,46 @@ MALOS = [
         _dos_filas_vigentes_el_mismo_dia,
         NO_SE_CAMBIA_NADA,
         "El programa «PPL» tiene dos rutinas a la vez los miércoles.",
+    ),
+    (
+        _tres_filas_vigentes_el_mismo_dia,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» tiene dos rutinas a la vez los miércoles.",
+    ),
+    (
+        _dos_filas_que_se_solapan_con_fecha,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» tiene dos rutinas a la vez los miércoles desde el lunes 7 de"
+        " septiembre, y la app nunca lo guarda así.",
+    ),
+    (
+        _dos_filas_que_se_solapan_desde_siempre,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» tiene dos rutinas a la vez los lunes desde que se creó, y la app"
+        " nunca lo guarda así.",
+    ),
+    (
+        _tres_filas_que_se_solapan_el_mismo_dia,
+        NO_SE_CAMBIA_NADA,
+        "El programa «PPL» tiene dos rutinas a la vez los miércoles desde el lunes 7 de"
+        " septiembre, y la app nunca lo guarda así.",
+    ),
+    (
+        _periodo_que_empieza_y_acaba_el_mismo_dia,
+        NO_SE_CAMBIA_NADA,
+        "El programa «Viejo» se empezó a usar y se dejó de usar el mismo día, el jueves 20 de"
+        " agosto, y la app nunca lo guarda así.",
+    ),
+    (
+        _programa_oculto_y_activo,
+        NO_SE_CAMBIA_NADA,
+        "El programa «Viejo» está oculto y a la vez activo, y la app nunca lo deja así.",
+    ),
+    (
+        _programa_usado_un_dia_despues_de_ocultarse,
+        NO_SE_CAMBIA_NADA,
+        "El programa «Viejo» se dejó de usar el miércoles 2 de septiembre, después de"
+        " ocultarse el martes 1 de septiembre, y la app nunca lo guarda así.",
     ),
     (
         _orden_repetido,
@@ -1650,6 +1754,37 @@ def _dia_de_programa_que_empieza_dentro_de_tres_dias(a):
     )
 
 
+def _periodo_de_un_solo_dia(a):
+    periodo = _programa(a, "Viejo")["periodos"][0]
+    periodo["desde"], periodo["hasta"] = "2026-08-20", "2026-08-21"
+
+
+def _filas_que_se_tocan_sin_solaparse(a):
+    """Una acaba el día en que empieza la otra: lo que deja cambiar la rutina de un día
+    (los miércoles del escenario ya lo tienen con una vigente; aquí, cerradas). Van de la
+    más nueva a la más vieja: los miércoles van al revés, y así se mira el borde por los
+    dos lados de la comparación.
+    """
+    push, pull = _rutina(a, "Push")["id"], _rutina(a, "Pull")["id"]
+    _programa(a, "PPL")["dias"] += [
+        {"dia_semana": 5, "rutina_id": pull, "desde": "2026-08-10", "hasta": "2026-08-17"},
+        {"dia_semana": 5, "rutina_id": push, "desde": "2026-08-03", "hasta": "2026-08-10"},
+        {"dia_semana": 5, "rutina_id": pull, "desde": None, "hasta": "2026-08-03"},
+    ]
+
+
+def _el_mismo_dia_en_dos_programas(a):
+    # PPL ya tiene Push los lunes, vigente y desde siempre.
+    _programa(a, "Viejo")["dias"].append(
+        {"dia_semana": 1, "rutina_id": _rutina(a, "Push")["id"], "desde": None, "hasta": None}
+    )
+
+
+def _programa_que_se_deja_de_usar_el_dia_que_se_oculta(a):
+    # Ocultar el programa activo lo deja de usar ese mismo día.
+    _programa(a, "Viejo")["periodos"][0]["hasta"] = "2026-09-01"
+
+
 def _rutina_mostrada_hoy(a):
     _tramo_oculto(a)["hasta"] = HOY.isoformat()
 
@@ -1666,6 +1801,10 @@ BUENOS = [
     _adelantada_dentro_de_su_plazo,
     _recuperada_el_ultimo_dia_de_su_plazo,
     _dia_de_programa_que_empieza_dentro_de_tres_dias,
+    _periodo_de_un_solo_dia,
+    _filas_que_se_tocan_sin_solaparse,
+    _el_mismo_dia_en_dos_programas,
+    _programa_que_se_deja_de_usar_el_dia_que_se_oculta,
 ]
 
 
