@@ -129,7 +129,8 @@ def cliente() -> TestClient:
 
 @pytest.fixture
 def hoy_es(monkeypatch):
-    """Congela "hoy" en la fecha que se le pase: `hoy_es(date(2026, 9, 16))`.
+    """Congela "hoy" en la fecha que se le pase: `hoy_es(date(2026, 9, 16))`, a
+    mediodía en `ZONA_HORARIA`, o a la hora que se diga: `hoy_es(dia, time(23, 30))`.
 
     Para los tests que dependen del día de la semana (qué toca hoy, el plazo para
     recuperar), que con la fecha real saldrían distintos cada día. Se puede llamar
@@ -138,9 +139,9 @@ def hoy_es(monkeypatch):
     """
     from app import fechas
 
-    def congelar(dia: date) -> None:
-        # A mediodía, lejos de la medianoche, donde Madrid y UTC no coinciden.
-        instante = datetime.combine(dia, time(12), tzinfo=fechas.ZONA_HORARIA)
+    # Por defecto a mediodía, lejos de la medianoche, donde Madrid y UTC no coinciden.
+    def congelar(dia: date, hora: time = time(12)) -> None:
+        instante = datetime.combine(dia, hora, tzinfo=fechas.ZONA_HORARIA)
 
         class RelojCongelado(datetime):
             @classmethod

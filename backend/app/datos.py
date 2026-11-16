@@ -19,11 +19,11 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.fechas import (
-    ZONA_HORARIA,
     fecha_en_texto,
     hoy,
     hoy_en,
     nombre_del_dia,
+    zona_actual,
     zona_horaria,
 )
 from app.medidas import validar_medidas, validar_objetivo
@@ -156,7 +156,7 @@ def exportar(db: Session) -> ArchivoDeDatos:
     return ArchivoDeDatos.model_validate(
         {
             "exportado_en": datetime.now(timezone.utc),
-            "zona_horaria": ZONA_HORARIA.key,
+            "zona_horaria": zona_actual().key,
             "predefinidos": [{"id": e.id, "nombre": e.nombre} for e in predefinidos],
             "ejercicios": [
                 {

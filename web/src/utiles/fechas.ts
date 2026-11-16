@@ -23,7 +23,10 @@ const MESES = [
   'diciembre',
 ]
 
-/** Hoy, en ISO y en la hora del dispositivo. */
+/**
+ * Hoy, en ISO y en la hora del dispositivo. Es el mismo que el del servidor: cada petición
+ * le manda la zona de este dispositivo (`X-Zona-Horaria`, en `api/cliente.ts`).
+ */
 export function hoy(): string {
   return aIso(new Date())
 }

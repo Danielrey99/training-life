@@ -134,7 +134,16 @@ export function esDelCampo(fallo: unknown, campo: 'fecha' | 'nombre'): fallo is 
 async function peticion<T>(ruta: string, opciones?: RequestInit): Promise<T> {
   let respuesta: Response
   try {
-    respuesta = await fetch(`${BASE}${ruta}`, opciones)
+    respuesta = await fetch(`${BASE}${ruta}`, {
+      ...opciones,
+      // «Hoy» es el de este dispositivo y no el del servidor: si el servidor fuera por
+      // delante, una sesión de las 23:00 contaría para el día siguiente. Se calcula en cada
+      // petición, por si la zona cambia con la web abierta (un viaje).
+      headers: {
+        ...(opciones?.headers as Record<string, string> | undefined),
+        'X-Zona-Horaria': Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    })
   } catch {
     // Estado 0: no hubo respuesta.
     throw new ErrorDeApi(SIN_CONEXION, 0, undefined)

@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.fechas import fijar_zona, soltar_zona
 from app.routers.datos import NO_ES_UNA_COPIA
 from app.routers import (
     datos,
@@ -48,6 +49,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _zona_de_quien_pide(request: Request, call_next):
+    """«Hoy» es el del dispositivo de quien usa la app, que manda su zona horaria en la
+    cabecera `X-Zona-Horaria` (ver `app/fechas.py`).
+    """
+    # Aquí y no en una dependencia: una dependencia síncrona corre en otro hilo con una
+    # copia del contexto, y la zona que fijara no llegaría al endpoint.
+    token = fijar_zona(request.headers.get("x-zona-horaria"))
+    try:
+        return await call_next(request)
+    finally:
+        soltar_zona(token)
+
 
 app.include_router(grupos_musculares.router)
 app.include_router(ejercicios.router)

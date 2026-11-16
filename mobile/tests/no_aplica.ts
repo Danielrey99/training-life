@@ -6,6 +6,9 @@
  * backend, va con el archivo delante: «resumen:siempre_hace_las_mismas_consultas» es
  * test_siempre_hace_las_mismas_consultas de test_resumen.py.
  */
+const ZONA_DE_LA_PETICION =
+  'En el teléfono no hay cabecera: hoy es siempre el del teléfono (la app es servidor y cliente a la vez).'
+
 export const noAplica: Record<string, string> = {
   // test_borrados.py
   el_aviso_de_un_ejercicio_hace_las_mismas_consultas_con_poco_que_con_mucho:
@@ -56,4 +59,12 @@ export const noAplica: Record<string, string> = {
   // test_sesiones.py
   el_listado_no_hace_mas_consultas_con_sesiones_de_mas_rutinas:
     'Cuenta las consultas SQL (consultas_de) para cazar el N+1 de SQLAlchemy. En el móvil no hay ORM que cargue relaciones a escondidas y SQLite corre en el mismo proceso.',
+  // test_zona_de_la_peticion.py
+  hoy_es_el_dia_de_la_zona_que_manda_quien_pide: ZONA_DE_LA_PETICION,
+  una_sesion_del_dia_siguiente_de_madrid_se_apunta_si_en_esa_zona_ya_ha_llegado:
+    ZONA_DE_LA_PETICION,
+  una_sesion_esta_en_curso_segun_la_zona_con_que_se_lee: ZONA_DE_LA_PETICION,
+  una_cabecera_de_zona_que_no_vale_es_como_no_mandarla: ZONA_DE_LA_PETICION,
+  exportar_escribe_la_zona_de_quien_pide_y_nombra_el_archivo_con_su_dia: ZONA_DE_LA_PETICION,
+  ocultar_y_activar_usan_el_dia_de_la_zona_de_quien_pide: ZONA_DE_LA_PETICION,
 }
