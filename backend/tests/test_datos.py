@@ -954,12 +954,7 @@ def test_importar_sustituye_todo_lo_que_habia(cliente, sesion_bd, datos):
     assert cliente.get("/rutinas", params={"ocultas": True}).json() == []
     assert cliente.get("/programas", params={"ocultos": True}).json() == []
     assert cliente.get(f"/ejercicios/{datos['de_nota'][0]}/notas").json() == []
-    assert (
-        cliente.get(
-            "/plan/excepciones", params={"desde": "2026-09-01", "hasta": "2026-09-30"}
-        ).json()
-        == []
-    )
+    assert cliente.get("/plan/excepciones", params={"desde": "2026-09-01"}).json() == []
 
 
 def test_importar_un_archivo_vacio_lo_deja_todo_vacio(cliente, sesion_bd, datos):

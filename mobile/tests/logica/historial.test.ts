@@ -121,7 +121,7 @@ test('el_mismo_ejercicio_en_dos_huecos_junta_en_su_historial_las_series_de_ambos
   // Las dos tienen el número 1: salen por orden de id, aunque la primera se haya corregido
   // después (sin desempate, el orden de dos series con el mismo número no está garantizado).
   const { cliente, esc } = escenario()
-  const segundo_slot_id = crear_hueco(cliente, esc.rutina_id, esc.ejercicio_id, { orden: 2 })
+  const segundo_slot_id = crear_hueco(cliente, esc.rutina_id, esc.ejercicio_id)
   const entrenamiento_id = crear_entrenamiento(cliente, '2026-09-05', esc.rutina_id)
   const primera = registrar_serie(cliente, entrenamiento_id, esc.ejercicio_id, 1, 60, esc.slot_id)
   const segunda = registrar_serie(

@@ -1,11 +1,10 @@
 /**
- * Un hueco suelto: dónde cae cuando no se dice su `orden` y cómo se sustituye su lista de
- * comodines de una vez.
+ * Un hueco suelto: dónde cae al crearlo y cómo se sustituye su lista de comodines de una vez.
  *
  * Puerto de `backend/tests/test_huecos.py`.
  *
- * El `orden` automático existe para que la web no calcule un dato que el backend tiene a mano
- * (y que exige mirar también los huecos ocultos). La lista de comodines en el PUT existe para
+ * El `orden` lo pone siempre el backend (al final, mirando también los huecos ocultos), y solo
+ * cambia al ordenar la rutina con `slot_ids`. La lista de comodines en el PUT existe para
  * que *Guardar* en P4 sea una sola petición; su trampa es el `UNIQUE(slot_id, ejercicio_id)`:
  * si se reconstruye la lista entera en vez de conservar las filas que siguen, se inserta antes
  * de borrar y la base lo rechaza.
@@ -25,6 +24,7 @@ import {
   ids_de_alternativas,
   objetivo,
   ocultar_ejercicio,
+  poner_orden,
 } from '../apoyo/ayudas'
 import { crearCliente, hoy, type ClienteDeTest as Cliente } from '../apoyo/cliente'
 import { ejercicio_predefinido_id, grupo_muscular_id } from '../apoyo/conftest'
@@ -46,6 +46,7 @@ beforeEach(() => {
 type Campos = {
   series?: number
   reps?: [number, number]
+  // Solo para ver que se ignora: la API ya no lo lee.
   orden?: number
   alternativas?: (number | Record<string, unknown>)[] | null
 }
@@ -79,14 +80,9 @@ function hueco_creado(rutina_id: number, principal: number, campos: Campos = {})
   return respuesta.json()
 }
 
-function editar_hueco(
-  rutina_id: number,
-  slot_id: number,
-  principal: number,
-  { orden = 1, ...campos }: Campos = {},
-) {
+function editar_hueco(rutina_id: number, slot_id: number, principal: number, campos: Campos = {}) {
   return cliente.put(`/rutinas/${rutina_id}/slots/${slot_id}`, {
-    json: cuerpo_de_hueco(principal, { orden, ...campos }),
+    json: cuerpo_de_hueco(principal, campos),
   })
 }
 
@@ -133,9 +129,9 @@ test('sin_orden_el_hueco_va_detras_tambien_de_los_ocultos', () => {
   // Si contara solo los visibles, saldría el 3 y chocaría con el oculto (o, al mostrarlo,
   // habría dos en el mismo sitio).
   const rutina = crear_rutina(cliente)
-  hueco_creado(rutina, ejercicios.Press, { orden: 1 })
-  hueco_creado(rutina, ejercicios.Aperturas, { orden: 2 })
-  const oculto = hueco_creado(rutina, ejercicios.Fondos, { orden: 3 }).id
+  hueco_creado(rutina, ejercicios.Press)
+  hueco_creado(rutina, ejercicios.Aperturas)
+  const oculto = hueco_creado(rutina, ejercicios.Fondos).id
   expect(cliente.delete(`/rutinas/${rutina}/slots/${oculto}?modo=ocultar`).status_code).toBe(204)
 
   const nuevo = hueco_creado(rutina, ejercicios.Cruces)
@@ -152,39 +148,39 @@ test('sin_orden_el_hueco_va_detras_tambien_de_los_ocultos', () => {
 
 test('sin_orden_el_hueco_va_detras_del_mayor_aunque_haya_hueco_libre_antes', () => {
   const rutina = crear_rutina(cliente)
-  hueco_creado(rutina, ejercicios.Press, { orden: 5 })
+  poner_orden(bd, hueco_creado(rutina, ejercicios.Press).id, 5)
 
   expect(hueco_creado(rutina, ejercicios.Aperturas).orden).toBe(6)
 })
 
-test('con_orden_explicito_se_respeta_y_choca_tambien_con_un_oculto', () => {
-  // `UNIQUE(rutina_id, orden)`: el endpoint lo comprueba antes y da un 409 legible, no el 500
-  // de la base, con un hueco visible o con uno oculto, y no crea nada.
-  const rutina = crear_rutina(cliente)
-  const oculto = hueco_creado(rutina, ejercicios.Press, { orden: 7 }).id
-  expect(cliente.delete(`/rutinas/${rutina}/slots/${oculto}?modo=ocultar`).status_code).toBe(204)
+test.each([[1], [3], [7], [101]])(
+  'un_orden_en_el_post_se_ignora_y_el_hueco_va_al_final (%s)',
+  (orden) => {
+    // Un cliente viejo que aún mande `orden` no elige la posición: el hueco va detrás del
+    // mayor, también del oculto (el 3), sin 409 por chocar con uno que ya está (el 1, visible,
+    // o el 3, oculto) ni 422 por pasar del tope (el 101).
+    const rutina = crear_rutina(cliente)
+    const primero = hueco_creado(rutina, ejercicios.Press).id
+    hueco_creado(rutina, ejercicios.Aperturas)
+    const oculto = hueco_creado(rutina, ejercicios.Fondos).id
+    expect(cliente.delete(`/rutinas/${rutina}/slots/${oculto}?modo=ocultar`).status_code).toBe(204)
 
-  expect(hueco_creado(rutina, ejercicios.Aperturas, { orden: 3 }).orden).toBe(3)
-  const con_el_visible = anadir_hueco(rutina, ejercicios.Fondos, { orden: 3 })
-  const con_el_oculto = anadir_hueco(rutina, ejercicios.Fondos, { orden: 7 })
+    const respuesta = anadir_hueco(rutina, ejercicios.Cruces, { orden })
 
-  for (const [respuesta, orden] of [
-    [con_el_visible, 3],
-    [con_el_oculto, 7],
-  ] as const) {
-    esperar_estado(respuesta, 409)
-    expect(respuesta.json().detail).toBe(
-      `Ya hay otro ejercicio en la posición ${orden} de esta rutina.`,
-    )
-  }
-  expect(huecos_guardados()).toEqual([2, 0])
-})
+    esperar_estado(respuesta, 201)
+    expect(respuesta.json().orden).toBe(4)
+    const orden_de = (id: number) =>
+      bd.una<{ orden: number }>('SELECT orden FROM rutina_slots WHERE id = ?', id)?.orden
+    expect([orden_de(primero), orden_de(oculto)]).toEqual([1, 3])
+  },
+)
 
 test('sin_orden_con_el_100_ocupado_por_un_oculto_da_409_y_no_crea_nada', () => {
   // Si diera 101, ese hueco ya no se podría editar: el PUT exige `orden <= 100`. Con un hueco
   // visible, en `una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden`.
   const rutina = crear_rutina(cliente)
-  const ultimo = hueco_creado(rutina, ejercicios.Press, { orden: 100 }).id
+  const ultimo = hueco_creado(rutina, ejercicios.Press).id
+  poner_orden(bd, ultimo, 100)
   expect(cliente.delete(`/rutinas/${rutina}/slots/${ultimo}?modo=ocultar`).status_code).toBe(204)
 
   const respuesta = anadir_hueco(rutina, ejercicios.Aperturas, {
@@ -215,7 +211,7 @@ test('una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden', () => {
 test('el_orden_automatico_no_cuenta_los_huecos_de_otra_rutina', () => {
   // Pull tiene un hueco en el 100: si contara, Push estaría «llena» y daría 409.
   const pull = crear_rutina(cliente, 'Pull')
-  hueco_creado(pull, ejercicios.Press, { orden: 100 })
+  poner_orden(bd, hueco_creado(pull, ejercicios.Press).id, 100)
   const push = crear_rutina(cliente, 'Push')
 
   expect(hueco_creado(push, ejercicios.Aperturas).orden).toBe(1)
@@ -227,7 +223,7 @@ test('un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina', () => {
   // El hueco es de Push: si la ruta no se comprobara, se podría editar o borrar "desde" Pull.
   const push = crear_rutina(cliente, 'Push')
   const pull = crear_rutina(cliente, 'Pull')
-  const hueco = hueco_creado(push, ejercicios.Press, { orden: 1 })
+  const hueco = hueco_creado(push, ejercicios.Press)
 
   const editado = editar_hueco(pull, hueco.id, ejercicios.Aperturas, { series: 2 })
   const borrado = cliente.delete(`/rutinas/${pull}/slots/${hueco.id}`)
@@ -254,7 +250,7 @@ test('un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_rutina'
   const push = crear_rutina(cliente, 'Push')
   const pull = crear_rutina(cliente, 'Pull')
   const press = ejercicios.Press
-  const hueco = hueco_creado(push, press, { orden: 1, alternativas: [ejercicios.Fondos] }).id
+  const hueco = hueco_creado(push, press, { alternativas: [ejercicios.Fondos] }).id
   const [por_push, por_pull] = [
     `/rutinas/${push}/slots/${hueco}`,
     `/rutinas/${pull}/slots/${hueco}`,

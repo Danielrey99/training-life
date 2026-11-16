@@ -195,27 +195,36 @@ def es_de_tiempo(cliente, ejercicio_id) -> bool:
     )
 
 
-def cuerpo_de_hueco(ejercicio_id, orden=1, series=4, reps=(6, 10)) -> dict:
-    """El cuerpo de un hueco de repeticiones sin comodines, con `orden` (el PUT lo exige)."""
-    return {"ejercicio_principal_id": ejercicio_id, "orden": orden, **objetivo(series, reps)}
+def cuerpo_de_hueco(ejercicio_id, series=4, reps=(6, 10)) -> dict:
+    """El cuerpo de un hueco de repeticiones sin comodines. Sin `orden`: al crearlo va
+    al final y al editarlo no cambia (solo lo mueve ordenar la rutina con `slot_ids`).
+    """
+    return {"ejercicio_principal_id": ejercicio_id, **objetivo(series, reps)}
 
 
-def crear_hueco(
-    cliente, rutina_id, ejercicio_id, orden=None, series=4, reps=(6, 10), duracion=None
-) -> int:
+def crear_hueco(cliente, rutina_id, ejercicio_id, series=4, reps=(6, 10), duracion=None) -> int:
     """Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines.
-    Sin `orden`, el backend lo pone al final. El objetivo va en repeticiones, salvo
+    El backend lo pone al final. El objetivo va en repeticiones, salvo
     que se pase `duracion` o el ejercicio sea de tiempo (entonces, en segundos).
     Devuelve su id.
     """
     if duracion is None and es_de_tiempo(cliente, ejercicio_id):
         duracion = DURACION_POR_DEFECTO
     cuerpo = {"ejercicio_principal_id": ejercicio_id, **objetivo(series, reps, duracion)}
-    if orden is not None:
-        cuerpo["orden"] = orden
     respuesta = cliente.post(f"/rutinas/{rutina_id}/slots", json=cuerpo)
     assert respuesta.status_code == 201, respuesta.text
     return respuesta.json()["id"]
+
+
+def poner_orden(sesion_bd, slot_id, orden) -> None:
+    """Pone ese `orden` al hueco directamente en la base: la API ya no lo deja elegir
+    (crear va al final; ordenar la rutina reparte los que ya hay), y así se monta una
+    rutina con huecos en el 100 o con posiciones libres entre medias.
+    """
+    from app.models import RutinaSlot
+
+    sesion_bd.get(RutinaSlot, slot_id).orden = orden
+    sesion_bd.commit()
 
 
 def cambiar_alternativas(cliente, rutina_id, slot_id, alternativas):
@@ -249,7 +258,6 @@ def cambiar_alternativas(cliente, rutina_id, slot_id, alternativas):
         f"/rutinas/{rutina_id}/slots/{slot_id}",
         json={
             "ejercicio_principal_id": hueco["ejercicio_principal"]["id"],
-            "orden": hueco["orden"],
             **objetivo_de(hueco),
             "alternativas": [cuerpo_de(elegida) for elegida in alternativas],
         },
@@ -435,7 +443,6 @@ def hueco_para(cliente, rutina_id, ejercicio_id) -> int:
         f"/rutinas/{rutina_id}/slots",
         json={
             "ejercicio_principal_id": ejercicio_id,
-            "orden": max((h["orden"] for h in huecos), default=0) + 1,
             **objetivo(series=3, reps=(6, 12), duracion=duracion),
         },
     )

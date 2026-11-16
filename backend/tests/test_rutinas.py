@@ -27,6 +27,7 @@ from tests.ayudas import (
     objetivo,
     ocultar_hueco,
     poner_alternativas,
+    poner_orden,
 )
 
 # --- Ayudantes -----------------------------------------------------------
@@ -264,12 +265,12 @@ def test_la_copia_lleva_los_huecos_visibles_con_sus_comodines(cliente, grupo_mus
         for nombre in ("Press", "Aperturas", "Fondos", "Cruces", "Elevaciones")
     }
     push = crear_rutina(cliente, "Push")
-    primero = crear_hueco(cliente, push, ejercicio["Press"], orden=1, series=5, reps=(3, 5))
+    primero = crear_hueco(cliente, push, ejercicio["Press"], series=5, reps=(3, 5))
     poner_alternativas(cliente, push, primero, [ejercicio["Aperturas"]])
-    oculto = crear_hueco(cliente, push, ejercicio["Fondos"], orden=2)
+    oculto = crear_hueco(cliente, push, ejercicio["Fondos"])
     poner_alternativas(cliente, push, oculto, [ejercicio["Aperturas"]])
     ocultar_hueco(cliente, push, oculto)
-    tercero = crear_hueco(cliente, push, ejercicio["Cruces"], orden=3, series=3, reps=(12, 15))
+    tercero = crear_hueco(cliente, push, ejercicio["Cruces"], series=3, reps=(12, 15))
     poner_alternativas(cliente, push, tercero, [ejercicio["Elevaciones"], ejercicio["Aperturas"]])
     for nombre in ("Cruces", "Elevaciones"):
         assert cliente.delete(f"/ejercicios/{ejercicio[nombre]}?modo=ocultar").status_code == 204
@@ -294,7 +295,7 @@ def test_la_copia_sale_sin_usar(cliente, grupo_muscular_id):
     """
     press = crear_ejercicio(cliente, grupo_muscular_id, "Press")
     push = crear_rutina(cliente, "Push")
-    hueco = crear_hueco(cliente, push, press, orden=1)
+    hueco = crear_hueco(cliente, push, press)
     programa = cliente.post(
         "/programas", json={"nombre": "PPL", "dias": [{"dia_semana": 1, "rutina_id": push}]}
     ).json()
@@ -330,7 +331,7 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
     aperturas = crear_ejercicio(cliente, grupo_muscular_id, "Aperturas")
     fondos = crear_ejercicio(cliente, grupo_muscular_id, "Fondos")
     push = crear_rutina(cliente, "Push")
-    hueco = crear_hueco(cliente, push, press, orden=1)
+    hueco = crear_hueco(cliente, push, press)
     poner_alternativas(cliente, push, hueco, [aperturas])
     antes = cliente.get(f"/rutinas/{push}").json()
     copia = duplicar(cliente, push).json()
@@ -343,7 +344,6 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
             f"{ruta}/slots/{hueco_copia}",
             json={
                 "ejercicio_principal_id": fondos,
-                "orden": 2,
                 "series_objetivo": 2,
                 "reps_min": 1,
                 "reps_max": 2,
@@ -352,7 +352,7 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
         == 200
     )
     assert poner_alternativas(cliente, copia["id"], hueco_copia, [])["alternativas"] == []
-    crear_hueco(cliente, copia["id"], press, orden=1)
+    crear_hueco(cliente, copia["id"], press)
 
     despues = cliente.get(f"/rutinas/{push}").json()
     assert (despues["nombre"], lo_que_tiene(despues)) == (antes["nombre"], lo_que_tiene(antes))
@@ -360,7 +360,7 @@ def test_editar_la_copia_no_cambia_el_original(cliente, grupo_muscular_id):
 
 def test_se_puede_duplicar_una_rutina_oculta_y_la_copia_sale_visible(cliente, grupo_muscular_id):
     push = crear_rutina(cliente, "Push")
-    crear_hueco(cliente, push, crear_ejercicio(cliente, grupo_muscular_id, "Press"), orden=1)
+    crear_hueco(cliente, push, crear_ejercicio(cliente, grupo_muscular_id, "Press"))
     assert cliente.delete(f"/rutinas/{push}?modo=ocultar").status_code == 204
 
     respuesta = duplicar(cliente, push)
@@ -380,21 +380,24 @@ def tres_huecos(cliente, grupo_muscular_id) -> tuple[int, list[int]]:
     """Una rutina con tres huecos visibles, de orden 1, 2 y 3."""
     rutina = crear_rutina(cliente, "Push")
     huecos = [
-        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre), orden)
-        for orden, nombre in enumerate(("Press", "Aperturas", "Fondos"), start=1)
+        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre))
+        for nombre in ("Press", "Aperturas", "Fondos")
     ]
     return rutina, huecos
 
 
-def test_reordenar_con_huecos_ocultos_los_deja_en_su_sitio(cliente, grupo_muscular_id):
+def test_reordenar_con_huecos_ocultos_los_deja_en_su_sitio(cliente, sesion_bd, grupo_muscular_id):
     """Los visibles se reparten los `orden` que ya tenían; el oculto conserva el
-    suyo, así que al mostrarlo no choca con nadie.
+    suyo, así que al mostrarlo no choca con nadie. Los huecos 5 y 7 se ponen en la
+    base: la API ya no deja elegir el orden al crear.
     """
     rutina = crear_rutina(cliente, "Push")
     a, oculto, b, c = (
-        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre), orden)
-        for orden, nombre in ((1, "Press"), (2, "Fondos"), (5, "Aperturas"), (7, "Cruces"))
+        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre))
+        for nombre in ("Press", "Fondos", "Aperturas", "Cruces")
     )
+    poner_orden(sesion_bd, c, 7)
+    poner_orden(sesion_bd, b, 5)
     ocultar_hueco(cliente, rutina, oculto)
 
     respuesta = ordenar(cliente, rutina, [c, b, a])
@@ -433,12 +436,12 @@ def test_reordenar_sin_mandar_exactamente_los_visibles_da_422_y_no_cambia_nada(
 ):
     rutina = crear_rutina(cliente, "Push")
     a, b, oculto = (
-        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre), orden)
-        for orden, nombre in ((1, "Press"), (2, "Aperturas"), (3, "Fondos"))
+        crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo_muscular_id, nombre))
+        for nombre in ("Press", "Aperturas", "Fondos")
     )
     ocultar_hueco(cliente, rutina, oculto)
     otra = crear_rutina(cliente, "Pull")
-    de_otra = crear_hueco(cliente, otra, crear_ejercicio(cliente, grupo_muscular_id, "Remo"), 1)
+    de_otra = crear_hueco(cliente, otra, crear_ejercicio(cliente, grupo_muscular_id, "Remo"))
     slot_ids = {
         "falta uno": [b],
         "sobra uno de otra rutina": [b, a, de_otra],
@@ -535,7 +538,7 @@ def test_listar_rutinas_hace_las_mismas_consultas_con_una_que_con_cinco(cliente,
         for orden in (1, 2):
             principal = crear_ejercicio(cliente, grupo_muscular_id, f"Principal {numero}-{orden}")
             comodin = crear_ejercicio(cliente, grupo_muscular_id, f"Comodín {numero}-{orden}")
-            hueco = crear_hueco(cliente, rutina, principal, orden)
+            hueco = crear_hueco(cliente, rutina, principal)
             poner_alternativas(cliente, rutina, hueco, [comodin])
         cliente.post(
             "/programas",

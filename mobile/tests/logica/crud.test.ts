@@ -295,23 +295,32 @@ test('editar_un_hueco_cambia_su_ejercicio_y_su_objetivo', () => {
   expect([hueco.series_objetivo, hueco.reps_min, hueco.reps_max]).toEqual([3, 8, 12])
 })
 
-test('mover_un_hueco_al_orden_de_otro_da_409', () => {
-  const { cliente } = crearCliente()
-  const banca = crear_ejercicio(cliente, grupo_muscular_id(cliente), 'Press banca')
-  const rutina_id = crear_rutina(cliente)
-  cliente.post(`/rutinas/${rutina_id}/slots`, { json: _hueco(banca, { orden: 1 }) })
-  const segundo = cliente
-    .post(`/rutinas/${rutina_id}/slots`, { json: _hueco(banca, { orden: 2 }) })
-    .json()
+test.each([[1], [2], [3], [101]])(
+  'un_orden_en_el_put_de_un_hueco_se_ignora_y_no_lo_mueve (%s)',
+  (orden) => {
+    // El orden solo cambia al ordenar la rutina (`PUT /rutinas/{id}` con `slot_ids`): un
+    // cliente viejo que aún lo mande en el PUT del hueco guarda el resto (200) y el hueco se
+    // queda donde estaba, sin 409 por chocar con otro (el 1) ni 422 por pasar del tope (el
+    // 101). Antes, mover al orden de otro daba un 409.
+    const { cliente } = crearCliente()
+    const banca = crear_ejercicio(cliente, grupo_muscular_id(cliente), 'Press banca')
+    const rutina_id = crear_rutina(cliente)
+    const primero = cliente.post(`/rutinas/${rutina_id}/slots`, { json: _hueco(banca) }).json()
+    const segundo = cliente.post(`/rutinas/${rutina_id}/slots`, { json: _hueco(banca) }).json()
 
-  const respuesta = cliente.put(`/rutinas/${rutina_id}/slots/${segundo.id}`, {
-    json: _hueco(banca, { orden: 1 }),
-  })
+    const respuesta = cliente.put(`/rutinas/${rutina_id}/slots/${segundo.id}`, {
+      json: { ..._hueco(banca, { series: 2 }), orden },
+    })
 
-  expect(respuesta.status_code).toBe(409)
-  expect(respuesta.json().detail).toBe('Ya hay otro ejercicio en la posición 1 de esta rutina.')
-  expect(cliente.get(`/rutinas/${rutina_id}`).json().slots[1].orden).toBe(2)
-})
+    expect(respuesta.status_code).toBe(200)
+    expect([respuesta.json().orden, respuesta.json().series_objetivo]).toEqual([2, 2])
+    const huecos = cliente.get(`/rutinas/${rutina_id}`).json().slots
+    expect(huecos.map((h: any) => [h.id, h.orden])).toEqual([
+      [primero.id, 1],
+      [segundo.id, 2],
+    ])
+  },
+)
 
 test('un_ejercicio_oculto_no_se_puede_usar_en_un_hueco_nuevo', () => {
   // Ocultar significa que deja de ofrecerse para usarlo.
@@ -474,12 +483,12 @@ function abdominales(): Abdominales {
   const push = crear_rutina(cliente)
   const a = cliente
     .post(`/rutinas/${push}/slots`, {
-      json: { ..._hueco(crunch, { orden: 1 }), alternativas: [alternativa(plancha)] },
+      json: { ..._hueco(crunch), alternativas: [alternativa(plancha)] },
     })
     .json().id
   const b = cliente
     .post(`/rutinas/${push}/slots`, {
-      json: { ..._hueco(rueda, { orden: 2 }), alternativas: [alternativa(crunch)] },
+      json: { ..._hueco(rueda), alternativas: [alternativa(crunch)] },
     })
     .json().id
 
@@ -797,7 +806,6 @@ test.each([
 })
 
 test.each([
-  ['orden', 100],
   ['series_objetivo', 50],
   ['reps_max', 1000],
 ])('un_hueco_admite_su_tope_justo_y_no_uno_mas (%s)', (campo, tope) => {
@@ -847,22 +855,19 @@ test.each([
   expect(respuesta.json().detail.map((error: any) => error.loc)).toEqual([['body', campo]])
 })
 
-test.each([['orden'], ['series_objetivo'], ['reps_min']])(
-  'un_hueco_con_un_cero_da_422 (%s)',
-  (campo) => {
-    const { cliente } = crearCliente()
-    const banca = crear_ejercicio(cliente, grupo_muscular_id(cliente), 'Press banca')
-    const rutina_id = crear_rutina(cliente)
+test.each([['series_objetivo'], ['reps_min']])('un_hueco_con_un_cero_da_422 (%s)', (campo) => {
+  const { cliente } = crearCliente()
+  const banca = crear_ejercicio(cliente, grupo_muscular_id(cliente), 'Press banca')
+  const rutina_id = crear_rutina(cliente)
 
-    const respuesta = cliente.post(`/rutinas/${rutina_id}/slots`, {
-      json: { ..._hueco(banca), [campo]: 0 },
-    })
+  const respuesta = cliente.post(`/rutinas/${rutina_id}/slots`, {
+    json: { ..._hueco(banca), [campo]: 0 },
+  })
 
-    expect(respuesta.status_code).toBe(422)
-    expect(respuesta.json().detail.map((error: any) => error.loc)).toEqual([['body', campo]])
-    expect(cliente.get(`/rutinas/${rutina_id}`).json().slots).toEqual([])
-  },
-)
+  expect(respuesta.status_code).toBe(422)
+  expect(respuesta.json().detail.map((error: any) => error.loc)).toEqual([['body', campo]])
+  expect(cliente.get(`/rutinas/${rutina_id}`).json().slots).toEqual([])
+})
 
 // --- Textos que no caben en su columna -----------------------------------
 //
@@ -1085,7 +1090,7 @@ test.each(NO_EXISTE)(
       programa: { nombre: 'PPL' },
       nota: { nota: 'Agarre cerrado' },
       rutina: { nombre: 'Empuje' },
-      hueco: _hueco(hay.ejercicio, { orden: 2 }),
+      hueco: _hueco(hay.ejercicio),
       sesion: { fecha: FECHA },
       'serie del dia': { fecha: FECHA, series: [{ id: INEXISTENTE, ...serie }] },
       serie,

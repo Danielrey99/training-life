@@ -251,30 +251,19 @@ export function avisoDeBorrarEjercicio(ctx: Contexto, ejercicioId: number): Avis
     throw noEncontrado('Los ejercicios predefinidos no se pueden ocultar ni borrar.')
   }
   const seBorran = seriesQueSeBorran(ejercicioId)
-  const cuenta = ctx.bd.una<{ series: number; sesiones: number; desde: string | null }>(
-    'SELECT COUNT(series.id) AS series, COUNT(DISTINCT series.entrenamiento_id) AS sesiones,' +
-      ' MIN(entrenamientos.fecha) AS desde FROM series' +
-      ' JOIN entrenamientos ON entrenamientos.id = series.entrenamiento_id' +
-      ` WHERE ${seBorran.sql}`,
+  const sesiones = ctx.bd.una<{ n: number }>(
+    `SELECT COUNT(DISTINCT series.entrenamiento_id) AS n FROM series WHERE ${seBorran.sql}`,
     ...seBorran.params,
-  )!
+  )!.n
   const notas = ctx.bd.una<{ n: number }>(
     'SELECT COUNT(*) AS n FROM notas_ejercicio WHERE ejercicio_id = ?',
     ejercicioId,
   )!.n
   return {
-    // Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
-    con_historial: tieneHistorialEjercicio(ctx, ejercicioId),
-    series: cuenta.series,
-    sesiones: cuenta.sesiones,
-    desde: cuenta.desde,
+    sesiones,
     notas,
     huecos: usosEnRutinas(ctx, ejercicioId),
-    sesiones_que_se_vacian: sesionesQueSeVacian(ctx, seBorran).map((s) => ({
-      entrenamiento_id: s.id,
-      fecha: s.fecha,
-      cubre_fecha: s.cubre_fecha,
-    })),
+    sesiones_que_se_vacian: sesionesQueSeVacian(ctx, seBorran).length,
   }
 }
 

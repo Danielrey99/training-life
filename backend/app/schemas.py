@@ -146,8 +146,8 @@ class ObjetivoBase(BaseModel):
 class RutinaSlotBase(ObjetivoBase):
     """Campos de un hueco que valen igual al crearlo que al editarlo.
 
-    Sin `orden`: al crear es opcional (el backend lo pone al final) y al editar es
-    obligatorio, así que cada esquema lo declara a su manera.
+    Sin `orden`: lo decide el backend. Uno nuevo va al final, y el orden solo cambia al
+    ordenar la rutina entera (`PUT /rutinas/{id}` con `slot_ids`).
     """
 
     ejercicio_principal_id: int
@@ -184,12 +184,12 @@ class SlotDeRutinaNueva(RutinaSlotBase):
 
 
 class RutinaSlotCreate(SlotDeRutinaNueva):
-    # Sin él, el hueco va al final (máximo de todos, también los ocultos, + 1).
-    orden: int | None = Field(None, gt=0, le=100)
+    """Un hueco que se añade a una rutina: va al final (el mayor `orden` de todos, también
+    los ocultos, más uno).
+    """
 
 
 class RutinaSlotUpdate(RutinaSlotBase):
-    orden: int = Field(gt=0, le=100)
     # Sin ella (o nula), los comodines no se tocan; una lista sustituye a la actual.
     alternativas: list[AlternativaDeHueco] | None = None
 
@@ -304,26 +304,16 @@ class AvisoDeBorrarRutinaOut(BaseModel):
     sesion_en_curso: bool
 
 
-class SesionQueSeVaciaOut(BaseModel):
-    """Una sesión cuyas series están todas en el hueco que se va a borrar: se
-    borraría con él.
-    """
-
-    entrenamiento_id: int
-    fecha: date
-    cubre_fecha: date | None
-
-
 class AvisoDeBorrarHuecoOut(BaseModel):
     """Lo que se perdería al borrar un hueco, para el diálogo de confirmar."""
 
     series: int
     # La primera fecha con series en el hueco; nula si no tiene.
     desde: date | None
-    # Se quedan sin ninguna serie y se borran con el hueco; si contaban un día del
+    # Cuántas sesiones se quedan sin ninguna serie y se borran con el hueco; si contaban un día del
     # plan, ese día vuelve a quedar sin hacer. No incluye la sesión en curso de hoy,
     # que sigue abierta.
-    sesiones_que_se_vacian: list[SesionQueSeVaciaOut]
+    sesiones_que_se_vacian: int
 
 
 class SerieBase(BaseModel):
@@ -521,20 +511,15 @@ class AvisoDeBorrarEjercicioOut(BaseModel):
     `modo`, y sin historial el DELETE lo borraría sin preguntar.
     """
 
-    # Si el DELETE sin `modo` daría 409. Las notas no cuentan: no lo bloquean.
-    con_historial: bool
-    # Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
-    series: int
-    # Sesiones distintas con alguna de esas series.
+    # Sesiones distintas con alguna de las series que se borrarían: las suyas y las de
+    # los huecos donde es el principal.
     sesiones: int
-    # La primera fecha con alguna de esas series; nula si no hay.
-    desde: date | None
     notas: int
     # Principal: el hueco se borra. Comodín: deja de ser alternativa en él.
     huecos: list[UsoEnRutinaOut]
-    # Se quedan sin ninguna serie y se borran con él; no incluye la sesión en curso
+    # Cuántas sesiones se quedan sin ninguna serie y se borran con él; no incluye la sesión en curso
     # de hoy, que sigue abierta.
-    sesiones_que_se_vacian: list[SesionQueSeVaciaOut]
+    sesiones_que_se_vacian: int
 
 
 DiaSemana = Annotated[int, Field(ge=1, le=7, description="1 = lunes … 7 = domingo")]

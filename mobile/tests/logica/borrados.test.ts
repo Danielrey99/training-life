@@ -26,21 +26,21 @@ import {
 import { crearCliente, type ClienteDeTest as Cliente, type RelojDeTest } from '../apoyo/cliente'
 import { ejercicio_predefinido_id, grupo_muscular_id, ppl } from '../apoyo/conftest'
 import { contar } from '../apoyo/filas'
-import { HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18, hecha } from '../apoyo/semana'
+import { HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18 } from '../apoyo/semana'
 
 const FECHA = '2026-09-04'
 
 // --- Ayudantes para montar escenarios ------------------------------------
 
-/** La rutina Push con un hueco de ese ejercicio en el orden 1: `[rutina, hueco]`. */
+/** La rutina Push con un hueco de ese ejercicio el primero: `[rutina, hueco]`. */
 function crear_rutina_con_hueco(cliente: Cliente, ejercicio_id: number): [number, number] {
   const rutina_id = crear_rutina(cliente)
-  return [rutina_id, crear_hueco(cliente, rutina_id, ejercicio_id, { orden: 1 })]
+  return [rutina_id, crear_hueco(cliente, rutina_id, ejercicio_id)]
 }
 
-/** Un hueco en el orden 2, detrás del de `crear_rutina_con_hueco`. */
+/** Un hueco detrás del de `crear_rutina_con_hueco`. */
 function segundo_hueco(cliente: Cliente, rutina_id: number, ejercicio_id: number): number {
-  return crear_hueco(cliente, rutina_id, ejercicio_id, { orden: 2, series: 3, reps: [8, 12] })
+  return crear_hueco(cliente, rutina_id, ejercicio_id, { series: 3, reps: [8, 12] })
 }
 
 function cuerpo_serie(
@@ -455,13 +455,13 @@ test('editar_un_ejercicio_oculto_da_409_antes_de_mirar_el_grupo', () => {
 
 test('en_una_rutina_oculta_no_se_puede_editar_nada', () => {
   // Ni ella ni sus huecos, aunque el hueco esté visible: 409 con el mensaje de la rutina, lo
-  // primero que se mira, también si el PUT trae comodines o el orden. (Ocultar, mostrar y borrar
+  // primero que se mira, también si el PUT trae comodines. (Ocultar, mostrar y borrar
   // un hueco, en `un_hueco_de_una_rutina_oculta_no_se_oculta_muestra_ni_borra`.)
   const { cliente } = crearCliente()
   const ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id(cliente))
   const [rutina_id, slot_id] = crear_rutina_con_hueco(cliente, ejercicio_id)
   ocultar(cliente, `/rutinas/${rutina_id}`)
-  const hueco = cuerpo_de_hueco(ejercicio_id, { orden: 2, series: 3, reps: [8, 12] })
+  const hueco = cuerpo_de_hueco(ejercicio_id, { series: 3, reps: [8, 12] })
   const antes = cliente.get(`/rutinas/${rutina_id}`).json()
 
   const respuestas = [
@@ -1275,28 +1275,15 @@ test('el_aviso_de_un_hueco_cuenta_sus_series_desde_cuando_y_las_sesiones_que_vac
 
   const aviso = aviso_de_hueco(cliente, rutina_id, escenario.a)
   const del_b = aviso_de_hueco(cliente, rutina_id, escenario.b).json().sesiones_que_se_vacian
+  const borrado_b = cliente.delete(`/rutinas/${rutina_id}/slots/${escenario.b}?modo=definitivo`)
 
   expect(aviso.status_code).toBe(200)
-  expect([aviso.json().series, aviso.json().desde]).toEqual([4, '2026-09-01'])
-  expect(aviso.json().sesiones_que_se_vacian).toEqual([
-    { entrenamiento_id: escenario.dia_1, fecha: '2026-09-01', cubre_fecha: null },
-    { entrenamiento_id: escenario.dia_10, fecha: '2026-09-10', cubre_fecha: null },
-  ])
-  expect(del_b.map((s: any) => s.entrenamiento_id)).toEqual([escenario.dia_8])
-})
-
-test('una_sesion_que_se_vacia_dice_que_dia_del_plan_contaba', () => {
-  // Es lo que la web enseña: ese día pasaría a sin hacer.
-  const { cliente, reloj } = crearCliente()
-  const rutinas = ppl(cliente, reloj)
-  const sesion = hecha(cliente, grupo_muscular_id(cliente), LUNES_14, rutinas.Push, LUNES_14)
-  const hueco = cliente.get(`/rutinas/${rutinas.Push}`).json().slots[0].id
-
-  const aviso = aviso_de_hueco(cliente, rutinas.Push, hueco).json()
-
-  expect(aviso.sesiones_que_se_vacian).toEqual([
-    { entrenamiento_id: sesion, fecha: '2026-09-14', cubre_fecha: '2026-09-14' },
-  ])
+  expect(aviso.json()).toEqual({ series: 4, desde: '2026-09-01', sesiones_que_se_vacian: 2 })
+  expect(del_b).toBe(1)
+  // La que cuenta el aviso de B es la del 8: la del 4 conserva su serie de A.
+  expect(borrado_b.status_code).toBe(204)
+  expect(series_de(cliente, escenario.dia_8)).toBeNull()
+  expect(series_de(cliente, escenario.dia_4)!.map((s) => s.slot_id)).toEqual([escenario.a])
 })
 
 test('el_aviso_de_un_hueco_sin_series_va_vacio', () => {
@@ -1309,7 +1296,7 @@ test('el_aviso_de_un_hueco_sin_series_va_vacio', () => {
   const aviso = aviso_de_hueco(cliente, rutina_id, slot_id)
 
   expect(aviso.status_code).toBe(200)
-  expect(aviso.json()).toEqual({ series: 0, desde: null, sesiones_que_se_vacian: [] })
+  expect(aviso.json()).toEqual({ series: 0, desde: null, sesiones_que_se_vacian: 0 })
 })
 
 test('el_aviso_de_un_hueco_oculto_se_puede_leer', () => {
@@ -1324,8 +1311,7 @@ test('el_aviso_de_un_hueco_oculto_se_puede_leer', () => {
   const aviso = aviso_de_hueco(cliente, rutina_id, a)
 
   expect(aviso.status_code).toBe(200)
-  expect(aviso.json().series).toBe(4)
-  expect(aviso.json().sesiones_que_se_vacian).toHaveLength(2)
+  expect(aviso.json()).toEqual({ series: 4, desde: '2026-09-01', sesiones_que_se_vacian: 2 })
 })
 
 test('el_aviso_de_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina', () => {
@@ -1352,12 +1338,10 @@ test('la_sesion_abierta_hoy_no_se_borra_con_el_hueco_aunque_se_quede_vacia', () 
   const aviso = aviso_de_hueco(cliente, rutina_id, a).json()
   const borrado = cliente.delete(`/rutinas/${rutina_id}/slots/${a}?modo=definitivo`)
 
-  expect(aviso.series).toBe(5)
-  expect(aviso.sesiones_que_se_vacian.map((s: any) => s.entrenamiento_id)).toEqual([
-    escenario.dia_1,
-    escenario.dia_10,
-  ])
+  expect([aviso.series, aviso.sesiones_que_se_vacian]).toEqual([5, 2])
   expect(borrado.status_code).toBe(204)
+  expect(series_de(cliente, escenario.dia_1)).toBeNull()
+  expect(series_de(cliente, escenario.dia_10)).toBeNull()
   expect(series_de(cliente, abierta)).toEqual([])
   expect(sesiones_en_curso(cliente).map((s) => s.id)).toEqual([abierta])
 })
@@ -1373,19 +1357,17 @@ test('la_sesion_de_hoy_ya_terminada_si_se_borra_con_el_hueco', () => {
   const aviso = aviso_de_hueco(cliente, rutina_id, a).json().sesiones_que_se_vacian
   const borrado = cliente.delete(`/rutinas/${rutina_id}/slots/${a}?modo=definitivo`)
 
-  expect(aviso.map((s: any) => s.entrenamiento_id)).toEqual([
-    escenario.dia_1,
-    escenario.dia_10,
-    terminada,
-  ])
+  expect(aviso).toBe(3)
   expect(borrado.status_code).toBe(204)
+  expect(series_de(cliente, escenario.dia_1)).toBeNull()
+  expect(series_de(cliente, escenario.dia_10)).toBeNull()
   expect(series_de(cliente, terminada)).toBeNull()
 })
 
 test('borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso', () => {
-  // Regresión del orden en `borrar_slot`: la lista de las sesiones que se vacían se calcula antes
-  // de borrar las series del hueco. Calculada después, el «tiene series en este hueco» ya no se
-  // cumple, sale vacía y el borrado deja esas sesiones canceladas sin dar ningún error.
+  // Regresión del orden en `borrar_slot`: las sesiones que se vacían se calculan antes de borrar
+  // las series del hueco. Calculadas después, el «tiene series en este hueco» ya no se cumple, no
+  // sale ninguna y el borrado deja esas sesiones canceladas sin dar ningún error.
   //
   // En una sola petición, con sesiones que se van y otras que se quedan (la del 4 conserva la
   // serie del otro hueco, la del 8 ni lo usaba, una ya vacía y la abierta hoy): se borran
@@ -1398,17 +1380,13 @@ test('borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso', () =
   const todas = ['dia_1', 'dia_4', 'dia_8', 'dia_10'].map((dia) => escenario[dia])
   todas.push(ya_vacia, abierta)
 
-  const anunciadas = new Set<number>(
-    aviso_de_hueco(cliente, rutina_id, a)
-      .json()
-      .sesiones_que_se_vacian.map((s: any) => s.entrenamiento_id),
-  )
+  const anunciadas = aviso_de_hueco(cliente, rutina_id, a).json().sesiones_que_se_vacian
   const respuesta = cliente.delete(`/rutinas/${rutina_id}/slots/${a}?modo=definitivo`)
 
   expect(respuesta.status_code).toBe(204)
   const borradas = new Set(todas.filter((sesion) => series_de(cliente, sesion) === null))
-  expect(borradas).toEqual(anunciadas)
   expect(borradas).toEqual(new Set([escenario.dia_1, escenario.dia_10]))
+  expect(anunciadas).toBe(borradas.size)
   expect(series_de(cliente, escenario.dia_4)!.map((s) => s.slot_id)).toEqual([escenario.b])
   expect(series_de(cliente, escenario.dia_8)!.map((s) => s.slot_id)).toEqual([escenario.b])
 })
@@ -1618,10 +1596,6 @@ function aviso_de_ejercicio(cliente: Cliente, ejercicio_id: number): any {
   return respuesta.json()
 }
 
-function ids_que_se_vacian(aviso: any): number[] {
-  return aviso.sesiones_que_se_vacian.map((sesion: any) => sesion.entrenamiento_id)
-}
-
 /**
  * Press banca es el principal del hueco A de Push (con Press en máquina de alternativa; Fondos
  * va en el B) y la alternativa del hueco C de Pull, cuyo principal es Remo; Pull tiene además
@@ -1682,18 +1656,7 @@ test('el_aviso_de_un_ejercicio_cuenta_lo_que_se_perderia', () => {
   const aviso = aviso_de_ejercicio(cliente, e.press)
 
   const { huecos, ...sin_huecos } = aviso
-  expect(sin_huecos).toEqual({
-    con_historial: true,
-    series: 5,
-    sesiones: 5,
-    desde: '2026-09-01',
-    notas: 1,
-    sesiones_que_se_vacian: [
-      { entrenamiento_id: e.dia_1, fecha: '2026-09-01', cubre_fecha: null },
-      { entrenamiento_id: e.dia_4, fecha: '2026-09-04', cubre_fecha: null },
-      { entrenamiento_id: e.dia_11, fecha: '2026-09-11', cubre_fecha: null },
-    ],
-  })
+  expect(sin_huecos).toEqual({ sesiones: 5, notas: 1, sesiones_que_se_vacian: 3 })
   expect(huecos.map((h: any) => [h.rutina.nombre, h.slot_id, h.rol])).toEqual([
     ['Pull', e.c, 'comodin'],
     ['Push', e.a, 'principal'],
@@ -1705,13 +1668,10 @@ test('el_aviso_de_un_ejercicio_sin_nada_va_vacio', () => {
   const ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id(cliente))
 
   expect(aviso_de_ejercicio(cliente, ejercicio_id)).toEqual({
-    con_historial: false,
-    series: 0,
     sesiones: 0,
-    desde: null,
     notas: 0,
     huecos: [],
-    sesiones_que_se_vacian: [],
+    sesiones_que_se_vacian: 0,
   })
 })
 
@@ -1746,7 +1706,7 @@ const _ejercicio_con_series_que_ya_no_esta_en_ningun_hueco: MontarEjercicio = (c
   return comodin
 }
 
-const CON_HISTORIAL_DE_EJERCICIO: [string, MontarEjercicio, boolean][] = [
+const PIDE_MODO_EL_EJERCICIO: [string, MontarEjercicio, boolean][] = [
   ['sin-usar', _ejercicio_sin_usar, false],
   ['solo-notas', _ejercicio_con_solo_notas, false],
   ['solo-alternativa', _ejercicio_que_solo_es_alternativa, true],
@@ -1754,19 +1714,16 @@ const CON_HISTORIAL_DE_EJERCICIO: [string, MontarEjercicio, boolean][] = [
   ['solo-series', _ejercicio_con_series_que_ya_no_esta_en_ningun_hueco, true],
 ]
 
-test.each(CON_HISTORIAL_DE_EJERCICIO)(
-  'con_historial_del_ejercicio_coincide_con_que_el_delete_pida_modo (%s)',
-  (_id, montar, con_historial) => {
-    // Si no coincidieran, la web enseñaría un diálogo y el DELETE haría otra cosa (o borraría sin
-    // preguntar lo que el diálogo no avisó).
+test.each(PIDE_MODO_EL_EJERCICIO)(
+  'un_ejercicio_pide_modo_al_borrarlo_solo_si_esta_en_un_hueco_o_tiene_series (%s)',
+  (_id, montar, pide_modo) => {
+    // Las notas no cuentan: sin hueco ni series se borra directo y se las lleva.
     const { cliente } = crearCliente()
     const ejercicio_id = montar(cliente, grupo_muscular_id(cliente))
 
-    const aviso = aviso_de_ejercicio(cliente, ejercicio_id)
     const borrado = cliente.delete(`/ejercicios/${ejercicio_id}`)
 
-    expect(aviso.con_historial).toBe(con_historial)
-    if (con_historial) {
+    if (pide_modo) {
       expect([borrado.status_code, borrado.json().detail]).toEqual([409, PIDE_MODO.ejercicio])
       expect(cliente.get(`/ejercicios/${ejercicio_id}`).json().oculto_desde).toBeNull()
     } else {
@@ -1786,9 +1743,9 @@ test('el_aviso_de_un_ejercicio_no_cuenta_la_sesion_abierta_hoy', () => {
   const aviso = aviso_de_ejercicio(cliente, e.press)
   const borrado = cliente.delete(`/ejercicios/${e.press}?modo=definitivo`)
 
-  expect(aviso.series).toBe(6)
-  expect(ids_que_se_vacian(aviso)).toEqual([e.dia_1, e.dia_4, e.dia_11])
+  expect([aviso.sesiones, aviso.sesiones_que_se_vacian]).toEqual([6, 3])
   expect(borrado.status_code).toBe(204)
+  for (const dia of ['dia_1', 'dia_4', 'dia_11']) expect(series_de(cliente, e[dia])).toBeNull()
   expect(series_de(cliente, abierta)).toEqual([])
   expect(sesiones_en_curso(cliente).map((s) => s.id)).toEqual([abierta])
 })
@@ -1801,7 +1758,7 @@ test('el_aviso_de_un_ejercicio_oculto_se_puede_leer', () => {
 
   const aviso = aviso_de_ejercicio(cliente, e.press)
 
-  expect([aviso.series, aviso.sesiones_que_se_vacian.length]).toEqual([5, 3])
+  expect([aviso.sesiones, aviso.sesiones_que_se_vacian]).toEqual([5, 3])
 })
 
 test('el_aviso_de_un_ejercicio_predefinido_da_404', () => {
@@ -1819,8 +1776,8 @@ test('el_aviso_de_un_ejercicio_predefinido_da_404', () => {
 
 test('borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso', () => {
   // Regresión del orden en `borrar_ejercicio`: las sesiones que se vacían se calculan antes de
-  // borrar las series. Calculadas después, ya no tienen ninguna serie del ejercicio, la lista
-  // sale vacía y el borrado las deja canceladas sin dar ningún error.
+  // borrar las series. Calculadas después, ya no tienen ninguna serie del ejercicio, no sale
+  // ninguna y el borrado las deja canceladas sin dar ningún error.
   //
   // En una sola petición, con sesiones que se van (la del 1; la del 4, que solo tenía la
   // alternativa en un hueco de press; y la del 11, donde press era la alternativa) y otras que se
@@ -1833,13 +1790,13 @@ test('borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso', 
   const todas = ['dia_1', 'dia_4', 'dia_8', 'dia_10', 'dia_11', 'dia_12'].map((dia) => e[dia])
   todas.push(ya_vacia, abierta)
 
-  const anunciadas = new Set(ids_que_se_vacian(aviso_de_ejercicio(cliente, e.press)))
+  const anunciadas = aviso_de_ejercicio(cliente, e.press).sesiones_que_se_vacian
   const respuesta = cliente.delete(`/ejercicios/${e.press}?modo=definitivo`)
 
   expect(respuesta.status_code).toBe(204)
   const borradas = new Set(todas.filter((sesion) => series_de(cliente, sesion) === null))
-  expect(borradas).toEqual(anunciadas)
   expect(borradas).toEqual(new Set([e.dia_1, e.dia_4, e.dia_11]))
+  expect(anunciadas).toBe(borradas.size)
   expect(series_de(cliente, e.dia_8)!.map((s) => s.slot_id)).toEqual([e.b])
   expect(series_de(cliente, e.dia_12)!.map((s) => s.slot_id)).toEqual([e.d])
   expect(series_de(cliente, e.dia_10)).toHaveLength(1)

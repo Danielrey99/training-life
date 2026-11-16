@@ -34,7 +34,7 @@ from tests.ayudas import (
     poner_alternativas,
     sesiones_en_curso,
 )
-from tests.semana import HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18, hecha
+from tests.semana import HOY, JUEVES_17, LUNES_14, MARTES_15, VIERNES_18
 
 FECHA = "2026-09-04"
 
@@ -43,14 +43,14 @@ FECHA = "2026-09-04"
 
 
 def crear_rutina_con_hueco(cliente, ejercicio_id) -> tuple[int, int]:
-    """La rutina Push con un hueco de ese ejercicio en el orden 1: `(rutina, hueco)`."""
+    """La rutina Push con un hueco de ese ejercicio, el primero: `(rutina, hueco)`."""
     rutina_id = crear_rutina(cliente)
-    return rutina_id, crear_hueco(cliente, rutina_id, ejercicio_id, orden=1)
+    return rutina_id, crear_hueco(cliente, rutina_id, ejercicio_id)
 
 
 def segundo_hueco(cliente, rutina_id, ejercicio_id) -> int:
-    """Un hueco en el orden 2, detrás del de `crear_rutina_con_hueco`."""
-    return crear_hueco(cliente, rutina_id, ejercicio_id, orden=2, series=3, reps=(8, 12))
+    """Un hueco detrás del de `crear_rutina_con_hueco`."""
+    return crear_hueco(cliente, rutina_id, ejercicio_id, series=3, reps=(8, 12))
 
 
 def cuerpo_serie(ejercicio_id, slot_id, numero=1, peso=60, repeticiones=8) -> dict:
@@ -453,14 +453,14 @@ def test_editar_un_ejercicio_oculto_da_409_antes_de_mirar_el_grupo(cliente, grup
 
 def test_en_una_rutina_oculta_no_se_puede_editar_nada(cliente, grupo_muscular_id):
     """Ni ella ni sus huecos, aunque el hueco esté visible: 409 con el mensaje de la
-    rutina, lo primero que se mira, también si el PUT trae comodines o el orden. (Ocultar,
+    rutina, lo primero que se mira, también si el PUT trae comodines. (Ocultar,
     mostrar y borrar un hueco, en
     `test_un_hueco_de_una_rutina_oculta_no_se_oculta_muestra_ni_borra`.)
     """
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
     rutina_id, slot_id = crear_rutina_con_hueco(cliente, ejercicio_id)
     ocultar(cliente, f"/rutinas/{rutina_id}")
-    hueco = cuerpo_de_hueco(ejercicio_id, orden=2, series=3, reps=(8, 12))
+    hueco = cuerpo_de_hueco(ejercicio_id, series=3, reps=(8, 12))
     antes = cliente.get(f"/rutinas/{rutina_id}").json()
 
     respuestas = [
@@ -1288,26 +1288,15 @@ def test_el_aviso_de_un_hueco_cuenta_sus_series_desde_cuando_y_las_sesiones_que_
 
     aviso = aviso_de_hueco(cliente, rutina_id, escenario["a"])
     del_b = aviso_de_hueco(cliente, rutina_id, escenario["b"]).json()["sesiones_que_se_vacian"]
+    borrado_b = cliente.delete(f"/rutinas/{rutina_id}/slots/{escenario['b']}?modo=definitivo")
 
     assert aviso.status_code == 200, aviso.text
-    assert (aviso.json()["series"], aviso.json()["desde"]) == (4, "2026-09-01")
-    assert aviso.json()["sesiones_que_se_vacian"] == [
-        {"entrenamiento_id": escenario["dia_1"], "fecha": "2026-09-01", "cubre_fecha": None},
-        {"entrenamiento_id": escenario["dia_10"], "fecha": "2026-09-10", "cubre_fecha": None},
-    ]
-    assert [s["entrenamiento_id"] for s in del_b] == [escenario["dia_8"]]
-
-
-def test_una_sesion_que_se_vacia_dice_que_dia_del_plan_contaba(cliente, ppl, grupo_muscular_id):
-    """Es lo que la web enseña: ese día pasaría a sin hacer."""
-    sesion = hecha(cliente, grupo_muscular_id, LUNES_14, ppl["Push"], cubre_fecha=LUNES_14)
-    hueco = cliente.get(f"/rutinas/{ppl['Push']}").json()["slots"][0]["id"]
-
-    aviso = aviso_de_hueco(cliente, ppl["Push"], hueco).json()
-
-    assert aviso["sesiones_que_se_vacian"] == [
-        {"entrenamiento_id": sesion, "fecha": "2026-09-14", "cubre_fecha": "2026-09-14"}
-    ]
+    assert aviso.json() == {"series": 4, "desde": "2026-09-01", "sesiones_que_se_vacian": 2}
+    assert del_b == 1
+    # La que cuenta el aviso de B es la del 8: la del 4 conserva su serie de A.
+    assert borrado_b.status_code == 204, borrado_b.text
+    assert series_de(cliente, escenario["dia_8"]) is None
+    assert [s["slot_id"] for s in series_de(cliente, escenario["dia_4"])] == [escenario["a"]]
 
 
 def test_el_aviso_de_un_hueco_sin_series_va_vacio(cliente, grupo_muscular_id):
@@ -1318,7 +1307,7 @@ def test_el_aviso_de_un_hueco_sin_series_va_vacio(cliente, grupo_muscular_id):
     aviso = aviso_de_hueco(cliente, rutina_id, slot_id)
 
     assert aviso.status_code == 200
-    assert aviso.json() == {"series": 0, "desde": None, "sesiones_que_se_vacian": []}
+    assert aviso.json() == {"series": 0, "desde": None, "sesiones_que_se_vacian": 0}
 
 
 def test_el_aviso_de_un_hueco_oculto_se_puede_leer(cliente, push_con_dos_huecos):
@@ -1333,8 +1322,7 @@ def test_el_aviso_de_un_hueco_oculto_se_puede_leer(cliente, push_con_dos_huecos)
     aviso = aviso_de_hueco(cliente, rutina_id, a)
 
     assert aviso.status_code == 200
-    assert aviso.json()["series"] == 4
-    assert len(aviso.json()["sesiones_que_se_vacian"]) == 2
+    assert aviso.json() == {"series": 4, "desde": "2026-09-01", "sesiones_que_se_vacian": 2}
 
 
 def test_el_aviso_de_un_hueco_no_se_alcanza_por_la_ruta_de_otra_rutina(
@@ -1366,12 +1354,10 @@ def test_la_sesion_abierta_hoy_no_se_borra_con_el_hueco_aunque_se_quede_vacia(
     aviso = aviso_de_hueco(cliente, rutina_id, a).json()
     borrado = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
 
-    assert aviso["series"] == 5
-    assert [s["entrenamiento_id"] for s in aviso["sesiones_que_se_vacian"]] == [
-        escenario["dia_1"],
-        escenario["dia_10"],
-    ]
+    assert (aviso["series"], aviso["sesiones_que_se_vacian"]) == (5, 2)
     assert borrado.status_code == 204
+    assert series_de(cliente, escenario["dia_1"]) is None
+    assert series_de(cliente, escenario["dia_10"]) is None
     assert series_de(cliente, abierta) == []
     assert [s["id"] for s in sesiones_en_curso(cliente)] == [abierta]
 
@@ -1386,22 +1372,20 @@ def test_la_sesion_de_hoy_ya_terminada_si_se_borra_con_el_hueco(cliente, push_co
     aviso = aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
     borrado = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
 
-    assert [s["entrenamiento_id"] for s in aviso] == [
-        escenario["dia_1"],
-        escenario["dia_10"],
-        terminada,
-    ]
+    assert aviso == 3
     assert borrado.status_code == 204
+    assert series_de(cliente, escenario["dia_1"]) is None
+    assert series_de(cliente, escenario["dia_10"]) is None
     assert series_de(cliente, terminada) is None
 
 
 def test_borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso(
     cliente, push_con_dos_huecos
 ):
-    """Regresión del orden en `borrar_slot`: la lista de las sesiones que se vacían
-    se calcula antes de borrar las series del hueco. Calculada después, el «tiene
-    series en este hueco» ya no se cumple, sale vacía y el borrado deja esas
-    sesiones canceladas sin dar ningún error.
+    """Regresión del orden en `borrar_slot`: las sesiones que se vacían se calculan
+    antes de borrar las series del hueco. Calculadas después, el «tiene series en
+    este hueco» ya no se cumple, no sale ninguna y el borrado deja esas sesiones
+    canceladas sin dar ningún error.
 
     En una sola petición, con sesiones que se van y otras que se quedan (la del 4
     conserva la serie del otro hueco, la del 8 ni lo usaba, una ya vacía y la abierta
@@ -1414,15 +1398,13 @@ def test_borrar_un_hueco_en_definitivo_se_lleva_justo_las_sesiones_del_aviso(
     todas = [escenario[dia] for dia in ("dia_1", "dia_4", "dia_8", "dia_10")]
     todas += [ya_vacia, abierta]
 
-    anunciadas = {
-        s["entrenamiento_id"]
-        for s in aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
-    }
+    anunciadas = aviso_de_hueco(cliente, rutina_id, a).json()["sesiones_que_se_vacian"]
     respuesta = cliente.delete(f"/rutinas/{rutina_id}/slots/{a}?modo=definitivo")
 
     assert respuesta.status_code == 204, respuesta.text
     borradas = {sesion for sesion in todas if series_de(cliente, sesion) is None}
-    assert borradas == anunciadas == {escenario["dia_1"], escenario["dia_10"]}
+    assert borradas == {escenario["dia_1"], escenario["dia_10"]}
+    assert anunciadas == len(borradas)
     assert [s["slot_id"] for s in series_de(cliente, escenario["dia_4"])] == [escenario["b"]]
     assert [s["slot_id"] for s in series_de(cliente, escenario["dia_8"])] == [escenario["b"]]
 
@@ -1627,10 +1609,6 @@ def aviso_de_ejercicio(cliente, ejercicio_id) -> dict:
     return respuesta.json()
 
 
-def ids_que_se_vacian(aviso) -> list[int]:
-    return [sesion["entrenamiento_id"] for sesion in aviso["sesiones_que_se_vacian"]]
-
-
 @pytest.fixture
 def press_en_dos_rutinas(cliente, grupo_muscular_id, hoy_es) -> dict:
     """Press banca es el principal del hueco A de Push (con Press en máquina de
@@ -1700,16 +1678,9 @@ def test_el_aviso_de_un_ejercicio_cuenta_lo_que_se_perderia(cliente, press_en_do
     aviso = aviso_de_ejercicio(cliente, e["press"])
 
     assert {clave: valor for clave, valor in aviso.items() if clave != "huecos"} == {
-        "con_historial": True,
-        "series": 5,
         "sesiones": 5,
-        "desde": "2026-09-01",
         "notas": 1,
-        "sesiones_que_se_vacian": [
-            {"entrenamiento_id": e["dia_1"], "fecha": "2026-09-01", "cubre_fecha": None},
-            {"entrenamiento_id": e["dia_4"], "fecha": "2026-09-04", "cubre_fecha": None},
-            {"entrenamiento_id": e["dia_11"], "fecha": "2026-09-11", "cubre_fecha": None},
-        ],
+        "sesiones_que_se_vacian": 3,
     }
     assert [(h["rutina"]["nombre"], h["slot_id"], h["rol"]) for h in aviso["huecos"]] == [
         ("Pull", e["c"], "comodin"),
@@ -1721,13 +1692,10 @@ def test_el_aviso_de_un_ejercicio_sin_nada_va_vacio(cliente, grupo_muscular_id):
     ejercicio_id = crear_ejercicio(cliente, grupo_muscular_id)
 
     assert aviso_de_ejercicio(cliente, ejercicio_id) == {
-        "con_historial": False,
-        "series": 0,
         "sesiones": 0,
-        "desde": None,
         "notas": 0,
         "huecos": [],
-        "sesiones_que_se_vacian": [],
+        "sesiones_que_se_vacian": 0,
     }
 
 
@@ -1762,7 +1730,7 @@ def _ejercicio_con_series_que_ya_no_esta_en_ningun_hueco(cliente, grupo_muscular
 
 
 @pytest.mark.parametrize(
-    "montar, con_historial",
+    "montar, pide_modo",
     [
         pytest.param(_ejercicio_sin_usar, False, id="sin-usar"),
         pytest.param(_ejercicio_con_solo_notas, False, id="solo-notas"),
@@ -1771,19 +1739,15 @@ def _ejercicio_con_series_que_ya_no_esta_en_ningun_hueco(cliente, grupo_muscular
         pytest.param(_ejercicio_con_series_que_ya_no_esta_en_ningun_hueco, True, id="solo-series"),
     ],
 )
-def test_con_historial_del_ejercicio_coincide_con_que_el_delete_pida_modo(
-    cliente, grupo_muscular_id, montar, con_historial
+def test_un_ejercicio_pide_modo_al_borrarlo_solo_si_esta_en_un_hueco_o_tiene_series(
+    cliente, grupo_muscular_id, montar, pide_modo
 ):
-    """Si no coincidieran, la web enseñaría un diálogo y el DELETE haría otra cosa
-    (o borraría sin preguntar lo que el diálogo no avisó).
-    """
+    """Las notas no cuentan: sin hueco ni series se borra directo y se las lleva."""
     ejercicio_id = montar(cliente, grupo_muscular_id)
 
-    aviso = aviso_de_ejercicio(cliente, ejercicio_id)
     borrado = cliente.delete(f"/ejercicios/{ejercicio_id}")
 
-    assert aviso["con_historial"] is con_historial
-    if con_historial:
+    if pide_modo:
         assert (borrado.status_code, borrado.json()["detail"]) == (409, PIDE_MODO["ejercicio"])
         assert cliente.get(f"/ejercicios/{ejercicio_id}").json()["oculto_desde"] is None
     else:
@@ -1801,9 +1765,10 @@ def test_el_aviso_de_un_ejercicio_no_cuenta_la_sesion_abierta_hoy(cliente, press
     aviso = aviso_de_ejercicio(cliente, e["press"])
     borrado = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
 
-    assert aviso["series"] == 6
-    assert ids_que_se_vacian(aviso) == [e["dia_1"], e["dia_4"], e["dia_11"]]
+    assert (aviso["sesiones"], aviso["sesiones_que_se_vacian"]) == (6, 3)
     assert borrado.status_code == 204, borrado.text
+    for dia in ("dia_1", "dia_4", "dia_11"):
+        assert series_de(cliente, e[dia]) is None
     assert series_de(cliente, abierta) == []
     assert [s["id"] for s in sesiones_en_curso(cliente)] == [abierta]
 
@@ -1815,7 +1780,7 @@ def test_el_aviso_de_un_ejercicio_oculto_se_puede_leer(cliente, press_en_dos_rut
 
     aviso = aviso_de_ejercicio(cliente, e["press"])
 
-    assert (aviso["series"], len(aviso["sesiones_que_se_vacian"])) == (5, 3)
+    assert (aviso["sesiones"], aviso["sesiones_que_se_vacian"]) == (5, 3)
 
 
 def test_el_aviso_de_un_ejercicio_predefinido_da_404(cliente, ejercicio_predefinido_id):
@@ -1855,8 +1820,8 @@ def test_borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso
 ):
     """Regresión del orden en `borrar_ejercicio`: las sesiones que se vacían se
     calculan antes de borrar las series. Calculadas después, ya no tienen ninguna
-    serie del ejercicio, la lista sale vacía y el borrado las deja canceladas sin
-    dar ningún error.
+    serie del ejercicio, no sale ninguna y el borrado las deja canceladas sin dar
+    ningún error.
 
     En una sola petición, con sesiones que se van (la del 1; la del 4, que solo
     tenía la alternativa en un hueco de press; y la del 11, donde press era la
@@ -1869,12 +1834,13 @@ def test_borrar_un_ejercicio_en_definitivo_se_lleva_justo_las_sesiones_del_aviso
     todas = [e[dia] for dia in ("dia_1", "dia_4", "dia_8", "dia_10", "dia_11", "dia_12")]
     todas += [ya_vacia, abierta]
 
-    anunciadas = set(ids_que_se_vacian(aviso_de_ejercicio(cliente, e["press"])))
+    anunciadas = aviso_de_ejercicio(cliente, e["press"])["sesiones_que_se_vacian"]
     respuesta = cliente.delete(f"/ejercicios/{e['press']}?modo=definitivo")
 
     assert respuesta.status_code == 204, respuesta.text
     borradas = {sesion for sesion in todas if series_de(cliente, sesion) is None}
-    assert borradas == anunciadas == {e["dia_1"], e["dia_4"], e["dia_11"]}
+    assert borradas == {e["dia_1"], e["dia_4"], e["dia_11"]}
+    assert anunciadas == len(borradas)
     assert [s["slot_id"] for s in series_de(cliente, e["dia_8"])] == [e["b"]]
     assert [s["slot_id"] for s in series_de(cliente, e["dia_12"])] == [e["d"]]
     assert len(series_de(cliente, e["dia_10"])) == 1

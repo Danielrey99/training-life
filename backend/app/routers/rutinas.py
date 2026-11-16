@@ -38,7 +38,6 @@ from app.schemas import (
     RutinaSlotOut,
     RutinaSlotUpdate,
     RutinaUpdate,
-    SesionQueSeVaciaOut,
 )
 
 router = APIRouter(prefix="/rutinas", tags=["rutinas"])
@@ -283,8 +282,8 @@ def actualizar_rutina(
     """El *Guardar* de la rutina editando: el nombre y, si llega, el orden de los
     huecos visibles, en una sola transacción: o se guarda todo o nada.
 
-    El orden no se puede cambiar con PUT sueltos de cada hueco: intercambiar dos choca a
-    medias con `UNIQUE(rutina_id, orden)`. Los visibles se reparten los `orden` que ya
+    Es el único sitio donde cambia el orden: con PUT sueltos de cada hueco, intercambiar
+    dos chocaría a medias con `UNIQUE(rutina_id, orden)`. Los visibles se reparten los `orden` que ya
     tenían (`reparto_del_orden`) y los ocultos conservan el suyo.
     """
     rutina = _obtener_rutina_modificable(db, rutina_id)
@@ -545,23 +544,6 @@ def _obtener_slot_legible(db: Session, rutina_id: int, slot_id: int) -> RutinaSl
     return slot
 
 
-def _validar_orden_disponible(
-    db: Session, rutina_id: int, orden: int, excluir_slot_id: int | None = None
-) -> None:
-    """`UniqueConstraint(rutina_id, orden)` a nivel de base de datos evita
-    duplicados de verdad, pero comprobarlo antes da un 409 legible en vez de
-    un error crudo de la base de datos.
-    """
-    stmt = select(RutinaSlot.id).where(RutinaSlot.rutina_id == rutina_id, RutinaSlot.orden == orden)
-    if excluir_slot_id is not None:
-        stmt = stmt.where(RutinaSlot.id != excluir_slot_id)
-    if db.scalar(stmt.limit(1)) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya hay otro ejercicio en la posición {orden} de esta rutina.",
-        )
-
-
 def _validar_ejercicios_elegidos(db: Session, ids) -> None:
     """Cada ejercicio que se elige (principal o comodín) tiene que ser visible: 404
     si no existe o está oculto. Cada id se mira una vez.
@@ -616,8 +598,8 @@ def _siguiente_orden(db: Session, rutina_id: int) -> int:
     """Al final de la rutina: el mayor `orden` de todos sus huecos, también los
     ocultos (al mostrarlos vuelven a su sitio y no deben chocar), más uno.
 
-    Con tope, porque el PUT de un hueco exige `orden <= 100`: uno con 101 ya no se
-    podría editar.
+    Con tope, porque el archivo de exportación exige `orden <= 100` (`SlotDeArchivo`):
+    una rutina con un 101 no se podría volver a importar.
     """
     mayor = db.scalar(select(func.max(RutinaSlot.orden)).where(RutinaSlot.rutina_id == rutina_id))
     siguiente = (mayor or 0) + 1
@@ -642,14 +624,9 @@ def crear_slot(
     _obtener_rutina_modificable(db, rutina_id)
     _validar_ejercicios_elegidos(db, _ids_del_hueco(datos))
     _validar_objetivos(db, [datos])
-    if datos.orden is None:
-        orden = _siguiente_orden(db, rutina_id)
-    else:
-        _validar_orden_disponible(db, rutina_id, datos.orden)
-        orden = datos.orden
     slot = RutinaSlot(
         rutina_id=rutina_id,
-        orden=orden,
+        orden=_siguiente_orden(db, rutina_id),
         ejercicio_principal_id=datos.ejercicio_principal_id,
         **_objetivo_de(datos),
         slot_alternativas=[_alternativa_nueva(alternativa) for alternativa in datos.alternativas],
@@ -669,7 +646,8 @@ def actualizar_slot(
 ):
     """Cambia un hueco. Con `alternativas`, la lista sustituye a las actuales (vacía,
     las quita todas) y cada una lleva su objetivo; sin ella, las alternativas y sus
-    objetivos no se tocan.
+    objetivos no se tocan. El orden no se cambia aquí: va con `slot_ids` en el
+    `PUT /rutinas/{id}`.
     """
     slot = _obtener_slot_modificable(db, rutina_id, slot_id)
     actuales = {fila.ejercicio_id: fila for fila in slot.slot_alternativas}
@@ -698,7 +676,6 @@ def actualizar_slot(
                 " de hacerlo el principal."
             ),
         )
-    _validar_orden_disponible(db, rutina_id, datos.orden, excluir_slot_id=slot_id)
     for campo, valor in datos.model_dump(exclude={"alternativas"}).items():
         setattr(slot, campo, valor)
     if datos.alternativas is not None:
@@ -746,12 +723,7 @@ def aviso_de_borrar_slot(
     return AvisoDeBorrarHuecoOut(
         series=series,
         desde=desde,
-        sesiones_que_se_vacian=[
-            SesionQueSeVaciaOut(
-                entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
-            )
-            for sesion in sesiones_que_se_vacian(db, Serie.slot_id == slot_id)
-        ],
+        sesiones_que_se_vacian=len(sesiones_que_se_vacian(db, Serie.slot_id == slot_id)),
     )
 
 

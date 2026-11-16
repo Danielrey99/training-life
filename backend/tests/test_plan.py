@@ -406,24 +406,23 @@ def test_borrar_una_rutina_devuelve_sus_dias_planificados_al_programa(cliente, s
 
 
 def test_los_dias_planificados_se_pueden_filtrar_por_fechas(cliente, semana_push):
-    """Con `desde` = hoy son los que se perderían al activar otro programa."""
+    """Con `desde` = hoy son los que se perderían al activar otro programa. Solo se
+    filtra por `desde`: un `hasta` se ignora, también si va antes que `desde`.
+    """
     for dias in (0, 2, 5):
         dejar_planificado(cliente, HOY + timedelta(days=dias), semana_push["pull"])
 
     def fechas(**filtros):
         params = {clave: valor.isoformat() for clave, valor in filtros.items()}
-        return [e["fecha"] for e in cliente.get("/plan/excepciones", params=params).json()]
+        respuesta = cliente.get("/plan/excepciones", params=params)
+        assert respuesta.status_code == 200, respuesta.text
+        return [e["fecha"] for e in respuesta.json()]
 
-    en_medio = [(HOY + timedelta(days=2)).isoformat()]
-    assert fechas(desde=HOY + timedelta(days=1), hasta=HOY + timedelta(days=4)) == en_medio
-    assert len(fechas(desde=HOY + timedelta(days=1))) == 2
-    assert len(fechas(hasta=HOY + timedelta(days=2))) == 2
-    respuesta = cliente.get(
-        "/plan/excepciones",
-        params={"desde": HOY.isoformat(), "hasta": (HOY - timedelta(days=1)).isoformat()},
-    )
-    assert respuesta.status_code == 422
-    assert respuesta.json()["detail"] == rango_invertido(HOY, HOY - timedelta(days=1))
+    despues_de_hoy = [(HOY + timedelta(days=dias)).isoformat() for dias in (2, 5)]
+    assert fechas() == [HOY.isoformat(), *despues_de_hoy]
+    assert fechas(desde=HOY + timedelta(days=1)) == despues_de_hoy
+    assert fechas(desde=HOY + timedelta(days=1), hasta=HOY + timedelta(days=4)) == despues_de_hoy
+    assert fechas(desde=HOY + timedelta(days=1), hasta=HOY - timedelta(days=1)) == despues_de_hoy
 
 
 # --- Bordes y combinaciones con lo oculto --------------------------------

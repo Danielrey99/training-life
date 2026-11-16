@@ -89,7 +89,6 @@ interface Opciones {
   obj?: Obj
   /** `undefined` no la manda; `null` la manda nula. */
   alternativas?: Alt[] | null
-  orden?: number
 }
 
 function cuerpo({ principal, obj = EN_REPS_OBJ, alternativas, ...campos }: Opciones) {
@@ -112,10 +111,8 @@ function anadido(rutina: number, opciones: Opciones): any {
   return respuesta.json()
 }
 
-function editar(rutina: number, slot: number, { orden = 1, ...opciones }: Opciones) {
-  return cliente.put(`/rutinas/${rutina}/slots/${slot}`, {
-    json: cuerpo({ ...opciones, orden }),
-  })
+function editar(rutina: number, slot: number, opciones: Opciones) {
+  return cliente.put(`/rutinas/${rutina}/slots/${slot}`, { json: cuerpo(opciones) })
 }
 
 function hueco_guardado(rutina: number, slot: number): any {
@@ -307,7 +304,6 @@ test.each(CASOS_POR_VIA)(
     e.existente = anadido(e.rutina, {
       principal: e.remo,
       alternativas: [alternativa(e.press)],
-      orden: 1,
     }).id
     const antes = cliente.get('/rutinas', { params: { ocultas: true } }).json()
     const [principal, obj, alternativas, mensaje] = _equivocados()[caso]
@@ -419,7 +415,7 @@ test('una_rutina_nueva_guarda_el_objetivo_de_cada_alternativa', () => {
 test.each(['POST', 'PUT'])(
   'un_ejercicio_que_no_existe_da_404_antes_que_un_objetivo_equivocado (%s)',
   (via) => {
-    const slot = anadido(e.rutina, { principal: e.press, orden: 1 }).id
+    const slot = anadido(e.rutina, { principal: e.press }).id
     const antes = cuantos()
     const malas = [alternativa(e.plancha), alternativa(999_999)]
 
@@ -429,24 +425,6 @@ test.each(['POST', 'PUT'])(
         : editar(e.rutina, slot, { principal: e.press, alternativas: malas })
 
     expect([respuesta.status_code, respuesta.json().detail]).toEqual([404, ELEGIDO_YA_NO_EXISTE])
-    expect(cuantos()).toEqual(antes)
-  },
-)
-
-test.each(['POST', 'PUT'])(
-  'un_objetivo_equivocado_da_422_antes_que_el_409_del_orden (%s)',
-  (via) => {
-    // El orden 2 ya está ocupado: aun así, lo primero que se dice es el objetivo.
-    const slot = anadido(e.rutina, { principal: e.press, orden: 1 }).id
-    anadido(e.rutina, { principal: e.remo, orden: 2 })
-    const antes = cuantos()
-
-    const respuesta =
-      via === 'POST'
-        ? anadir(e.rutina, { principal: e.plancha, orden: 2 })
-        : editar(e.rutina, slot, { orden: 2, principal: e.plancha })
-
-    expect([respuesta.status_code, respuesta.json().detail]).toEqual([422, EN_SEGUNDOS])
     expect(cuantos()).toEqual(antes)
   },
 )
@@ -724,7 +702,7 @@ test.each([
     // Lo que la API ya no deja pasar, metido a mano: el CHECK de cada tabla lo para. El test
     // que compara el esquema con los modelos solo mira su nombre, no lo que dice. Que la base
     // admite un par completo de cada clase lo prueba cada hueco que la API guarda.
-    const slot = anadido(e.rutina, { principal: e.press, orden: 1 }).id
+    const slot = anadido(e.rutina, { principal: e.press }).id
     // Lo que no se dice queda nulo, como en el modelo.
     const completo = {
       reps_min: null,

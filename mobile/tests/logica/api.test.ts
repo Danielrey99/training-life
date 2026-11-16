@@ -294,10 +294,7 @@ const LLAMADAS: Record<keyof Api, [Llamada, 'bien' | 404]> = {
   duplicarRutina: [(api) => api.duplicarRutina(NO_EXISTE), 404],
   avisoDeBorrarRutina: [(api) => api.avisoDeBorrarRutina(NO_EXISTE), 404],
   crearHueco: [(api) => api.crearHueco(NO_EXISTE, HUECO), 404],
-  actualizarHueco: [
-    (api) => api.actualizarHueco(NO_EXISTE, NO_EXISTE, { ...HUECO, orden: 1 }),
-    404,
-  ],
+  actualizarHueco: [(api) => api.actualizarHueco(NO_EXISTE, NO_EXISTE, HUECO), 404],
   borrarHueco: [(api) => api.borrarHueco(NO_EXISTE, NO_EXISTE, 'definitivo'), 404],
   avisoDeBorrarHueco: [(api) => api.avisoDeBorrarHueco(NO_EXISTE, NO_EXISTE), 404],
   mostrarHueco: [(api) => api.mostrarHueco(NO_EXISTE, NO_EXISTE), 404],
@@ -341,7 +338,7 @@ const LLAMADAS: Record<keyof Api, [Llamada, 'bien' | 404]> = {
   borrarPrograma: [(api) => api.borrarPrograma(NO_EXISTE, 'ocultar'), 404],
   seguimiento: [(api) => api.seguimiento('2026-09-01', FUTURO), 'bien'],
   hoy: [(api) => api.hoy('2026-09-14'), 'bien'],
-  excepciones: [(api) => api.excepciones({ desde: '2026-09-01', hasta: FUTURO }), 'bien'],
+  excepciones: [(api) => api.excepciones({ desde: '2026-09-01' }), 'bien'],
   planificarDia: [(api) => api.planificarDia(FUTURO, null), 'bien'],
   // Sin nada planificado ese día, el 404 de la app («Ese día no estaba cambiado…»).
   restablecerDia: [(api) => api.restablecerDia(FUTURO), 404],
@@ -468,11 +465,9 @@ test('los_parametros_del_plan_y_del_resumen_llegan_con_su_nombre', async () => {
 
   expect(await api.hoy('2026-09-14')).toEqual(cliente.get('/plan/hoy?fecha=2026-09-14').json())
   expect(await api.hoy('2026-09-14')).not.toEqual(await api.hoy())
-  const delRango = await api.excepciones({ desde: '2026-09-20', hasta: '2026-09-30' })
-  expect(delRango).toEqual(
-    cliente.get('/plan/excepciones?desde=2026-09-20&hasta=2026-09-30').json(),
-  )
-  expect(delRango).not.toEqual(await api.excepciones())
+  const desdeEl20 = await api.excepciones({ desde: '2026-09-20' })
+  expect(desdeEl20).toEqual(cliente.get('/plan/excepciones?desde=2026-09-20').json())
+  expect(desdeEl20).not.toEqual(await api.excepciones())
   expect(await api.seguimiento('2026-09-07', '2026-09-13')).toEqual(
     cliente.get('/plan/seguimiento?desde=2026-09-07&hasta=2026-09-13').json(),
   )

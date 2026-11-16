@@ -111,7 +111,7 @@ function loQueSePierde(aviso: AvisoDeBorrarEjercicio, oculto: boolean) {
   } else if (deLasRutinas) {
     frases.push(`${deLasRutinas[0].toUpperCase()}${deLasRutinas.slice(1)}.`)
   }
-  const vacias = aviso.sesiones_que_se_vacian.length
+  const vacias = aviso.sesiones_que_se_vacian
   if (vacias === 1) frases.push('Una sesión se quedará sin series y desaparecerá entera.')
   if (vacias > 1) frases.push(`${vacias} sesiones se quedarán sin series y desaparecerán enteras.`)
   if (frases.length > 0 && !oculto) frases.push('Si solo quieres que deje de salir, ocúltalo.')

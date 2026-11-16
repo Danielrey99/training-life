@@ -25,8 +25,6 @@ export interface HuecoPedido extends FilaObjetivo {
   ejercicio_principal_id: number
   /** En un PUT, nula si no llegó: las alternativas no se tocan. */
   alternativas: AlternativaPedida[] | null
-  /** Al crear, nulo si no llegó: el hueco va al final. */
-  orden: number | null
 }
 
 export interface RutinaNueva {
@@ -125,9 +123,9 @@ function alternativas(
 type Modelo = 'SlotDeRutinaNueva' | 'RutinaSlotCreate' | 'RutinaSlotUpdate'
 
 /**
- * Un hueco: el de una rutina nueva (sin `orden`: su orden es su posición), el de crear
- * (`orden` opcional) o el de editar (`orden` obligatorio y `alternativas` que pueden
- * faltar). Los campos van en el orden de cada modelo.
+ * Un hueco: el de una rutina nueva (su orden es su posición), el de crear (va al final) o
+ * el de editar (`alternativas` que pueden faltar). Ninguno lleva `orden`: solo cambia al
+ * ordenar la rutina entera. Los campos van en el orden de cada modelo.
  */
 export function hueco(
   v: Validador,
@@ -140,21 +138,11 @@ export function hueco(
   const antes = v.errores.length
   const objetivo = camposDelObjetivo(v, d, loc)
   const principal = entero(v, d, 'ejercicio_principal_id', loc) as number
-  let orden: number | null | undefined = null
-  let alts: AlternativaPedida[] | null | undefined
-  if (modelo === 'RutinaSlotUpdate') {
-    orden = entero(v, d, 'orden', loc, { gt: 0, le: 100 })
-    alts = alternativas(v, d, loc, true)
-  } else {
-    alts = alternativas(v, d, loc, false)
-    if (modelo === 'RutinaSlotCreate') {
-      orden = entero(v, d, 'orden', loc, { gt: 0, le: 100 }, { porDefecto: null, nulo: true })
-    }
-  }
+  const alts = alternativas(v, d, loc, modelo === 'RutinaSlotUpdate')
   if (v.errores.length > antes) return undefined
   if (!validarObjetivo(v, objetivo, loc)) return undefined
   if (!validarComodines(v, principal, alts!, loc)) return undefined
-  return { ...objetivo, ejercicio_principal_id: principal, alternativas: alts!, orden: orden! }
+  return { ...objetivo, ejercicio_principal_id: principal, alternativas: alts! }
 }
 
 /** `RutinaCreate`: el nombre y, si llegan, sus huecos (hasta 100). */

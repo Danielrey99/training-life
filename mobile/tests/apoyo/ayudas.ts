@@ -16,7 +16,7 @@
  * Cómo se pasan los argumentos (Python tiene nombrados; TypeScript, no):
  * - Los que Python casi siempre pasa por posición (el nombre de `crear_ejercicio` y de
  *   `crear_rutina`, las series y repeticiones de `objetivo`) siguen por posición.
- * - Los que Python pasa por nombre (`tipo=`, `orden=`, `duracion=`, los `**campos`) van en un
+ * - Los que Python pasa por nombre (`tipo=`, `duracion=`, los `**campos`) van en un
  *   objeto final con esa misma clave: `crear_ejercicio(cliente, g, 'Cinta', { tipo: 'cardio' })`.
  * - `duracion=(30, 45)` de `objetivo` y `alternativa` va en lugar de las repeticiones:
  *   `objetivo(3, { duracion: [30, 45] })`.
@@ -243,29 +243,27 @@ export function es_de_tiempo(cliente: Cliente, ejercicio_id: number): boolean {
   )
 }
 
-/** El cuerpo de un hueco de repeticiones sin comodines, con `orden` (el PUT lo exige). */
+/**
+ * El cuerpo de un hueco de repeticiones sin comodines. Sin `orden`: al crearlo va al final y al
+ * editarlo no cambia (solo lo mueve ordenar la rutina con `slot_ids`).
+ */
 export function cuerpo_de_hueco(
   ejercicio_id: number,
-  { orden = 1, series = 4, reps = [6, 10] }: { orden?: number; series?: number; reps?: Par } = {},
+  { series = 4, reps = [6, 10] }: { series?: number; reps?: Par } = {},
 ): Record<string, unknown> {
-  return { ejercicio_principal_id: ejercicio_id, orden, ...objetivo(series, reps) }
+  return { ejercicio_principal_id: ejercicio_id, ...objetivo(series, reps) }
 }
 
 /**
- * Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines. Sin `orden`,
- * el backend lo pone al final. El objetivo va en repeticiones, salvo que se pase `duracion`
+ * Un hueco nuevo en la rutina, con ese ejercicio de principal y sin comodines. El backend lo
+ * pone al final. El objetivo va en repeticiones, salvo que se pase `duracion`
  * o el ejercicio sea de tiempo (entonces, en segundos). Devuelve su id.
  */
 export function crear_hueco(
   cliente: Cliente,
   rutina_id: number,
   ejercicio_id: number,
-  {
-    orden,
-    series = 4,
-    reps = [6, 10],
-    duracion,
-  }: { orden?: number; series?: number; reps?: Par; duracion?: Par } = {},
+  { series = 4, reps = [6, 10], duracion }: { series?: number; reps?: Par; duracion?: Par } = {},
 ): number {
   if (duracion === undefined && es_de_tiempo(cliente, ejercicio_id)) {
     duracion = DURACION_POR_DEFECTO
@@ -274,10 +272,18 @@ export function crear_hueco(
     ejercicio_principal_id: ejercicio_id,
     ...objetivo(series, duracion === undefined ? reps : { duracion }),
   }
-  if (orden !== undefined) cuerpo.orden = orden
   const respuesta = cliente.post(`/rutinas/${rutina_id}/slots`, { json: cuerpo })
   esperar_estado(respuesta, 201)
   return respuesta.json().id
+}
+
+/**
+ * Pone ese `orden` al hueco directamente en la base: la API ya no lo deja elegir (crear va al
+ * final; ordenar la rutina reparte los que ya hay), y así se monta una rutina con huecos en el
+ * 100 o con posiciones libres entre medias.
+ */
+export function poner_orden(bd: Bd, slot_id: number, orden: number): void {
+  bd.ejecutar('UPDATE rutina_slots SET orden = ? WHERE id = ?', orden, slot_id)
 }
 
 /**
@@ -318,7 +324,6 @@ export function cambiar_alternativas(
   return cliente.put(`/rutinas/${rutina_id}/slots/${slot_id}`, {
     json: {
       ejercicio_principal_id: hueco.ejercicio_principal.id,
-      orden: hueco.orden,
       ...objetivo_de(hueco),
       alternativas: alternativas.map(cuerpo_de),
     },
@@ -542,7 +547,6 @@ export function hueco_para(cliente: Cliente, rutina_id: number, ejercicio_id: nu
   const respuesta = cliente.post(`/rutinas/${rutina_id}/slots`, {
     json: {
       ejercicio_principal_id: ejercicio_id,
-      orden: Math.max(0, ...huecos.map((h) => h.orden)) + 1,
       ...objetivo(3, duracion === undefined ? [6, 12] : { duracion }),
     },
   })

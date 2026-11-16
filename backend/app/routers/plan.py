@@ -84,19 +84,14 @@ def obtener_hoy(
 @router.get("/excepciones", response_model=list[ExcepcionOut])
 def listar_excepciones(
     desde: date | None = None,
-    hasta: date | None = None,
     db: Session = Depends(get_db),
 ):
     """Los días cambiados a mano, del más cercano al más lejano. Con `desde` = hoy
     son los que se perderían al activar otro programa quitándolos.
     """
-    if desde is not None and hasta is not None:
-        validar_rango(desde, hasta)
     stmt = select(ExcepcionDelPlan)
     if desde is not None:
         stmt = stmt.where(ExcepcionDelPlan.fecha >= desde)
-    if hasta is not None:
-        stmt = stmt.where(ExcepcionDelPlan.fecha <= hasta)
     return db.scalars(stmt.order_by(ExcepcionDelPlan.fecha)).all()
 
 

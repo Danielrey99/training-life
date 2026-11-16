@@ -607,8 +607,8 @@ ruta('GET', '/plan/hoy', (ctx, e) =>
 ruta('GET', '/plan/excepciones', (ctx, e) =>
   con(
     e,
-    () => [e.fecha('desde'), e.fecha('hasta')] as const,
-    ([desde, hasta]) => planificar.listarExcepciones(ctx, desde, hasta),
+    () => e.fecha('desde'),
+    (desde) => planificar.listarExcepciones(ctx, desde),
   ),
 )
 ruta('PUT', '/plan/excepciones/{fecha}', (ctx, e) =>

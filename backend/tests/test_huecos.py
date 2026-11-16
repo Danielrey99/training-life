@@ -1,8 +1,8 @@
-"""Tests de un hueco suelto: dónde cae cuando no se dice su `orden` y cómo se
-sustituye su lista de comodines de una vez.
+"""Tests de un hueco suelto: dónde cae al crearlo y cómo se sustituye su lista de
+comodines de una vez.
 
-El `orden` automático existe para que la web no calcule un dato que el backend
-tiene a mano (y que exige mirar también los huecos ocultos). La lista de
+El `orden` lo pone siempre el backend (al final, mirando también los huecos
+ocultos), y solo cambia al ordenar la rutina con `slot_ids`. La lista de
 comodines en el PUT existe para que *Guardar* en P4 sea una sola petición; su
 trampa es el `UNIQUE(slot_id, ejercicio_id)`: si se reconstruye la lista entera en
 vez de conservar las filas que siguen, SQLAlchemy inserta antes de borrar y la
@@ -27,13 +27,14 @@ from tests.ayudas import (
     ids_de_alternativas,
     objetivo,
     ocultar_ejercicio,
+    poner_orden,
 )
 
 # --- Ayudantes -----------------------------------------------------------
 
 
 def cuerpo_de_hueco(principal, series=4, reps=(6, 10), **campos) -> dict:
-    """Sin `orden` ni `alternativas` salvo que vengan en `campos`. En `alternativas`
+    """Sin `alternativas` salvo que vengan en `campos`. En `alternativas`
     vale poner solo el id de cada ejercicio: va con un objetivo de repeticiones
     (`alternativa`), que es el de todos los ejercicios de este archivo.
     """
@@ -55,10 +56,9 @@ def hueco_creado(cliente, rutina_id, principal, **campos) -> dict:
     return respuesta.json()
 
 
-def editar_hueco(cliente, rutina_id, slot_id, principal, orden=1, **campos):
+def editar_hueco(cliente, rutina_id, slot_id, principal, **campos):
     return cliente.put(
-        f"/rutinas/{rutina_id}/slots/{slot_id}",
-        json=cuerpo_de_hueco(principal, orden=orden, **campos),
+        f"/rutinas/{rutina_id}/slots/{slot_id}", json=cuerpo_de_hueco(principal, **campos)
     )
 
 
@@ -114,9 +114,9 @@ def test_sin_orden_el_hueco_va_detras_tambien_de_los_ocultos(cliente, ejercicios
     mostrarlo, habría dos en el mismo sitio).
     """
     rutina = crear_rutina(cliente)
-    hueco_creado(cliente, rutina, ejercicios["Press"], orden=1)
-    hueco_creado(cliente, rutina, ejercicios["Aperturas"], orden=2)
-    oculto = hueco_creado(cliente, rutina, ejercicios["Fondos"], orden=3)["id"]
+    hueco_creado(cliente, rutina, ejercicios["Press"])
+    hueco_creado(cliente, rutina, ejercicios["Aperturas"])
+    oculto = hueco_creado(cliente, rutina, ejercicios["Fondos"])["id"]
     assert cliente.delete(f"/rutinas/{rutina}/slots/{oculto}?modo=ocultar").status_code == 204
 
     nuevo = hueco_creado(cliente, rutina, ejercicios["Cruces"])
@@ -126,34 +126,36 @@ def test_sin_orden_el_hueco_va_detras_tambien_de_los_ocultos(cliente, ejercicios
     assert [h["orden"] for h in cliente.get(f"/rutinas/{rutina}").json()["slots"]] == [1, 2, 3, 4]
 
 
-def test_sin_orden_el_hueco_va_detras_del_mayor_aunque_haya_hueco_libre_antes(cliente, ejercicios):
+def test_sin_orden_el_hueco_va_detras_del_mayor_aunque_haya_hueco_libre_antes(
+    cliente, sesion_bd, ejercicios
+):
     rutina = crear_rutina(cliente)
-    hueco_creado(cliente, rutina, ejercicios["Press"], orden=5)
+    poner_orden(sesion_bd, hueco_creado(cliente, rutina, ejercicios["Press"])["id"], 5)
 
     assert hueco_creado(cliente, rutina, ejercicios["Aperturas"])["orden"] == 6
 
 
-def test_con_orden_explicito_se_respeta_y_choca_tambien_con_un_oculto(
-    cliente, sesion_bd, ejercicios
+@pytest.mark.parametrize("orden", [1, 3, 7, 101])
+def test_un_orden_en_el_post_se_ignora_y_el_hueco_va_al_final(
+    cliente, sesion_bd, ejercicios, orden
 ):
-    """`UNIQUE(rutina_id, orden)`: el endpoint lo comprueba antes y da un 409 legible,
-    no el 500 de la base, con un hueco visible o con uno oculto, y no crea nada.
+    """Un cliente viejo que aún mande `orden` no elige la posición: el hueco va detrás
+    del mayor, también del oculto (el 3), sin 409 por chocar con uno que ya está (el 1,
+    visible, o el 3, oculto) ni 422 por pasar del tope (el 101).
     """
     rutina = crear_rutina(cliente)
-    oculto = hueco_creado(cliente, rutina, ejercicios["Press"], orden=7)["id"]
+    primero = hueco_creado(cliente, rutina, ejercicios["Press"])["id"]
+    hueco_creado(cliente, rutina, ejercicios["Aperturas"])
+    oculto = hueco_creado(cliente, rutina, ejercicios["Fondos"])["id"]
     assert cliente.delete(f"/rutinas/{rutina}/slots/{oculto}?modo=ocultar").status_code == 204
 
-    assert hueco_creado(cliente, rutina, ejercicios["Aperturas"], orden=3)["orden"] == 3
-    con_el_visible = anadir_hueco(cliente, rutina, ejercicios["Fondos"], orden=3)
-    con_el_oculto = anadir_hueco(cliente, rutina, ejercicios["Fondos"], orden=7)
+    respuesta = anadir_hueco(cliente, rutina, ejercicios["Cruces"], orden=orden)
 
-    for respuesta, orden in ((con_el_visible, 3), (con_el_oculto, 7)):
-        assert respuesta.status_code == 409, respuesta.text
-        assert (
-            respuesta.json()["detail"]
-            == f"Ya hay otro ejercicio en la posición {orden} de esta rutina."
-        )
-    assert huecos_guardados(sesion_bd) == (2, 0)
+    assert respuesta.status_code == 201, respuesta.text
+    assert respuesta.json()["orden"] == 4
+    sesion_bd.expire_all()
+    assert sesion_bd.get(RutinaSlot, primero).orden == 1
+    assert sesion_bd.get(RutinaSlot, oculto).orden == 3
 
 
 def test_sin_orden_con_el_100_ocupado_por_un_oculto_da_409_y_no_crea_nada(
@@ -163,7 +165,8 @@ def test_sin_orden_con_el_100_ocupado_por_un_oculto_da_409_y_no_crea_nada(
     un hueco visible, en `test_una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden`.
     """
     rutina = crear_rutina(cliente)
-    ultimo = hueco_creado(cliente, rutina, ejercicios["Press"], orden=100)["id"]
+    ultimo = hueco_creado(cliente, rutina, ejercicios["Press"])["id"]
+    poner_orden(sesion_bd, ultimo, 100)
     assert cliente.delete(f"/rutinas/{rutina}/slots/{ultimo}?modo=ocultar").status_code == 204
 
     respuesta = anadir_hueco(
@@ -190,10 +193,10 @@ def test_una_rutina_creada_con_100_huecos_no_admite_otro_sin_orden(
     assert huecos_guardados(sesion_bd) == (100, 0)
 
 
-def test_el_orden_automatico_no_cuenta_los_huecos_de_otra_rutina(cliente, ejercicios):
+def test_el_orden_automatico_no_cuenta_los_huecos_de_otra_rutina(cliente, sesion_bd, ejercicios):
     """Pull tiene un hueco en el 100: si contara, Push estaría «llena» y daría 409."""
     pull = crear_rutina(cliente, "Pull")
-    hueco_creado(cliente, pull, ejercicios["Press"], orden=100)
+    poner_orden(sesion_bd, hueco_creado(cliente, pull, ejercicios["Press"])["id"], 100)
     push = crear_rutina(cliente, "Push")
 
     assert hueco_creado(cliente, push, ejercicios["Aperturas"])["orden"] == 1
@@ -208,7 +211,7 @@ def test_un_hueco_no_se_modifica_por_la_ruta_de_otra_rutina(cliente, ejercicios)
     """
     push = crear_rutina(cliente, "Push")
     pull = crear_rutina(cliente, "Pull")
-    hueco = hueco_creado(cliente, push, ejercicios["Press"], orden=1)
+    hueco = hueco_creado(cliente, push, ejercicios["Press"])
 
     editado = editar_hueco(cliente, pull, hueco["id"], ejercicios["Aperturas"], series=2)
     borrado = cliente.delete(f"/rutinas/{pull}/slots/{hueco['id']}")
@@ -237,7 +240,7 @@ def test_un_hueco_no_se_muestra_ni_cambia_sus_comodines_por_la_ruta_de_otra_ruti
     push = crear_rutina(cliente, "Push")
     pull = crear_rutina(cliente, "Pull")
     press = ejercicios["Press"]
-    hueco = hueco_creado(cliente, push, press, orden=1, alternativas=[ejercicios["Fondos"]])["id"]
+    hueco = hueco_creado(cliente, push, press, alternativas=[ejercicios["Fondos"]])["id"]
     por_push, por_pull = f"/rutinas/{push}/slots/{hueco}", f"/rutinas/{pull}/slots/{hueco}"
 
     # Mostrar, con el hueco oculto: si colara, lo dejaría visible.

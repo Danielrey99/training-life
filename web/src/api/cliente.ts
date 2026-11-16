@@ -319,7 +319,8 @@ export const api = {
     peticion<DiaSeguimiento[]>(`/plan/seguimiento${consulta({ desde, hasta })}`),
   /** La pantalla de hoy; con una fecha pasada, la hoja de registrar ese día. */
   hoy: (fecha?: string) => peticion<Hoy>(`/plan/hoy${consulta({ fecha })}`),
-  excepciones: (filtro: Rango = {}) =>
+  /** Los días cambiados a mano; con `desde`, de ese día en adelante. */
+  excepciones: (filtro: { desde?: string } = {}) =>
     peticion<Excepcion[]>(`/plan/excepciones${consulta(filtro)}`),
   /** Sin rutina, el día queda en descanso. */
   planificarDia: (fecha: string, rutinaId: number | null) =>

@@ -94,8 +94,8 @@ def anadido(cliente, rutina, **kwargs) -> dict:
     return respuesta.json()
 
 
-def editar(cliente, rutina, slot, orden=1, **kwargs):
-    return cliente.put(f"/rutinas/{rutina}/slots/{slot}", json=cuerpo(orden=orden, **kwargs))
+def editar(cliente, rutina, slot, **kwargs):
+    return cliente.put(f"/rutinas/{rutina}/slots/{slot}", json=cuerpo(**kwargs))
 
 
 def hueco_guardado(cliente, rutina, slot) -> dict:
@@ -296,9 +296,9 @@ def test_un_objetivo_de_otra_familia_da_422_que_nombra_el_ejercicio_y_no_cambia_
     cliente, sesion_bd, e, via, caso
 ):
     # El hueco que edita el PUT: Remo con Press de alternativa, en repeticiones.
-    e.existente = anadido(
-        cliente, e.rutina, principal=e.remo, alternativas=[alternativa(e.press)], orden=1
-    )["id"]
+    e.existente = anadido(cliente, e.rutina, principal=e.remo, alternativas=[alternativa(e.press)])[
+        "id"
+    ]
     antes = cliente.get("/rutinas", params={"ocultas": True}).json()
     principal, obj, alternativas, mensaje = _equivocados(e)[caso]
 
@@ -407,7 +407,7 @@ def test_una_rutina_nueva_guarda_el_objetivo_de_cada_alternativa(cliente, e):
 def test_un_ejercicio_que_no_existe_da_404_antes_que_un_objetivo_equivocado(
     cliente, sesion_bd, e, via
 ):
-    slot = anadido(cliente, e.rutina, principal=e.press, orden=1)["id"]
+    slot = anadido(cliente, e.rutina, principal=e.press)["id"]
     antes = cuantos(sesion_bd)
     malas = [alternativa(e.plancha), alternativa(999_999)]
 
@@ -417,22 +417,6 @@ def test_un_ejercicio_que_no_existe_da_404_antes_que_un_objetivo_equivocado(
         respuesta = editar(cliente, e.rutina, slot, principal=e.press, alternativas=malas)
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (404, ELEGIDO_YA_NO_EXISTE)
-    assert cuantos(sesion_bd) == antes
-
-
-@pytest.mark.parametrize("via", ["POST", "PUT"])
-def test_un_objetivo_equivocado_da_422_antes_que_el_409_del_orden(cliente, sesion_bd, e, via):
-    """El orden 2 ya está ocupado: aun así, lo primero que se dice es el objetivo."""
-    slot = anadido(cliente, e.rutina, principal=e.press, orden=1)["id"]
-    anadido(cliente, e.rutina, principal=e.remo, orden=2)
-    antes = cuantos(sesion_bd)
-
-    if via == "POST":
-        respuesta = anadir(cliente, e.rutina, principal=e.plancha, orden=2)
-    else:
-        respuesta = editar(cliente, e.rutina, slot, orden=2, principal=e.plancha)
-
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (422, EN_SEGUNDOS)
     assert cuantos(sesion_bd) == antes
 
 
@@ -739,7 +723,7 @@ def test_la_base_rechaza_un_objetivo_sin_exactamente_un_par_completo(
     test que compara el esquema con los modelos solo mira su nombre, no lo que dice. Que
     la base admite un par completo de cada clase lo prueba cada hueco que la API guarda.
     """
-    slot = anadido(cliente, e.rutina, principal=e.press, orden=1)["id"]
+    slot = anadido(cliente, e.rutina, principal=e.press)["id"]
     if tabla == "rutina_slots":
         fila = RutinaSlot(rutina_id=e.rutina, ejercicio_principal_id=e.remo, orden=2, **obj)
     else:

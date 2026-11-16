@@ -118,18 +118,14 @@ export type UsoEnRutina = {
 
 /** Lo que se perdería al borrar un ejercicio, para el diálogo de confirmar. */
 export type AvisoDeBorrarEjercicio = {
-  // Si el DELETE sin modo daría 409. Las notas no cuentan.
-  con_historial: boolean
-  // Todas las que se borrarían: las suyas y las de los huecos donde es el principal.
-  series: number
-  // Sesiones con alguna de esas series.
+  // Sesiones con alguna de las series que se borrarían: las suyas y las de los huecos donde
+  // es el principal.
   sesiones: number
-  desde: string | null
   notas: number
   // Principal: ese ejercicio de la rutina se borra. Comodín: deja de ser alternativa.
   huecos: UsoEnRutina[]
-  // Se quedan sin ninguna serie y se borran con él; no incluye la de hoy en curso.
-  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
+  // Cuántas sesiones se quedan sin ninguna serie y se borran con él; no incluye la de hoy en curso.
+  sesiones_que_se_vacian: number
 }
 
 /** Cuánto hay, en el archivo o en la app, para el diálogo de importar. */
@@ -403,9 +399,9 @@ export type AvisoDeBorrarHueco = {
   series: number
   // La primera fecha con series; nula si no tiene.
   desde: string | null
-  // Se quedan sin ninguna serie y se borran con el hueco; si contaban un día, vuelve a
+  // Cuántas sesiones se quedan sin ninguna serie y se borran con el hueco; si contaban un día, vuelve a
   // quedar sin hacer. No incluye la sesión en curso de hoy, que sigue abierta.
-  sesiones_que_se_vacian: { entrenamiento_id: number; fecha: string; cubre_fecha: string | null }[]
+  sesiones_que_se_vacian: number
 }
 
 /** Un día al que se le cambió a mano lo que toca. Sin rutina, es descanso. */
@@ -447,12 +443,11 @@ export type NuevaRutina = {
   slots?: HuecoDeRutinaNueva[]
 }
 
-/** Sin `orden`, el hueco va al final de la rutina. */
-export type NuevoHueco = HuecoDeRutinaNueva & { orden?: number }
+/** Va al final de la rutina: el orden solo cambia al ordenar la rutina entera. */
+export type NuevoHueco = HuecoDeRutinaNueva
 
 /** Con `alternativas`, la lista sustituye a los comodines actuales; sin ella, no se tocan. */
 export type CambiosDeHueco = Omit<HuecoDeRutinaNueva, 'alternativas'> & {
-  orden: number
   alternativas?: HuecoDeRutinaNueva['alternativas']
 }
 

@@ -57,12 +57,11 @@ def e(cliente, grupo_muscular_id) -> SimpleNamespace:
         # Plancha con lastre es de tiempo: su objetivo va en segundos; el de los demás, en reps.
         return objetivo(3, (6, 10), (30, 60) if nombre == "plancha" else None)
 
-    def hueco(principal, orden, *alternativas) -> int:
+    def hueco(principal, *alternativas) -> int:
         respuesta = cliente.post(
             f"/rutinas/{rutina}/slots",
             json={
                 "ejercicio_principal_id": ids[principal],
-                "orden": orden,
                 **objetivo_de(principal),
                 "alternativas": [{"ejercicio_id": ids[a], **objetivo_de(a)} for a in alternativas],
             },
@@ -70,9 +69,9 @@ def e(cliente, grupo_muscular_id) -> SimpleNamespace:
         assert respuesta.status_code == 201, respuesta.text
         return respuesta.json()["id"]
 
-    a = hueco("press", 1, "dominadas", "plancha")
-    b = hueco("dominadas", 2)
-    c = hueco("plancha", 3)
+    a = hueco("press", "dominadas", "plancha")
+    b = hueco("dominadas")
+    c = hueco("plancha")
     sesion = cliente.post("/entrenamientos", json={"rutina_id": rutina, "fecha": FECHA})
     assert sesion.status_code == 201, sesion.text
     return SimpleNamespace(
@@ -647,7 +646,7 @@ def c(cliente, grupo_muscular_id, e) -> SimpleNamespace:
     cinta = crear_ejercicio(cliente, grupo_muscular_id, "Cinta", tipo="cardio")
     respuesta = cliente.post(
         f"/rutinas/{e.rutina}/slots",
-        json={"ejercicio_principal_id": cinta, "orden": 4, **objetivo(1, duracion=(900, 1800))},
+        json={"ejercicio_principal_id": cinta, **objetivo(1, duracion=(900, 1800))},
     )
     assert respuesta.status_code == 201, respuesta.text
     e.ids["cinta"] = cinta
@@ -786,7 +785,6 @@ def test_pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_
         f"/rutinas/{c.rutina}/slots",
         json={
             "ejercicio_principal_id": c.ids["press"],
-            "orden": 5,
             **objetivo(3, (6, 10)),
             "alternativas": [{"ejercicio_id": c.ids["cinta"], **objetivo(1, duracion=(600, 900))}],
         },

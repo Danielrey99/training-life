@@ -289,11 +289,7 @@ export function Ejercicio() {
     setGuardando(true)
     try {
       if (origen.tipo === 'nuevo') await api.crearHueco(origen.rutina.id, cuerpo)
-      else
-        await api.actualizarHueco(origen.rutina.id, origen.hueco.id, {
-          ...cuerpo,
-          orden: origen.hueco.orden,
-        })
+      else await api.actualizarHueco(origen.rutina.id, origen.hueco.id, cuerpo)
       volver(padre)
     } catch (fallo) {
       setFallo(textoDelFallo(fallo))
@@ -624,7 +620,7 @@ function loQueSePierde(aviso: AvisoDeBorrarHueco, oculto: boolean) {
   const series = aviso.series === 1 ? 'su serie' : `sus ${aviso.series} series`
   const apuntadas = aviso.series === 1 ? 'apuntada' : 'apuntadas'
   const desde = aviso.desde ? `, ${apuntadas} desde el ${diaYMesConAnio(aviso.desde)}` : ''
-  const vacias = aviso.sesiones_que_se_vacian.length
+  const vacias = aviso.sesiones_que_se_vacian
   const sesiones =
     vacias === 0
       ? ''

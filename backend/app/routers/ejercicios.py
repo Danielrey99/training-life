@@ -11,7 +11,6 @@ from app.ocultos import exigir_visible
 from app.historial import SESIONES_POR_DEFECTO, sesiones_con_series
 from app.models import (
     Ejercicio,
-    Entrenamiento,
     GrupoMuscular,
     NotaEjercicio,
     Programa,
@@ -34,7 +33,6 @@ from app.schemas import (
     ProgramaDeUnUsoOut,
     RutinaMinima,
     SesionHistorial,
-    SesionQueSeVaciaOut,
     UsoEnRutinaOut,
 )
 from app.seguimiento import sesiones_que_se_vacian
@@ -311,29 +309,16 @@ def aviso_de_borrar_ejercicio(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Los ejercicios predefinidos no se pueden ocultar ni borrar.",
         )
-    series, sesiones, desde = db.execute(
-        select(
-            func.count(Serie.id),
-            func.count(func.distinct(Serie.entrenamiento_id)),
-            func.min(Entrenamiento.fecha),
+    sesiones = db.scalar(
+        select(func.count(func.distinct(Serie.entrenamiento_id))).where(
+            _series_que_se_borran(ejercicio_id)
         )
-        .join(Entrenamiento, Entrenamiento.id == Serie.entrenamiento_id)
-        .where(_series_que_se_borran(ejercicio_id))
-    ).one()
+    )
     return AvisoDeBorrarEjercicioOut(
-        # Lo mismo que decide el 409 del DELETE, para que el diálogo no diga otra cosa.
-        con_historial=_tiene_historial_ejercicio(db, ejercicio_id),
-        series=series,
         sesiones=sesiones,
-        desde=desde,
         notas=_cuantas_notas(db, ejercicio_id),
         huecos=_usos_en_rutinas(db, ejercicio_id),
-        sesiones_que_se_vacian=[
-            SesionQueSeVaciaOut(
-                entrenamiento_id=sesion.id, fecha=sesion.fecha, cubre_fecha=sesion.cubre_fecha
-            )
-            for sesion in sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))
-        ],
+        sesiones_que_se_vacian=len(sesiones_que_se_vacian(db, _series_que_se_borran(ejercicio_id))),
     )
 
 

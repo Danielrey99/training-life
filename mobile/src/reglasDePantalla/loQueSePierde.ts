@@ -54,7 +54,7 @@ export function loQueSePierdeDelHueco(aviso: AvisoDeBorrarHueco, oculto: boolean
   const series = aviso.series === 1 ? 'su serie' : `sus ${aviso.series} series`
   const apuntadas = aviso.series === 1 ? 'apuntada' : 'apuntadas'
   const desde = aviso.desde ? `, ${apuntadas} desde el ${diaYMesConAnio(aviso.desde)}` : ''
-  const vacias = aviso.sesiones_que_se_vacian.length
+  const vacias = aviso.sesiones_que_se_vacian
   const sesiones =
     vacias === 0
       ? ''
@@ -106,7 +106,7 @@ export function loQueSePierdeDelEjercicio(aviso: AvisoDeBorrarEjercicio, oculto:
   } else if (deLasRutinas) {
     frases.push(`${deLasRutinas[0].toUpperCase()}${deLasRutinas.slice(1)}.`)
   }
-  const vacias = aviso.sesiones_que_se_vacian.length
+  const vacias = aviso.sesiones_que_se_vacian
   if (vacias === 1) frases.push('Una sesión se quedará sin series y desaparecerá entera.')
   if (vacias > 1) frases.push(`${vacias} sesiones se quedarán sin series y desaparecerán enteras.`)
   if (frases.length > 0 && !oculto) frases.push('Si solo quieres que deje de salir, ocúltalo.')

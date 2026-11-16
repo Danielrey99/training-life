@@ -34,15 +34,7 @@ function avisoDeRutina(cambios: Partial<AvisoDeBorrarRutina> = {}): AvisoDeBorra
 }
 
 function avisoDeHueco(cambios: Partial<AvisoDeBorrarHueco> = {}): AvisoDeBorrarHueco {
-  return { series: 0, desde: null, sesiones_que_se_vacian: [], ...cambios }
-}
-
-function sesionesQueSeVacian(cuantas: number) {
-  return Array.from({ length: cuantas }, (_, i) => ({
-    entrenamiento_id: i + 1,
-    fecha: '2026-07-06',
-    cubre_fecha: null,
-  }))
+  return { series: 0, desde: null, sesiones_que_se_vacian: 0, ...cambios }
 }
 
 const OCULTALA = 'Si solo quieres que deje de salir, ocúltala.'
@@ -167,7 +159,7 @@ describe('loQueSePierdeDelHueco', () => {
   })
 
   test('una_serie_que_vacia_su_sesion_ya_son_dos_cosas_en_plural', () => {
-    const aviso = avisoDeHueco({ series: 1, sesiones_que_se_vacian: sesionesQueSeVacian(1) })
+    const aviso = avisoDeHueco({ series: 1, sesiones_que_se_vacian: 1 })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
       'Se borrarán también su serie, y 1 sesión que solo tenía series de este ejercicio.',
     )
@@ -175,7 +167,7 @@ describe('loQueSePierdeDelHueco', () => {
 
   test('cuenta_las_sesiones_que_se_vacian_detras_de_la_fecha', () => {
     const desde = `${hoy().slice(0, 4)}-07-06`
-    const aviso = avisoDeHueco({ series: 9, desde, sesiones_que_se_vacian: sesionesQueSeVacian(3) })
+    const aviso = avisoDeHueco({ series: 9, desde, sesiones_que_se_vacian: 3 })
     expect(loQueSePierdeDelHueco(aviso, true)).toBe(
       'Se borrarán también sus 9 series, apuntadas desde el 6 de julio, ' +
         'y 3 sesiones que solo tenían series de este ejercicio.',
@@ -191,13 +183,10 @@ describe('loQueSePierdeDelHueco', () => {
 
 function avisoDeEjercicio(cambios: Partial<AvisoDeBorrarEjercicio> = {}): AvisoDeBorrarEjercicio {
   return {
-    con_historial: false,
-    series: 0,
     sesiones: 0,
-    desde: null,
     notas: 0,
     huecos: [],
-    sesiones_que_se_vacian: [],
+    sesiones_que_se_vacian: 0,
     ...cambios,
   }
 }
@@ -234,18 +223,18 @@ describe('loQueSePierdeDelEjercicio', () => {
   })
 
   test('una_sola_sesion_en_singular', () => {
-    const aviso = avisoDeEjercicio({ con_historial: true, series: 4, sesiones: 1 })
+    const aviso = avisoDeEjercicio({ sesiones: 1 })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe(
       'Se borrarán también sus series de 1 sesión.',
     )
   })
 
   test('sesiones_y_notas_juntas', () => {
-    const aviso = avisoDeEjercicio({ con_historial: true, series: 30, sesiones: 11, notas: 2 })
+    const aviso = avisoDeEjercicio({ sesiones: 11, notas: 2 })
     expect(loQueSePierdeDelEjercicio(aviso, false)).toBe(
       `Se borrarán también sus series de 11 sesiones y tus 2 notas. ${OCULTALO_EJERCICIO}`,
     )
-    const una = avisoDeEjercicio({ con_historial: true, series: 3, sesiones: 1, notas: 2 })
+    const una = avisoDeEjercicio({ sesiones: 1, notas: 2 })
     expect(loQueSePierdeDelEjercicio(una, true)).toBe(
       'Se borrarán también sus series de 1 sesión y tus 2 notas.',
     )
@@ -275,8 +264,6 @@ describe('loQueSePierdeDelEjercicio', () => {
 
   test('series_y_rutinas_juntas_se_unen_con_una_coma_y_una_y', () => {
     const aviso = avisoDeEjercicio({
-      con_historial: true,
-      series: 8,
       sesiones: 3,
       huecos: [uso(1, 10, 'principal')],
     })
@@ -295,10 +282,8 @@ describe('loQueSePierdeDelEjercicio', () => {
 
   test('una_sesion_que_se_vacia', () => {
     const aviso = avisoDeEjercicio({
-      con_historial: true,
-      series: 2,
       sesiones: 1,
-      sesiones_que_se_vacian: sesionesQueSeVacian(1),
+      sesiones_que_se_vacian: 1,
     })
     expect(loQueSePierdeDelEjercicio(aviso, true)).toBe(
       'Se borrarán también sus series de 1 sesión. Una sesión se quedará sin series y desaparecerá entera.',
@@ -307,10 +292,8 @@ describe('loQueSePierdeDelEjercicio', () => {
 
   test('varias_sesiones_que_se_vacian', () => {
     const aviso = avisoDeEjercicio({
-      con_historial: true,
-      series: 20,
       sesiones: 5,
-      sesiones_que_se_vacian: sesionesQueSeVacian(3),
+      sesiones_que_se_vacian: 3,
     })
     expect(loQueSePierdeDelEjercicio(aviso, false)).toBe(
       'Se borrarán también sus series de 5 sesiones. ' +

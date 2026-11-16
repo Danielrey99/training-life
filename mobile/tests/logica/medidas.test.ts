@@ -74,11 +74,10 @@ function escenario() {
   const objetivo_de = (nombre: string) =>
     nombre === 'plancha' ? objetivo(3, { duracion: [30, 60] }) : objetivo(3, [6, 10])
 
-  const hueco = (principal: string, orden: number, ...alternativas: string[]): number => {
+  const hueco = (principal: string, ...alternativas: string[]): number => {
     const respuesta = cliente.post(`/rutinas/${rutina}/slots`, {
       json: {
         ejercicio_principal_id: ids[principal],
-        orden,
         ...objetivo_de(principal),
         alternativas: alternativas.map((a) => ({ ejercicio_id: ids[a], ...objetivo_de(a) })),
       },
@@ -87,9 +86,9 @@ function escenario() {
     return respuesta.json().id
   }
 
-  const a = hueco('press', 1, 'dominadas', 'plancha')
-  const b = hueco('dominadas', 2)
-  const c = hueco('plancha', 3)
+  const a = hueco('press', 'dominadas', 'plancha')
+  const b = hueco('dominadas')
+  const c = hueco('plancha')
   const sesion = cliente.post('/entrenamientos', { json: { rutina_id: rutina, fecha: FECHA } })
   esperar_estado(sesion, 201)
   const e: Escenario = {
@@ -712,7 +711,7 @@ function escenario_con_cardio() {
   const { cliente, e } = entorno
   const cinta = crear_ejercicio(cliente, grupo_muscular_id(cliente), 'Cinta', { tipo: 'cardio' })
   const respuesta = cliente.post(`/rutinas/${e.rutina}/slots`, {
-    json: { ejercicio_principal_id: cinta, orden: 4, ...objetivo(1, { duracion: [900, 1800] }) },
+    json: { ejercicio_principal_id: cinta, ...objetivo(1, { duracion: [900, 1800] }) },
   })
   esperar_estado(respuesta, 201)
   e.ids.cinta = cinta
@@ -850,7 +849,6 @@ test('pasar_una_serie_a_una_alternativa_de_cardio_y_volver_exige_las_medidas_de_
   const respuesta = cliente.post(`/rutinas/${e.rutina}/slots`, {
     json: {
       ejercicio_principal_id: e.ids.press,
-      orden: 5,
       ...objetivo(3, [6, 10]),
       alternativas: [{ ejercicio_id: e.ids.cinta, ...objetivo(1, { duracion: [600, 900] }) }],
     },

@@ -307,7 +307,6 @@ export function duplicarRutina(ctx: Contexto, rutinaId: number): Rutina {
     insertarHueco(ctx, ultimoId, slot.orden, {
       ...objetivoDe(slot),
       ejercicio_principal_id: slot.ejercicio_principal_id,
-      orden: slot.orden,
       alternativas: alternativas.map((a) => ({ ...objetivoDe(a), ejercicio_id: a.ejercicio_id })),
     })
   }
@@ -455,24 +454,6 @@ function obtenerSlotLegible(ctx: Contexto, rutinaId: number, slotId: number): Fi
   return slot
 }
 
-/** El UNIQUE(rutina_id, orden), comprobado antes para dar un 409 legible. */
-function validarOrdenDisponible(
-  ctx: Contexto,
-  rutinaId: number,
-  orden: number,
-  excluirSlotId: number | null = null,
-): void {
-  const otro = ctx.bd.una(
-    'SELECT 1 FROM rutina_slots WHERE rutina_id = ? AND orden = ? AND id IS NOT ? LIMIT 1',
-    rutinaId,
-    orden,
-    excluirSlotId,
-  )
-  if (otro !== undefined) {
-    throw conflicto(`Ya hay otro ejercicio en la posición ${orden} de esta rutina.`)
-  }
-}
-
 /** Cada ejercicio elegido tiene que ser visible. Cada id se mira una vez, en orden. */
 function validarEjerciciosElegidos(ctx: Contexto, ids: readonly number[]): void {
   for (const ejercicioId of new Set(ids)) obtenerEjercicioVisible(ctx, ejercicioId)
@@ -507,7 +488,8 @@ const ORDEN_MAXIMO = 100
 
 /**
  * Al final de la rutina: el mayor `orden` de todos sus huecos, también los ocultos, más
- * uno. Con tope, porque el PUT de un hueco exige `orden <= 100`.
+ * uno. Con tope, porque el archivo de exportación exige `orden <= 100`: una rutina con un
+ * 101 no se podría volver a importar.
  */
 function siguienteOrden(ctx: Contexto, rutinaId: number): number {
   const { mayor: m } = ctx.bd.una<{ mayor: number | null }>(
@@ -523,19 +505,13 @@ export function crearSlot(ctx: Contexto, rutinaId: number, datos: HuecoPedido): 
   obtenerRutinaModificable(ctx, rutinaId)
   validarEjerciciosElegidos(ctx, idsDelHueco(datos))
   validarObjetivos(ctx, [datos])
-  let orden: number
-  if (datos.orden === null) {
-    orden = siguienteOrden(ctx, rutinaId)
-  } else {
-    validarOrdenDisponible(ctx, rutinaId, datos.orden)
-    orden = datos.orden
-  }
-  return huecoOut(ctx.bd, insertarHueco(ctx, rutinaId, orden, datos))
+  return huecoOut(ctx.bd, insertarHueco(ctx, rutinaId, siguienteOrden(ctx, rutinaId), datos))
 }
 
 /**
  * Cambia un hueco. Con `alternativas`, la lista sustituye a las actuales (vacía, las quita
- * todas); sin ella, no se tocan.
+ * todas); sin ella, no se tocan. El orden no se cambia aquí: va con `slot_ids` al guardar
+ * la rutina.
  */
 export function actualizarSlot(
   ctx: Contexto,
@@ -575,13 +551,11 @@ export function actualizarSlot(
         ' de hacerlo el principal.',
     )
   }
-  validarOrdenDisponible(ctx, rutinaId, datos.orden!, slotId)
   ctx.bd.ejecutar(
     `UPDATE rutina_slots SET ${CAMPOS_DEL_OBJETIVO.map((c) => `${c} = ?`).join(', ')},` +
-      ' ejercicio_principal_id = ?, orden = ? WHERE id = ?',
+      ' ejercicio_principal_id = ? WHERE id = ?',
     ...valoresDelObjetivo(datos),
     datos.ejercicio_principal_id,
-    datos.orden,
     slotId,
   )
   if (datos.alternativas !== null) {
@@ -641,11 +615,7 @@ export function avisoDeBorrarSlot(
   return {
     series,
     desde,
-    sesiones_que_se_vacian: sesionesQueSeVacian(ctx, seriesDelSlot(slotId)).map((s) => ({
-      entrenamiento_id: s.id,
-      fecha: s.fecha,
-      cubre_fecha: s.cubre_fecha,
-    })),
+    sesiones_que_se_vacian: sesionesQueSeVacian(ctx, seriesDelSlot(slotId)).length,
   }
 }
 

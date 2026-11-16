@@ -25,6 +25,7 @@ import {
   objetivo,
   ocultar_hueco,
   poner_alternativas,
+  poner_orden,
 } from '../apoyo/ayudas'
 import { ejercicio_predefinido_id, grupo_muscular_id } from '../apoyo/conftest'
 import { crearCliente, hoy, type ClienteDeTest as Cliente } from '../apoyo/cliente'
@@ -271,16 +272,12 @@ test('la_copia_lleva_los_huecos_visibles_con_sus_comodines', () => {
     ejercicio[nombre] = crear_ejercicio(cliente, grupo, nombre)
   }
   const push = crear_rutina(cliente, 'Push')
-  const primero = crear_hueco(cliente, push, ejercicio.Press, { orden: 1, series: 5, reps: [3, 5] })
+  const primero = crear_hueco(cliente, push, ejercicio.Press, { series: 5, reps: [3, 5] })
   poner_alternativas(cliente, push, primero, [ejercicio.Aperturas])
-  const oculto = crear_hueco(cliente, push, ejercicio.Fondos, { orden: 2 })
+  const oculto = crear_hueco(cliente, push, ejercicio.Fondos)
   poner_alternativas(cliente, push, oculto, [ejercicio.Aperturas])
   ocultar_hueco(cliente, push, oculto)
-  const tercero = crear_hueco(cliente, push, ejercicio.Cruces, {
-    orden: 3,
-    series: 3,
-    reps: [12, 15],
-  })
+  const tercero = crear_hueco(cliente, push, ejercicio.Cruces, { series: 3, reps: [12, 15] })
   poner_alternativas(cliente, push, tercero, [ejercicio.Elevaciones, ejercicio.Aperturas])
   for (const nombre of ['Cruces', 'Elevaciones']) {
     expect(cliente.delete(`/ejercicios/${ejercicio[nombre]}?modo=ocultar`).status_code).toBe(204)
@@ -305,7 +302,7 @@ test('la_copia_sale_sin_usar', () => {
   // Ni en los días del programa, ni con las sesiones ni los días planificados del original.
   const press = crear_ejercicio(cliente, grupo, 'Press')
   const push = crear_rutina(cliente, 'Push')
-  const hueco = crear_hueco(cliente, push, press, { orden: 1 })
+  const hueco = crear_hueco(cliente, push, press)
   const programa = cliente
     .post('/programas', {
       json: { nombre: 'PPL', dias: [{ dia_semana: 1, rutina_id: push }] },
@@ -342,7 +339,7 @@ test('editar_la_copia_no_cambia_el_original', () => {
   const aperturas = crear_ejercicio(cliente, grupo, 'Aperturas')
   const fondos = crear_ejercicio(cliente, grupo, 'Fondos')
   const push = crear_rutina(cliente, 'Push')
-  const hueco = crear_hueco(cliente, push, press, { orden: 1 })
+  const hueco = crear_hueco(cliente, push, press)
   poner_alternativas(cliente, push, hueco, [aperturas])
   const antes = cliente.get(`/rutinas/${push}`).json()
   const copia = duplicar(push).json()
@@ -354,7 +351,6 @@ test('editar_la_copia_no_cambia_el_original', () => {
     cliente.put(`${ruta}/slots/${hueco_copia}`, {
       json: {
         ejercicio_principal_id: fondos,
-        orden: 2,
         series_objetivo: 2,
         reps_min: 1,
         reps_max: 2,
@@ -362,7 +358,7 @@ test('editar_la_copia_no_cambia_el_original', () => {
     }).status_code,
   ).toBe(200)
   expect(poner_alternativas(cliente, copia.id, hueco_copia, []).alternativas).toEqual([])
-  crear_hueco(cliente, copia.id, press, { orden: 1 })
+  crear_hueco(cliente, copia.id, press)
 
   const despues = cliente.get(`/rutinas/${push}`).json()
   expect([despues.nombre, lo_que_tiene(despues)]).toEqual([antes.nombre, lo_que_tiene(antes)])
@@ -370,7 +366,7 @@ test('editar_la_copia_no_cambia_el_original', () => {
 
 test('se_puede_duplicar_una_rutina_oculta_y_la_copia_sale_visible', () => {
   const push = crear_rutina(cliente, 'Push')
-  crear_hueco(cliente, push, crear_ejercicio(cliente, grupo, 'Press'), { orden: 1 })
+  crear_hueco(cliente, push, crear_ejercicio(cliente, grupo, 'Press'))
   expect(cliente.delete(`/rutinas/${push}?modo=ocultar`).status_code).toBe(204)
 
   const respuesta = duplicar(push)
@@ -392,26 +388,22 @@ test('se_puede_duplicar_una_rutina_oculta_y_la_copia_sale_visible', () => {
 /** Una rutina con tres huecos visibles, de orden 1, 2 y 3. */
 function tres_huecos(): [number, [number, number, number]] {
   const rutina = crear_rutina(cliente, 'Push')
-  const huecos = ['Press', 'Aperturas', 'Fondos'].map((nombre, i) =>
-    crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre), { orden: i + 1 }),
+  const huecos = ['Press', 'Aperturas', 'Fondos'].map((nombre) =>
+    crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre)),
   )
   return [rutina, huecos as [number, number, number]]
 }
 
 test('reordenar_con_huecos_ocultos_los_deja_en_su_sitio', () => {
   // Los visibles se reparten los `orden` que ya tenían; el oculto conserva el suyo, así que
-  // al mostrarlo no choca con nadie.
+  // al mostrarlo no choca con nadie. Los huecos 5 y 7 se ponen en la base: la API ya no deja
+  // elegir el orden al crear.
   const rutina = crear_rutina(cliente, 'Push')
-  const [a, oculto, b, c] = (
-    [
-      [1, 'Press'],
-      [2, 'Fondos'],
-      [5, 'Aperturas'],
-      [7, 'Cruces'],
-    ] as const
-  ).map(([orden, nombre]) =>
-    crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre), { orden }),
+  const [a, oculto, b, c] = ['Press', 'Fondos', 'Aperturas', 'Cruces'].map((nombre) =>
+    crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre)),
   )
+  poner_orden(bd, c, 7)
+  poner_orden(bd, b, 5)
   ocultar_hueco(cliente, rutina, oculto)
 
   const respuesta = ordenar(rutina, [c, b, a])
@@ -443,20 +435,12 @@ test.each(['falta uno', 'sobra uno de otra rutina', 'uno oculto'])(
   'reordenar_sin_mandar_exactamente_los_visibles_da_422_y_no_cambia_nada (%s)',
   (caso) => {
     const rutina = crear_rutina(cliente, 'Push')
-    const [a, b, oculto] = (
-      [
-        [1, 'Press'],
-        [2, 'Aperturas'],
-        [3, 'Fondos'],
-      ] as const
-    ).map(([orden, nombre]) =>
-      crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre), { orden }),
+    const [a, b, oculto] = ['Press', 'Aperturas', 'Fondos'].map((nombre) =>
+      crear_hueco(cliente, rutina, crear_ejercicio(cliente, grupo, nombre)),
     )
     ocultar_hueco(cliente, rutina, oculto)
     const otra = crear_rutina(cliente, 'Pull')
-    const de_otra = crear_hueco(cliente, otra, crear_ejercicio(cliente, grupo, 'Remo'), {
-      orden: 1,
-    })
+    const de_otra = crear_hueco(cliente, otra, crear_ejercicio(cliente, grupo, 'Remo'))
     const slot_ids = {
       'falta uno': [b],
       'sobra uno de otra rutina': [b, a, de_otra],

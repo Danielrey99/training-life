@@ -309,11 +309,7 @@ export function Ejercicio() {
     setGuardando(true)
     try {
       if (origen.tipo === 'nuevo') await api.crearHueco(origen.rutina.id, cuerpo)
-      else
-        await api.actualizarHueco(origen.rutina.id, origen.hueco.id, {
-          ...cuerpo,
-          orden: origen.hueco.orden,
-        })
+      else await api.actualizarHueco(origen.rutina.id, origen.hueco.id, cuerpo)
       volver()
     } catch (fallo) {
       setFallo(textoDelFallo(fallo))

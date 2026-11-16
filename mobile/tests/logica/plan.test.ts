@@ -434,22 +434,22 @@ test('borrar_una_rutina_devuelve_sus_dias_planificados_al_programa', () => {
 })
 
 test('los_dias_planificados_se_pueden_filtrar_por_fechas', () => {
-  // Con `desde` = hoy son los que se perderían al activar otro programa.
+  // Con `desde` = hoy son los que se perderían al activar otro programa. Solo se filtra por
+  // `desde`: un `hasta` se ignora, también si va antes que `desde`.
   const s = semana_push()
   for (const dias of [0, 2, 5]) dejar_planificado(cliente, mas(dias), s.pull)
 
-  const fechas = (filtros: Record<string, string>) =>
-    cliente
-      .get('/plan/excepciones', { params: filtros })
-      .json()
-      .map((e: any) => e.fecha)
+  const fechas = (filtros: Record<string, string>) => {
+    const respuesta = cliente.get('/plan/excepciones', { params: filtros })
+    expect(respuesta.status_code).toBe(200)
+    return respuesta.json().map((e: any) => e.fecha)
+  }
 
-  expect(fechas({ desde: mas(1), hasta: mas(4) })).toEqual([mas(2)])
-  expect(fechas({ desde: mas(1) })).toHaveLength(2)
-  expect(fechas({ hasta: mas(2) })).toHaveLength(2)
-  const respuesta = cliente.get('/plan/excepciones', { params: { desde: HOY, hasta: mas(-1) } })
-  expect(respuesta.status_code).toBe(422)
-  expect(respuesta.json().detail).toBe(rango_invertido(HOY, mas(-1)))
+  const despues_de_hoy = [mas(2), mas(5)]
+  expect(fechas({})).toEqual([HOY, ...despues_de_hoy])
+  expect(fechas({ desde: mas(1) })).toEqual(despues_de_hoy)
+  expect(fechas({ desde: mas(1), hasta: mas(4) })).toEqual(despues_de_hoy)
+  expect(fechas({ desde: mas(1), hasta: mas(-1) })).toEqual(despues_de_hoy)
 })
 
 // --- Bordes y combinaciones con lo oculto --------------------------------

@@ -107,9 +107,7 @@ def test_el_mismo_ejercicio_en_dos_huecos_junta_en_su_historial_las_series_de_am
     corregido después (Postgres la deja detrás en la tabla y, sin desempate, podría
     darla la última).
     """
-    segundo_slot_id = crear_hueco(
-        cliente, escenario["rutina_id"], escenario["ejercicio_id"], orden=2
-    )
+    segundo_slot_id = crear_hueco(cliente, escenario["rutina_id"], escenario["ejercicio_id"])
     entrenamiento_id = crear_entrenamiento(cliente, "2026-09-05", escenario["rutina_id"])
     primera = registrar_serie(
         cliente,

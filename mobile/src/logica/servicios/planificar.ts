@@ -128,23 +128,9 @@ function excepcionesOut(
 }
 
 /** Los días cambiados a mano, del más cercano al más lejano. */
-export function listarExcepciones(
-  ctx: Contexto,
-  desde: string | null,
-  hasta: string | null,
-): Excepcion[] {
-  if (desde !== null && hasta !== null) validarRango(ctx, desde, hasta)
-  const condiciones: string[] = []
-  const params: string[] = []
-  if (desde !== null) {
-    condiciones.push('fecha >= ?')
-    params.push(desde)
-  }
-  if (hasta !== null) {
-    condiciones.push('fecha <= ?')
-    params.push(hasta)
-  }
-  const where = condiciones.length > 0 ? ` WHERE ${condiciones.join(' AND ')}` : ''
+export function listarExcepciones(ctx: Contexto, desde: string | null): Excepcion[] {
+  const where = desde !== null ? ' WHERE fecha >= ?' : ''
+  const params = desde !== null ? [desde] : []
   return excepcionesOut(
     ctx,
     ctx.bd.todas(

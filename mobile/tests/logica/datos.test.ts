@@ -962,11 +962,7 @@ test('importar_sustituye_todo_lo_que_habia', () => {
   expect(e.cliente.get('/rutinas', { params: { ocultas: true } }).json()).toEqual([])
   expect(e.cliente.get('/programas', { params: { ocultos: true } }).json()).toEqual([])
   expect(e.cliente.get(`/ejercicios/${e.de_nota[0]}/notas`).json()).toEqual([])
-  expect(
-    e.cliente
-      .get('/plan/excepciones', { params: { desde: '2026-09-01', hasta: '2026-09-30' } })
-      .json(),
-  ).toEqual([])
+  expect(e.cliente.get('/plan/excepciones', { params: { desde: '2026-09-01' } }).json()).toEqual([])
 })
 
 test('importar_un_archivo_vacio_lo_deja_todo_vacio', () => {
