@@ -51,8 +51,12 @@ function obtenerRutinaLegible(ctx: Contexto, rutinaId: number): FilaRutina {
  */
 export function obtenerRutinaVisible(ctx: Contexto, rutinaId: number): FilaRutina {
   const rutina = ctx.bd.una<FilaRutina>('SELECT * FROM rutinas WHERE id = ?', rutinaId)
-  if (rutina === undefined || rutina.oculto_desde !== null) {
-    throw noEncontrado('Esa rutina no existe o está oculta.')
+  if (rutina === undefined) throw noEncontrado('Esa rutina ya no existe. Elige otra en su lugar.')
+  if (rutina.oculto_desde !== null) {
+    throw noEncontrado(
+      `«${rutina.nombre}» está oculta, así que no se puede elegir. ` +
+        'Muéstrala desde la pestaña Programas o elige otra.',
+    )
   }
   return rutina
 }

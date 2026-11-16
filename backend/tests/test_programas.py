@@ -106,7 +106,10 @@ def test_crear_con_una_rutina_oculta_falla_y_no_guarda_nada(cliente):
     )
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
+    assert respuesta.json()["detail"] == (
+        "«Pull» está oculta, así que no se puede elegir. "
+        "Muéstrala desde la pestaña Programas o elige otra."
+    )
     assert cliente.get("/programas").json() == []
 
 
@@ -195,7 +198,11 @@ def test_asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye(cliente
 # (`PUT /programas/{id}` con `dias`): todo se valida antes de escribir, así que o se
 # guarda todo o nada. Solo se valida lo que cambia.
 
-NO_SE_PUEDE_ELEGIR = "Esa rutina no existe o está oculta."
+TEXTO_OCULTA = (
+    "«Leg» está oculta, así que no se puede elegir. "
+    "Muéstrala desde la pestaña Programas o elige otra."
+)
+TEXTO_INEXISTENTE = "Esa rutina ya no existe. Elige otra en su lugar."
 
 
 def guardar_semana(cliente, programa_id, nombre, dias):
@@ -242,7 +249,10 @@ def test_una_rutina_que_no_se_puede_elegir_da_404_y_no_guarda_nada(cliente, cual
 
     respuesta = guardar_semana(cliente, programa, "Otro", [(1, pull), (2, push), (3, mala)])
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, NO_SE_PUEDE_ELEGIR)
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (
+        404,
+        TEXTO_OCULTA if cual == "oculta" else TEXTO_INEXISTENTE,
+    )
     assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
 
 
@@ -269,7 +279,7 @@ def test_con_una_rutina_oculta_y_el_nombre_repetido_gana_el_404_de_la_rutina(cli
 
     respuesta = guardar_semana(cliente, programa, "Torso pierna", [(1, oculta)])
 
-    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, NO_SE_PUEDE_ELEGIR)
+    assert (respuesta.status_code, respuesta.json()["detail"]) == (404, TEXTO_OCULTA)
     assert como_esta(cliente, programa) == ("Push Pull Leg", {1: "Push"})
 
 

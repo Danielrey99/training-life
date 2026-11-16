@@ -388,7 +388,10 @@ def test_un_entrenamiento_no_puede_ser_de_una_rutina_oculta(cliente):
     respuesta = cliente.post("/entrenamientos", json={"rutina_id": push, "fecha": FECHA})
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
+    assert respuesta.json()["detail"] == (
+        "«Push» está oculta, así que no se puede elegir. "
+        "Muéstrala desde la pestaña Programas o elige otra."
+    )
     assert cliente.get("/entrenamientos").json() == []
 
 
@@ -1145,6 +1148,6 @@ def test_elegir_algo_que_no_existe_da_404_y_no_guarda_nada(
     esperado = {
         "serie": ELEGIDO_YA_NO_EXISTE,
         "hueco de la serie": ("Ese ejercicio no está en la rutina de esta sesión."),
-    }.get(donde, "Esa rutina no existe o está oculta.")
+    }.get(donde, "Esa rutina ya no existe. Elige otra en su lugar.")
     assert respuesta.json()["detail"] == esperado
     assert sesion_bd.scalar(select(func.count()).select_from(tabla)) == cuantas

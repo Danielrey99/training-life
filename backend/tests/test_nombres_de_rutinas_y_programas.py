@@ -231,7 +231,8 @@ def test_un_programa_con_una_rutina_oculta_y_nombre_repetido_da_el_404_de_la_rut
 
     assert (respuesta.status_code, respuesta.json()["detail"]) == (
         404,
-        "Esa rutina no existe o está oculta.",
+        "«Torso» está oculta, así que no se puede elegir. "
+        "Muéstrala desde la pestaña Programas o elige otra.",
     )
     assert nombres(sesion_bd, "programa") == ["Torso pierna"]
 

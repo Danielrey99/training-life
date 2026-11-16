@@ -66,10 +66,18 @@ def obtener_rutina_visible(db: Session, rutina_id: int) -> Rutina:
     Pública porque la usan también otros routers.
     """
     rutina = db.get(Rutina, rutina_id)
-    if rutina is None or rutina.oculto:
+    if rutina is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Esa rutina no existe o está oculta.",
+            detail="Esa rutina ya no existe. Elige otra en su lugar.",
+        )
+    if rutina.oculto:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"«{rutina.nombre}» está oculta, así que no se puede elegir. "
+                "Muéstrala desde la pestaña Programas o elige otra."
+            ),
         )
     return rutina
 

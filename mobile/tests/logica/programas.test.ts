@@ -128,7 +128,10 @@ test('crear_con_una_rutina_oculta_falla_y_no_guarda_nada', () => {
   })
 
   expect(respuesta.status_code).toBe(404)
-  expect(respuesta.json().detail).toBe('Esa rutina no existe o está oculta.')
+  expect(respuesta.json().detail).toBe(
+    '«Pull» está oculta, así que no se puede elegir. ' +
+      'Muéstrala desde la pestaña Programas o elige otra.',
+  )
   expect(cliente.get('/programas').json()).toEqual([])
 })
 
@@ -226,7 +229,10 @@ test('asignar_otra_rutina_a_un_dia_con_una_rutina_oculta_la_sustituye', () => {
 // (`PUT /programas/{id}` con `dias`): todo se valida antes de escribir, así que o se guarda
 // todo o nada. Solo se valida lo que cambia.
 
-const NO_SE_PUEDE_ELEGIR = 'Esa rutina no existe o está oculta.'
+const TEXTO_OCULTA =
+  '«Leg» está oculta, así que no se puede elegir. ' +
+  'Muéstrala desde la pestaña Programas o elige otra.'
+const TEXTO_INEXISTENTE = 'Esa rutina ya no existe. Elige otra en su lugar.'
 
 /** El PUT con el nombre y la semana entera, cada día `[dia_semana, rutina_id]`. */
 function guardar_semana(programa_id: number, nombre: string, dias: [number, number][]) {
@@ -283,7 +289,10 @@ test.each(['oculta', 'inexistente'])(
       [3, mala],
     ])
 
-    expect([respuesta.status_code, respuesta.json().detail]).toEqual([404, NO_SE_PUEDE_ELEGIR])
+    expect([respuesta.status_code, respuesta.json().detail]).toEqual([
+      404,
+      cual === 'oculta' ? TEXTO_OCULTA : TEXTO_INEXISTENTE,
+    ])
     expect(como_esta(programa)).toEqual(['Push Pull Leg', { 1: 'Push' }])
   },
 )
@@ -314,7 +323,7 @@ test('con_una_rutina_oculta_y_el_nombre_repetido_gana_el_404_de_la_rutina', () =
 
   const respuesta = guardar_semana(programa, 'Torso pierna', [[1, oculta]])
 
-  expect([respuesta.status_code, respuesta.json().detail]).toEqual([404, NO_SE_PUEDE_ELEGIR])
+  expect([respuesta.status_code, respuesta.json().detail]).toEqual([404, TEXTO_OCULTA])
   expect(como_esta(programa)).toEqual(['Push Pull Leg', { 1: 'Push' }])
 })
 

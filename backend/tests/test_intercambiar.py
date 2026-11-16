@@ -262,7 +262,10 @@ def test_una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan(cliente, se
     respuesta = empezar_intercambiando(cliente, ppl["Leg"], HOY)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
+    assert respuesta.json()["detail"] == (
+        "«Leg» está oculta, así que no se puede elegir. "
+        "Muéstrala desde la pestaña Programas o elige otra."
+    )
     assert cuantas_filas(sesion_bd, ExcepcionDelPlan) == (0,)
 
 

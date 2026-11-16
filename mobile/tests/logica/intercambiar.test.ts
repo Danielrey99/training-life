@@ -246,7 +246,10 @@ test('una_rutina_oculta_da_404_antes_que_nada_y_no_cambia_el_plan', () => {
   const respuesta = empezar_intercambiando(ppl.Leg, HOY)
 
   expect(respuesta.status_code).toBe(404)
-  expect(respuesta.json().detail).toBe('Esa rutina no existe o está oculta.')
+  expect(respuesta.json().detail).toBe(
+    '«Leg» está oculta, así que no se puede elegir. ' +
+      'Muéstrala desde la pestaña Programas o elige otra.',
+  )
   expect(cuantas_filas(entorno.bd, 'excepciones_del_plan')).toEqual([0])
 })
 

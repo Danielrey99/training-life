@@ -438,7 +438,10 @@ test('un_entrenamiento_no_puede_ser_de_una_rutina_oculta', () => {
   const respuesta = cliente.post('/entrenamientos', { json: { rutina_id: push, fecha: FECHA } })
 
   expect(respuesta.status_code).toBe(404)
-  expect(respuesta.json().detail).toBe('Esa rutina no existe o está oculta.')
+  expect(respuesta.json().detail).toBe(
+    '«Push» está oculta, así que no se puede elegir. ' +
+      'Muéstrala desde la pestaña Programas o elige otra.',
+  )
   expect(cliente.get('/entrenamientos').json()).toEqual([])
 })
 
@@ -1142,7 +1145,7 @@ test.each([['sesion'], ['dia planificado'], ['serie'], ['hueco de la serie']])(
         ? ELEGIDO_YA_NO_EXISTE
         : donde === 'hueco de la serie'
           ? 'Ese ejercicio no está en la rutina de esta sesión.'
-          : 'Esa rutina no existe o está oculta.'
+          : 'Esa rutina ya no existe. Elige otra en su lugar.'
     expect(respuesta.json().detail).toBe(esperado)
     expect(contar(bd, tabla)).toBe(cuantas)
   },

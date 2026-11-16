@@ -235,7 +235,10 @@ test('no_se_puede_planificar_una_rutina_oculta', () => {
   const respuesta = planificar(cliente, HOY, s.pull)
 
   expect(respuesta.status_code).toBe(404)
-  expect(respuesta.json().detail).toBe('Esa rutina no existe o está oculta.')
+  expect(respuesta.json().detail).toBe(
+    '«Pull» está oculta, así que no se puede elegir. ' +
+      'Muéstrala desde la pestaña Programas o elige otra.',
+  )
   expect(cliente.get('/plan/excepciones').json()).toEqual([])
 })
 
@@ -414,7 +417,7 @@ test('crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado', () 
   const respuesta = crear_activado(999_999, { quitar_excepciones: true })
 
   expect(respuesta.status_code).toBe(404)
-  expect(respuesta.json().detail).toBe('Esa rutina no existe o está oculta.')
+  expect(respuesta.json().detail).toBe('Esa rutina ya no existe. Elige otra en su lugar.')
   expect(nombres_de_programas()).toEqual(['Todo Push'])
   expect(cliente.get(`/programas/${s.programa}`).json().activo).toBe(true)
   expect(fechas_cambiadas()).toEqual([HOY, mas(3)])

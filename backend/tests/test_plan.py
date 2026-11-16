@@ -213,7 +213,10 @@ def test_no_se_puede_planificar_una_rutina_oculta(cliente, semana_push):
     respuesta = planificar(cliente, HOY, semana_push["pull"])
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
+    assert respuesta.json()["detail"] == (
+        "«Pull» está oculta, así que no se puede elegir. "
+        "Muéstrala desde la pestaña Programas o elige otra."
+    )
     assert cliente.get("/plan/excepciones").json() == []
 
 
@@ -387,7 +390,7 @@ def test_crear_un_programa_con_una_rutina_inexistente_no_quita_lo_planificado(cl
     respuesta = crear_activado(cliente, 999_999, quitar_excepciones=True)
 
     assert respuesta.status_code == 404
-    assert respuesta.json()["detail"] == "Esa rutina no existe o está oculta."
+    assert respuesta.json()["detail"] == "Esa rutina ya no existe. Elige otra en su lugar."
     assert nombres_de_programas(cliente) == ["Todo Push"]
     assert cliente.get(f"/programas/{semana_push['programa']}").json()["activo"] is True
     assert fechas_cambiadas(cliente) == [HOY.isoformat(), (HOY + timedelta(days=3)).isoformat()]
