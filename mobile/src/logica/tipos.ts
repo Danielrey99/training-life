@@ -177,6 +177,8 @@ export type Serie = {
 export type Entrenamiento = {
   id: number
   rutina_id: number
+  // Con su nombre, también si está oculta (la nombra «Sin terminar»).
+  rutina: RutinaMinima
   fecha: string
   // El día del plan que cuenta: el de hoy, uno que se recupera o uno que se
   // adelanta. Nulo si no cuenta para ninguno.

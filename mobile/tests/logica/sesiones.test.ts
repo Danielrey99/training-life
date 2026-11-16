@@ -368,6 +368,51 @@ test('el_listado_con_el_rango_invertido_da_422', () => {
   expect(respuesta.json().detail).toBe(rango_invertido(HOY, AYER))
 })
 
+// --- La rutina de cada sesión --------------------------------------------
+
+test('el_listado_sin_terminar_nombra_la_rutina_aunque_este_oculta', () => {
+  // «Sin terminar» nombra la rutina de cada sesión, y una oculta no está en la lista de rutinas
+  // de la pantalla de hoy: la sesión la trae con su nombre y desde cuándo está oculta. Antes solo
+  // traía `rutina_id`, y la fila se quedaba sin nombre.
+  const { cliente } = entorno()
+  const push = crear_rutina(cliente, 'Push')
+  const sesion = entrenar(cliente, AYER, push).json()
+  esperar_estado(cliente.delete(`/rutinas/${push}`, { params: { modo: 'ocultar' } }), 204)
+
+  const respuesta = cliente.get('/entrenamientos', { params: { sin_terminar: true } })
+
+  expect(respuesta.status_code).toBe(200)
+  const listado = respuesta.json()
+  expect(listado).toHaveLength(1)
+  expect(listado[0].id).toBe(sesion.id)
+  expect(listado[0].rutina_id).toBe(push)
+  expect(listado[0].rutina).toEqual({ id: push, nombre: 'Push', oculto_desde: HOY })
+})
+
+test('cada_respuesta_de_una_sesion_trae_su_rutina', () => {
+  // POST, GET, PUT y `/terminar` devuelven la sesión con su rutina, visible aquí (`oculto_desde`
+  // nulo), y con el mismo `rutina_id` de siempre.
+  const { cliente } = entorno()
+  const pull = crear_rutina(cliente, 'Pull')
+  const rutina = { id: pull, nombre: 'Pull', oculto_desde: null }
+  const creada = entrenar(cliente, HOY, pull)
+  esperar_estado(creada, 201)
+  const sesion_id = creada.json().id
+
+  const respuestas = {
+    POST: creada,
+    GET: cliente.get(`/entrenamientos/${sesion_id}`),
+    PUT: cliente.put(`/entrenamientos/${sesion_id}`, { json: { fecha: HOY, notas: 'Bien' } }),
+    terminar: cliente.post(`/entrenamientos/${sesion_id}/terminar`),
+  }
+
+  for (const [verbo, respuesta] of Object.entries(respuestas)) {
+    expect([verbo, [200, 201].includes(respuesta.status_code)]).toEqual([verbo, true])
+    expect([verbo, respuesta.json().rutina_id]).toEqual([verbo, pull])
+    expect([verbo, respuesta.json().rutina]).toEqual([verbo, rutina])
+  }
+})
+
 // --- El futuro no se registra --------------------------------------------
 
 test('no_se_puede_apuntar_un_entrenamiento_en_el_futuro', () => {

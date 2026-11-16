@@ -128,11 +128,6 @@ export function Hoy() {
     return `${cuantos} · ${cuando}`
   }
 
-  /** El nombre para una sesión sin terminar; una rutina oculta no está en el resumen. */
-  function nombreDeRutina(rutinaId: number) {
-    return resumen!.rutinas.find((una) => una.id === rutinaId)?.nombre ?? 'Sesión'
-  }
-
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
     return datos ? contar(datos.ejercicios, 'ejercicio', 'ejercicios') : ''
@@ -264,7 +259,7 @@ export function Hoy() {
                 {/* «Rutina · día», como las demás listas de esta pantalla, y el día siempre escrito,
                     nunca «hoy» ni «ayer» (decisión del autor). */}
                 <strong>
-                  {nombreDeRutina(sesion.rutina_id)} · {fechaEnFrase(sesion.fecha, false)}
+                  {sesion.rutina.nombre} · {fechaEnFrase(sesion.fecha, false)}
                   {sesion.series.length === 0 && <span className="etiqueta-chica">vacía</span>}
                 </strong>
                 {/* Una vacía no se hizo: se apunta lo que falte o se cancela (Terminar sin

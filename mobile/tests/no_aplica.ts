@@ -53,4 +53,7 @@ export const noAplica: Record<string, string> = {
   // test_seguimiento.py
   'seguimiento:siempre_hace_las_mismas_consultas':
     'Cuenta las consultas SQL (consultas_de) para cazar el N+1 de SQLAlchemy. En el móvil no hay ORM que cargue relaciones a escondidas y SQLite corre en el mismo proceso.',
+  // test_sesiones.py
+  el_listado_no_hace_mas_consultas_con_sesiones_de_mas_rutinas:
+    'Cuenta las consultas SQL (consultas_de) para cazar el N+1 de SQLAlchemy. En el móvil no hay ORM que cargue relaciones a escondidas y SQLite corre en el mismo proceso.',
 }

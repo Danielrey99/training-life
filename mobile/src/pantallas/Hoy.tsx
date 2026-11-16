@@ -160,11 +160,6 @@ export function Hoy() {
     return `${cuantos} · ${cuando}`
   }
 
-  /** El nombre para una sesión sin terminar; una rutina oculta no está en el resumen. */
-  function nombreDeRutina(rutinaId: number) {
-    return resumen!.rutinas.find((una) => una.id === rutinaId)?.nombre ?? 'Sesión'
-  }
-
   function ejercicios(rutina: RutinaMinima) {
     const datos = resumen!.rutinas.find((una) => una.id === rutina.id)
     return datos ? contar(datos.ejercicios, 'ejercicio', 'ejercicios') : ''
@@ -308,7 +303,7 @@ export function Hoy() {
                 {/* «Rutina · día», como las demás listas, y el día siempre escrito. */}
                 <View style={e.filaTitulo}>
                   <Text style={e.filaFuerte}>
-                    {nombreDeRutina(sesion.rutina_id)} · {fechaEnFrase(sesion.fecha, false)}
+                    {sesion.rutina.nombre} · {fechaEnFrase(sesion.fecha, false)}
                   </Text>
                   {sesion.series.length === 0 && <Text style={e.etiquetaChica}>vacía</Text>}
                 </View>

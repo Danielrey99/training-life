@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
 from app.ediciones import CAMPOS_DE_SERIE, cambios_de_series, mezcla_en_hueco, motivo_de_la_fecha
@@ -252,7 +252,8 @@ def listar_entrenamientos(
     if rutina_id is not None:
         stmt = stmt.where(Entrenamiento.rutina_id == rutina_id)
     stmt = stmt.order_by(Entrenamiento.fecha.desc(), Entrenamiento.id.desc()).limit(limite)
-    return db.scalars(stmt).all()
+    # Las rutinas, de una vez y no una consulta por sesión.
+    return db.scalars(stmt.options(selectinload(Entrenamiento.rutina))).all()
 
 
 @router.get("/{entrenamiento_id}", response_model=EntrenamientoOut)

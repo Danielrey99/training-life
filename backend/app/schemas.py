@@ -450,6 +450,19 @@ class EntrenamientoUpdate(EntrenamientoBase):
         return self
 
 
+class RutinaMinima(BaseModel):
+    """Lo justo de una rutina para pintarla, incluido si está oculta: en un día del
+    programa (un día con una rutina oculta se enseña en gris y cuenta como descanso)
+    o en una sesión.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    oculto_desde: date | None
+
+
 class EntrenamientoOut(EntrenamientoBase):
     """Un entrenamiento tal y como se devuelve al cliente, con sus series anidadas."""
 
@@ -457,6 +470,9 @@ class EntrenamientoOut(EntrenamientoBase):
 
     id: int
     rutina_id: int
+    # La rutina con su nombre, también si está oculta: «Sin terminar» la nombra, y una
+    # oculta no está en la lista de rutinas de la pantalla de hoy.
+    rutina: RutinaMinima
     cubre_fecha: date | None
     # Las dos las decide el servidor: terminada_en se pone con POST .../terminar,
     # y en_curso se calcula al leer (ver Entrenamiento.en_curso).
@@ -468,19 +484,6 @@ class EntrenamientoOut(EntrenamientoBase):
 
 
 # --- Programas -----------------------------------------------------------
-
-
-class RutinaMinima(BaseModel):
-    """Lo justo de una rutina para pintarla en un día del programa, incluido si
-    está oculta: un día con una rutina oculta se enseña en gris y cuenta como
-    descanso.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    nombre: str
-    oculto_desde: date | None
 
 
 class ProgramaDeUnUsoOut(BaseModel):

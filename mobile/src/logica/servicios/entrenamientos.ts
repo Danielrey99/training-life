@@ -23,7 +23,9 @@ import {
   marcas,
   pesoOut,
   porIds,
+  rutinaMinima,
   type FilaEjercicio,
+  type FilaRutina,
   type FilaSerie,
   type FilaSlot,
 } from './salidas'
@@ -85,11 +87,18 @@ export function entrenamientosOut(
     ),
     (s) => s.entrenamiento_id,
   )
+  // Las rutinas, de una vez y no una consulta por sesión.
+  const rutinas = porIds<FilaRutina>(
+    ctx.bd,
+    'rutinas',
+    filas.map((e) => e.rutina_id),
+  )
   return filas.map((e) => ({
     fecha: e.fecha,
     notas: e.notas,
     id: e.id,
     rutina_id: e.rutina_id,
+    rutina: rutinaMinima(rutinas.get(e.rutina_id)!),
     cubre_fecha: e.cubre_fecha,
     terminada_en: e.terminada_en,
     en_curso: enCurso(ctx, e),
