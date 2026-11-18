@@ -66,7 +66,7 @@ La **app móvil para Android**, que es donde se va a usar de verdad (cada teléf
 - [x] Esquema completo de base de datos diseñado (todas las tablas del MVP, relaciones y estrategia de borrado)
 - [x] Backend: CRUD completo de `Ejercicio` (crear/listar/ver/editar/borrar con borrado lógico y definitivo, ocultar y volver a mostrar) y `GrupoMuscular` (listar)
 - [x] Backend: CRUD completo de `Rutina` (con sus huecos y comodines anidados, creables de una vez con la rutina; mismo patrón de borrado)
-- [x] Backend: `Entrenamiento` y `Serie` (registro real, con las medidas de su tipo de ejercicio y la variante, base del historial de progresión)
+- [x] Backend: `Entrenamiento` y `Serie` (registro real, con las medidas de su tipo de ejercicio y el apunte, base del historial de progresión)
 - [x] Ejercicios de cuatro tipos: peso y repeticiones, peso corporal (con lastre o con ayuda), tiempo y cardio (tiempo y distancia), cada uno con su formulario, su objetivo, sus insignias de mejora y su gráfica. Cada alternativa de un ejercicio de una rutina lleva su propio objetivo
 - [x] Backend: notas personales por ejercicio (también sobre los ejercicios predefinidos)
 - [x] Backend: historial de progresión de cada ejercicio (hasta una fecha y con un límite de sesiones)
@@ -123,7 +123,7 @@ Para detener todo: `docker compose down` (los datos de la base de datos persiste
 ## Roadmap de funcionalidades
 
 **MVP**
-- Registro de entrenamientos por día (ejercicio, series, y por tipo: peso y repeticiones, repeticiones con lastre o ayuda, tiempo o distancia, y variante)
+- Registro de entrenamientos por día (ejercicio, series, y por tipo: peso y repeticiones, repeticiones con lastre o ayuda, tiempo o distancia, y un apunte opcional como «sentado»)
 - Biblioteca de ejercicios, con ejercicios predefinidos y propios
 - Historial de progresión por ejercicio
 - Rutinas reutilizables y programas semanales que las reparten en la semana

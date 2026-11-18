@@ -122,7 +122,7 @@ web/
             ├── Sesion.tsx               # la pantalla: carga, huecos, terminar y cancelar
             ├── BloqueDeHueco.tsx        # un hueco, plegado o desplegado
             ├── SelectorDeEjercicio.tsx  # la flecha del comodín y su desplegable
-            ├── FichasUltimaVez.tsx      # la última vez, con el globo de la variante
+            ├── FichasUltimaVez.tsx      # la última vez, con el globo del apunte
             ├── FormularioDeSerie.tsx    # los campos de una serie según el tipo del ejercicio, con − / +
             └── ultimaVez.ts             # cómo se pide la última vez
 ```
@@ -135,14 +135,14 @@ Decisiones que se notan al usarla:
 
 - **Cada serie se guarda en cuanto se pulsa *Guardar***, en vez de acumularlas para enviarlas al final. Una sesión dura más de una hora, y cerrar la pestaña sin querer no puede llevarse el entrenamiento.
 - **La sesión vive en la URL**, no en la memoria de la página: se puede salir a otras pantallas, recargar o volver más tarde, y todo sigue ahí hasta pulsar *Terminar sesión* o *Cancelar sesión*. Terminar una sesión sin ninguna serie la cancela, en vez de dejar un día vacío en el historial, y el diálogo lo avisa. Las dos piden confirmación, y cancelar la borra con sus series, como si no se hubiera empezado. La flecha de volver lleva a la pantalla de la que se venía, y en una sesión de un día pasado, a su día en el historial.
-- **El formulario arranca con la serie anterior** de ese ejercicio (sus medidas y la variante), porque las series de un ejercicio casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
+- **El formulario arranca con la serie anterior** de ese ejercicio (sus medidas y el apunte), porque las series de un ejercicio casi siempre repiten: lo normal es cambiar solo las repeticiones. En la primera serie arranca con la última vez. No se vacía al guardar, por lo mismo.
 - **Los topes de la API se comprueban antes de enviar** (1000 repeticiones, 24 horas, 1000 km, unos 10.000 kg), con una frase en la unidad elegida: si no, el error llegaba con el texto en inglés de la validación del backend.
 - **La alternativa se elige con la flecha** que hay junto al nombre del ejercicio, en un botón propio para que no pase desapercibida. El desplegable enseña el principal y las alternativas, cada uno con su última vez. Al elegir una, la última vez, el peso de partida y las series nuevas pasan a ser de ese ejercicio. Si el principal está oculto, el ejercicio empieza ya con una alternativa.
 - **Editar una serie usa el mismo formulario**: el lápiz carga sus datos, con *Cancelar* y *Guardar cambios* en la misma línea. No hay un modo de edición aparte.
 - **Las series se numeran por su posición**: al borrar una, las que quedan se renumeran. El número que guarda la base solo da el orden (una serie nueva lleva el más alto + 1), así que no hay que reescribir nada al borrar.
 - **Se edita una cosa cada vez**: con una serie o la nota abiertas, el resto (los otros lápices y ✕, los demás ejercicios, *Terminar* y *Cancelar sesión*) se queda desactivado hasta guardar o cancelar. Por eso qué está abierto lo lleva la pantalla y no cada bloque.
 - **La nota se escribe en cualquier momento**, no solo al terminar: al final de la sesión sale *Añadir nota*, y una vez escrita se ve con su lápiz y su ✕, como una serie. Es el mismo bloque que en el día del historial (`componentes/NotaDeSesion.tsx`).
-- **La variante no ocupa sitio en las fichas**: las que la tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
+- **El apunte de una serie no ocupa sitio en las fichas**: las que lo tienen llevan un punto, y al tocarlas (o con el ratón encima) sale un globo por encima, donde el dedo no lo tapa. Se cierra tocando otra vez o en cualquier otro sitio. Se descartó mantener pulsado: es un gesto que nadie descubre solo.
 
 Si la sesión recupera o adelanta otro día, la cabecera lo dice: *Recuperado del lunes 28 de septiembre* (o *Adelantado del jueves 1 de octubre*), sin repetir el nombre de la rutina, que ya está en el título.
 

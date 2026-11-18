@@ -50,8 +50,8 @@ Un nombre para cada cosa, el mismo en la interfaz, en el código y en esta guía
 | **Alternativa** | Ejercicio que se puede hacer en lugar del principal, por si ese día no se puede. En el código y la API se llama *comodín* | "Press banca en máquina" |
 | **Ejercicio** | Un movimiento de la biblioteca: predefinido (viene con la app) o propio. Se apunta de una de cuatro formas (peso y repeticiones, peso corporal, tiempo o cardio), que se elige al crearlo | "Press banca con barra" |
 | **Sesión** | Un día real de entrenamiento, con fecha | "El Push del lunes 14 de septiembre" |
-| **Serie** | Lo que se hizo, con las medidas del tipo de su ejercicio (peso y repeticiones, repeticiones con lastre o ayuda, tiempo, o tiempo y distancia), y su variante si la tiene | "60 kg × 10", "28 min 15 s · 5,2 km" |
-| **Variante** | Matiz de ejecución que no merece un ejercicio aparte | "con pausa" |
+| **Serie** | Lo que se hizo, con las medidas del tipo de su ejercicio (peso y repeticiones, repeticiones con lastre o ayuda, tiempo, o tiempo y distancia), y su apunte si lo tiene | "60 kg × 10", "28 min 15 s · 5,2 km" |
+| **Apunte** | Matiz de ejecución de una serie que no merece un ejercicio aparte | "con pausa" |
 | **Planificar** | Cambiar qué toca un día concreto sin tocar el programa | "El miércoles 23 de septiembre, Push en vez de Pull" |
 | **Recuperar** | Hacer más tarde un entrenamiento que se quedó sin hacer. Cuenta como el de aquel día | "El Push del lunes, el martes" |
 | **Adelantar** | Hacer antes el entrenamiento de un día que todavía no ha llegado. Cuenta como el de ese día | "El Pull del miércoles, el martes" |
@@ -80,12 +80,12 @@ Concretos, para poder comprobar si una pantalla los cumple.
 
 **Interacción**
 
-5. **Cada acción tiene su botón visible**, con un nombre que dice lo que hace, y no hay gestos ocultos. Para ver la variante de una ficha de "última vez" basta tocarla; el punto verde avisa de que tiene.
+5. **Cada acción tiene su botón visible**, con un nombre que dice lo que hace, y no hay gestos ocultos. Para ver el apunte de una ficha de "última vez" basta tocarla; el punto verde avisa de que tiene.
 6. **Todo se guarda al confirmarlo, nunca al salir de una pantalla.** Cada serie se guarda al pulsar su botón; no hay "guardar sesión" ni botones de guardar globales. Salir de una pantalla no pierde nada ni guarda nada que no se haya confirmado.
 7. **Todo lo que empieza, adelanta, recupera, intercambia, activa, desactiva, oculta, borra, exporta o sustituye algo pide confirmación antes**: siempre se puede pulsar sin querer. También la ✕ de una serie. No la piden las acciones que se corrigen con otro toque: guardar una serie o sus cambios, cambiar la rutina de un día, restablecer un día, o *Continuar* una sesión, que no empieza nada.
 8. **Los diálogos llevan *Cancelar* frente al verbo** (*Empezar*, *Ocultar*, *Borrar*…), nunca *Sí / No*: el botón dice lo que hace sin releer la pregunta. En verde si se puede deshacer, en rojo si no. El texto cuenta qué se pierde y qué no, y solo si no lo dice ya la pregunta: *¿Borrar la nota?* no lleva texto, y *¿Borrar la serie 2?* solo enseña la serie. El título va centrado, y el texto también si cabe en una línea; si ocupa más, a la izquierda.
 9. **Editar no abre otra pantalla, la cambia** (patrón *Editar / Guardar*): los campos pasan a ser editables, la flecha de volver pasa a ser *Cancelar* y *Editar*, *Guardar*. **Nada se guarda hasta pulsar *Guardar***, que lo guarda todo de golpe; *Cancelar* lo deshace todo. Por eso los formularios de dentro (una serie, la nota) no dicen *Guardar* sino *Añadir* o *Aplicar*: solo cambian lo que se guardará. Si algo no vale (la fecha), *Guardar* no guarda nada, el modo editar sigue abierto y el campo explica por qué. **Se edita una cosa cada vez**: con un formulario abierto, todo lo demás se queda en gris (incluidos *Cancelar* y *Guardar*) hasta aplicarlo o cancelarlo. Esos formularios llevan *Cancelar* (en rojo) y *Añadir* o *Aplicar* (en verde) en la misma línea. Fuera del modo editar (la sesión, las notas de un ejercicio), cada formulario se guarda con su propio *Guardar*.
-10. **Los valores anteriores ya puestos.** El teclado solo sale para nombres, notas y variantes; para lo demás, lo normal es confirmar lo que ya está o ajustarlo con − / +.
+10. **Los valores anteriores ya puestos.** El teclado solo sale para nombres, notas y apuntes; para lo demás, lo normal es confirmar lo que ya está o ajustarlo con − / +.
 11. **Las cuatro pantallas de la barra no llevan flecha de volver**, porque son el punto de partida; cada pestaña lleva siempre a su pantalla principal, también si ya se está dentro de ella (desde un ejercicio de una rutina, tocar *Programas* vuelve a la lista de un toque). **En las demás, la flecha de volver lleva a la pantalla de la que se viene**, no a una fija: si se abre un día desde *Hoy*, volver deja en *Hoy*. Tras terminar, cancelar o borrar algo no lleva a lo que acaba de desaparecer.
 12. **Las fechas llevan el año solo si no es el actual**: «Jueves 1 de octubre» este año, «Jueves 1 de octubre de 2025» si no. Así no se confunden ejercicios o días de un año con otro, sin llenar la app de años.
 
@@ -187,14 +187,14 @@ La pantalla importante. Un bloque por ejercicio de la rutina, en orden; el que s
 - **El objetivo** del ejercicio (4 × 6-10).
 - **La última vez, en fichas, una por serie**, cada una con su peso (las series de un día pueden ir a pesos distintos). Es lo que decide el peso de hoy, así que está en el mismo bloque, sin navegar. Es la última vez que se hizo **ese ejercicio**, en la rutina que fuera, no la última sesión sin más. Si no se ha hecho nunca, lo dice: *Primera vez con este ejercicio*.
 - **Las series de hoy**, con un lápiz y una ✕ cada una.
-- **El formulario**: peso y reps con − / +, y variante opcional. El peso va en la unidad elegida (kg o lb), y − / + lo mueven lo que diga Ajustes (por defecto, 1).
+- **El formulario**: peso y reps con − / +, y un apunte opcional. El peso va en la unidad elegida (kg o lb), y − / + lo mueven lo que diga Ajustes (por defecto, 1).
 
 Comportamiento:
 
-- **El formulario arranca con la serie anterior** (ejercicio, peso y variante). Lo normal es cambiar solo las reps.
+- **El formulario arranca con la serie anterior** (ejercicio, peso y apunte). Lo normal es cambiar solo las reps.
 - **Cambiar a una alternativa**: si el ejercicio tiene alternativas, junto a su nombre hay una flecha en su propio botón, con recuadro y en verde para que no pase desapercibida. Al tocarla (el nombre no abre nada) se despliegan el principal y sus alternativas, cada uno con su última vez, y el de hoy marcado. Al elegir una alternativa, la última vez, el peso con el que arranca el formulario y las series que se apunten pasan a ser de ese ejercicio, y el bloque plegado lo dice con la etiqueta *alternativa*. Se queda elegida para el resto del ejercicio. Un ejercicio de la rutina se hace con un solo ejercicio por sesión: si ya tiene series apuntadas y se elige otro, la app pregunta («¿Cambiar a Press militar en máquina? Se borrarán las 2 series de Press militar con mancuernas de hoy») y, si se confirma, borra esas series; sin series, cambia sin preguntar. Si el principal está oculto, empieza ya con una alternativa; un ejercicio sin alternativas no lleva flecha, porque no hay nada que elegir.
 - **Si a mitad de sesión se oculta algo que ya tiene series de hoy**, esas series no se pierden. Un ejercicio oculto en la pestaña Ejercicios sigue en su sitio, con la etiqueta *oculto*: sus series se pueden corregir, pero para apuntar más hay que mostrarlo, y el bloque lo dice. Un ejercicio oculto en la rutina pasa al final, plegado en *Ver 1 ejercicio oculto en la rutina*, con la etiqueta *oculto en la rutina* y sin flecha de alternativas: arriba quedan, numerados y en orden, los que se están haciendo. En el día del historial se ve igual, pero en su sitio.
-- **La variante** va por serie. En las fichas no se escribe: las que tienen variante llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
+- **El apunte** va por serie. En las fichas no se escribe: las que tienen apunte llevan un punto verde, y al tocarlas (o con el ratón encima) sale un globo por encima del dedo; tocar otra vez, o en cualquier otro sitio, lo cierra.
 - **Las series se numeran por su posición** (1, 2, 3…): al borrar una, las que quedan se renumeran. Igual en el día del historial.
 - **Editar una serie**: el lápiz la carga en el mismo formulario, con *Cancelar* y *Guardar cambios* en la misma línea; mientras tanto, el resto de la sesión se queda en gris. La ✕ pregunta antes de borrar.
 - **Sin RPE**: la app no lo apunta.
