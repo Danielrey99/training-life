@@ -366,7 +366,7 @@ export function FormularioDeSerie({
         </>
       )}
       <label className="campo">
-        <span className="campo-etiqueta">Variante (opcional)</span>
+        <span className="campo-etiqueta">Apunte (opcional)</span>
         <input
           className="campo-texto"
           type="text"

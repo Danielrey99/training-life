@@ -373,7 +373,7 @@ export function FormularioDeSerie({
         </>
       )}
       <View style={estilos.campo}>
-        <Rotulo>Variante (opcional)</Rotulo>
+        <Rotulo>Apunte (opcional)</Rotulo>
         <TextInput
           style={[
             estilos.campoTexto,
@@ -384,7 +384,7 @@ export function FormularioDeSerie({
           placeholder={EJEMPLO_DE_VARIANTE[tipo]}
           placeholderTextColor={c.textoTenue}
           onChangeText={setVariante}
-          accessibilityLabel="Variante (opcional)"
+          accessibilityLabel="Apunte (opcional)"
         />
       </View>
       {editando || enLinea ? (
